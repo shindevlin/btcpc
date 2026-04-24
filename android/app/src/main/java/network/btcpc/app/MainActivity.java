@@ -10,6 +10,9 @@ import android.hardware.usb.UsbManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.View;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -107,6 +110,9 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
+        // Check for app updates on startup — shows banner if a newer APK is available
+        checkForUpdate(prefs);
+
         // Handle deep-link intent that launched this activity
         handlePairIntent(getIntent(), prefs, bottomNav, fm);
 
@@ -200,6 +206,29 @@ public class MainActivity extends AppCompatActivity {
         if (prefs.isStorageEnabled() && !prefs.getAccount().isEmpty()) {
             startFgService(StorageService.class);
         }
+    }
+
+    // ---- update banner ----
+
+    private void checkForUpdate(AppPrefs prefs) {
+        UpdateChecker.check(this, prefs.getApiUrl(), new UpdateChecker.Listener() {
+            @Override
+            public void onUpdateAvailable(String versionName, String changelog, Runnable install) {
+                LinearLayout banner = findViewById(R.id.update_banner);
+                TextView bannerText = findViewById(R.id.update_banner_text);
+                TextView actionBtn  = findViewById(R.id.update_banner_action);
+                TextView dismissBtn = findViewById(R.id.update_banner_dismiss);
+                if (banner == null) return;
+
+                bannerText.setText("v" + versionName + " available — app updated regularly");
+                banner.setVisibility(View.VISIBLE);
+
+                actionBtn.setOnClickListener(v -> install.run());
+                dismissBtn.setOnClickListener(v -> banner.setVisibility(View.GONE));
+            }
+            @Override public void onUpToDate(String v) {}
+            @Override public void onError(String msg) {}
+        });
     }
 
     private void startFgService(Class<?> serviceClass) {

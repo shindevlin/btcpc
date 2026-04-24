@@ -1,919 +1,1599 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BTCPC — The AI Network Owned by Everyone</title>
-  <meta name="description" content="Your phone has enough power to run AI. You've been giving it away for free. BTCPC pays you for it." />
-  <meta property="og:title" content="The AI network owned by no one. Powered by everyone." />
-  <meta property="og:description" content="Install BTCPC on your phone. Your idle compute runs real AI. You earn real currency. 30 seconds to start." />
-  <meta property="og:image" content="https://btcpc.net/btcpc-logo.jpeg" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BTCPC — The AI Network Owned by Everyone</title>
+    <meta
+      name="description"
+      content="Your phone has enough power to run AI. You've been giving it away for free. BTCPC pays you for it."
+    />
+    <meta
+      property="og:title"
+      content="The AI network owned by no one. Powered by everyone."
+    />
+    <meta
+      property="og:description"
+      content="Install BTCPC on your phone. Your idle compute runs real AI. You earn real currency. 30 seconds to start."
+    />
+    <meta property="og:image" content="https://btcpc.net/btcpc-logo.jpeg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
 
-    :root {
-      --bg: #06080f;
-      --surface: #0d1117;
-      --card: #111827;
-      --border: rgba(255,255,255,0.07);
-      --orange: #f7931a;
-      --orange-glow: rgba(247,147,26,0.18);
-      --cyan: #22d3ee;
-      --green: #34d399;
-      --white: #f1f5f9;
-      --muted: #64748b;
-      --sub: #94a3b8;
-    }
+      :root {
+        --bg: #06080f;
+        --surface: #0d1117;
+        --card: #111827;
+        --border: rgba(255, 255, 255, 0.07);
+        --orange: #f7931a;
+        --orange-glow: rgba(247, 147, 26, 0.18);
+        --cyan: #22d3ee;
+        --green: #34d399;
+        --white: #f1f5f9;
+        --muted: #64748b;
+        --sub: #94a3b8;
+      }
 
-    html { scroll-behavior: smooth; }
-    body {
-      font-family: 'Inter', -apple-system, sans-serif;
-      background: var(--bg);
-      color: var(--white);
-      line-height: 1.6;
-      overflow-x: hidden;
-    }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        font-family:
+          "Inter",
+          -apple-system,
+          sans-serif;
+        background: var(--bg);
+        color: var(--white);
+        line-height: 1.6;
+        overflow-x: hidden;
+      }
 
-    /* ── NAV ── */
-    nav {
-      position: fixed; top: 0; left: 0; right: 0; z-index: 50;
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 14px 28px;
-      background: rgba(6,8,15,0.85);
-      backdrop-filter: blur(16px);
-      border-bottom: 1px solid var(--border);
-    }
-    .nav-logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
-    .nav-logo img { width: 28px; height: 28px; border-radius: 7px; box-shadow: 0 0 16px var(--orange-glow); }
-    .nav-logo span { font-weight: 700; font-size: 16px; color: var(--orange); }
-    .nav-links { display: flex; gap: 24px; align-items: center; }
-    .nav-links a { color: var(--sub); text-decoration: none; font-size: 14px; transition: color 0.2s; }
-    .nav-links a:hover { color: var(--white); }
-    .nav-cta {
-      background: var(--orange); color: #000; padding: 8px 20px;
-      border-radius: 8px; font-weight: 700; font-size: 14px;
-      text-decoration: none; transition: opacity 0.2s;
-    }
-    .nav-cta:hover { opacity: 0.88; }
+      /* ── NAV ── */
+      nav {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 50;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 28px;
+        background: rgba(6, 8, 15, 0.85);
+        backdrop-filter: blur(16px);
+        border-bottom: 1px solid var(--border);
+      }
+      .nav-logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        text-decoration: none;
+      }
+      .nav-logo img {
+        width: 28px;
+        height: 28px;
+        border-radius: 7px;
+        box-shadow: 0 0 16px var(--orange-glow);
+      }
+      .nav-logo span {
+        font-weight: 700;
+        font-size: 16px;
+        color: var(--orange);
+      }
+      .nav-links {
+        display: flex;
+        gap: 24px;
+        align-items: center;
+      }
+      .nav-links a {
+        color: var(--sub);
+        text-decoration: none;
+        font-size: 14px;
+        transition: color 0.2s;
+      }
+      .nav-links a:hover {
+        color: var(--white);
+      }
+      .nav-cta {
+        background: var(--orange);
+        color: #000;
+        padding: 8px 20px;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 14px;
+        text-decoration: none;
+        transition: opacity 0.2s;
+      }
+      .nav-cta:hover {
+        opacity: 0.88;
+      }
 
-    /* ── LIVE TICKER ── */
-    .ticker {
-      margin-top: 72px;
-      background: rgba(247,147,26,0.06);
-      border-bottom: 1px solid rgba(247,147,26,0.15);
-      padding: 10px 0;
-      overflow: hidden;
-      white-space: nowrap;
-    }
-    .ticker-inner {
-      display: inline-flex; gap: 48px;
-      animation: ticker 30s linear infinite;
-    }
-    .ticker-item { font-size: 12px; color: var(--sub); letter-spacing: 0.05em; }
-    .ticker-item span { color: var(--orange); font-weight: 600; }
-    @keyframes ticker {
-      from { transform: translateX(0); }
-      to   { transform: translateX(-50%); }
-    }
+      /* ── LIVE TICKER ── */
+      .ticker {
+        margin-top: 72px;
+        background: rgba(247, 147, 26, 0.06);
+        border-bottom: 1px solid rgba(247, 147, 26, 0.15);
+        padding: 10px 0;
+        overflow: hidden;
+        white-space: nowrap;
+      }
+      .ticker-inner {
+        display: inline-flex;
+        gap: 48px;
+        animation: ticker 30s linear infinite;
+      }
+      .ticker-item {
+        font-size: 12px;
+        color: var(--sub);
+        letter-spacing: 0.05em;
+      }
+      .ticker-item span {
+        color: var(--orange);
+        font-weight: 600;
+      }
+      @keyframes ticker {
+        from {
+          transform: translateX(0);
+        }
+        to {
+          transform: translateX(-50%);
+        }
+      }
 
-    /* ── HERO ── */
-    .hero {
-      min-height: 92vh;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      text-align: center;
-      padding: 60px 24px 80px;
-      position: relative;
-      overflow: hidden;
-    }
-    .hero-glow {
-      position: absolute; top: 20%; left: 50%; transform: translateX(-50%);
-      width: 700px; height: 700px;
-      background: radial-gradient(ellipse, rgba(247,147,26,0.09) 0%, transparent 70%);
-      pointer-events: none;
-    }
-    .hero-glow-cyan {
-      position: absolute; top: 50%; left: 30%;
-      width: 400px; height: 400px;
-      background: radial-gradient(ellipse, rgba(34,211,238,0.05) 0%, transparent 70%);
-      pointer-events: none;
-    }
-    .hero-pill {
-      display: inline-flex; align-items: center; gap: 8px;
-      background: rgba(247,147,26,0.1); border: 1px solid rgba(247,147,26,0.3);
-      color: var(--orange); font-size: 12px; font-weight: 600;
-      padding: 5px 14px; border-radius: 100px; margin-bottom: 32px;
-      letter-spacing: 0.08em; text-transform: uppercase;
-    }
-    .pill-dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: var(--orange);
-      box-shadow: 0 0 8px var(--orange);
-      animation: pulse-dot 2s ease-in-out infinite;
-    }
-    @keyframes pulse-dot {
-      0%,100% { opacity: 1; transform: scale(1); }
-      50%      { opacity: 0.5; transform: scale(0.7); }
-    }
+      /* ── HERO ── */
+      .hero {
+        min-height: 92vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 60px 24px 80px;
+        position: relative;
+        overflow: hidden;
+      }
+      .hero-glow {
+        position: absolute;
+        top: 20%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 700px;
+        height: 700px;
+        background: radial-gradient(
+          ellipse,
+          rgba(247, 147, 26, 0.09) 0%,
+          transparent 70%
+        );
+        pointer-events: none;
+      }
+      .hero-glow-cyan {
+        position: absolute;
+        top: 50%;
+        left: 30%;
+        width: 400px;
+        height: 400px;
+        background: radial-gradient(
+          ellipse,
+          rgba(34, 211, 238, 0.05) 0%,
+          transparent 70%
+        );
+        pointer-events: none;
+      }
+      .hero-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(247, 147, 26, 0.1);
+        border: 1px solid rgba(247, 147, 26, 0.3);
+        color: var(--orange);
+        font-size: 12px;
+        font-weight: 600;
+        padding: 5px 14px;
+        border-radius: 100px;
+        margin-bottom: 32px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .pill-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--orange);
+        box-shadow: 0 0 8px var(--orange);
+        animation: pulse-dot 2s ease-in-out infinite;
+      }
+      @keyframes pulse-dot {
+        0%,
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.5;
+          transform: scale(0.7);
+        }
+      }
 
-    .hero h1 {
-      font-size: clamp(38px, 6vw, 76px);
-      font-weight: 900;
-      line-height: 1.08;
-      letter-spacing: -0.03em;
-      max-width: 900px;
-      margin-bottom: 24px;
-    }
-    .hero h1 em {
-      font-style: normal;
-      background: linear-gradient(135deg, #f7931a 0%, #fbbf24 50%, #f59e0b 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
+      .hero h1 {
+        font-size: clamp(38px, 6vw, 76px);
+        font-weight: 900;
+        line-height: 1.08;
+        letter-spacing: -0.03em;
+        max-width: 900px;
+        margin-bottom: 24px;
+      }
+      .hero h1 em {
+        font-style: normal;
+        background: linear-gradient(
+          135deg,
+          #f7931a 0%,
+          #fbbf24 50%,
+          #f59e0b 100%
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
 
-    .hero-sub {
-      font-size: clamp(16px, 2.2vw, 20px);
-      color: var(--sub);
-      max-width: 600px;
-      margin-bottom: 48px;
-      font-weight: 400;
-      line-height: 1.7;
-    }
-    .hero-sub strong { color: var(--white); font-weight: 600; }
+      .hero-sub {
+        font-size: clamp(16px, 2.2vw, 20px);
+        color: var(--sub);
+        max-width: 600px;
+        margin-bottom: 48px;
+        font-weight: 400;
+        line-height: 1.7;
+      }
+      .hero-sub strong {
+        color: var(--white);
+        font-weight: 600;
+      }
 
-    .hero-actions {
-      display: flex; gap: 14px; flex-wrap: wrap; justify-content: center;
-      margin-bottom: 60px;
-    }
-    .btn-primary {
-      background: var(--orange); color: #000;
-      padding: 16px 36px; border-radius: 12px;
-      font-weight: 800; font-size: 16px; text-decoration: none;
-      box-shadow: 0 0 32px rgba(247,147,26,0.35);
-      transition: all 0.2s; letter-spacing: -0.01em;
-    }
-    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 48px rgba(247,147,26,0.5); }
-    .btn-secondary {
-      background: transparent; color: var(--white);
-      padding: 16px 36px; border-radius: 12px;
-      font-weight: 700; font-size: 16px; text-decoration: none;
-      border: 1px solid rgba(255,255,255,0.18);
-      transition: all 0.2s;
-    }
-    .btn-secondary:hover { border-color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.04); }
-    .btn-ghost {
-      background: rgba(34,211,238,0.08); color: var(--cyan);
-      padding: 16px 36px; border-radius: 12px;
-      font-weight: 700; font-size: 16px; text-decoration: none;
-      border: 1px solid rgba(34,211,238,0.25);
-      transition: all 0.2s;
-    }
-    .btn-ghost:hover { background: rgba(34,211,238,0.14); }
+      .hero-actions {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+        justify-content: center;
+        margin-bottom: 60px;
+      }
+      .btn-primary {
+        background: var(--orange);
+        color: #000;
+        padding: 16px 36px;
+        border-radius: 12px;
+        font-weight: 800;
+        font-size: 16px;
+        text-decoration: none;
+        box-shadow: 0 0 32px rgba(247, 147, 26, 0.35);
+        transition: all 0.2s;
+        letter-spacing: -0.01em;
+      }
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0 48px rgba(247, 147, 26, 0.5);
+      }
+      .btn-secondary {
+        background: transparent;
+        color: var(--white);
+        padding: 16px 36px;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 16px;
+        text-decoration: none;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        transition: all 0.2s;
+      }
+      .btn-secondary:hover {
+        border-color: rgba(255, 255, 255, 0.4);
+        background: rgba(255, 255, 255, 0.04);
+      }
+      .btn-ghost {
+        background: rgba(34, 211, 238, 0.08);
+        color: var(--cyan);
+        padding: 16px 36px;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 16px;
+        text-decoration: none;
+        border: 1px solid rgba(34, 211, 238, 0.25);
+        transition: all 0.2s;
+      }
+      .btn-ghost:hover {
+        background: rgba(34, 211, 238, 0.14);
+      }
 
-    .hero-social-proof {
-      display: flex; gap: 40px; justify-content: center; flex-wrap: wrap;
-    }
-    .proof-item { text-align: center; }
-    .proof-num { font-size: 28px; font-weight: 800; color: var(--orange); letter-spacing: -0.03em; }
-    .proof-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 2px; }
+      .hero-social-proof {
+        display: flex;
+        gap: 40px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+      .proof-item {
+        text-align: center;
+      }
+      .proof-num {
+        font-size: 28px;
+        font-weight: 800;
+        color: var(--orange);
+        letter-spacing: -0.03em;
+      }
+      .proof-label {
+        font-size: 12px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-top: 2px;
+      }
 
-    /* ── SECTION CHROME ── */
-    section { padding: 96px 24px; }
-    .container { max-width: 1100px; margin: 0 auto; }
-    .section-eyebrow {
-      font-size: 11px; font-weight: 700; letter-spacing: 0.14em;
-      text-transform: uppercase; color: var(--orange);
-      margin-bottom: 12px;
-    }
-    .section-title {
-      font-size: clamp(28px, 4vw, 46px);
-      font-weight: 800; letter-spacing: -0.03em;
-      line-height: 1.12; margin-bottom: 18px;
-    }
-    .section-sub {
-      font-size: 18px; color: var(--sub); max-width: 580px;
-      line-height: 1.7; margin-bottom: 56px;
-    }
+      /* ── SECTION CHROME ── */
+      section {
+        padding: 96px 24px;
+      }
+      .container {
+        max-width: 1100px;
+        margin: 0 auto;
+      }
+      .section-eyebrow {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--orange);
+        margin-bottom: 12px;
+      }
+      .section-title {
+        font-size: clamp(28px, 4vw, 46px);
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        line-height: 1.12;
+        margin-bottom: 18px;
+      }
+      .section-sub {
+        font-size: 18px;
+        color: var(--sub);
+        max-width: 580px;
+        line-height: 1.7;
+        margin-bottom: 56px;
+      }
 
-    /* ── PROBLEM ── */
-    .problem { background: var(--surface); }
-    .big-quote {
-      font-size: clamp(22px, 3.5vw, 38px);
-      font-weight: 700; line-height: 1.3; letter-spacing: -0.02em;
-      max-width: 760px; margin: 0 auto;
-      text-align: center; color: var(--white);
-    }
-    .big-quote em {
-      font-style: normal; color: var(--orange);
-    }
-    .problem-cols {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 24px; margin-top: 64px;
-    }
-    .problem-card {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 16px; padding: 28px;
-    }
-    .problem-icon { font-size: 32px; margin-bottom: 16px; }
-    .problem-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
-    .problem-card p { font-size: 14px; color: var(--sub); line-height: 1.7; }
+      /* ── PROBLEM ── */
+      .problem {
+        background: var(--surface);
+      }
+      .big-quote {
+        font-size: clamp(22px, 3.5vw, 38px);
+        font-weight: 700;
+        line-height: 1.3;
+        letter-spacing: -0.02em;
+        max-width: 760px;
+        margin: 0 auto;
+        text-align: center;
+        color: var(--white);
+      }
+      .big-quote em {
+        font-style: normal;
+        color: var(--orange);
+      }
+      .problem-cols {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 24px;
+        margin-top: 64px;
+      }
+      .problem-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 28px;
+      }
+      .problem-icon {
+        font-size: 32px;
+        margin-bottom: 16px;
+      }
+      .problem-card h3 {
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 10px;
+      }
+      .problem-card p {
+        font-size: 14px;
+        color: var(--sub);
+        line-height: 1.7;
+      }
 
-    /* ── HOW IT WORKS ── */
-    .steps {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 24px; margin-top: 12px;
-      counter-reset: steps;
-    }
-    .step {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 16px; padding: 32px 24px;
-      position: relative; overflow: hidden;
-      transition: border-color 0.3s;
-    }
-    .step:hover { border-color: rgba(247,147,26,0.35); }
-    .step-num {
-      font-size: 72px; font-weight: 900; opacity: 0.05;
-      position: absolute; top: -8px; right: 12px;
-      line-height: 1; letter-spacing: -0.04em; color: var(--orange);
-      user-select: none;
-    }
-    .step-icon { font-size: 36px; margin-bottom: 16px; }
-    .step h3 { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
-    .step p { font-size: 14px; color: var(--sub); line-height: 1.7; }
-    .step-time {
-      margin-top: 16px; display: inline-block;
-      background: rgba(247,147,26,0.1); color: var(--orange);
-      font-size: 11px; font-weight: 700; padding: 3px 10px;
-      border-radius: 100px; letter-spacing: 0.06em;
-    }
+      /* ── HOW IT WORKS ── */
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 24px;
+        margin-top: 12px;
+        counter-reset: steps;
+      }
+      .step {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 32px 24px;
+        position: relative;
+        overflow: hidden;
+        transition: border-color 0.3s;
+      }
+      .step:hover {
+        border-color: rgba(247, 147, 26, 0.35);
+      }
+      .step-num {
+        font-size: 72px;
+        font-weight: 900;
+        opacity: 0.05;
+        position: absolute;
+        top: -8px;
+        right: 12px;
+        line-height: 1;
+        letter-spacing: -0.04em;
+        color: var(--orange);
+        user-select: none;
+      }
+      .step-icon {
+        font-size: 36px;
+        margin-bottom: 16px;
+      }
+      .step h3 {
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 10px;
+      }
+      .step p {
+        font-size: 14px;
+        color: var(--sub);
+        line-height: 1.7;
+      }
+      .step-time {
+        margin-top: 16px;
+        display: inline-block;
+        background: rgba(247, 147, 26, 0.1);
+        color: var(--orange);
+        font-size: 11px;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 100px;
+        letter-spacing: 0.06em;
+      }
 
-    /* ── DEVICES ── */
-    .devices-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 16px; margin-top: 56px;
-    }
-    .device-card {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 14px; padding: 24px 20px; text-align: center;
-      transition: all 0.25s; cursor: default;
-    }
-    .device-card:hover {
-      border-color: rgba(247,147,26,0.3);
-      transform: translateY(-4px);
-      box-shadow: 0 16px 40px rgba(0,0,0,0.4);
-    }
-    .device-emoji { font-size: 40px; margin-bottom: 12px; }
-    .device-name { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
-    .device-role { font-size: 12px; color: var(--sub); line-height: 1.5; }
-    .device-earn {
-      margin-top: 12px; font-size: 11px; font-weight: 700;
-      color: var(--green); letter-spacing: 0.05em;
-    }
+      /* ── DEVICES ── */
+      .devices-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+        margin-top: 56px;
+      }
+      .device-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 24px 20px;
+        text-align: center;
+        transition: all 0.25s;
+        cursor: default;
+      }
+      .device-card:hover {
+        border-color: rgba(247, 147, 26, 0.3);
+        transform: translateY(-4px);
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+      }
+      .device-emoji {
+        font-size: 40px;
+        margin-bottom: 12px;
+      }
+      .device-name {
+        font-size: 15px;
+        font-weight: 700;
+        margin-bottom: 6px;
+      }
+      .device-role {
+        font-size: 12px;
+        color: var(--sub);
+        line-height: 1.5;
+      }
+      .device-earn {
+        margin-top: 12px;
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--green);
+        letter-spacing: 0.05em;
+      }
 
-    /* ── VISION ── */
-    .vision { background: var(--surface); text-align: center; }
-    .vision-statement {
-      font-size: clamp(20px, 3vw, 34px);
-      font-weight: 700; line-height: 1.45; letter-spacing: -0.02em;
-      max-width: 800px; margin: 0 auto 48px;
-      color: var(--white);
-    }
-    .vision-statement em { font-style: normal; color: var(--cyan); }
-    .vision-statement strong { color: var(--orange); }
+      /* ── VISION ── */
+      .vision {
+        background: var(--surface);
+        text-align: center;
+      }
+      .vision-statement {
+        font-size: clamp(20px, 3vw, 34px);
+        font-weight: 700;
+        line-height: 1.45;
+        letter-spacing: -0.02em;
+        max-width: 800px;
+        margin: 0 auto 48px;
+        color: var(--white);
+      }
+      .vision-statement em {
+        font-style: normal;
+        color: var(--cyan);
+      }
+      .vision-statement strong {
+        color: var(--orange);
+      }
 
-    .pillars {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 24px; max-width: 900px; margin: 0 auto;
-    }
-    .pillar {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 16px; padding: 28px;
-      text-align: left;
-    }
-    .pillar-icon {
-      width: 44px; height: 44px; border-radius: 12px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 22px; margin-bottom: 16px;
-    }
-    .pillar h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
-    .pillar p { font-size: 13px; color: var(--sub); line-height: 1.65; }
+      .pillars {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 24px;
+        max-width: 900px;
+        margin: 0 auto;
+      }
+      .pillar {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 28px;
+        text-align: left;
+      }
+      .pillar-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        margin-bottom: 16px;
+      }
+      .pillar h3 {
+        font-size: 16px;
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+      .pillar p {
+        font-size: 13px;
+        color: var(--sub);
+        line-height: 1.65;
+      }
 
-    /* ── WHY NOW ── */
-    .timeline {
-      display: flex; flex-direction: column; gap: 0;
-      max-width: 640px; margin: 0 auto;
-      position: relative;
-    }
-    .timeline::before {
-      content: '';
-      position: absolute; left: 20px; top: 24px; bottom: 24px; width: 1px;
-      background: linear-gradient(to bottom, var(--orange), var(--cyan), transparent);
-    }
-    .t-item {
-      display: flex; gap: 24px; align-items: flex-start;
-      padding: 20px 0;
-    }
-    .t-dot {
-      width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
-      background: var(--card); border: 2px solid var(--orange);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px; position: relative; z-index: 1;
-    }
-    .t-item.future .t-dot { border-color: var(--cyan); }
-    .t-content h4 { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
-    .t-content p { font-size: 13px; color: var(--sub); line-height: 1.6; }
-    .t-tag {
-      display: inline-block; font-size: 10px; font-weight: 700;
-      padding: 2px 8px; border-radius: 100px; margin-bottom: 8px;
-      letter-spacing: 0.08em; text-transform: uppercase;
-    }
-    .t-tag.done { background: rgba(52,211,153,0.15); color: var(--green); }
-    .t-tag.now  { background: rgba(247,147,26,0.15); color: var(--orange); }
-    .t-tag.soon { background: rgba(34,211,238,0.1); color: var(--cyan); }
+      /* ── WHY NOW ── */
+      .timeline {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        max-width: 640px;
+        margin: 0 auto;
+        position: relative;
+      }
+      .timeline::before {
+        content: "";
+        position: absolute;
+        left: 20px;
+        top: 24px;
+        bottom: 24px;
+        width: 1px;
+        background: linear-gradient(
+          to bottom,
+          var(--orange),
+          var(--cyan),
+          transparent
+        );
+      }
+      .t-item {
+        display: flex;
+        gap: 24px;
+        align-items: flex-start;
+        padding: 20px 0;
+      }
+      .t-dot {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        background: var(--card);
+        border: 2px solid var(--orange);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        position: relative;
+        z-index: 1;
+      }
+      .t-item.future .t-dot {
+        border-color: var(--cyan);
+      }
+      .t-content h4 {
+        font-size: 16px;
+        font-weight: 700;
+        margin-bottom: 4px;
+      }
+      .t-content p {
+        font-size: 13px;
+        color: var(--sub);
+        line-height: 1.6;
+      }
+      .t-tag {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 100px;
+        margin-bottom: 8px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .t-tag.done {
+        background: rgba(52, 211, 153, 0.15);
+        color: var(--green);
+      }
+      .t-tag.now {
+        background: rgba(247, 147, 26, 0.15);
+        color: var(--orange);
+      }
+      .t-tag.soon {
+        background: rgba(34, 211, 238, 0.1);
+        color: var(--cyan);
+      }
 
-    /* ── FINAL CTA ── */
-    .final-cta {
-      text-align: center;
-      background: linear-gradient(180deg, var(--bg) 0%, #0d0f16 100%);
-      border-top: 1px solid var(--border);
-      position: relative; overflow: hidden;
-    }
-    .cta-glow-left {
-      position: absolute; top: 0; left: -100px;
-      width: 500px; height: 100%;
-      background: radial-gradient(ellipse at left, rgba(247,147,26,0.06) 0%, transparent 70%);
-      pointer-events: none;
-    }
-    .cta-glow-right {
-      position: absolute; top: 0; right: -100px;
-      width: 500px; height: 100%;
-      background: radial-gradient(ellipse at right, rgba(34,211,238,0.05) 0%, transparent 70%);
-      pointer-events: none;
-    }
-    .final-cta h2 {
-      font-size: clamp(28px, 4.5vw, 56px);
-      font-weight: 900; letter-spacing: -0.04em;
-      line-height: 1.1; margin-bottom: 20px;
-    }
-    .final-cta h2 em {
-      font-style: normal;
-      background: linear-gradient(135deg, #f7931a, #fbbf24);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-    .final-cta p {
-      font-size: 18px; color: var(--sub); max-width: 500px;
-      margin: 0 auto 48px; line-height: 1.7;
-    }
-    .final-actions {
-      display: flex; gap: 14px; justify-content: center; flex-wrap: wrap;
-      margin-bottom: 40px;
-    }
-    .install-options {
-      display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
-      margin-top: 8px;
-    }
-    .install-opt {
-      background: var(--card); border: 1px solid var(--border);
-      color: var(--sub); padding: 10px 20px; border-radius: 10px;
-      font-size: 13px; font-weight: 600; text-decoration: none;
-      transition: all 0.2s;
-    }
-    .install-opt:hover { border-color: rgba(247,147,26,0.35); color: var(--white); }
+      /* ── FINAL CTA ── */
+      .final-cta {
+        text-align: center;
+        background: linear-gradient(180deg, var(--bg) 0%, #0d0f16 100%);
+        border-top: 1px solid var(--border);
+        position: relative;
+        overflow: hidden;
+      }
+      .cta-glow-left {
+        position: absolute;
+        top: 0;
+        left: -100px;
+        width: 500px;
+        height: 100%;
+        background: radial-gradient(
+          ellipse at left,
+          rgba(247, 147, 26, 0.06) 0%,
+          transparent 70%
+        );
+        pointer-events: none;
+      }
+      .cta-glow-right {
+        position: absolute;
+        top: 0;
+        right: -100px;
+        width: 500px;
+        height: 100%;
+        background: radial-gradient(
+          ellipse at right,
+          rgba(34, 211, 238, 0.05) 0%,
+          transparent 70%
+        );
+        pointer-events: none;
+      }
+      .final-cta h2 {
+        font-size: clamp(28px, 4.5vw, 56px);
+        font-weight: 900;
+        letter-spacing: -0.04em;
+        line-height: 1.1;
+        margin-bottom: 20px;
+      }
+      .final-cta h2 em {
+        font-style: normal;
+        background: linear-gradient(135deg, #f7931a, #fbbf24);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .final-cta p {
+        font-size: 18px;
+        color: var(--sub);
+        max-width: 500px;
+        margin: 0 auto 48px;
+        line-height: 1.7;
+      }
+      .final-actions {
+        display: flex;
+        gap: 14px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-bottom: 40px;
+      }
+      .install-options {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-top: 8px;
+      }
+      .install-opt {
+        background: var(--card);
+        border: 1px solid var(--border);
+        color: var(--sub);
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.2s;
+      }
+      .install-opt:hover {
+        border-color: rgba(247, 147, 26, 0.35);
+        color: var(--white);
+      }
 
-    .footnote {
-      font-size: 12px; color: var(--muted); margin-top: 48px;
-    }
-    .footnote a { color: var(--muted); text-decoration: underline; }
+      .footnote {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 48px;
+      }
+      .footnote a {
+        color: var(--muted);
+        text-decoration: underline;
+      }
 
-    /* ── DIVIDER ── */
-    .divider {
-      width: 100%; height: 1px;
-      background: linear-gradient(to right, transparent, var(--border), transparent);
-      margin: 0;
-    }
+      /* ── DIVIDER ── */
+      .divider {
+        width: 100%;
+        height: 1px;
+        background: linear-gradient(
+          to right,
+          transparent,
+          var(--border),
+          transparent
+        );
+        margin: 0;
+      }
 
-    /* ── NETWORK COUNTER ── */
-    .network-strip {
-      background: rgba(247,147,26,0.04);
-      border-top: 1px solid rgba(247,147,26,0.1);
-      border-bottom: 1px solid rgba(247,147,26,0.1);
-      padding: 32px 24px;
-      text-align: center;
-    }
-    .network-counters {
-      display: flex; justify-content: center; gap: clamp(24px,5vw,80px);
-      flex-wrap: wrap;
-    }
-    .nc { text-align: center; }
-    .nc-val {
-      font-size: clamp(28px, 4vw, 48px); font-weight: 900;
-      color: var(--orange); letter-spacing: -0.04em;
-      font-variant-numeric: tabular-nums;
-    }
-    .nc-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 4px; }
+      /* ── NETWORK COUNTER ── */
+      .network-strip {
+        background: rgba(247, 147, 26, 0.04);
+        border-top: 1px solid rgba(247, 147, 26, 0.1);
+        border-bottom: 1px solid rgba(247, 147, 26, 0.1);
+        padding: 32px 24px;
+        text-align: center;
+      }
+      .network-counters {
+        display: flex;
+        justify-content: center;
+        gap: clamp(24px, 5vw, 80px);
+        flex-wrap: wrap;
+      }
+      .nc {
+        text-align: center;
+      }
+      .nc-val {
+        font-size: clamp(28px, 4vw, 48px);
+        font-weight: 900;
+        color: var(--orange);
+        letter-spacing: -0.04em;
+        font-variant-numeric: tabular-nums;
+      }
+      .nc-label {
+        font-size: 11px;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-top: 4px;
+      }
 
-    /* ── SHARE ── */
-    .share-row {
-      display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
-      margin-top: 48px;
-    }
-    .share-btn {
-      display: flex; align-items: center; gap: 8px;
-      background: var(--card); border: 1px solid var(--border);
-      color: var(--sub); padding: 10px 18px; border-radius: 10px;
-      font-size: 13px; font-weight: 600; text-decoration: none;
-      transition: all 0.2s; cursor: pointer;
-    }
-    .share-btn:hover { border-color: rgba(255,255,255,0.2); color: var(--white); }
+      /* ── SHARE ── */
+      .share-row {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-top: 48px;
+      }
+      .share-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        color: var(--sub);
+        padding: 10px 18px;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.2s;
+        cursor: pointer;
+      }
+      .share-btn:hover {
+        border-color: rgba(255, 255, 255, 0.2);
+        color: var(--white);
+      }
 
-    /* ── RESPONSIVE ── */
-    @media (max-width: 640px) {
-      nav { padding: 12px 16px; }
-      .nav-links { display: none; }
-      .hero { padding: 48px 16px 64px; }
-      section { padding: 64px 16px; }
-    }
+      /* ── RESPONSIVE ── */
+      @media (max-width: 640px) {
+        nav {
+          padding: 12px 16px;
+        }
+        .nav-links {
+          display: none;
+        }
+        .hero {
+          padding: 48px 16px 64px;
+        }
+        section {
+          padding: 64px 16px;
+        }
+      }
 
-    /* ── SCROLL FADE IN ── */
-    .fade-in { opacity: 0; transform: translateY(24px); transition: opacity 0.6s ease, transform 0.6s ease; }
-    .fade-in.visible { opacity: 1; transform: translateY(0); }
-  </style>
-</head>
-<body>
-
-<!-- ── NAV ── -->
-<nav>
-  <a href="/" class="nav-logo">
-    <img src="/btcpc-logo.jpeg" alt="BTCPC" />
-    <span>BTCPC</span>
-  </a>
-  <div class="nav-links">
-    <a href="/globe">Globe</a>
-    <a href="/install">Install</a>
-    <a href="/android-install">Android</a>
-    <a href="https://t.me/btcpcbot" target="_blank">Telegram</a>
-    <a href="/run-a-node">Run a Node</a>
-  </div>
-  <a href="/android-install" class="nav-cta">Get the App →</a>
-</nav>
-
-<!-- ── LIVE TICKER ── -->
-<div class="ticker">
-  <div class="ticker-inner" id="ticker-inner">
-    <span class="ticker-item">🟢 Network live &nbsp;·&nbsp;</span>
-    <span class="ticker-item">Nodes: <span id="t-nodes">—</span> &nbsp;·&nbsp;</span>
-    <span class="ticker-item">Miners: <span id="t-miners">—</span> &nbsp;·&nbsp;</span>
-    <span class="ticker-item">Sensors: <span id="t-sensors">—</span> &nbsp;·&nbsp;</span>
-    <span class="ticker-item">Storage nodes: <span id="t-storage">—</span> &nbsp;·&nbsp;</span>
-    <span class="ticker-item">Fixed supply: <span>42,000,000 BTCPC</span> &nbsp;·&nbsp;</span>
-    <span class="ticker-item">Every token earned. Never printed. &nbsp;·&nbsp;</span>
-    <span class="ticker-item">AI that belongs to everyone &nbsp;·&nbsp;</span>
-    <!-- duplicate for seamless loop -->
-    <span class="ticker-item">🟢 Network live &nbsp;·&nbsp;</span>
-    <span class="ticker-item">Nodes: <span class="t-nodes-dup">—</span> &nbsp;·&nbsp;</span>
-    <span class="ticker-item">Miners: <span class="t-miners-dup">—</span> &nbsp;·&nbsp;</span>
-    <span class="ticker-item">Sensors: <span class="t-sensors-dup">—</span> &nbsp;·&nbsp;</span>
-    <span class="ticker-item">Fixed supply: <span>42,000,000 BTCPC</span> &nbsp;·&nbsp;</span>
-    <span class="ticker-item">Every token earned. Never printed. &nbsp;·&nbsp;</span>
-  </div>
-</div>
-
-<!-- ── HERO ── -->
-<section class="hero">
-  <div class="hero-glow"></div>
-  <div class="hero-glow-cyan"></div>
-
-  <div class="hero-pill">
-    <div class="pill-dot"></div>
-    Live network · Genesis block mined
-  </div>
-
-  <h1>
-    <span style="color:#22d3ee;text-shadow:0 0 32px rgba(34,211,238,0.4);">AI</span> owned by <em>no corporation</em>.<br>
-    Powered by <em>everyone</em>.
-  </h1>
-
-  <p class="hero-sub">
-    Your phone has more compute than the moon landing.
-    <strong>You've been giving it away for free.</strong>
-    BTCPC pays you to run real AI — privately, on your own hardware,
-    for a network no single company can control.
-  </p>
-
-  <div class="hero-actions">
-    <a href="/android-install" class="btn-primary">📱 Get the App — Free</a>
-    <a href="/install" class="btn-secondary">🖥 Run on PC / Server</a>
-    <a href="/globe" class="btn-ghost">🌍 See the Live Network</a>
-  </div>
-
-  <div class="hero-social-proof fade-in">
-    <div class="proof-item">
-      <div class="proof-num" id="hero-nodes">—</div>
-      <div class="proof-label">Nodes online</div>
-    </div>
-    <div class="proof-item">
-      <div class="proof-num">42M</div>
-      <div class="proof-label">Fixed supply</div>
-    </div>
-    <div class="proof-item">
-      <div class="proof-num" id="hero-miners">—</div>
-      <div class="proof-label">Active miners</div>
-    </div>
-    <div class="proof-item">
-      <div class="proof-num" id="hero-sensors">—</div>
-      <div class="proof-label">Sensor feeds</div>
-    </div>
-  </div>
-</section>
-
-<div class="divider"></div>
-
-<!-- ── THE PROBLEM ── -->
-<section class="problem">
-  <div class="container">
-    <div class="big-quote fade-in">
-      "Three companies control <em>95% of the world's AI compute.</em>
-      Every question you ask. Every answer you receive.
-      Every thought an AI has ever had — runs on hardware they own,
-      through servers they control, under terms they wrote."
-    </div>
-
-    <div class="problem-cols fade-in">
-      <div class="problem-card">
-        <div class="problem-icon">🏭</div>
-        <h3>Centralized by default</h3>
-        <p>ChatGPT, Gemini, Claude — all run on a handful of hyperscaler data centers. If they go down, global AI stops. If they change their terms, you have no recourse.</p>
-      </div>
-      <div class="problem-card">
-        <div class="problem-icon">👁</div>
-        <h3>Your queries, their data</h3>
-        <p>Every inference you run on a cloud AI trains their models, refines their products, and sits in their logs. You are the product, even when you're the customer.</p>
-      </div>
-      <div class="problem-card">
-        <div class="problem-icon">💸</div>
-        <h3>Idle compute goes nowhere</h3>
-        <p>Your phone, laptop, and home devices have real GPU compute sitting idle. Right now it earns you nothing. The companies renting equivalent compute charge $3–$10 per hour.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<div class="divider"></div>
-
-<!-- ── HOW IT WORKS ── -->
-<section>
-  <div class="container">
-    <div class="section-eyebrow fade-in">How it works</div>
-    <h2 class="section-title fade-in">Simple enough to start<br>in 30 seconds.</h2>
-    <p class="section-sub fade-in">No mining rigs. No electricity bills. No technical knowledge required. Your device already has everything it needs.</p>
-
-    <div class="steps fade-in">
-      <div class="step">
-        <div class="step-num">1</div>
-        <div class="step-icon">📲</div>
-        <h3>Install the app</h3>
-        <p>One tap on Android. One command on Linux or Mac. Your device joins the network and gets a wallet automatically.</p>
-        <div class="step-time">30 seconds</div>
-      </div>
-      <div class="step">
-        <div class="step-num">2</div>
-        <div class="step-icon">🧠</div>
-        <h3>Run AI inference</h3>
-        <p>Your device receives inference jobs from the network and runs them locally. Real AI work. Real compute. Completely private — queries never leave your device.</p>
-        <div class="step-time">Runs in background</div>
-      </div>
-      <div class="step">
-        <div class="step-num">3</div>
-        <div class="step-icon">⛏</div>
-        <h3>Work is proof</h3>
-        <p>Your inference output is verified by other nodes on the network. Verified work mints BTCPC. No work = no coin. Every token earned by a machine doing something useful.</p>
-        <div class="step-time">Every 30 seconds</div>
-      </div>
-      <div class="step">
-        <div class="step-num">4</div>
-        <div class="step-icon">💰</div>
-        <h3>Earn BTCPC</h3>
-        <p>Tokens go directly to your wallet. 42,000,000 total — fixed forever. Trade, hold, or use them to pay for AI inference on the network you help power.</p>
-        <div class="step-time">Yours forever</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<div class="divider"></div>
-
-<!-- ── LIVE NETWORK COUNTERS ── -->
-<div class="network-strip fade-in">
-  <div class="container">
-    <div style="font-size:12px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:20px;">Live network right now</div>
-    <div class="network-counters">
-      <div class="nc">
-        <div class="nc-val" id="nc-nodes">—</div>
-        <div class="nc-label">Nodes online</div>
-      </div>
-      <div class="nc">
-        <div class="nc-val" id="nc-miners">—</div>
-        <div class="nc-label">Miners</div>
-      </div>
-      <div class="nc">
-        <div class="nc-val" id="nc-clocks">—</div>
-        <div class="nc-label">Clock nodes</div>
-      </div>
-      <div class="nc">
-        <div class="nc-val" id="nc-sensors">—</div>
-        <div class="nc-label">Sensor feeds</div>
-      </div>
-      <div class="nc">
-        <div class="nc-val" id="nc-storage">—</div>
-        <div class="nc-label">Storage nodes</div>
-      </div>
-      <div class="nc">
-        <div class="nc-val" id="nc-epoch">—</div>
-        <div class="nc-label">Epoch</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div class="divider"></div>
-
-<!-- ── ALL YOUR DEVICES ── -->
-<section>
-  <div class="container">
-    <div class="section-eyebrow fade-in">Every device earns</div>
-    <h2 class="section-title fade-in">The more devices you add,<br>the stronger the network.</h2>
-    <p class="section-sub fade-in">Each device you add isn't just more earnings for you — it's one more node the world's AI doesn't need to rent from a data center. This is how we take it back.</p>
-
-    <div class="devices-grid fade-in">
-      <div class="device-card">
-        <div class="device-emoji">📱</div>
-        <div class="device-name">Android Phone</div>
-        <div class="device-role">Runs lightweight AI models in background. Mines, clocks, stores, and reads sensors.</div>
-        <div class="device-earn">▲ Mine + Sense + Store</div>
-      </div>
-      <div class="device-card">
-        <div class="device-emoji">💻</div>
-        <div class="device-name">Laptop / Desktop</div>
-        <div class="device-role">Full inference node. GPU earns proportionally to verified compute power.</div>
-        <div class="device-earn">▲ High-value miner</div>
-      </div>
-      <div class="device-card">
-        <div class="device-emoji">🍓</div>
-        <div class="device-name">Raspberry Pi</div>
-        <div class="device-role">Perfect clock node or sensor gateway. Runs 24/7 on $5 of electricity per year.</div>
-        <div class="device-earn">▲ Clock + Gateway</div>
-      </div>
-      <div class="device-card">
-        <div class="device-emoji">📡</div>
-        <div class="device-name">Nebra / LoRa Gateway</div>
-        <div class="device-role">Bridges real-world sensor data to the chain. IoT pool rewards every 30 seconds.</div>
-        <div class="device-earn">▲ IoT gateway rewards</div>
-      </div>
-      <div class="device-card">
-        <div class="device-emoji">🐬</div>
-        <div class="device-name">Flipper Zero</div>
-        <div class="device-role">Signs inference jobs with a hardware key that never leaves the device.</div>
-        <div class="device-earn">▲ Hardware security</div>
-      </div>
-      <div class="device-card">
-        <div class="device-emoji">🛰</div>
-        <div class="device-name">GNSS / GPS Sensor</div>
-        <div class="device-role">Feeds verified location data and timing into the network. Strengthens clock consensus.</div>
-        <div class="device-earn">▲ Sensor + Clock</div>
-      </div>
-      <div class="device-card">
-        <div class="device-emoji">🌡</div>
-        <div class="device-name">Any Sensor</div>
-        <div class="device-role">Temperature, humidity, air quality, motion — every real-world data feed earns from the IoT pool.</div>
-        <div class="device-earn">▲ Real-world data</div>
-      </div>
-      <div class="device-card" style="border-style: dashed; border-color: rgba(255,255,255,0.12);">
-        <div class="device-emoji">➕</div>
-        <div class="device-name">Your next device</div>
-        <div class="device-role">BTCPC runs on anything with a CPU. If it computes, it can earn.</div>
-        <div class="device-earn" style="color: var(--sub);">Open protocol</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<div class="divider"></div>
-
-<!-- ── VISION ── -->
-<section class="vision">
-  <div class="container">
-    <div class="section-eyebrow fade-in" style="text-align:center;">The bigger picture</div>
-
-    <div class="vision-statement fade-in">
-      Every day, AI systems consume more of the world's knowledge —
-      processing news, science, art, and human experience
-      to understand the world around us.
-      <br><br>
-      Today, that happens <em>inside buildings owned by three companies</em>.
-      <br><br>
-      <strong>BTCPC makes it happen everywhere.</strong>
-      In homes. In pockets. In communities.
-      On hardware owned by the people the AI is supposed to serve.
-    </div>
-
-    <div class="pillars fade-in">
-      <div class="pillar">
-        <div class="pillar-icon" style="background: rgba(247,147,26,0.12);">🔒</div>
-        <h3>Private by design</h3>
-        <p>Inference runs on your device. Your queries never touch a corporate server. Not even the network knows what you asked.</p>
-      </div>
-      <div class="pillar">
-        <div class="pillar-icon" style="background: rgba(34,211,238,0.1);">⚡</div>
-        <h3>Censorship-resistant</h3>
-        <p>No single point of failure. No CEO who can pull the plug. No government that can demand a backdoor into every answer.</p>
-      </div>
-      <div class="pillar">
-        <div class="pillar-icon" style="background: rgba(52,211,153,0.1);">🌍</div>
-        <h3>Open to everyone</h3>
-        <p>An old Android phone in Lagos earns the same rate as a GPU rig in San Francisco. Compute is compute. The chain doesn't discriminate.</p>
-      </div>
-      <div class="pillar">
-        <div class="pillar-icon" style="background: rgba(168,85,247,0.1);">🧬</div>
-        <h3>The work is the product</h3>
-        <p>Like Bitcoin proved scarcity with PoW, BTCPC proves usefulness with PoC. Every token minted was earned by a machine doing something real.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<div class="divider"></div>
-
-<!-- ── WHY NOW ── -->
-<section>
-  <div class="container" style="display:grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: start;">
-    <div class="fade-in">
-      <div class="section-eyebrow">We're early</div>
-      <h2 class="section-title" style="margin-bottom:16px;">The window to be a<br>founding node is open.</h2>
-      <p style="color:var(--sub);font-size:15px;line-height:1.8;margin-bottom:24px;">Bitcoin's first miners used CPUs and earned millions of coins. BTCPC is at that same moment — the network is live, the chain is minting, and every epoch that passes is history you could have been part of.</p>
-      <p style="color:var(--sub);font-size:15px;line-height:1.8;">The 55% miner pool is currently shared among a small, growing group. Each new node adds more value to the network — and more resilience, privacy, and independence for everyone who uses AI.</p>
-    </div>
-    <div class="fade-in">
-      <div class="timeline">
-        <div class="t-item">
-          <div class="t-dot">✓</div>
-          <div class="t-content">
-            <div class="t-tag done">Done</div>
-            <h4>Genesis block mined</h4>
-            <p>April 15, 2026 — chain live, first inference verified, first BTCPC earned.</p>
-          </div>
-        </div>
-        <div class="t-item">
-          <div class="t-dot">✓</div>
-          <div class="t-content">
-            <div class="t-tag done">Done</div>
-            <h4>Android app shipped</h4>
-            <p>Mine, clock, store, and sense from your phone. Auto-resumes on reboot.</p>
-          </div>
-        </div>
-        <div class="t-item">
-          <div class="t-dot">⚡</div>
-          <div class="t-content">
-            <div class="t-tag now">Now</div>
-            <h4>Network growing</h4>
-            <p>Nodes joining daily. IoT sensors live. Service node rewards active. This is the moment.</p>
-          </div>
-        </div>
-        <div class="t-item future">
-          <div class="t-dot">→</div>
-          <div class="t-content">
-            <div class="t-tag soon">Coming</div>
-            <h4>Cross-chain bridges</h4>
-            <p>BTCPC anchors to Ethereum and Bitcoin. Liquidity, DeFi, global trading.</p>
-          </div>
-        </div>
-        <div class="t-item future">
-          <div class="t-dot">→</div>
-          <div class="t-content">
-            <div class="t-tag soon">Coming</div>
-            <h4>Inference marketplace</h4>
-            <p>Anyone pays BTCPC to run private AI on the network. You earn from every job your node processes.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<div class="divider"></div>
-
-<!-- ── FINAL CTA ── -->
-<section class="final-cta">
-  <div class="cta-glow-left"></div>
-  <div class="cta-glow-right"></div>
-  <div class="container" style="position:relative;z-index:1;">
-
-    <h2 class="fade-in">
-      Your phone is on.<br>
-      The AI is waiting.<br>
-      <em>Start earning.</em>
-    </h2>
-
-    <p class="fade-in">Free to install. Runs in the background. No technical knowledge required. Your first tokens arrive within 30 seconds of joining.</p>
-
-    <div class="final-actions fade-in">
-      <a href="/android-install" class="btn-primary" style="font-size:18px;padding:18px 44px;">
-        📱 Install on Android
+      /* ── SCROLL FADE IN ── */
+      .fade-in {
+        opacity: 0;
+        transform: translateY(24px);
+        transition:
+          opacity 0.6s ease,
+          transform 0.6s ease;
+      }
+      .fade-in.visible {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ── NAV ── -->
+    <nav>
+      <a href="/" class="nav-logo">
+        <img src="/btcpc-logo.jpeg" alt="BTCPC" />
+        <span>BTCPC</span>
       </a>
-      <a href="/install" class="btn-secondary" style="font-size:18px;padding:18px 44px;">
-        🖥 Run on PC
-      </a>
+      <div class="nav-links">
+        <a href="/globe">Globe</a>
+        <a href="/install">Install</a>
+        <a href="/android-install">Android</a>
+        <a href="https://t.me/btcpcbot" target="_blank">Telegram</a>
+        <a href="/run-a-node">Run a Node</a>
+      </div>
+      <a href="/android-install" class="nav-cta" id="nav-get-app">Get the App →</a>
+    </nav>
+
+    <!-- ── LIVE TICKER ── -->
+    <div class="ticker">
+      <div class="ticker-inner" id="ticker-inner">
+        <span class="ticker-item">🟢 Network live &nbsp;·&nbsp;</span>
+        <span class="ticker-item"
+          >Nodes: <span id="t-nodes">—</span> &nbsp;·&nbsp;</span
+        >
+        <span class="ticker-item"
+          >Miners: <span id="t-miners">—</span> &nbsp;·&nbsp;</span
+        >
+        <span class="ticker-item"
+          >Sensors: <span id="t-sensors">—</span> &nbsp;·&nbsp;</span
+        >
+        <span class="ticker-item"
+          >Storage nodes: <span id="t-storage">—</span> &nbsp;·&nbsp;</span
+        >
+        <span class="ticker-item"
+          >Fixed supply: <span>42,000,000 BTCPC</span> &nbsp;·&nbsp;</span
+        >
+        <span class="ticker-item"
+          >Every token earned. Never printed. &nbsp;·&nbsp;</span
+        >
+        <span class="ticker-item"
+          >AI that belongs to everyone &nbsp;·&nbsp;</span
+        >
+        <!-- duplicate for seamless loop -->
+        <span class="ticker-item">🟢 Network live &nbsp;·&nbsp;</span>
+        <span class="ticker-item"
+          >Nodes: <span class="t-nodes-dup">—</span> &nbsp;·&nbsp;</span
+        >
+        <span class="ticker-item"
+          >Miners: <span class="t-miners-dup">—</span> &nbsp;·&nbsp;</span
+        >
+        <span class="ticker-item"
+          >Sensors: <span class="t-sensors-dup">—</span> &nbsp;·&nbsp;</span
+        >
+        <span class="ticker-item"
+          >Fixed supply: <span>42,000,000 BTCPC</span> &nbsp;·&nbsp;</span
+        >
+        <span class="ticker-item"
+          >Every token earned. Never printed. &nbsp;·&nbsp;</span
+        >
+      </div>
     </div>
 
-    <div class="install-options fade-in">
-      <a href="/install" class="install-opt">🐧 Linux one-liner</a>
-      <a href="/windows" class="install-opt">🪟 Windows</a>
-      <a href="/install" class="install-opt">🍎 macOS</a>
-      <a href="/run-a-node" class="install-opt">🍓 Raspberry Pi</a>
+    <!-- ── HERO ── -->
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="hero-glow-cyan"></div>
+
+      <div class="hero-pill">
+        <div class="pill-dot"></div>
+        Live network · Genesis block mined
+      </div>
+
+      <h1>
+        <span
+          style="color: #22d3ee; text-shadow: 0 0 32px rgba(34, 211, 238, 0.4)"
+          >AI</span
+        >
+        owned by <em>no corporation</em>.<br />
+        Powered by <em>everyone</em>.
+      </h1>
+
+      <p class="hero-sub">
+        Your phone has more compute than the moon landing.
+        <strong>You've been giving it away for free.</strong>
+        BTCPC pays you to run real AI — privately, on your own hardware, for a
+        network no single company can control.
+      </p>
+
+      <div class="hero-actions">
+        <a href="/android-install" class="btn-primary" id="hero-get-app">📱 Get the App — Free</a>
+        <a href="/install" class="btn-secondary">🖥 Run on PC / Server</a>
+        <a href="/globe" class="btn-ghost">🌍 See the Live Network</a>
+      </div>
+
+      <div class="hero-social-proof fade-in">
+        <div class="proof-item">
+          <div class="proof-num" id="hero-nodes">—</div>
+          <div class="proof-label">Nodes online</div>
+        </div>
+        <div class="proof-item">
+          <div class="proof-num">42M</div>
+          <div class="proof-label">Fixed supply</div>
+        </div>
+        <div class="proof-item">
+          <div class="proof-num" id="hero-miners">—</div>
+          <div class="proof-label">Active miners</div>
+        </div>
+        <div class="proof-item">
+          <div class="proof-num" id="hero-sensors">—</div>
+          <div class="proof-label">Sensor feeds</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ── THE PROBLEM ── -->
+    <section class="problem">
+      <div class="container">
+        <div class="big-quote fade-in">
+          "Three companies control <em>95% of the world's AI compute.</em>
+          Every question you ask. Every answer you receive. Every thought an AI
+          has ever had — runs on hardware they own, through servers they
+          control, under terms they wrote."
+        </div>
+
+        <div class="problem-cols fade-in">
+          <div class="problem-card">
+            <div class="problem-icon">🏭</div>
+            <h3>Centralized by default</h3>
+            <p>
+              ChatGPT, Gemini, Claude — all run on a handful of hyperscaler data
+              centers. If they go down, global AI stops. If they change their
+              terms, you have no recourse.
+            </p>
+          </div>
+          <div class="problem-card">
+            <div class="problem-icon">👁</div>
+            <h3>Your queries, their data</h3>
+            <p>
+              Every inference you run on a cloud AI trains their models, refines
+              their products, and sits in their logs. You are the product, even
+              when you're the customer.
+            </p>
+          </div>
+          <div class="problem-card">
+            <div class="problem-icon">💸</div>
+            <h3>Idle compute goes nowhere</h3>
+            <p>
+              Your phone, laptop, and home devices have real GPU compute sitting
+              idle. Right now it earns you nothing. The companies renting
+              equivalent compute charge $3–$10 per hour.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ── HOW IT WORKS ── -->
+    <section>
+      <div class="container">
+        <div class="section-eyebrow fade-in">How it works</div>
+        <h2 class="section-title fade-in">
+          Simple enough to start<br />in 30 seconds.
+        </h2>
+        <p class="section-sub fade-in">
+          No mining rigs. No electricity bills. No technical knowledge required.
+          Your device already has everything it needs.
+        </p>
+
+        <div class="steps fade-in">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-icon">📲</div>
+            <h3>Install the app</h3>
+            <p>
+              One tap on Android. One command on Linux or Mac. Your device joins
+              the network and gets a wallet automatically.
+            </p>
+            <div class="step-time">30 seconds</div>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-icon">🧠</div>
+            <h3>Run AI inference</h3>
+            <p>
+              Your device receives inference jobs from the network and runs them
+              locally. Real AI work. Real compute. Completely private — queries
+              never leave your device.
+            </p>
+            <div class="step-time">Runs in background</div>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-icon">⛏</div>
+            <h3>Work is proof</h3>
+            <p>
+              Your inference output is verified by other nodes on the network.
+              Verified work mints BTCPC. No work = no coin. Every token earned
+              by a machine doing something useful.
+            </p>
+            <div class="step-time">Every 30 seconds</div>
+          </div>
+          <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-icon">💰</div>
+            <h3>Earn BTCPC</h3>
+            <p>
+              Tokens go directly to your wallet. 42,000,000 total — fixed
+              forever. Trade, hold, or use them to pay for AI inference on the
+              network you help power.
+            </p>
+            <div class="step-time">Yours forever</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ── LIVE NETWORK COUNTERS ── -->
+    <div class="network-strip fade-in">
+      <div class="container">
+        <div
+          style="
+            font-size: 12px;
+            color: var(--muted);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+          "
+        >
+          Live network right now
+        </div>
+        <div class="network-counters">
+          <div class="nc">
+            <div class="nc-val" id="nc-nodes">—</div>
+            <div class="nc-label">Nodes online</div>
+          </div>
+          <div class="nc">
+            <div class="nc-val" id="nc-miners">—</div>
+            <div class="nc-label">Miners</div>
+          </div>
+          <div class="nc">
+            <div class="nc-val" id="nc-clocks">—</div>
+            <div class="nc-label">Clock nodes</div>
+          </div>
+          <div class="nc">
+            <div class="nc-val" id="nc-sensors">—</div>
+            <div class="nc-label">Sensor feeds</div>
+          </div>
+          <div class="nc">
+            <div class="nc-val" id="nc-storage">—</div>
+            <div class="nc-label">Storage nodes</div>
+          </div>
+          <div class="nc">
+            <div class="nc-val" id="nc-epoch">—</div>
+            <div class="nc-label">Epoch</div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div class="share-row fade-in">
-      <a href="https://t.me/share/url?url=https://btcpc.net&text=I%27m%20running%20AI%20and%20getting%20paid%20for%20it%20on%20BTCPC%20%E2%80%94%20a%20decentralized%20AI%20network%20where%20your%20devices%20mine%20real%20inference.%20Join%20me." target="_blank" class="share-btn">
-        ✈️ Share on Telegram
-      </a>
-      <a href="https://twitter.com/intent/tweet?text=I%27m%20running%20decentralized%20AI%20on%20my%20phone%20and%20earning%20BTCPC%20for%20it.%20The%20AI%20network%20owned%20by%20no%20corporation%2C%20powered%20by%20everyone.%20btcpc.net&url=https://btcpc.net" target="_blank" class="share-btn">
-        🐦 Share on X
-      </a>
-      <button onclick="navigator.clipboard.writeText('https://btcpc.net').then(()=>this.textContent='✓ Copied!')" class="share-btn" style="border:none;cursor:pointer;">
-        🔗 Copy link
-      </button>
-    </div>
+    <div class="divider"></div>
 
-    <p class="footnote fade-in">
-      Open protocol · 42,000,000 BTCPC fixed supply · Every token earned by a machine doing real work ·
-      <a href="/docs/BTCPC_WHITEPAPER.md" target="_blank">Read the whitepaper</a>
-    </p>
-  </div>
-</section>
+    <!-- ── ALL YOUR DEVICES ── -->
+    <section>
+      <div class="container">
+        <div class="section-eyebrow fade-in">Every device earns</div>
+        <h2 class="section-title fade-in">
+          The more devices you add,<br />the stronger the network.
+        </h2>
+        <p class="section-sub fade-in">
+          Each device you add isn't just more earnings for you — it's one more
+          node the world's AI doesn't need to rent from a data center. This is
+          how we take it back.
+        </p>
 
-<script>
-// ── Fetch live network stats ──
-async function fetchStats() {
-  try {
-    const r = await fetch('https://btcpc.net/public/network');
-    if (!r.ok) return;
-    const d = await r.json();
-    const n = (v, fb) => (v != null && v !== '') ? v : (fb != null ? fb : '—');
-    const nodes   = n(d.peer_count);
-    const miners  = n(d.miners);
-    const sensors = n(d.sensor_feeds, d.sensors);
-    const storage = n(d.storage);
-    const clocks  = n(d.clocks);
-    const epoch   = n(d.epoch);
+        <div class="devices-grid fade-in">
+          <div class="device-card">
+            <div class="device-emoji">📱</div>
+            <div class="device-name">Android Phone</div>
+            <div class="device-role">
+              Runs lightweight AI models in background. Mines, clocks, stores,
+              and reads sensors.
+            </div>
+            <div class="device-earn">▲ Mine + Sense + Store</div>
+          </div>
+          <div class="device-card">
+            <div class="device-emoji">💻</div>
+            <div class="device-name">Laptop / Desktop</div>
+            <div class="device-role">
+              Full inference node. GPU earns proportionally to verified compute
+              power.
+            </div>
+            <div class="device-earn">▲ High-value miner</div>
+          </div>
+          <div class="device-card">
+            <div class="device-emoji">🍓</div>
+            <div class="device-name">Raspberry Pi</div>
+            <div class="device-role">
+              Perfect clock node or sensor gateway. Runs 24/7 on $5 of
+              electricity per year.
+            </div>
+            <div class="device-earn">▲ Clock + Gateway</div>
+          </div>
+          <div class="device-card">
+            <div class="device-emoji">📡</div>
+            <div class="device-name">Nebra / LoRa Gateway</div>
+            <div class="device-role">
+              Bridges real-world sensor data to the chain. IoT pool rewards
+              every 30 seconds.
+            </div>
+            <div class="device-earn">▲ IoT gateway rewards</div>
+          </div>
+          <div class="device-card">
+            <div class="device-emoji">🐬</div>
+            <div class="device-name">Flipper Zero</div>
+            <div class="device-role">
+              Signs inference jobs with a hardware key that never leaves the
+              device.
+            </div>
+            <div class="device-earn">▲ Hardware security</div>
+          </div>
+          <div class="device-card">
+            <div class="device-emoji">🛰</div>
+            <div class="device-name">GNSS / GPS Sensor</div>
+            <div class="device-role">
+              Feeds verified location data and timing into the network.
+              Strengthens clock consensus.
+            </div>
+            <div class="device-earn">▲ Sensor + Clock</div>
+          </div>
+          <div class="device-card">
+            <div class="device-emoji">🌡</div>
+            <div class="device-name">Any Sensor</div>
+            <div class="device-role">
+              Temperature, humidity, air quality, motion — every real-world data
+              feed earns from the IoT pool.
+            </div>
+            <div class="device-earn">▲ Real-world data</div>
+          </div>
+          <div
+            class="device-card"
+            style="
+              border-style: dashed;
+              border-color: rgba(255, 255, 255, 0.12);
+            "
+          >
+            <div class="device-emoji">➕</div>
+            <div class="device-name">Your next device</div>
+            <div class="device-role">
+              BTCPC runs on anything with a CPU. If it computes, it can earn.
+            </div>
+            <div class="device-earn" style="color: var(--sub)">
+              Open protocol
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
 
-    // Hero
-    document.getElementById('hero-nodes').textContent   = nodes;
-    document.getElementById('hero-miners').textContent  = miners;
-    document.getElementById('hero-sensors').textContent = sensors;
+    <div class="divider"></div>
 
-    // Network strip
-    document.getElementById('nc-nodes').textContent   = nodes;
-    document.getElementById('nc-miners').textContent  = miners;
-    document.getElementById('nc-clocks').textContent  = clocks;
-    document.getElementById('nc-sensors').textContent = sensors;
-    document.getElementById('nc-storage').textContent = storage;
-    document.getElementById('nc-epoch').textContent   = typeof epoch === 'number' ? epoch.toLocaleString() : epoch;
+    <!-- ── VISION ── -->
+    <section class="vision">
+      <div class="container">
+        <div class="section-eyebrow fade-in" style="text-align: center">
+          The bigger picture
+        </div>
 
-    // Ticker
-    document.getElementById('t-nodes').textContent   = nodes;
-    document.getElementById('t-miners').textContent  = miners;
-    document.getElementById('t-sensors').textContent = sensors;
-    document.getElementById('t-storage').textContent = storage;
-    document.querySelectorAll('.t-nodes-dup').forEach(e => e.textContent = nodes);
-    document.querySelectorAll('.t-miners-dup').forEach(e => e.textContent = miners);
-    document.querySelectorAll('.t-sensors-dup').forEach(e => e.textContent = sensors);
-  } catch (_) {}
-}
-fetchStats();
-setInterval(fetchStats, 30000);
+        <div class="vision-statement fade-in">
+          Every day, AI systems consume more of the world's knowledge —
+          processing news, science, art, and human experience to understand the
+          world around us.
+          <br /><br />
+          Today, that happens
+          <em>inside buildings owned by three companies</em>. <br /><br />
+          <strong>BTCPC makes it happen everywhere.</strong>
+          In homes. In pockets. In communities. On hardware owned by the people
+          the AI is supposed to serve.
+        </div>
 
-// ── Scroll fade-in ──
-const observer = new IntersectionObserver(entries => {
-  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
-}, { threshold: 0.1 });
-document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+        <div class="pillars fade-in">
+          <div class="pillar">
+            <div
+              class="pillar-icon"
+              style="background: rgba(247, 147, 26, 0.12)"
+            >
+              🔒
+            </div>
+            <h3>Private by design</h3>
+            <p>
+              Inference runs on your device. Your queries never touch a
+              corporate server. Not even the network knows what you asked.
+            </p>
+          </div>
+          <div class="pillar">
+            <div
+              class="pillar-icon"
+              style="background: rgba(34, 211, 238, 0.1)"
+            >
+              ⚡
+            </div>
+            <h3>Censorship-resistant</h3>
+            <p>
+              No single point of failure. No CEO who can pull the plug. No
+              government that can demand a backdoor into every answer.
+            </p>
+          </div>
+          <div class="pillar">
+            <div
+              class="pillar-icon"
+              style="background: rgba(52, 211, 153, 0.1)"
+            >
+              🌍
+            </div>
+            <h3>Open to everyone</h3>
+            <p>
+              An old Android phone in Lagos earns the same rate as a GPU rig in
+              San Francisco. Compute is compute. The chain doesn't discriminate.
+            </p>
+          </div>
+          <div class="pillar">
+            <div
+              class="pillar-icon"
+              style="background: rgba(168, 85, 247, 0.1)"
+            >
+              🧬
+            </div>
+            <h3>The work is the product</h3>
+            <p>
+              Like Bitcoin proved scarcity with PoW, BTCPC proves usefulness
+              with PoC. Every token minted was earned by a machine doing
+              something real.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
 
-// ── Responsive grid for why-now section ──
-function checkGrid() {
-  const col = document.querySelector('.container[style*="grid-template-columns"]');
-  if (!col) return;
-  if (window.innerWidth < 800) col.style.gridTemplateColumns = '1fr';
-  else col.style.gridTemplateColumns = '1fr 1fr';
-}
-checkGrid();
-window.addEventListener('resize', checkGrid);
-</script>
-</body>
+    <div class="divider"></div>
+
+    <!-- ── WHY NOW ── -->
+    <section>
+      <div
+        class="container"
+        style="
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 80px;
+          align-items: start;
+        "
+      >
+        <div class="fade-in">
+          <div class="section-eyebrow">We're early</div>
+          <h2 class="section-title" style="margin-bottom: 16px">
+            The window to be a<br />founding node is open.
+          </h2>
+          <p
+            style="
+              color: var(--sub);
+              font-size: 15px;
+              line-height: 1.8;
+              margin-bottom: 24px;
+            "
+          >
+            Bitcoin's first miners used CPUs and earned millions of coins. BTCPC
+            is at that same moment — the network is live, the chain is minting,
+            and every epoch that passes is history you could have been part of.
+          </p>
+          <p style="color: var(--sub); font-size: 15px; line-height: 1.8">
+            The 55% miner pool is currently shared among a small, growing group.
+            Each new node adds more value to the network — and more resilience,
+            privacy, and independence for everyone who uses AI.
+          </p>
+        </div>
+        <div class="fade-in">
+          <div class="timeline">
+            <div class="t-item">
+              <div class="t-dot">✓</div>
+              <div class="t-content">
+                <div class="t-tag done">Done</div>
+                <h4>Genesis block mined</h4>
+                <p>
+                  April 15, 2026 — chain live, first inference verified, first
+                  BTCPC earned.
+                </p>
+              </div>
+            </div>
+            <div class="t-item">
+              <div class="t-dot">✓</div>
+              <div class="t-content">
+                <div class="t-tag done">Done</div>
+                <h4>Android app shipped</h4>
+                <p>
+                  Mine, clock, store, and sense from your phone. Auto-resumes on
+                  reboot.
+                </p>
+              </div>
+            </div>
+            <div class="t-item">
+              <div class="t-dot">⚡</div>
+              <div class="t-content">
+                <div class="t-tag now">Now</div>
+                <h4>Network growing</h4>
+                <p>
+                  Nodes joining daily. IoT sensors live. Service node rewards
+                  active. This is the moment.
+                </p>
+              </div>
+            </div>
+            <div class="t-item future">
+              <div class="t-dot">→</div>
+              <div class="t-content">
+                <div class="t-tag soon">Coming</div>
+                <h4>Cross-chain bridges</h4>
+                <p>
+                  BTCPC anchors to Ethereum and Bitcoin. Liquidity, DeFi, global
+                  trading.
+                </p>
+              </div>
+            </div>
+            <div class="t-item future">
+              <div class="t-dot">→</div>
+              <div class="t-content">
+                <div class="t-tag soon">Coming</div>
+                <h4>Inference marketplace</h4>
+                <p>
+                  Anyone pays BTCPC to run private AI on the network. You earn
+                  from every job your node processes.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- ── FINAL CTA ── -->
+    <section class="final-cta">
+      <div class="cta-glow-left"></div>
+      <div class="cta-glow-right"></div>
+      <div class="container" style="position: relative; z-index: 1">
+        <h2 class="fade-in">
+          Your phone is on.<br />
+          The AI is waiting.<br />
+          <em>Start earning.</em>
+        </h2>
+
+        <p class="fade-in">
+          Free to install. Runs in the background. No technical knowledge
+          required. Your first tokens arrive within 30 seconds of joining.
+        </p>
+
+        <div class="final-actions fade-in">
+          <a
+            href="/android-install"
+            class="btn-primary"
+            id="final-get-app"
+            style="font-size: 18px; padding: 18px 44px"
+          >
+            📱 Install on Android
+          </a>
+          <a
+            href="/install"
+            class="btn-secondary"
+            style="font-size: 18px; padding: 18px 44px"
+          >
+            🖥 Run on PC
+          </a>
+        </div>
+
+        <div class="install-options fade-in">
+          <a href="/install" class="install-opt">🐧 Linux one-liner</a>
+          <a href="/windows" class="install-opt">🪟 Windows</a>
+          <a href="/install" class="install-opt">🍎 macOS</a>
+          <a href="/run-a-node" class="install-opt">🍓 Raspberry Pi</a>
+        </div>
+
+        <div class="share-row fade-in">
+          <a
+            href="https://t.me/share/url?url=https://btcpc.net&text=I%27m%20running%20AI%20and%20getting%20paid%20for%20it%20on%20BTCPC%20%E2%80%94%20a%20decentralized%20AI%20network%20where%20your%20devices%20mine%20real%20inference.%20Join%20me."
+            target="_blank"
+            class="share-btn"
+          >
+            ✈️ Share on Telegram
+          </a>
+          <a
+            href="https://twitter.com/intent/tweet?text=I%27m%20running%20decentralized%20AI%20on%20my%20phone%20and%20earning%20BTCPC%20for%20it.%20The%20AI%20network%20owned%20by%20no%20corporation%2C%20powered%20by%20everyone.%20btcpc.net&url=https://btcpc.net"
+            target="_blank"
+            class="share-btn"
+          >
+            🐦 Share on X
+          </a>
+          <button
+            onclick="
+              navigator.clipboard
+                .writeText('https://btcpc.net')
+                .then(() => (this.textContent = '✓ Copied!'))
+            "
+            class="share-btn"
+            style="border: none; cursor: pointer"
+          >
+            🔗 Copy link
+          </button>
+        </div>
+
+        <p class="footnote fade-in">
+          Open protocol · 42,000,000 BTCPC fixed supply · Every token earned by
+          a machine doing real work ·
+          <a href="/docs/BTCPC_WHITEPAPER.md" target="_blank"
+            >Read the whitepaper</a
+          >
+        </p>
+      </div>
+    </section>
+
+    <script>
+      // ── Fetch live network stats ──
+      async function fetchStats() {
+        try {
+          const r = await fetch("https://btcpc.net/public/network");
+          if (!r.ok) return;
+          const d = await r.json();
+          const n = (v, fb) =>
+            v != null && v !== "" ? v : fb != null ? fb : "—";
+          const nodes = n(d.peer_count);
+          const miners = n(d.miners);
+          const sensors = n(d.sensor_feeds, d.sensors);
+          const storage = n(d.storage);
+          const clocks = n(d.clocks);
+          const epoch = n(d.epoch);
+
+          // Hero
+          document.getElementById("hero-nodes").textContent = nodes;
+          document.getElementById("hero-miners").textContent = miners;
+          document.getElementById("hero-sensors").textContent = sensors;
+
+          // Network strip
+          document.getElementById("nc-nodes").textContent = nodes;
+          document.getElementById("nc-miners").textContent = miners;
+          document.getElementById("nc-clocks").textContent = clocks;
+          document.getElementById("nc-sensors").textContent = sensors;
+          document.getElementById("nc-storage").textContent = storage;
+          document.getElementById("nc-epoch").textContent =
+            typeof epoch === "number" ? epoch.toLocaleString() : epoch;
+
+          // Ticker
+          document.getElementById("t-nodes").textContent = nodes;
+          document.getElementById("t-miners").textContent = miners;
+          document.getElementById("t-sensors").textContent = sensors;
+          document.getElementById("t-storage").textContent = storage;
+          document
+            .querySelectorAll(".t-nodes-dup")
+            .forEach((e) => (e.textContent = nodes));
+          document
+            .querySelectorAll(".t-miners-dup")
+            .forEach((e) => (e.textContent = miners));
+          document
+            .querySelectorAll(".t-sensors-dup")
+            .forEach((e) => (e.textContent = sensors));
+        } catch (_) {}
+      }
+      fetchStats();
+      setInterval(fetchStats, 30000);
+
+      // ── Scroll fade-in ──
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e) => {
+            if (e.isIntersecting) e.target.classList.add("visible");
+          });
+        },
+        { threshold: 0.1 },
+      );
+      document
+        .querySelectorAll(".fade-in")
+        .forEach((el) => observer.observe(el));
+
+      // ── Responsive grid for why-now section ──
+      function checkGrid() {
+        const col = document.querySelector(
+          '.container[style*="grid-template-columns"]',
+        );
+        if (!col) return;
+        if (window.innerWidth < 800) col.style.gridTemplateColumns = "1fr";
+        else col.style.gridTemplateColumns = "1fr 1fr";
+      }
+      checkGrid();
+      window.addEventListener("resize", checkGrid);
+
+      // OS-aware "Get the App" routing
+      (function() {
+        var ua = navigator.userAgent || '';
+        var isAndroid = /android/i.test(ua);
+        var isIOS = /iphone|ipad|ipod/i.test(ua);
+        var isWindows = /windows/i.test(ua);
+        var isMac = /macintosh|mac os x/i.test(ua) && !isIOS;
+        // Linux: anything left that has linux but not android
+        var isLinux = /linux/i.test(ua) && !isAndroid;
+
+        function appUrl() {
+          if (isAndroid) return '/android-install';
+          if (isIOS)     return '/install';          // placeholder until iOS ships
+          if (isWindows) return '/windows';
+          if (isMac)     return '/install';
+          if (isLinux)   return '/install';
+          return '/install';
+        }
+
+        function appLabel() {
+          if (isAndroid) return '📱 Get the App — Android';
+          if (isIOS)     return '🍎 Get the App — iOS (coming soon)';
+          if (isWindows) return '🪟 Get the App — Windows';
+          if (isMac)     return '🍎 Get the App — macOS';
+          if (isLinux)   return '🐧 Get the App — Linux';
+          return '📱 Get the App — Free';
+        }
+
+        var url   = appUrl();
+        var label = appLabel();
+
+        ['nav-get-app', 'hero-get-app', 'final-get-app'].forEach(function(id) {
+          var el = document.getElementById(id);
+          if (!el) return;
+          el.href = url;
+          if (id !== 'nav-get-app') el.textContent = label;
+          else el.textContent = 'Get the App →';
+        });
+
+        // If Android: add a direct APK download note below the hero button
+        if (isAndroid) {
+          var heroBtn = document.getElementById('hero-get-app');
+          if (heroBtn) {
+            var note = document.createElement('div');
+            note.style.cssText = 'margin-top:10px;font-size:12px;color:#888;';
+            note.innerHTML = 'or <a href="https://btcpc.net/public/android-apk" style="color:#22d3ee;" download>download APK directly</a> — updated regularly';
+            heroBtn.parentNode.insertBefore(note, heroBtn.nextSibling);
+          }
+        }
+      })();
+    </script>
+  </body>
 </html>

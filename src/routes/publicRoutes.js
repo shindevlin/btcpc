@@ -962,7 +962,7 @@ setInterval(function() {
  * version_code is an integer; app compares with BuildConfig.VERSION_CODE.
  */
 const ANDROID_RELEASE = {
-  version_code: 3,
+  version_code: 157,
   version_name: require('../../package.json').version,
   apk_url: 'https://btcpc.net/public/android-apk',
   changelog: 'Full sensor array (GPS, battery, temperature, humidity + 5 more), model picker from chain registry, storage quota, on-chain credit for all earn activities, auto-restart on update',
