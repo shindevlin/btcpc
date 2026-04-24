@@ -301,6 +301,10 @@ function startLoRaListener(account, gatewayName) {
   const LORA_PORT = parseInt(process.env.BTCPC_LORA_PORT || '1700', 10);
   const server = dgram.createSocket('udp4');
   let packetsRelayed = 0;
+  let rssiSum = 0;
+  let rssiCount = 0;
+  let snrSum = 0;
+  let snrCount = 0;
 
   server.on('message', (msg, rinfo) => {
     // Semtech UDP PUSH_DATA: 1 byte version + 2 bytes token + 1 byte PUSH_DATA (0x00) + 8 bytes gwEUI + JSON
@@ -323,6 +327,8 @@ function startLoRaListener(account, gatewayName) {
 
     for (const pkt of pushData.rxpk) {
       packetsRelayed++;
+      if (typeof pkt.rssi === 'number') { rssiSum += pkt.rssi; rssiCount++; }
+      if (typeof pkt.lsnr === 'number') { snrSum += pkt.lsnr; snrCount++; }
       // Decode base64 payload
       let payload;
       try {
@@ -368,7 +374,6 @@ function startLoRaListener(account, gatewayName) {
       packets_relayed_this_epoch: packetsRelayed,
       uptime_seconds: process.uptime(),
     };
-    packetsRelayed = 0;
     sendHeartbeat(account, gatewayName, stats).catch(() => {});
 
     // ── Onboard sensor readings ─────────────────────────────────
@@ -425,14 +430,35 @@ function startLoRaListener(account, gatewayName) {
       }).catch(() => {});
     } catch (_) {}
 
-    // LoRa radio status (concentrator alive check)
+    // LoRa radio metrics
     try {
       var loraAlive = fs.existsSync(LORA_DEV) || fs.existsSync('/dev/spidev0.1');
-      submitSensorReading(sensorBase + 'lora-status', loraAlive ? 1 : 0, {
-        type: 'custom', unit: 'boolean', source: 'onboard',
+      var epochPackets = packetsRelayed;
+      var avgRssi = rssiCount > 0 ? Math.round(rssiSum / rssiCount) : null;
+      var avgSnr  = snrCount  > 0 ? Math.round((snrSum  / snrCount) * 10) / 10 : null;
+
+      // packets forwarded this epoch
+      submitSensorReading(sensorBase + 'lora-packets', epochPackets, {
+        type: 'custom', unit: 'packets', source: 'onboard',
+        concentrator_present: loraAlive,
         device: LORA_DEV,
         reading_number: onboardReadingCount,
       }).catch(() => {});
+
+      // average RSSI this epoch (dBm) — only submit when packets actually received
+      if (rssiCount > 0) {
+        submitSensorReading(sensorBase + 'lora-rssi', avgRssi, {
+          type: 'rf-scanner', unit: 'dBm', source: 'onboard',
+          sample_count: rssiCount,
+          avg_snr_db: avgSnr,
+          reading_number: onboardReadingCount,
+        }).catch(() => {});
+      }
+
+      // reset accumulators
+      packetsRelayed = 0;
+      rssiSum = 0; rssiCount = 0;
+      snrSum = 0;  snrCount = 0;
     } catch (_) {}
   }, HEARTBEAT_INTERVAL_MS);
 
