@@ -446,6 +446,7 @@
       let lastRenderAt = 0;
       let cameraX = 0;
       let cameraY = 0;
+      let orbitIndex = 0;
 
       function walk(node, parent = null, depth = 0, section = 'Vault') {
         node.parent = parent;
@@ -619,12 +620,23 @@
         const width = 1600;
         const height = 960;
         const activeNodes = nodes.filter((node) => node.ts <= currentTs);
-        const activeCenter = activeNodes.reduce((sum, node) => sum + (xScale(node.xSlot || 0)), 0) / Math.max(activeNodes.length, 1);
-        const activeDepth = activeNodes.reduce((sum, node) => sum + (node.depth || 0), 0) / Math.max(activeNodes.length, 1);
+        const sectionNames = Array.from(topSections.keys()).sort();
+        const orbitSpan = Math.max(sectionNames.length, 1);
+        orbitIndex = Math.floor(((currentTs - minTs) / Math.max(maxTs - minTs, 1)) * orbitSpan) % orbitSpan;
+        const orbitSection = sectionNames[orbitIndex] || 'Vault';
+        const orbitNodes = activeNodes.filter((node) => node.section === orbitSection);
+        const centerSource = orbitNodes.length ? orbitNodes : activeNodes;
+        const activeCenter = centerSource.reduce((sum, node) => sum + (xScale(node.xSlot || 0)), 0) / Math.max(centerSource.length, 1);
+        const activeDepth = centerSource.reduce((sum, node) => sum + (node.depth || 0), 0) / Math.max(centerSource.length, 1);
         const targetCameraX = Number.isFinite(activeCenter) ? activeCenter : width / 2;
         const targetCameraY = 76 + Math.max(0, activeDepth - 1) * 40;
-        cameraX += (targetCameraX - cameraX) * 0.06;
-        cameraY += (targetCameraY - cameraY) * 0.06;
+        const orbitRadiusX = 34 + Math.min(88, Math.max(0, centerSource.length * 2.2));
+        const orbitRadiusY = 18 + Math.min(60, Math.max(0, centerSource.length * 1.2));
+        const orbitAngle = ((currentTs - minTs) / Math.max(maxTs - minTs, 1)) * Math.PI * 2 * 1.25;
+        const orbitX = targetCameraX + Math.cos(orbitAngle) * orbitRadiusX;
+        const orbitY = targetCameraY + Math.sin(orbitAngle * 0.8) * orbitRadiusY;
+        cameraX += (orbitX - cameraX) * 0.06;
+        cameraY += (orbitY - cameraY) * 0.06;
         const branchColor = 'rgba(148,163,184,0.28)';
         const rootX = xScale(root.xSlot || 0);
         const rootY = 44;
@@ -734,7 +746,9 @@
       function updateStatus() {
         const visibleCount = files.filter((node) => resolvedVisible(node, searchEl.value.trim().toLowerCase())).length;
         const pct = Math.max(0, Math.min(100, Math.round((currentTs - minTs) / Math.max(maxTs - minTs, 1) * 100)));
-        statusEl.textContent = `${visibleCount}/${totalFiles} files visible · ${pct}% replayed`;
+        const sectionNames = Array.from(topSections.keys()).sort();
+        const orbitSection = sectionNames[orbitIndex] || 'Vault';
+        statusEl.textContent = `${visibleCount}/${totalFiles} files visible · ${pct}% replayed · orbiting ${orbitSection}`;
       }
 
       function renderAll() {
