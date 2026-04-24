@@ -55,6 +55,11 @@ public class NativeClockService extends Service {
     private volatile long lastHeartbeatMs;
     private static final MediaType JSON_MEDIA = MediaType.get("application/json; charset=utf-8");
 
+    // Chain-synced epoch anchor. Fetched from /public/network on start and refreshed
+    // every 5 minutes so the phone tracks the real chain epoch, not a locally-derived one.
+    private volatile long anchorEpoch = -1;
+    private volatile long anchorFetchedAtMs = 0;
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -76,11 +81,13 @@ public class NativeClockService extends Service {
             return START_NOT_STICKY;
         }
 
+        fetchChainEpoch();
         connect();
         if (!heartbeatStarted) {
             heartbeatStarted = true;
             scheduler.scheduleAtFixedRate(this::sendHeartbeatSafe, 5, 30, TimeUnit.SECONDS);
-        scheduler.scheduleAtFixedRate(this::sendDeviceHeartbeat, 10, 60, TimeUnit.SECONDS);
+            scheduler.scheduleAtFixedRate(this::sendDeviceHeartbeat, 10, 60, TimeUnit.SECONDS);
+            scheduler.scheduleAtFixedRate(this::fetchChainEpoch, 5, 5, TimeUnit.MINUTES);
         }
         persistState("Clock peer: running");
         return START_STICKY;
@@ -196,8 +203,15 @@ public class NativeClockService extends Service {
 
     private void sendHeartbeat(WebSocket webSocket) {
         try {
+            // Re-read identity on every heartbeat so renames take effect without restart
+            AppPrefs ap = new AppPrefs(this);
+            String effectiveAccount = ap.getAccount();
+            if (effectiveAccount == null || effectiveAccount.isEmpty()) effectiveAccount = "btcpc-phone";
+            String deviceName = ap.getDeviceName();
+
             JSONObject payload = new JSONObject();
-            payload.put("account", account);
+            payload.put("account", effectiveAccount);
+            payload.put("device_name", deviceName);
             payload.put("epoch_number", getCurrentEpoch());
             payload.put("timestamp", System.currentTimeMillis());
             payload.put("source", "android");
@@ -205,13 +219,17 @@ public class NativeClockService extends Service {
             if (webSocket.send(msg.toString())) {
                 lastHeartbeatMs = System.currentTimeMillis();
                 persistState("Clock peer: heartbeat " + account);
+            } else if (running) {
+                persistState("Clock peer: reconnecting");
+                scheduler.schedule(this::connect, 10, TimeUnit.SECONDS);
             }
         } catch (Exception e) {
             Log.w(TAG, "Heartbeat send failed: " + e.getMessage());
+            if (running) {
+                persistState("Clock peer: reconnecting");
+                scheduler.schedule(this::connect, 10, TimeUnit.SECONDS);
+            }
         }
-        // Also POST to chain REST endpoint so the node records credit even if
-        // the relay doesn't forward the WebSocket message to the P2P network.
-        postChainHeartbeat();
     }
 
     private void sendDeviceHeartbeat() {
@@ -264,39 +282,24 @@ public class NativeClockService extends Service {
         }
     }
 
-    private void postChainHeartbeat() {
-        if (account == null || account.isEmpty() || "btcpc-phone".equals(account)) return;
-        try {
-            JSONObject body = new JSONObject();
-            body.put("account", account);
-            body.put("client_id", nodeId);
-            Request.Builder rb = new Request.Builder()
-                    .url(apiBase + "/public/clock-heartbeat")
-                    .post(RequestBody.create(body.toString(), JSON_MEDIA));
-            if (jwt != null && !jwt.isEmpty()) {
-                rb.addHeader("Authorization", "Bearer " + jwt);
-            }
-            try (Response resp = client.newCall(rb.build()).execute()) {
-                if (resp.isSuccessful()) {
-                    persistState("Clock peer: on-chain ✓ epoch " + getCurrentEpoch());
-                }
-            }
-        } catch (Exception e) {
-            Log.w(TAG, "Chain heartbeat failed: " + e.getMessage());
-        }
-    }
-
     private void handleIncoming(String raw) {
         try {
             JSONObject msg = new JSONObject(raw);
             String type = msg.optString("type", "");
             JSONObject data = msg.optJSONObject("data");
-            if ("EPOCH_START".equals(type) && data != null) {
-                persistState("Epoch start " + data.optLong("epoch_number", -1));
-            } else if ("EPOCH_END".equals(type) && data != null) {
-                persistState("Epoch end " + data.optLong("epoch_number", -1));
-            } else if ("BLOCK".equals(type) && data != null) {
-                persistState("Block " + data.optLong("epoch_number", -1));
+            long epochNum = data != null ? data.optLong("epoch_number", -1) : -1;
+            if ("EPOCH_FINALIZED".equals(type) || "BLOCK".equals(type) || "EPOCH_START".equals(type)) {
+                if (epochNum > 0 && epochNum > anchorEpoch) {
+                    anchorEpoch = epochNum;
+                    anchorFetchedAtMs = System.currentTimeMillis();
+                }
+            }
+            if ("EPOCH_START".equals(type) && epochNum > 0) {
+                persistState("Clock peer: epoch " + epochNum);
+            } else if ("EPOCH_FINALIZED".equals(type) && epochNum > 0) {
+                persistState("Clock peer: finalized " + epochNum);
+            } else if ("BLOCK".equals(type) && epochNum > 0) {
+                persistState("Clock peer: block " + epochNum);
             }
         } catch (Exception e) {
             Log.w(TAG, "Message parse failed: " + e.getMessage());
@@ -314,8 +317,34 @@ public class NativeClockService extends Service {
     }
 
     private long getCurrentEpoch() {
+        if (anchorEpoch > 0) {
+            long elapsed = System.currentTimeMillis() - anchorFetchedAtMs;
+            return anchorEpoch + (elapsed / 30000L);
+        }
+        // Fallback: local time formula until first network sync
         long epoch = (System.currentTimeMillis() - EPOCH_ZERO_MS) / 30000L;
         return Math.max(epoch, 0L);
+    }
+
+    private void fetchChainEpoch() {
+        try {
+            Request req = new Request.Builder()
+                    .url(apiBase + "/public/network")
+                    .build();
+            try (Response resp = client.newCall(req).execute()) {
+                if (resp.isSuccessful() && resp.body() != null) {
+                    JSONObject json = new JSONObject(resp.body().string());
+                    long epoch = json.optLong("epoch", -1);
+                    if (epoch > 0) {
+                        anchorEpoch = epoch;
+                        anchorFetchedAtMs = System.currentTimeMillis();
+                        Log.d(TAG, "Chain epoch synced: " + epoch);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Epoch sync failed: " + e.getMessage());
+        }
     }
 
     private Notification buildNotification(String text) {
