@@ -2213,12 +2213,18 @@ function handleClockHeartbeat(peer, msg, ctx) {
 
   // Track which node relayed this heartbeat for anti-self-credit checks
   recordHeartbeatWitness(account, fileEpoch, msg.nodeId || peer.nodeId || "unknown");
-  // Rebroadcast with a fresh outer timestamp so downstream nodes with tight staleness
-  // limits accept it. The data payload (account, epoch_number) is unchanged.
-  var relayMsg = msg.timestamp && (Date.now() - msg.timestamp) > STALE_MSG_MS
-    ? Object.assign({}, msg, { timestamp: Date.now() })
-    : msg;
-  ctx.broadcast(relayMsg, peer.address);
+
+  // Relay up to 3 hops so heartbeats propagate without flooding the network.
+  // Freshen the outer timestamp on relay so nodes with tighter staleness limits accept it.
+  var relayDepth = (msg.relay_depth || 0) + 1;
+  if (relayDepth <= 3) {
+    var isStale = msg.timestamp && (Date.now() - msg.timestamp) > STALE_MSG_MS;
+    var relayMsg = Object.assign({}, msg, {
+      relay_depth: relayDepth,
+      timestamp: isStale ? Date.now() : msg.timestamp
+    });
+    ctx.broadcast(relayMsg, peer.address);
+  }
 }
 
 // ---------------------------------------------------------------------------

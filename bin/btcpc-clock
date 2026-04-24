@@ -250,7 +250,14 @@ function handleMessage(msg, fromAddress) {
       var hbLabel = hbData.device_name && hbData.device_name !== hbAccount
         ? hbData.device_name + " (" + hbAccount + ")" : hbAccount;
       console.log("[CLOCK] CLOCK_HEARTBEAT from " + hbLabel + " (filing under epoch " + hbEpoch + ")");
-      broadcast(msg, fromAddress);
+      var hbDepth = (msg.relay_depth || 0) + 1;
+      if (hbDepth <= 3) {
+        var hbIsStale = msg.timestamp && (Date.now() - msg.timestamp) > 30000;
+        broadcast(Object.assign({}, msg, {
+          relay_depth: hbDepth,
+          timestamp: hbIsStale ? Date.now() : msg.timestamp
+        }), fromAddress);
+      }
       break;
     }
 
