@@ -437,6 +437,7 @@
       const folders = flat.filter((n) => n.kind === 'folder');
       const minTs = data.stats.minTs;
       const maxTs = data.stats.maxTs;
+      const totalFiles = Math.max(files.length, 1);
       timeEl.min = String(minTs);
       timeEl.max = String(maxTs);
       timeEl.value = String(Math.floor(currentTs));
@@ -683,7 +684,6 @@
 
       function updateStatus() {
         const visibleCount = files.filter((node) => resolvedVisible(node, searchEl.value.trim().toLowerCase())).length;
-        const totalFiles = files.length || 1;
         const pct = Math.max(0, Math.min(100, Math.round((currentTs - minTs) / Math.max(maxTs - minTs, 1) * 100)));
         statusEl.textContent = `${visibleCount}/${totalFiles} files visible · ${pct}% replayed`;
       }
@@ -703,7 +703,10 @@
 
       function tick(now) {
         if (playing) {
-          const delta = 0.0005 * speed * (now - (tick.last || now));
+          const visibleCount = files.reduce((count, node) => count + (node.ts <= currentTs ? 1 : 0), 0);
+          const density = visibleCount / totalFiles;
+          const slowFactor = Math.max(0.08, Math.pow(1 - density, 1.8));
+          const delta = 0.0005 * speed * slowFactor * (now - (tick.last || now));
           const next = Math.min(maxTs, currentTs + delta * (maxTs - minTs));
           currentTs = next;
           timeEl.value = String(Math.floor(currentTs));
