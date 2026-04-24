@@ -2191,28 +2191,31 @@ function handleClockHeartbeat(peer, msg, ctx) {
     }
   }
 
-  // File under THIS node's current epoch (what we think the chain height is),
-  // not the sender's claim. Heartbeats can arrive several epochs after they
-  // were sent (relay delay, sender's view stale). Crediting them as "active
-  // now" is more accurate than crediting an old epoch number.
-  // Use time-derived epoch as a floor so a stale _currentEpochCache on restart
-  // doesn't file heartbeats far behind the actual chain tip.
   var GENESIS_TS = 1776236400000;
   var EPOCH_MS = 30000;
   var timeDerivedEpoch = Math.floor((Date.now() - GENESIS_TS) / EPOCH_MS);
-  var fileEpoch = Math.max(
+  var chainEpoch = Math.max(
     _currentEpochCache > 0 ? _currentEpochCache : 0,
     timeDerivedEpoch
   );
 
+  // A clock node earns only when it is actually tracking the current epoch.
+  // If the claimed epoch is more than 10 epochs (5 min) behind the chain tip,
+  // the phone is out of sync — relay the heartbeat so it receives EPOCH_FINALIZED
+  // and catches up, but don't credit it until the next in-range heartbeat.
+  var MAX_EPOCH_DRIFT = 10;
+  var epochDrift = claimedEpoch > 0 ? Math.abs(claimedEpoch - chainEpoch) : Infinity;
+  var inSync = epochDrift <= MAX_EPOCH_DRIFT;
+
   var label = displayName !== account ? displayName + " (" + account + ")" : account;
-  console.log("[BTCPC P2P] CLOCK_HEARTBEAT from " + label + " (claimed epoch " + claimedEpoch + ", filing under " + fileEpoch + ", source: " + source + ")");
-
-  recordPeerEpoch(msg.nodeId || account, claimedEpoch);
-  recordNodeActivity(msg.nodeId, account, fileEpoch);
-
-  // Track which node relayed this heartbeat for anti-self-credit checks
-  recordHeartbeatWitness(account, fileEpoch, msg.nodeId || peer.nodeId || "unknown");
+  if (inSync) {
+    console.log("[BTCPC P2P] CLOCK_HEARTBEAT from " + label + " (epoch " + claimedEpoch + ", source: " + source + ")");
+    recordPeerEpoch(msg.nodeId || account, claimedEpoch);
+    recordNodeActivity(msg.nodeId, account, chainEpoch);
+    recordHeartbeatWitness(account, chainEpoch, msg.nodeId || peer.nodeId || "unknown");
+  } else {
+    console.log("[BTCPC P2P] CLOCK_HEARTBEAT from " + label + " out of sync (claimed=" + claimedEpoch + " chain=" + chainEpoch + " drift=" + epochDrift + ") — relaying for catch-up, no credit");
+  }
 
   // Relay up to 3 hops so heartbeats propagate without flooding the network.
   // Freshen the outer timestamp on relay so nodes with tighter staleness limits accept it.

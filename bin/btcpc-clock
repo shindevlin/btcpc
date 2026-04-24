@@ -242,14 +242,18 @@ function handleMessage(msg, fromAddress) {
     case "CLOCK_HEARTBEAT": {
       var hbData = msg.data || {};
       var hbAccount = hbData.account || msg.nodeId;
-      // File under chain-synced epoch — phone clocks drift, sender's claimed epoch may be stale
-      var hbEpoch = Math.max(currentEpoch, highestFinalizedEpoch);
-      if (hbAccount && hbEpoch > 0) {
-        protocolGossip.recordNodeActivity(msg.nodeId || hbAccount, hbAccount, hbEpoch);
-      }
+      var hbClaimed = hbData.epoch_number || 0;
+      var hbChainEpoch = Math.max(currentEpoch, highestFinalizedEpoch);
+      var hbDrift = hbClaimed > 0 ? Math.abs(hbClaimed - hbChainEpoch) : Infinity;
+      var hbInSync = hbDrift <= 10;
       var hbLabel = hbData.device_name && hbData.device_name !== hbAccount
         ? hbData.device_name + " (" + hbAccount + ")" : hbAccount;
-      console.log("[CLOCK] CLOCK_HEARTBEAT from " + hbLabel + " (filing under epoch " + hbEpoch + ")");
+      if (hbInSync && hbAccount && hbChainEpoch > 0) {
+        protocolGossip.recordNodeActivity(msg.nodeId || hbAccount, hbAccount, hbChainEpoch);
+        console.log("[CLOCK] CLOCK_HEARTBEAT from " + hbLabel + " (epoch " + hbClaimed + ")");
+      } else {
+        console.log("[CLOCK] CLOCK_HEARTBEAT from " + hbLabel + " out of sync (claimed=" + hbClaimed + " chain=" + hbChainEpoch + ") — relaying, no credit");
+      }
       var hbDepth = (msg.relay_depth || 0) + 1;
       if (hbDepth <= 3) {
         var hbIsStale = msg.timestamp && (Date.now() - msg.timestamp) > 30000;
