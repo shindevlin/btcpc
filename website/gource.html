@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BTCPC Gource Vault</title>
+  <style>
+    :root {
+      --bg0: #050814;
+      --bg1: #08111d;
+      --panel: rgba(12, 18, 34, 0.88);
+      --line: rgba(148, 163, 184, 0.16);
+      --text: #e6eefc;
+      --muted: #92a4bf;
+      --accent: #f7931a;
+      --mint: #86efac;
+      --sky: #7dd3fc;
+      --rose: #f9a8d4;
+      --amber: #fbbf24;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(247,147,26,0.14), transparent 32%),
+        radial-gradient(circle at top right, rgba(125,211,252,0.12), transparent 30%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      overflow: hidden;
+    }
+    .app {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr) 320px;
+      grid-template-rows: minmax(0, 1fr) 220px;
+      gap: 14px;
+      padding: 16px;
+      height: 100vh;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 24px 70px rgba(0,0,0,0.28);
+      backdrop-filter: blur(12px);
+      overflow: hidden;
+    }
+    .sidebar, .inspector {
+      padding: 16px;
+      overflow: auto;
+    }
+    .title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      color: var(--accent);
+      font-weight: 900;
+    }
+    .headline {
+      margin-top: 8px;
+      font-size: 24px;
+      line-height: 1.02;
+      font-weight: 1000;
+    }
+    .sub {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    .search {
+      width: 100%;
+      margin-top: 16px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255,255,255,0.04);
+      color: var(--text);
+      outline: none;
+    }
+    .section-list {
+      margin-top: 16px;
+      display: grid;
+      gap: 10px;
+    }
+    .section-pill {
+      padding: 12px 13px;
+      border-radius: 14px;
+      border: 1px solid transparent;
+      background: rgba(255,255,255,0.04);
+      cursor: pointer;
+    }
+    .section-pill.active {
+      background: rgba(247,147,26,0.14);
+      border-color: rgba(247,147,26,0.45);
+    }
+    .section-pill .name { font-weight: 800; }
+    .section-pill .meta { margin-top: 4px; font-size: 12px; color: var(--muted); }
+    .graph {
+      position: relative;
+      grid-column: 2;
+      grid-row: 1;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .stream {
+      grid-column: 1 / span 3;
+      grid-row: 2;
+      padding: 14px 16px 16px;
+      position: relative;
+    }
+    .stream-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      color: var(--text);
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(148,163,184,0.14);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .stream-head .label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: var(--accent);
+      font-weight: 900;
+    }
+    .stream-controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-weight: 800;
+      cursor: pointer;
+      color: #000;
+      background: var(--accent);
+    }
+    .btn.secondary {
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      border: 1px solid rgba(148,163,184,0.2);
+    }
+    input[type="range"] {
+      width: min(480px, 44vw);
+      accent-color: var(--accent);
+    }
+    .stage {
+      position: absolute;
+      inset: 0;
+      padding: 12px;
+    }
+    svg { width: 100%; height: 100%; display: block; }
+    .node circle {
+      filter: drop-shadow(0 0 16px rgba(247,147,26,0.2));
+    }
+    .branch {
+      fill: none;
+      stroke-width: 2.4;
+      stroke-linecap: round;
+      opacity: 0.5;
+    }
+    .node text {
+      font-size: 11px;
+      fill: #d8e2f4;
+      pointer-events: none;
+    }
+    .tooltip {
+      position: absolute;
+      pointer-events: none;
+      background: rgba(2,6,23,0.92);
+      border: 1px solid rgba(148,163,184,0.22);
+      border-radius: 14px;
+      padding: 10px 12px;
+      color: var(--text);
+      font-size: 12px;
+      max-width: 320px;
+      transform: translate(-50%, -115%);
+      opacity: 0;
+      transition: opacity .12s ease;
+      z-index: 4;
+    }
+    .legend {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .legend span {
+      display: inline-flex;
+      gap: 6px;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(148,163,184,0.14);
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .inspector .meta {
+      display: grid;
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .inspector .box {
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(148,163,184,0.14);
+      font-size: 13px;
+      color: var(--text);
+    }
+    .inspector .box strong {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .links {
+      margin-top: 14px;
+      display: grid;
+      gap: 8px;
+    }
+    .links a {
+      display: block;
+      padding: 9px 11px;
+      border-radius: 12px;
+      text-decoration: none;
+      color: var(--sky);
+      background: rgba(125,211,252,0.08);
+      border: 1px solid rgba(125,211,252,0.16);
+    }
+    .stream-track {
+      position: absolute;
+      inset: 52px 16px 16px 16px;
+      border-radius: 18px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015)),
+        rgba(3,7,18,0.78);
+      border: 1px solid rgba(148,163,184,0.14);
+      overflow: hidden;
+    }
+    .lane {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 24%;
+      border-bottom: 1px solid rgba(148,163,184,0.1);
+    }
+    .lane-label {
+      position: absolute;
+      left: 12px;
+      top: 4px;
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 800;
+    }
+    .token {
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      height: 16px;
+      border-radius: 999px;
+      padding: 0 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      color: #0b1020;
+      box-shadow: 0 0 18px rgba(247,147,26,0.24);
+    }
+    .timeline {
+      width: 100%;
+      margin-top: 8px;
+    }
+    @media (max-width: 1100px) {
+      body { overflow: auto; }
+      .app {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 520px 280px auto;
+        height: auto;
+      }
+      .graph { grid-column: 1; grid-row: 2; min-height: 520px; }
+      .stream { grid-column: 1; grid-row: 4; min-height: 280px; }
+      .inspector { grid-column: 1; grid-row: 3; }
+      .sidebar { grid-column: 1; grid-row: 1; }
+      input[type="range"] { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="panel sidebar">
+      <div class="title">BTCPC Vault</div>
+      <div class="headline">Gource view</div>
+      <div class="sub">This replaces the Obsidian-style vault browser with a public, animated tree. It shows structure, timing, and historical movement without exposing local vault state.</div>
+      <input id="search" class="search" placeholder="Search files, folders, summaries..." />
+      <div id="sections" class="section-list"></div>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--accent)"></i> docs</span>
+        <span><i class="dot" style="background:var(--sky)"></i> code</span>
+        <span><i class="dot" style="background:var(--mint)"></i> tests</span>
+        <span><i class="dot" style="background:var(--rose)"></i> android</span>
+      </div>
+    </aside>
+
+    <main class="panel graph">
+      <div class="stage">
+        <svg id="graphSvg" viewBox="0 0 1600 960" preserveAspectRatio="xMidYMid meet"></svg>
+        <div id="tooltip" class="tooltip"></div>
+      </div>
+    </main>
+
+    <aside class="panel inspector">
+      <div class="title">Inspector</div>
+      <div class="headline" style="font-size:22px;">Selected node</div>
+      <div class="meta" id="meta"></div>
+      <div class="links" id="links"></div>
+    </aside>
+
+    <section class="panel stream">
+      <div class="stream-head">
+        <div>
+          <div class="label">Logstalgia stream</div>
+          <div class="sub" style="margin:6px 0 0;">Files arrive as flowing packets across their lane, derived from git timestamps so the public vault feels historical instead of static.</div>
+        </div>
+        <div class="stream-controls">
+          <div id="status" class="status-pill">Loading historical vault...</div>
+          <button id="play" class="btn">Pause</button>
+          <button id="reset" class="btn secondary">Reset</button>
+          <label style="display:flex;gap:10px;align-items:center;color:var(--muted);font-size:12px;">
+            Speed
+            <input id="speed" type="range" min="0.2" max="3" step="0.1" value="1">
+          </label>
+        </div>
+      </div>
+      <div class="timeline">
+        <input id="time" type="range" min="0" max="1000" value="0">
+      </div>
+      <div id="streamTrack" class="stream-track"></div>
+    </section>
+  </div>
+
+  <script>
+    const colorByGroup = {
+      Docs: '#f7931a',
+      Source: '#7dd3fc',
+      Tests: '#86efac',
+      Android: '#f9a8d4',
+      Website: '#fbbf24',
+      'Code Wiki': '#c084fc',
+      BTCPC: '#f7931a',
+      Vault: '#94a3b8'
+    };
+  </script>
+  <script>
+    (async function () {
+      const dataResponse = await fetch('/gource/gource-data.json');
+      if (!dataResponse.ok) {
+        throw new Error(`Failed to load gource data: ${dataResponse.status} ${dataResponse.statusText}`);
+      }
+      const data = await dataResponse.json();
+      const root = { kind: 'folder', name: 'BTCPC Public Vault', rel: '', depth: 0, ts: data.stats.maxTs, children: data.root };
+      const svg = document.getElementById('graphSvg');
+      const sectionsEl = document.getElementById('sections');
+      const metaEl = document.getElementById('meta');
+      const linksEl = document.getElementById('links');
+      const tooltip = document.getElementById('tooltip');
+      const searchEl = document.getElementById('search');
+      const timeEl = document.getElementById('time');
+      const speedEl = document.getElementById('speed');
+      const playBtn = document.getElementById('play');
+      const resetBtn = document.getElementById('reset');
+      const streamTrack = document.getElementById('streamTrack');
+      const statusEl = document.getElementById('status');
+
+      const flat = [];
+      const topSections = new Map();
+      let activeRel = null;
+      let playing = true;
+      let speed = 1;
+      const initialSpan = Math.max(data.stats.maxTs - data.stats.minTs, 1);
+      let currentTs = data.stats.minTs + initialSpan * 0.02;
+      let rafId = null;
+      let lastRenderAt = 0;
+
+      function walk(node, parent = null, depth = 0, section = 'Vault') {
+        node.parent = parent;
+        node.depth = depth;
+        node.section = section;
+        if (parent && parent.section) node.section = parent.section;
+        flat.push(node);
+        if (node.kind === 'folder') {
+          const sec = depth === 1 ? node.name : section;
+          node.children = node.children || [];
+          node.children.forEach((child) => walk(child, node, depth + 1, sec));
+        }
+      }
+
+      root.children.forEach((child) => {
+        const section = child.kind === 'folder' ? child.name : 'Vault';
+        topSections.set(section, (topSections.get(section) || 0) + 1);
+        walk(child, root, 1, section);
+      });
+      flat.unshift(root);
+
+      const files = flat.filter((n) => n.kind === 'file');
+      const folders = flat.filter((n) => n.kind === 'folder');
+      const minTs = data.stats.minTs;
+      const maxTs = data.stats.maxTs;
+      timeEl.min = String(minTs);
+      timeEl.max = String(maxTs);
+      timeEl.value = String(Math.floor(currentTs));
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      }
+
+      function summarize(node) {
+        return node.summary || (node.kind === 'folder' ? 'Folder' : 'No summary available.');
+      }
+
+      function label(node) {
+        if (node.rel === '') return 'BTCPC Public Vault';
+        return node.name || node.rel.split('/').pop();
+      }
+
+      function matches(node, q) {
+        if (!q) return true;
+        const hay = [node.rel, node.name, node.summary, node.sourcePath, node.section].filter(Boolean).join(' ').toLowerCase();
+        return hay.includes(q);
+      }
+
+      function descendantMatch(node, q) {
+        if (!q) return true;
+        if (matches(node, q)) return true;
+        if (!node.children) return false;
+        return node.children.some((child) => descendantMatch(child, q));
+      }
+
+      function assignWidths(node) {
+        if (!node.children || node.children.length === 0) {
+          node.leafCount = 1;
+          return 1;
+        }
+        let total = 0;
+        for (const child of node.children) total += assignWidths(child);
+        node.leafCount = total;
+        return total;
+      }
+
+      function assignPositions(node, start = 0, depth = 0) {
+        node.depth = depth;
+        if (!node.children || node.children.length === 0) {
+          node.xSlot = start + 0.5;
+          return start + 1;
+        }
+        let cur = start;
+        for (const child of node.children) {
+          cur = assignPositions(child, cur, depth + 1);
+        }
+        const first = node.children[0].xSlot;
+        const last = node.children[node.children.length - 1].xSlot;
+        node.xSlot = (first + last) / 2;
+        return cur;
+      }
+
+      assignWidths(root);
+      const leafSlots = assignPositions(root, 0, 0);
+
+      const xScale = (v) => 120 + (v / Math.max(leafSlots, 1)) * 1360;
+      const yScale = (d) => 80 + d * 116;
+
+      function colorFor(node) {
+        const section = node.section || (node.kind === 'folder' ? node.name : 'Vault');
+        return colorByGroup[section] || colorByGroup.Vault;
+      }
+
+      function resolvedVisible(node, q) {
+        if (node === root) return true;
+        const visibleBySearch = descendantMatch(node, q);
+        const visibleByTime = node.ts <= currentTs;
+        return visibleBySearch && visibleByTime;
+      }
+
+      function renderSections(q) {
+        const names = Array.from(topSections.keys()).sort();
+        sectionsEl.innerHTML = names.map((name) => {
+          const count = flat.filter((node) => node.section === name && matches(node, q)).length;
+          const active = name === (activeRel && flat.find((n) => n.rel === activeRel)?.section) ? 'active' : '';
+          return `<div class="section-pill ${active}" data-section="${escapeHtml(name)}">
+            <div class="name">${escapeHtml(name)}</div>
+            <div class="meta">${count} visible nodes</div>
+          </div>`;
+        }).join('');
+        sectionsEl.querySelectorAll('[data-section]').forEach((pill) => {
+          pill.addEventListener('click', () => {
+            const name = pill.getAttribute('data-section');
+            const node = flat.find((n) => n.section === name && n.kind === 'file' && matches(n, q));
+            if (node) select(node);
+          });
+        });
+      }
+
+      function renderMeta(node) {
+        if (!node) {
+          metaEl.innerHTML = `
+            <div class="box"><strong>Status</strong> Click a node to inspect it.</div>
+          `;
+          linksEl.innerHTML = '';
+          return;
+        }
+        const ts = new Date(node.ts * 1000).toLocaleString();
+        metaEl.innerHTML = `
+          <div class="box"><strong>Path</strong>${escapeHtml(node.rel || 'root')}</div>
+          <div class="box"><strong>Type</strong>${escapeHtml(node.kind)}</div>
+          <div class="box"><strong>Section</strong>${escapeHtml(node.section || 'Vault')}</div>
+          <div class="box"><strong>Updated</strong>${escapeHtml(ts)}</div>
+          <div class="box"><strong>Summary</strong>${escapeHtml(summarize(node))}</div>
+        `;
+        const outgoing = (node.links || []).slice(0, 12);
+        const targets = outgoing.length ? outgoing.map((link) => {
+          const candidate = flat.find((n) => n.rel === link || n.name === link || n.rel.endsWith(`/${link}`));
+          const labelText = candidate ? label(candidate) : link;
+          return `<a href="#" data-rel="${escapeHtml(candidate ? candidate.rel : link)}">${escapeHtml(labelText)}</a>`;
+        }).join('') : '<div class="box"><strong>Links</strong> None detected.</div>';
+        linksEl.innerHTML = `<div class="box"><strong>Linked notes</strong></div>${targets}`;
+        linksEl.querySelectorAll('[data-rel]').forEach((el) => {
+          el.addEventListener('click', (event) => {
+            event.preventDefault();
+            const rel = el.getAttribute('data-rel');
+            const target = flat.find((n) => n.rel === rel);
+            if (target) select(target);
+          });
+        });
+      }
+
+      function select(node) {
+        activeRel = node.rel;
+        renderMeta(node);
+        renderGraph(searchEl.value.trim().toLowerCase());
+        renderSections(searchEl.value.trim().toLowerCase());
+      }
+
+      function renderGraph(q) {
+        const nodes = flat.filter((node) => resolvedVisible(node, q));
+        const links = nodes
+          .filter((node) => node.parent && resolvedVisible(node.parent, q))
+          .map((node) => ({ from: node.parent, to: node }));
+        const width = 1600;
+        const height = 960;
+        const branchColor = 'rgba(148,163,184,0.28)';
+        const rootX = xScale(root.xSlot || 0);
+        const rootY = 44;
+        const nodeMarkup = nodes.map((node) => {
+          const x = xScale(node.xSlot || 0);
+          const y = node === root ? rootY : yScale(node.depth);
+          node.renderX = x;
+          node.renderY = y;
+          const r = node.kind === 'folder' ? 12 : 8;
+          const opacity = node.ts <= currentTs ? 1 : 0.18;
+          const active = node.rel === activeRel ? 'filter: drop-shadow(0 0 22px rgba(247,147,26,0.8));' : '';
+          const fill = colorFor(node);
+          const labelOpacity = node.kind === 'folder' || node.depth <= 2 ? 1 : 0.62;
+          const showLabel = node.kind === 'folder' || node.depth <= 2 || node.rel === activeRel;
+          return `
+            <g class="node" data-rel="${escapeHtml(node.rel)}" transform="translate(${x},${y})" style="opacity:${opacity};${active}">
+              <circle r="${r}" fill="${fill}" stroke="rgba(255,255,255,0.24)" stroke-width="1.4"></circle>
+              ${showLabel ? `<text x="${r + 6}" y="4" opacity="${labelOpacity}">${escapeHtml(label(node))}</text>` : ''}
+            </g>
+          `;
+        }).join('');
+        const linkMarkup = links.map(({ from, to }) => {
+          const midY = (from.renderY + to.renderY) / 2;
+          const path = `M ${from.renderX} ${from.renderY + 10} C ${from.renderX} ${midY}, ${to.renderX} ${midY}, ${to.renderX} ${to.renderY - 10}`;
+          const active = to.rel === activeRel ? 0.82 : 0.36;
+          return `<path class="branch" d="${path}" stroke="${branchColor}" opacity="${active}"></path>`;
+        }).join('');
+        svg.innerHTML = `
+          <defs>
+            <linearGradient id="bgFade" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="rgba(255,255,255,0.05)"></stop>
+              <stop offset="100%" stop-color="rgba(255,255,255,0.01)"></stop>
+            </linearGradient>
+          </defs>
+          <rect x="0" y="0" width="${width}" height="${height}" fill="url(#bgFade)"></rect>
+          <text x="40" y="30" fill="#f7931a" font-size="12" letter-spacing="4" text-transform="uppercase" style="font-weight:800;">BTCPC GOURCE</text>
+          <text x="40" y="58" fill="#ffffff" font-size="28" font-weight="900">Animated vault tree</text>
+          <text x="40" y="86" fill="#92a4bf" font-size="13">Nodes reveal over time; search and time slider are both live.</text>
+          ${linkMarkup}
+          ${nodeMarkup}
+        `;
+        svg.querySelectorAll('[data-rel]').forEach((el) => {
+          el.addEventListener('mouseenter', (event) => {
+            const rel = el.getAttribute('data-rel');
+            const node = flat.find((n) => n.rel === rel);
+            if (!node) return;
+            tooltip.innerHTML = `<strong>${escapeHtml(label(node))}</strong><div style="margin-top:4px;color:var(--muted);">${escapeHtml(node.rel || 'root')}</div>`;
+            tooltip.style.left = `${event.clientX}px`;
+            tooltip.style.top = `${event.clientY}px`;
+            tooltip.style.opacity = 1;
+          });
+          el.addEventListener('mousemove', (event) => {
+            tooltip.style.left = `${event.clientX}px`;
+            tooltip.style.top = `${event.clientY}px`;
+          });
+          el.addEventListener('mouseleave', () => {
+            tooltip.style.opacity = 0;
+          });
+          el.addEventListener('click', () => {
+            const node = flat.find((n) => n.rel === el.getAttribute('data-rel'));
+            if (node) select(node);
+          });
+        });
+      }
+
+      function renderStream(q) {
+        const lanes = ['Docs', 'Source', 'Tests', 'Android', 'Website', 'Code Wiki', 'Vault'];
+        const width = streamTrack.clientWidth;
+        const height = streamTrack.clientHeight;
+        const laneH = height / lanes.length;
+        streamTrack.innerHTML = lanes.map((lane, idx) => `
+          <div class="lane" style="top:${idx * laneH}px;height:${laneH}px;">
+            <div class="lane-label">${lane}</div>
+          </div>
+        `).join('');
+        const visibleFiles = files.filter((node) => resolvedVisible(node, q));
+        visibleFiles.sort((a, b) => a.ts - b.ts);
+        const span = Math.max(maxTs - minTs, 1);
+        const tokens = visibleFiles.slice(-120).map((node, idx) => {
+          const laneIndex = Math.max(0, lanes.indexOf(node.section));
+          const laneTop = laneIndex >= 0 ? laneIndex * laneH : 0;
+          const progress = (currentTs - minTs) / span;
+          const age = (node.ts - minTs) / span;
+          const x = Math.max(70, Math.min(width - 70, (progress * width) - ((progress - age) * width * 0.35)));
+          const y = laneTop + laneH / 2;
+          const color = colorFor(node);
+          const active = node.rel === activeRel;
+          return `<div class="token" data-rel="${escapeHtml(node.rel)}" style="left:${x}px;top:${y}px;background:${color};opacity:${node.ts <= currentTs ? (active ? 1 : 0.82) : 0.08};transform:translate(-50%,-50%) scale(${active ? 1.08 : 1});">${escapeHtml(node.name.slice(0, 28))}</div>`;
+        }).join('');
+        streamTrack.insertAdjacentHTML('beforeend', tokens);
+        streamTrack.querySelectorAll('[data-rel]').forEach((el) => {
+          el.addEventListener('click', () => {
+            const node = flat.find((n) => n.rel === el.getAttribute('data-rel'));
+            if (node) select(node);
+          });
+        });
+      }
+
+      function updateStatus() {
+        const visibleCount = files.filter((node) => resolvedVisible(node, searchEl.value.trim().toLowerCase())).length;
+        const totalFiles = files.length || 1;
+        const pct = Math.max(0, Math.min(100, Math.round((currentTs - minTs) / Math.max(maxTs - minTs, 1) * 100)));
+        statusEl.textContent = `${visibleCount}/${totalFiles} files visible · ${pct}% replayed`;
+      }
+
+      function renderAll() {
+        const q = searchEl.value.trim().toLowerCase();
+        renderSections(q);
+        renderGraph(q);
+        renderStream(q);
+        updateStatus();
+      }
+
+      function updateTime(value) {
+        currentTs = Number(value);
+        renderAll();
+      }
+
+      function tick(now) {
+        if (playing) {
+          const delta = 0.0005 * speed * (now - (tick.last || now));
+          const next = Math.min(maxTs, currentTs + delta * (maxTs - minTs));
+          currentTs = next;
+          timeEl.value = String(Math.floor(currentTs));
+          if ((now - lastRenderAt) > 110) {
+            renderAll();
+            lastRenderAt = now;
+          } else {
+            updateStatus();
+          }
+        }
+        tick.last = now;
+        rafId = requestAnimationFrame(tick);
+      }
+
+      searchEl.addEventListener('input', () => renderAll());
+      timeEl.addEventListener('input', () => updateTime(timeEl.value));
+      speedEl.addEventListener('input', () => { speed = Number(speedEl.value); });
+      playBtn.addEventListener('click', () => {
+        playing = !playing;
+        playBtn.textContent = playing ? 'Pause' : 'Play';
+      });
+      resetBtn.addEventListener('click', () => {
+        currentTs = minTs + initialSpan * 0.02;
+        timeEl.value = String(Math.floor(currentTs));
+        renderAll();
+      });
+
+      const firstFile = files[0] || root;
+      if (firstFile) {
+        activeRel = firstFile.rel;
+      }
+
+      renderMeta(firstFile);
+      renderAll();
+      rafId = requestAnimationFrame(tick);
+
+      window.addEventListener('resize', () => renderAll());
+    })();
+  </script>
+</body>
+</html>
