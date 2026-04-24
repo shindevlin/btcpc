@@ -93,11 +93,18 @@ public class MinerService extends Service {
         String postingKey = prefs.getPostingKey();
         String apiBase    = prefs.getApiUrl();
         String modelId    = prefs.getMinerModel();
-        // Use external files dir so models survive app reinstalls/updates.
-        // Fall back to internal storage if external isn't mounted.
-        java.io.File extBase = getExternalFilesDir("miner-models");
-        if (extBase == null) extBase = new java.io.File(getFilesDir(), "miner-models");
-        java.io.File modelDirFile = new java.io.File(extBase, modelId);
+        // Prefer a shared external path that survives reinstalls: /sdcard/btcpc-models/<modelId>/
+        // Fall back to app-specific external, then internal.
+        java.io.File sharedBase = new java.io.File(
+            android.os.Environment.getExternalStorageDirectory(), "btcpc-models");
+        java.io.File modelDirFile;
+        if (sharedBase.exists() || sharedBase.mkdirs()) {
+            modelDirFile = new java.io.File(sharedBase, modelId);
+        } else {
+            java.io.File extBase = getExternalFilesDir("miner-models");
+            if (extBase == null) extBase = new java.io.File(getFilesDir(), "miner-models");
+            modelDirFile = new java.io.File(extBase, modelId);
+        }
         String modelDir = modelDirFile.getAbsolutePath();
 
         new File(modelDir).mkdirs();
