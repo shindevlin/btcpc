@@ -42,6 +42,7 @@ public class EarnFragment extends Fragment {
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     private MaterialButton startBtn;
+    private MaterialButton syncBtn;
 
     private SwitchCompat minerToggle;
     private Spinner      minerModelSpinner;
@@ -91,7 +92,8 @@ public class EarnFragment extends Fragment {
 
         prefs = new AppPrefs(requireContext());
 
-        startBtn           = view.findViewById(R.id.earn_start_btn);
+        startBtn  = view.findViewById(R.id.earn_start_btn);
+        syncBtn   = view.findViewById(R.id.earn_sync_btn);
 
         minerToggle        = view.findViewById(R.id.earn_miner_toggle);
         minerModelSpinner  = view.findViewById(R.id.earn_miner_model_spinner);
@@ -176,8 +178,11 @@ public class EarnFragment extends Fragment {
             @Override public void onStopTrackingTouch(SeekBar sb) {}
         });
 
-        // ── Start Mining button ──
+        // ── Start / Stop Mining button ──
         startBtn.setOnClickListener(v -> toggleAllServices());
+
+        // ── Sync button — triggers a chain sync via the local API ──
+        syncBtn.setOnClickListener(v -> triggerSync());
 
         // Individual toggles
         minerToggle.setOnCheckedChangeListener((btn, checked) -> {
@@ -248,47 +253,136 @@ public class EarnFragment extends Fragment {
 
         fetchModels();
         refreshStatuses();
+        autoResumeIfWasRunning();
+    }
+
+    // ── Auto-resume on launch ──
+
+    private void autoResumeIfWasRunning() {
+        if (!prefs.isMasterRunning()) return;
+        if (prefs.getAccount().isEmpty()) {
+            prefs.setMasterRunning(false);
+            updateStartButton();
+            return;
+        }
+        // masterRunning was true before this launch — restart services without user input
+        boolean anyToggle = prefs.isMinerEnabled() || prefs.isClockEnabled()
+                || prefs.isSensorsEnabled() || prefs.isStorageEnabled();
+        if (!anyToggle) {
+            prefs.setMinerEnabled(true);
+            prefs.setClockEnabled(true);
+            minerToggle.setChecked(true);
+            clockToggle.setChecked(true);
+        }
+        if (prefs.isMinerEnabled())   startService(MinerService.class);
+        if (prefs.isClockEnabled())   startService(NativeClockService.class);
+        if (prefs.isSensorsEnabled()) {
+            startService(NativeSensorService.class);
+            sensorsOptions.setVisibility(View.VISIBLE);
+        }
+        if (prefs.isStorageEnabled()) startService(StorageService.class);
+        updateStartButton();
     }
 
     // ── Start/Stop all ──
 
     private void toggleAllServices() {
-        boolean anyRunning = prefs.isMinerEnabled() || prefs.isClockEnabled()
-                || prefs.isSensorsEnabled() || prefs.isStorageEnabled();
+        boolean masterRunning = prefs.isMasterRunning();
 
-        if (anyRunning) {
-            // Stop everything
-            if (prefs.isMinerEnabled())   { minerToggle.setChecked(false);   prefs.setMinerEnabled(false);   stopService(MinerService.class);   prefs.setMinerState("Stopped"); }
-            if (prefs.isClockEnabled())   { clockToggle.setChecked(false);   prefs.setClockEnabled(false);   stopService(NativeClockService.class); }
-            if (prefs.isSensorsEnabled()) { sensorsToggle.setChecked(false); prefs.setSensorsEnabled(false); stopService(NativeSensorService.class); sensorsOptions.setVisibility(View.GONE); }
-            if (prefs.isStorageEnabled()) { storageToggle.setChecked(false); prefs.setStorageEnabled(false); stopService(StorageService.class); prefs.setStorageState("Stopped"); }
+        if (masterRunning) {
+            // ── Stop: halt services but keep toggle prefs so next Start restores this state ──
+            stopService(MinerService.class);
+            stopService(NativeClockService.class);
+            stopService(NativeSensorService.class);
+            stopService(StorageService.class);
+            prefs.setMinerState("Stopped");
+            prefs.setStorageState("Stopped");
+            prefs.setMasterRunning(false);
         } else {
-            // Need an account to mine
+            // ── Start: need an account ──
             if (prefs.getAccount().isEmpty()) {
                 minerStatus.setText("Sign in first — tap Settings");
                 return;
             }
-            // Start miner + clock + storage
-            minerToggle.setChecked(true);   prefs.setMinerEnabled(true);   startService(MinerService.class);
-            clockToggle.setChecked(true);   prefs.setClockEnabled(true);   startService(NativeClockService.class);
-            storageToggle.setChecked(true); prefs.setStorageEnabled(true); startService(StorageService.class);
-            // Sensors optional — only start if previously enabled or first time
+            // If no toggles are on (fresh install or all were cleared), default to miner + clock
+            boolean anyToggle = prefs.isMinerEnabled() || prefs.isClockEnabled()
+                    || prefs.isSensorsEnabled() || prefs.isStorageEnabled();
+            if (!anyToggle) {
+                prefs.setMinerEnabled(true);
+                prefs.setClockEnabled(true);
+                minerToggle.setChecked(true);
+                clockToggle.setChecked(true);
+            }
+            // Start whichever services are toggled on
+            if (prefs.isMinerEnabled())   startService(MinerService.class);
+            if (prefs.isClockEnabled())   startService(NativeClockService.class);
             if (prefs.isSensorsEnabled()) {
-                sensorsToggle.setChecked(true);
                 startService(NativeSensorService.class);
                 sensorsOptions.setVisibility(View.VISIBLE);
             }
+            if (prefs.isStorageEnabled()) startService(StorageService.class);
+            prefs.setMasterRunning(true);
         }
         updateStartButton();
     }
 
     private void updateStartButton() {
-        boolean anyRunning = prefs.isMinerEnabled() || prefs.isClockEnabled()
-                || prefs.isSensorsEnabled() || prefs.isStorageEnabled();
-        startBtn.setText(anyRunning ? "Stop Mining" : "Start Mining");
+        // Use masterRunning + state strings — prefs alone can lie if a service crashed
+        boolean masterRunning = prefs.isMasterRunning();
+        boolean anyActuallyRunning = masterRunning
+                && (isServiceLive(prefs.getMinerState())
+                    || isServiceLive(prefs.getClockState())
+                    || isServiceLive(prefs.getSensorState())
+                    || isServiceLive(prefs.getStorageState()));
+
+        // If master says running but every service reports stopped, correct the flag
+        if (masterRunning && !anyActuallyRunning) {
+            String ms = prefs.getMinerState(); String cs = prefs.getClockState();
+            String ss = prefs.getSensorState(); String ts = prefs.getStorageState();
+            boolean allStopped = isStopped(ms) && isStopped(cs) && isStopped(ss) && isStopped(ts);
+            if (allStopped) {
+                prefs.setMasterRunning(false);
+                masterRunning = false;
+            }
+        }
+
+        startBtn.setText(masterRunning ? "Stop Mining" : "Start Mining");
         startBtn.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
-                anyRunning ? 0xFF374151 : COLOR_ORANGE));
-        startBtn.setTextColor(anyRunning ? 0xFFA8B0BF : 0xFF000000);
+                masterRunning ? 0xFF374151 : COLOR_ORANGE));
+        startBtn.setTextColor(masterRunning ? 0xFFA8B0BF : 0xFF000000);
+    }
+
+    private static boolean isServiceLive(String state) {
+        if (state == null || state.isEmpty()) return false;
+        String s = state.toLowerCase();
+        return !s.equals("stopped") && !s.equals("stop");
+    }
+
+    private static boolean isStopped(String state) {
+        if (state == null || state.isEmpty()) return true;
+        String s = state.toLowerCase();
+        return s.equals("stopped") || s.equals("stop");
+    }
+
+    private void triggerSync() {
+        syncBtn.setEnabled(false);
+        syncBtn.setText("Syncing…");
+        ChainApi.triggerSync(prefs.getApiUrl(), new ChainApi.SimpleCallback() {
+            @Override
+            public void onSuccess() {
+                if (!isAdded()) return;
+                syncBtn.setText("Sync ✓");
+                handler.postDelayed(() -> {
+                    if (isAdded()) { syncBtn.setEnabled(true); syncBtn.setText("Sync"); }
+                }, 3000);
+            }
+            @Override
+            public void onError(String message) {
+                if (!isAdded()) return;
+                syncBtn.setText("Sync");
+                syncBtn.setEnabled(true);
+            }
+        });
     }
 
     // ── Status polling ──
@@ -324,7 +418,7 @@ public class EarnFragment extends Fragment {
             // Fetch chain-verified proof count every CHAIN_POLL_INTERVAL_MS
             long now = System.currentTimeMillis();
             if (now - chainStatusFetchedAt >= CHAIN_POLL_INTERVAL_MS && prefs.isMinerEnabled()
-                    && !prefs.getJwt().isEmpty()) {
+                    && !prefs.getPostingKey().isEmpty()) {
                 chainStatusFetchedAt = now;
                 fetchChainMiningStatus();
             }
@@ -333,7 +427,7 @@ public class EarnFragment extends Fragment {
     };
 
     private void fetchChainMiningStatus() {
-        ChainApi.fetchMiningStatus(prefs.getJwt(), prefs.getApiUrl(),
+        ChainApi.fetchMiningStatus(prefs.getAccount() + ":" + prefs.getPostingKey(), prefs.getApiUrl(),
                 new ChainApi.MiningStatusCallback() {
             @Override
             public void onSuccess(long proofs, long epoch, long lastEpoch) {

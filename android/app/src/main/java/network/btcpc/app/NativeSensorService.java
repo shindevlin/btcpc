@@ -59,7 +59,7 @@ public class NativeSensorService extends Service implements SensorEventListener,
     private static final String CHANNEL_ID = "btcpc_sensors";
     private static final int NOTIFICATION_ID = 9440;
     private static final String PREFS = "btcpc_native_state";
-    private static final String API_BASE = "https://btcpc.net/api";
+    private volatile String apiBase = AppPrefs.DEFAULT_API_URL + "/api";
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
     private final OkHttpClient client = new OkHttpClient.Builder().retryOnConnectionFailure(true).build();
@@ -70,7 +70,7 @@ public class NativeSensorService extends Service implements SensorEventListener,
     private volatile boolean running;
     private volatile String account;
     private volatile String deviceName;
-    private volatile String jwt;
+    private volatile String postingKey;
     private SensorManager sensorManager;
     private LocationManager locationManager;
     private ConnectivityManager connectivityManager;
@@ -378,6 +378,7 @@ public class NativeSensorService extends Service implements SensorEventListener,
             JSONObject body = new JSONObject();
             body.put("account", account);
             body.put("name", deviceName + "-" + snapshot.type);
+            body.put("device_name", deviceName);
             body.put("type", snapshot.type);
             body.put("unit", snapshot.unit);
             body.put("decimals", 6);
@@ -385,7 +386,7 @@ public class NativeSensorService extends Service implements SensorEventListener,
             body.put("hardware_model", Build.MODEL);
             body.put("firmware_version", Build.VERSION.RELEASE);
             body.put("allow_precise_location", false);
-            postJson(API_BASE + "/sensors", body);
+            postJson(apiBase + "/sensors", body);
             registeredSensors.add(sensorId);
             persistState("Sensors: registered " + sensorId);
         } catch (Exception e) {
@@ -410,7 +411,7 @@ public class NativeSensorService extends Service implements SensorEventListener,
             body.put("value", value);
             body.put("metadata", metadata);
 
-            String url = API_BASE + "/sensors/" + encode(snapshot.sensorId) + "/readings";
+            String url = apiBase + "/sensors/" + encode(snapshot.sensorId) + "/readings";
             postJson(url, body);
             persistState(String.format(Locale.US, "Sensors: submitted %s=%.3f", snapshot.type, value));
         } catch (Exception e) {
@@ -422,7 +423,7 @@ public class NativeSensorService extends Service implements SensorEventListener,
         Request.Builder rb = new Request.Builder()
                 .url(url)
                 .post(RequestBody.create(body.toString(), JSON));
-        if (jwt != null && !jwt.isEmpty()) rb.addHeader("Authorization", "Bearer " + jwt);
+        if (postingKey != null && !postingKey.isEmpty()) rb.addHeader("Authorization", "Bearer " + account + ":" + postingKey);
         Request request = rb.build();
         try (Response response = client.newCall(request).execute()) {
             if (!response.isSuccessful()) {
@@ -435,7 +436,11 @@ public class NativeSensorService extends Service implements SensorEventListener,
     private void loadSettings() {
         SharedPreferences prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         account = prefs.getString("account", "btcpc-phone");
-        jwt     = prefs.getString("jwt", "");
+        postingKey = prefs.getString("posting_key", "");
+        String savedApi = prefs.getString(AppPrefs.KEY_API_URL, "");
+        String base = (savedApi != null && !savedApi.isEmpty()) ? savedApi : AppPrefs.DEFAULT_API_URL;
+        while (base.endsWith("/")) base = base.substring(0, base.length() - 1);
+        apiBase = base + "/api";
         String saved = prefs.getString("sensor_device_name", null);
         if (saved == null || saved.isEmpty()) {
             saved = sanitize(Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID));

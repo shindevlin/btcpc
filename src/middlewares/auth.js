@@ -1,5 +1,6 @@
 "use strict";
 const jwt = require('jsonwebtoken');
+const secp256k1 = require('secp256k1');
 
 // D.5-delta: secretStore-first user lookup, Mongo fallback.
 // Same lazy-load pattern as authController (D.5-gamma).
@@ -18,18 +19,71 @@ async function getSecretStore() {
 }
 
 /**
+ * Derive compressed secp256k1 public key from a 64-char hex private key.
+ * Returns null on any error.
+ */
+function pubKeyFromPostingKey(hexKey) {
+  try {
+    const privBytes = Buffer.from(hexKey, 'hex');
+    if (privBytes.length !== 32) return null;
+    return Buffer.from(secp256k1.publicKeyCreate(privBytes, true)).toString('hex');
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Posting-key authentication — accepts Authorization: Bearer account:hex64key.
+ * The server derives the public key from the provided private key and compares
+ * it to the stored posting_public_key. No JWT needed on the client.
+ */
+async function authenticatePostingKey(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token || !token.includes(':')) return res.status(401).json({ error: 'Access denied.' });
+
+  const colon = token.indexOf(':');
+  const account = token.substring(0, colon).trim().toLowerCase();
+  const hexKey  = token.substring(colon + 1).trim();
+
+  if (!account || hexKey.length !== 64) return res.status(401).json({ error: 'Invalid posting key format.' });
+
+  const derivedPub = pubKeyFromPostingKey(hexKey);
+  if (!derivedPub) return res.status(401).json({ error: 'Invalid posting key.' });
+
+  try {
+    const ss = await getSecretStore();
+    const user = ss && typeof ss.getUser === 'function' ? ss.getUser(account) : null;
+    if (user && user.posting_public_key && user.posting_public_key === derivedPub) {
+      req.user = { id: user.user_id, username: account, email: user.email, is_active: true };
+      return next();
+    }
+  } catch (_) {}
+
+  return res.status(401).json({ error: 'Posting key does not match.' });
+}
+
+/**
  * Authentication Middleware — D.5-delta.
  *
- * Decodes JWT then resolves the user from secretStore first.
- * Falls back to Mongo for legacy installs. Normalises the user
- * object so req.user always has { id, username, email, ... }
- * regardless of which source answered.
+ * Accepts either a JWT Bearer token OR a posting-key token (account:hex64key).
+ * Posting key format is tried first when the token contains a colon and is 67+
+ * characters long (account + ":" + 64-char key). Falls back to JWT otherwise.
  */
 async function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
   if (!token) return res.status(401).json({ error: 'Access denied. No token provided.' });
+
+  // If token looks like account:hexkey, try posting key auth first
+  const colon = token.indexOf(':');
+  if (colon > 0 && token.length >= 67) {
+    const hexKey = token.substring(colon + 1).trim();
+    if (hexKey.length === 64 && /^[0-9a-f]+$/i.test(hexKey)) {
+      return authenticatePostingKey(req, res, next);
+    }
+  }
 
   let decoded;
   try {
@@ -106,4 +160,4 @@ async function authenticateToken(req, res, next) {
 const rateLimit = require('express-rate-limit');
 const limiter = rateLimit({ windowMs: 60 * 1000, max: 100 });
 
-module.exports = { authenticateToken, limiter };
+module.exports = { authenticateToken, authenticatePostingKey, limiter };

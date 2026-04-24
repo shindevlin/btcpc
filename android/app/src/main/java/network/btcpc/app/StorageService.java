@@ -78,11 +78,11 @@ public class StorageService extends Service {
             return START_NOT_STICKY;
         }
 
-        String account = prefs.getAccount();
-        String jwt     = prefs.getJwt();
+        String account    = prefs.getAccount();
+        String postingKey = prefs.getPostingKey();
         quotaBytes = (long) prefs.getStorageQuotaMb() * 1024 * 1024;
-        if (account.isEmpty() || jwt.isEmpty()) {
-            prefs.setStorageState("Not signed in — set account in Settings");
+        if (account.isEmpty() || postingKey.isEmpty()) {
+            prefs.setStorageState("Not signed in — set account + posting key in Settings");
             updateNotification("Not signed in");
             return START_NOT_STICKY;
         }
@@ -100,7 +100,7 @@ public class StorageService extends Service {
         }
 
         // Fetch initial blob assignments and schedule heartbeat
-        fetchAssignments(account, jwt);
+        fetchAssignments(account, account + ":" + postingKey);
         handler.postDelayed(heartbeatRunnable, HEARTBEAT_MS);
 
         return START_STICKY;
@@ -222,7 +222,7 @@ public class StorageService extends Service {
                 );
                 Request req = new Request.Builder()
                         .url(url)
-                        .addHeader("Authorization", "Bearer " + prefs.getJwt())
+                        .addHeader("Authorization", "Bearer " + prefs.getAccount() + ":" + prefs.getPostingKey())
                         .post(rb)
                         .build();
                 try (Response resp = httpClient.newCall(req).execute()) {

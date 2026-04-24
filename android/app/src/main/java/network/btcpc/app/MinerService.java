@@ -89,7 +89,6 @@ public class MinerService extends Service {
         }
 
         String account    = prefs.getAccount();
-        String jwt        = prefs.getJwt();
         String postingKey = prefs.getPostingKey();
         String apiBase    = prefs.getApiUrl();
         String modelId    = prefs.getMinerModel();
@@ -109,13 +108,13 @@ public class MinerService extends Service {
 
         new File(modelDir).mkdirs();
 
-        if (account.isEmpty() || jwt.isEmpty()) {
-            prefs.setMinerState("Not signed in — set account in Settings");
+        if (account.isEmpty() || postingKey.isEmpty()) {
+            prefs.setMinerState("Not signed in — set account + posting key in Settings");
             updateNotification("Not signed in");
             return START_NOT_STICKY;
         }
 
-        nativeStart(account, jwt, apiBase, modelId, modelDir, postingKey);
+        nativeStart(account, account + ":" + postingKey, apiBase, modelId, modelDir, postingKey);
         handler.post(statusPoller);
         return START_STICKY;
     }

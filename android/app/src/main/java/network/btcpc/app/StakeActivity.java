@@ -159,7 +159,7 @@ public class StakeActivity extends AppCompatActivity {
     }
 
     private void showStakeDialog(String roleId, String roleTitle, double minRequired) {
-        if (prefs.getAccount().isEmpty() || prefs.getJwt().isEmpty()) {
+        if (prefs.getAccount().isEmpty() || prefs.getPostingKey().isEmpty()) {
             Toast.makeText(this, "Sign in via the Wallet tab first", Toast.LENGTH_SHORT).show();
             return;
         }
@@ -211,7 +211,7 @@ public class StakeActivity extends AppCompatActivity {
                 dialog.getButton(AlertDialog.BUTTON_POSITIVE).setText("Staking…");
 
                 final double finalAmount = amount;
-                ChainApi.stake(roleId, finalAmount, prefs.getJwt(), prefs.getApiUrl(),
+                ChainApi.stake(roleId, finalAmount, prefs.getAccount() + ":" + prefs.getPostingKey(), prefs.getApiUrl(),
                         new ChainApi.StakeCallback() {
                     @Override public void onSuccess(double newAmount, String role) {
                         dialog.dismiss();
@@ -231,7 +231,7 @@ public class StakeActivity extends AppCompatActivity {
     }
 
     private void showSponsorDialog() {
-        if (prefs.getAccount().isEmpty() || prefs.getJwt().isEmpty()) {
+        if (prefs.getAccount().isEmpty() || prefs.getPostingKey().isEmpty()) {
             Toast.makeText(this, "Sign in via the Wallet tab first", Toast.LENGTH_SHORT).show();
             return;
         }
@@ -298,7 +298,7 @@ public class StakeActivity extends AppCompatActivity {
 
                 final double finalShare = sharePct;
                 ChainApi.sponsorStake(beneficiary, amount, sharePct,
-                        prefs.getJwt(), prefs.getApiUrl(),
+                        prefs.getAccount() + ":" + prefs.getPostingKey(), prefs.getApiUrl(),
                         new ChainApi.SponsorStakeCallback() {
                     @Override public void onSuccess(String ben, double amt, double pct) {
                         dialog.dismiss();

@@ -114,7 +114,7 @@ public class WalletFragment extends Fragment {
             startActivity(intent);
         });
 
-        if (prefs.getAccount().isEmpty() || prefs.getJwt().isEmpty()) {
+        if (prefs.getAccount().isEmpty() || prefs.getPostingKey().isEmpty()) {
             showLoginForm();
         } else {
             showWallet();
@@ -125,7 +125,7 @@ public class WalletFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        if (!prefs.getAccount().isEmpty() && !prefs.getJwt().isEmpty()) {
+        if (!prefs.getAccount().isEmpty() && !prefs.getPostingKey().isEmpty()) {
             showWallet();
             loadBalance();
         }
@@ -153,7 +153,7 @@ public class WalletFragment extends Fragment {
         @Override
         public void run() {
             if (!isAdded() || !polling) return;
-            if (!prefs.getAccount().isEmpty() && !prefs.getJwt().isEmpty()) {
+            if (!prefs.getAccount().isEmpty() && !prefs.getPostingKey().isEmpty()) {
                 loadBalance();
             }
             handler.postDelayed(this, BALANCE_POLL_MS);
@@ -221,10 +221,10 @@ public class WalletFragment extends Fragment {
 
     private void loadBalance() {
         String account = prefs.getAccount();
-        String jwt     = prefs.getJwt();
+        String postingKey = prefs.getPostingKey();
         String apiBase = prefs.getApiUrl();
 
-        if (account.isEmpty() || jwt.isEmpty()) {
+        if (account.isEmpty() || postingKey.isEmpty()) {
             swipeRefresh.setRefreshing(false);
             showLoginForm();
             return;
@@ -233,7 +233,7 @@ public class WalletFragment extends Fragment {
         swipeRefresh.setRefreshing(true);
         statusView.setText("");
 
-        ChainApi.fetchBalance(account, jwt, apiBase, new ChainApi.BalanceCallback() {
+        ChainApi.fetchBalance(account, account + ":" + postingKey, apiBase, new ChainApi.BalanceCallback() {
             @Override
             public void onSuccess(String username, String address,
                                   double btcpcBalance, double delegatedBalance) {
@@ -387,7 +387,7 @@ public class WalletFragment extends Fragment {
                 dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setEnabled(false);
                 dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setText("Delegating…");
 
-                ChainApi.delegate(miner, amount, prefs.getJwt(), prefs.getApiUrl(),
+                ChainApi.delegate(miner, amount, prefs.getAccount() + ":" + prefs.getPostingKey(), prefs.getApiUrl(),
                         new ChainApi.DelegateCallback() {
                     @Override public void onSuccess(double newAmount, String m) {
                         if (!isAdded()) return;

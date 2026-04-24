@@ -235,7 +235,7 @@ public class SettingsFragment extends Fragment {
             return;
         }
 
-        prefs.saveAll(prefs.getAccount(), prefs.getJwt(), postingKey, apiUrl, relayUrl, deviceName);
+        prefs.saveAll(prefs.getAccount(), "", postingKey, apiUrl, relayUrl, deviceName);
 
         saveStatus.setText("Saved. Add private Wi-Fi names below to keep GPS private at home or work.");
         saveStatus.setTextColor(0xFF22C55E);  // green

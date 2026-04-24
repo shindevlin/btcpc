@@ -944,9 +944,10 @@ public class LocalRelayService extends Service {
         conn.setRequestProperty("Content-Type", "application/json");
         conn.setRequestProperty("Accept", "application/json");
         conn.setRequestProperty("User-Agent", "BTCPC-Android-Relay/1.0");
-        String jwt = new AppPrefs(this).getJwt();
-        if (jwt != null && !jwt.isEmpty()) {
-            conn.setRequestProperty("Authorization", "Bearer " + jwt);
+        AppPrefs ap = new AppPrefs(this);
+        String pk = ap.getPostingKey();
+        if (!ap.getAccount().isEmpty() && !pk.isEmpty()) {
+            conn.setRequestProperty("Authorization", "Bearer " + ap.getAccount() + ":" + pk);
         }
         conn.setConnectTimeout(5_000);
         conn.setReadTimeout(10_000);

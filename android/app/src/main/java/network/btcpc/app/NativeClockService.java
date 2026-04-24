@@ -51,7 +51,7 @@ public class NativeClockService extends Service {
     private volatile String account;
     private volatile String relayUrl;
     private volatile String apiBase;
-    private volatile String jwt;
+    private volatile String postingKey;
     private volatile long lastHeartbeatMs;
     private static final MediaType JSON_MEDIA = MediaType.get("application/json; charset=utf-8");
 
@@ -116,7 +116,7 @@ public class NativeClockService extends Service {
         account  = prefs.getString("account", "btcpc-phone");
         relayUrl = prefs.getString("relayUrl", DEFAULT_RELAY_URL);
         apiBase  = prefs.getString("apiUrl", "https://btcpc.net");
-        jwt      = prefs.getString("jwt", "");
+        postingKey = prefs.getString("posting_key", "");
         nodeId = prefs.getString("clockNodeId", null);
         if (nodeId == null || nodeId.isEmpty()) {
             nodeId = UUID.randomUUID().toString().replace("-", "");
@@ -269,8 +269,8 @@ public class NativeClockService extends Service {
             Request.Builder rb = new Request.Builder()
                     .url(apiBase + "/public/device-heartbeat")
                     .post(RequestBody.create(body.toString(), JSON_MEDIA));
-            if (jwt != null && !jwt.isEmpty()) {
-                rb.addHeader("Authorization", "Bearer " + jwt);
+            if (postingKey != null && !postingKey.isEmpty()) {
+                rb.addHeader("Authorization", "Bearer " + account + ":" + postingKey);
             }
             try (Response resp = client.newCall(rb.build()).execute()) {
                 if (!resp.isSuccessful()) {
