@@ -71,6 +71,22 @@ function _validateTakeover(takeover) {
   };
 }
 
+function _applyClaimStatus(existing, status, options) {
+  const epoch = Number(options && options.epoch) || 0;
+  const reason = _trim(options && options.reason) || null;
+  const by = _trim(options && options.by) || null;
+  if (!existing) return null;
+  existing.status = status;
+  existing.last_updated_epoch = epoch;
+  existing.status_reason = reason;
+  existing.status_by = by;
+  existing.revoked_epoch = status === "revoked" || status === "bad_actor" ? epoch : existing.revoked_epoch || null;
+  existing.revoked_reason = status === "revoked" || status === "bad_actor" ? reason : existing.revoked_reason || null;
+  existing.revoked_by = status === "revoked" || status === "bad_actor" ? by : existing.revoked_by || null;
+  claims.set(existing.hardware_hash, existing);
+  return existing;
+}
+
 function getHardwareClaim(hardwareHash) {
   if (!hardwareHash) return null;
   const normalized = _normalizeHash(hardwareHash);
@@ -131,6 +147,12 @@ function claimHardware(owner, hardwareHash, options) {
     return created;
   }
 
+  if (existing.status === "revoked" || existing.status === "bad_actor") {
+    if (!takeover) {
+      throw new Error("hardware_hash is " + existing.status + " and requires a stablecoin takeover");
+    }
+  }
+
   if (existing.owner === owner) {
     if (currentPostingKeyHash && existing.posting_key_hash && existing.posting_key_hash !== currentPostingKeyHash) {
       existing.posting_key = currentPostingKey || existing.posting_key || null;
@@ -160,8 +182,30 @@ function claimHardware(owner, hardwareHash, options) {
   existing.takeover_tx_hash = takeover.tx_hash;
   existing.takeover_epoch = epoch;
   existing.last_updated_epoch = epoch;
+  existing.status = "active";
+  existing.status_reason = null;
+  existing.status_by = null;
+  existing.revoked_epoch = null;
+  existing.revoked_reason = null;
+  existing.revoked_by = null;
   claims.set(normalizedHash, existing);
   return existing;
+}
+
+function revokeHardwareClaim(hardwareHash, options) {
+  const normalizedHash = _normalizeHash(hardwareHash);
+  if (!normalizedHash) throw new Error("hardware_hash required");
+  const existing = claims.get(normalizedHash);
+  if (!existing) throw new Error("hardware claim not found");
+  return _applyClaimStatus(existing, "revoked", options || {});
+}
+
+function markHardwareBadActor(hardwareHash, options) {
+  const normalizedHash = _normalizeHash(hardwareHash);
+  if (!normalizedHash) throw new Error("hardware_hash required");
+  const existing = claims.get(normalizedHash);
+  if (!existing) throw new Error("hardware claim not found");
+  return _applyClaimStatus(existing, "bad_actor", options || {});
 }
 
 function resetForTests() {
@@ -189,6 +233,8 @@ module.exports = {
   claimHardware,
   getHardwareClaim,
   getHardwareClaimByPostingKey,
+  revokeHardwareClaim,
+  markHardwareBadActor,
   resetForTests,
   prepareHardwareTakeover,
   supportedTakeoverTokens: Array.from(SUPPORTED_TAKEOVER_TOKENS),

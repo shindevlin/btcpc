@@ -3013,6 +3013,8 @@ function applyEntry(entry) {
 
     case "HARDWARE_CLAIM":
     case "HARDWARE_TAKEOVER":
+    case "HARDWARE_REVOKE":
+    case "HARDWARE_BAD_ACTOR":
       if (entry.hardware_claim_data && entry.hardware_claim_data.hardware_hash) {
         var hcd = entry.hardware_claim_data;
         hardwareClaims.set(hcd.hardware_hash, {
@@ -3024,6 +3026,10 @@ function applyEntry(entry) {
           takeover_tx_hash: hcd.takeover_tx_hash || null,
           takeover_token: hcd.takeover_token || null,
           takeover_usd: hcd.takeover_usd || null,
+          revoked_by: hcd.revoked_by || null,
+          revoked_reason: hcd.revoked_reason || null,
+          bad_actor_by: hcd.bad_actor_by || null,
+          bad_actor_reason: hcd.bad_actor_reason || null,
           status: hcd.status || "active",
           last_updated_epoch: entry.epoch || 0,
         });

@@ -217,6 +217,18 @@ describe('ledger.recordHardwareClaim / recordHardwareTakeover', () => {
     expect(claim.takeover_token).toBe('USDC');
     expect(claim.takeover_usd).toBe(5);
   });
+
+  it('records hardware revocation and bad actor events in stateStore', () => {
+    ledger.recordHardwareClaim('shindevlin', 'c'.repeat(64), 'pkhash-1', 'serial_number', 'SN-2', 7);
+    ledger.recordHardwareRevoke('shindevlin', 'c'.repeat(64), 'owner revoked', 8);
+    const revoked = stateStore.getHardwareClaim('c'.repeat(64));
+    expect(revoked.status).toBe('revoked');
+    expect(revoked.revoked_reason).toBe('owner revoked');
+    ledger.recordHardwareBadActor('shindevlin', 'd'.repeat(64), 'bad actor', 9);
+    const badActor = stateStore.getHardwareClaim('d'.repeat(64));
+    expect(badActor.status).toBe('bad_actor');
+    expect(badActor.bad_actor_reason).toBe('bad actor');
+  });
 });
 
 describe('ledger.recordGatewayHeartbeat', () => {

@@ -118,6 +118,15 @@ function _clearSensorState(sensorId) {
   divergenceStrikes.delete(sensorId);
 }
 
+function _assertHardwareClaimUsable(record, label) {
+  if (!record || !record.hardware_hash) return;
+  var claim = hardwareClaims.getHardwareClaim(record.hardware_hash);
+  if (!claim) return;
+  if (claim.status === "revoked" || claim.status === "bad_actor") {
+    throw new Error(label + " hardware hash is " + claim.status + " and cannot be used");
+  }
+}
+
 function parseSensorId(sensorId) {
   if (typeof sensorId !== "string") {
     return { ok: false, error: "sensor_id must be a string" };
@@ -221,6 +230,10 @@ function registerSensor(owner, sensorId, spec, options) {
         sensorsByHardwareHash.delete(existing.hardware_hash);
       }
     }
+  }
+
+  if (existing && existing.hardware_hash) {
+    _assertHardwareClaimUsable(existing, "sensor");
   }
 
   if (existing) {
@@ -330,6 +343,7 @@ function submitReading(sensorId, value, metadata, epoch) {
   if (record.status === "retired") {
     throw new Error("cannot submit reading for a retired sensor");
   }
+  _assertHardwareClaimUsable(record, "sensor");
 
   var numeric = Number(value);
   if (!Number.isFinite(numeric)) {
@@ -785,6 +799,14 @@ function resetForTests() {
   witnessedByGateway.clear();
 }
 
+function revokeHardwareClaim(hardwareHash, options) {
+  return hardwareClaims.revokeHardwareClaim(hardwareHash, options || {});
+}
+
+function markHardwareBadActor(hardwareHash, options) {
+  return hardwareClaims.markHardwareBadActor(hardwareHash, options || {});
+}
+
 module.exports = {
   // Mutators
   registerSensor: registerSensor,
@@ -799,6 +821,8 @@ module.exports = {
   getReadingsForEpoch: getReadingsForEpoch,
   getFinalizedReading: getFinalizedReading,
   getSensorStats: getSensorStats,
+  revokeHardwareClaim: revokeHardwareClaim,
+  markHardwareBadActor: markHardwareBadActor,
   // Helpers
   parseSensorId: parseSensorId,
   _checkIdleTransition: _checkIdleTransition,

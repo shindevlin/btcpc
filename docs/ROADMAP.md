@@ -35,6 +35,7 @@ Roadmap policy:
 - [ ] Cloudflare webhook mode for bots (eliminate polling entirely)
 - [ ] Scrub git history to remove leaked .env / bot tokens
 - [ ] Hardware claim registry — bind device hardware hashes to posting keys, log paid takeovers in USDC/USDT/DAI, and add chain-level revoke/bad-actor events
+- [ ] Public testnet surface — replace localhost-first docs with `https://btcpc.net/testnet` and keep chain truth off local fallback paths
 
 ## Phase 1 — Multi-Miner
 

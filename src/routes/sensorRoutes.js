@@ -307,6 +307,76 @@ sensorsRouter.post('/:id/retire', authenticateToken, async (req, res) => {
 });
 
 /**
+ * POST /api/sensors/:id/revoke-hardware
+ * Revoke a sensor hardware claim so the hash cannot continue to act as a live sensor.
+ */
+sensorsRouter.post('/:id/revoke-hardware', authenticateToken, async (req, res) => {
+  try {
+    const owner = req.user && req.user.username;
+    if (!owner) return res.status(401).json({ error: 'unauthenticated' });
+
+    const sensorId = decodeId(req.params.id);
+    if (!sensorId) return res.status(400).json({ error: 'invalid sensor id encoding' });
+
+    const sensor = sensorRegistry.getSensor(sensorId);
+    if (!sensor) return res.status(404).json({ error: 'sensor not found' });
+    if (sensor.owner !== owner) return res.status(403).json({ error: 'only the owner can revoke this hardware claim' });
+    if (!sensor.hardware_hash) return res.status(422).json({ error: 'sensor has no hardware hash' });
+
+    const body = req.body || {};
+    const reason = sanitizeString(body.reason, 256) || 'owner requested revocation';
+    const epoch = await getCurrentEpoch();
+
+    try {
+      const claim = hardwareClaims.revokeHardwareClaim(sensor.hardware_hash, { owner, reason, epoch });
+      ledger.recordHardwareRevoke(owner, sensor.hardware_hash, reason, epoch);
+      return res.json({ success: true, hardware_claim: claim });
+    } catch (err) {
+      if (/not found/i.test(err.message)) return res.status(404).json({ error: err.message });
+      if (/only the owner/i.test(err.message)) return res.status(403).json({ error: err.message });
+      return res.status(422).json({ error: err.message });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/sensors/:id/bad-actor
+ * Mark a sensor hardware claim as bad actor so chain clients stop trusting it.
+ */
+sensorsRouter.post('/:id/bad-actor', authenticateToken, async (req, res) => {
+  try {
+    const owner = req.user && req.user.username;
+    if (!owner) return res.status(401).json({ error: 'unauthenticated' });
+
+    const sensorId = decodeId(req.params.id);
+    if (!sensorId) return res.status(400).json({ error: 'invalid sensor id encoding' });
+
+    const sensor = sensorRegistry.getSensor(sensorId);
+    if (!sensor) return res.status(404).json({ error: 'sensor not found' });
+    if (sensor.owner !== owner) return res.status(403).json({ error: 'only the owner can mark this hardware claim bad actor' });
+    if (!sensor.hardware_hash) return res.status(422).json({ error: 'sensor has no hardware hash' });
+
+    const body = req.body || {};
+    const reason = sanitizeString(body.reason, 256) || 'owner requested bad actor flag';
+    const epoch = await getCurrentEpoch();
+
+    try {
+      const claim = hardwareClaims.markHardwareBadActor(sensor.hardware_hash, { owner, reason, epoch });
+      ledger.recordHardwareBadActor(owner, sensor.hardware_hash, reason, epoch);
+      return res.json({ success: true, hardware_claim: claim });
+    } catch (err) {
+      if (/not found/i.test(err.message)) return res.status(404).json({ error: err.message });
+      if (/only the owner/i.test(err.message)) return res.status(403).json({ error: err.message });
+      return res.status(422).json({ error: err.message });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * POST /api/sensors/:id/finalize
  * Finalize epoch readings for a sensor: compute median, persist readings
  * as a blob in BTCPC-FS, and record SENSOR_DATA_COMMIT on chain.
@@ -575,6 +645,76 @@ gatewaysRouter.post('/:id/retire', authenticateToken, async (req, res) => {
     try {
       const record = gatewayRegistry.retireGateway(owner, gatewayId, epoch);
       return res.json({ success: true, gateway: record });
+    } catch (err) {
+      if (/not found/i.test(err.message)) return res.status(404).json({ error: err.message });
+      if (/only the owner/i.test(err.message)) return res.status(403).json({ error: err.message });
+      return res.status(422).json({ error: err.message });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/gateways/:id/revoke-hardware
+ * Revoke a gateway hardware claim so the hash cannot continue to relay as a live gateway.
+ */
+gatewaysRouter.post('/:id/revoke-hardware', authenticateToken, async (req, res) => {
+  try {
+    const owner = req.user && req.user.username;
+    if (!owner) return res.status(401).json({ error: 'unauthenticated' });
+
+    const gatewayId = decodeId(req.params.id);
+    if (!gatewayId) return res.status(400).json({ error: 'invalid gateway id encoding' });
+
+    const gateway = gatewayRegistry.getGateway(gatewayId);
+    if (!gateway) return res.status(404).json({ error: 'gateway not found' });
+    if (gateway.owner !== owner) return res.status(403).json({ error: 'only the owner can revoke this hardware claim' });
+    if (!gateway.hardware_hash) return res.status(422).json({ error: 'gateway has no hardware hash' });
+
+    const body = req.body || {};
+    const reason = sanitizeString(body.reason, 256) || 'owner requested revocation';
+    const epoch = await getCurrentEpoch();
+
+    try {
+      const claim = hardwareClaims.revokeHardwareClaim(gateway.hardware_hash, { owner, reason, epoch });
+      ledger.recordHardwareRevoke(owner, gateway.hardware_hash, reason, epoch);
+      return res.json({ success: true, hardware_claim: claim });
+    } catch (err) {
+      if (/not found/i.test(err.message)) return res.status(404).json({ error: err.message });
+      if (/only the owner/i.test(err.message)) return res.status(403).json({ error: err.message });
+      return res.status(422).json({ error: err.message });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/gateways/:id/bad-actor
+ * Mark a gateway hardware claim as bad actor so chain clients stop trusting it.
+ */
+gatewaysRouter.post('/:id/bad-actor', authenticateToken, async (req, res) => {
+  try {
+    const owner = req.user && req.user.username;
+    if (!owner) return res.status(401).json({ error: 'unauthenticated' });
+
+    const gatewayId = decodeId(req.params.id);
+    if (!gatewayId) return res.status(400).json({ error: 'invalid gateway id encoding' });
+
+    const gateway = gatewayRegistry.getGateway(gatewayId);
+    if (!gateway) return res.status(404).json({ error: 'gateway not found' });
+    if (gateway.owner !== owner) return res.status(403).json({ error: 'only the owner can mark this hardware claim bad actor' });
+    if (!gateway.hardware_hash) return res.status(422).json({ error: 'gateway has no hardware hash' });
+
+    const body = req.body || {};
+    const reason = sanitizeString(body.reason, 256) || 'owner requested bad actor flag';
+    const epoch = await getCurrentEpoch();
+
+    try {
+      const claim = hardwareClaims.markHardwareBadActor(gateway.hardware_hash, { owner, reason, epoch });
+      ledger.recordHardwareBadActor(owner, gateway.hardware_hash, reason, epoch);
+      return res.json({ success: true, hardware_claim: claim });
     } catch (err) {
       if (/not found/i.test(err.message)) return res.status(404).json({ error: err.message });
       if (/only the owner/i.test(err.message)) return res.status(403).json({ error: err.message });

@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BTCPC Testnet</title>
+    <meta
+      name="description"
+      content="Public BTCPC testnet entrypoint for wallets, nodes, sensors, and miners."
+    />
+    <meta property="og:title" content="BTCPC Testnet" />
+    <meta
+      property="og:description"
+      content="A public non-local entrypoint for BTCPC test nodes, wallets, and hardware roles."
+    />
+    <meta property="og:image" content="https://btcpc.net/btcpc-logo.jpeg" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #06080f;
+        --card: #111827;
+        --border: rgba(255,255,255,0.08);
+        --text: #e5eefb;
+        --muted: #8da0bb;
+        --accent: #f7931a;
+        --accent2: #22d3ee;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Inter, system-ui, -apple-system, sans-serif;
+        background:
+          radial-gradient(circle at top, rgba(247,147,26,0.12), transparent 36%),
+          radial-gradient(circle at 20% 20%, rgba(34,211,238,0.08), transparent 24%),
+          var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+      }
+      a { color: inherit; }
+      .wrap {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 40px 20px 64px;
+      }
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        border: 1px solid rgba(247,147,26,0.24);
+        border-radius: 999px;
+        color: var(--accent);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-size: 12px;
+        margin-bottom: 18px;
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(40px, 6vw, 72px);
+        line-height: 1.02;
+      }
+      h1 em {
+        font-style: normal;
+        color: var(--accent);
+      }
+      .lead {
+        max-width: 740px;
+        margin: 18px 0 28px;
+        color: var(--muted);
+        font-size: 18px;
+        line-height: 1.65;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+        margin-top: 28px;
+      }
+      .card {
+        background: rgba(17,24,39,0.78);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 20px;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.24);
+      }
+      .card h2 {
+        margin: 0 0 10px;
+        font-size: 18px;
+      }
+      .card p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+      code, pre {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      }
+      pre {
+        margin: 12px 0 0;
+        padding: 14px 16px;
+        border-radius: 16px;
+        background: rgba(0,0,0,0.32);
+        overflow-x: auto;
+        border: 1px solid rgba(255,255,255,0.06);
+        color: #d9e7ff;
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 24px;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 12px 18px;
+        border-radius: 12px;
+        text-decoration: none;
+        font-weight: 700;
+        border: 1px solid transparent;
+      }
+      .btn.primary {
+        background: var(--accent);
+        color: #000;
+      }
+      .btn.secondary {
+        border-color: var(--border);
+        color: var(--text);
+        background: rgba(255,255,255,0.03);
+      }
+      .note {
+        margin-top: 24px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+      @media (max-width: 760px) {
+        .grid { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="eyebrow">BTCPC Testnet</div>
+      <h1>A public <em>non-local</em> entrypoint for BTCPC.</h1>
+      <p class="lead">
+        This page is for test nodes, wallets, sensors, miners, and hardware owners.
+        It is intended to replace localhost-first setup flows with a public, shared
+        network surface.
+      </p>
+
+      <div class="actions">
+        <a class="btn primary" href="/">Home</a>
+        <a class="btn secondary" href="/tree/">BTCPC Tree</a>
+        <a class="btn secondary" href="/docs/">Docs</a>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>Public network</h2>
+          <p>Use routable BTCPC endpoints instead of local-only developer defaults.</p>
+          <pre>API: https://api.btcpc.net
+Wallet: https://btcpc.net
+Tree: https://btcpc.net/tree/</pre>
+        </div>
+        <div class="card">
+          <h2>What to test here</h2>
+          <p>Mining, clocks, sensors, gateways, hardware claims, and delegation policy.</p>
+          <pre>testnet > localhost
+chain truth > local fallback
+revocation > replay-safe</pre>
+        </div>
+        <div class="card">
+          <h2>Hardware claims</h2>
+          <p>Hardware hashes bind to posting keys and can be revoked or taken over on-chain.</p>
+          <pre>claim → verify payment → takeover
+revoke → bad actor → rebind</pre>
+        </div>
+        <div class="card">
+          <h2>Daily refresh</h2>
+          <p>The public tree and code views refresh from repository history on a daily schedule.</p>
+          <pre>/tree/ updates daily
+public docs stay publish-safe</pre>
+        </div>
+      </div>
+
+      <div class="note">
+        Gource-inspired motion, powered by BTCPC repo history.
+      </div>
+    </div>
+  </body>
+</html>

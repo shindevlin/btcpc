@@ -1988,6 +1988,50 @@ function recordHardwareTakeover(owner, hardwareHash, txHash, token, usdAmount, e
 }
 
 /**
+ * Record a hardware revocation on chain.
+ * Entry type: HARDWARE_REVOKE
+ */
+function recordHardwareRevoke(owner, hardwareHash, reason, epoch) {
+  if (!owner) throw new Error('owner required');
+  if (!hardwareHash) throw new Error('hardwareHash required');
+  const entry = _entry({
+    type: 'HARDWARE_REVOKE',
+    from: owner,
+    epoch: epoch || 0,
+    hardware_claim_data: {
+      hardware_hash: hardwareHash,
+      revoked_by: owner,
+      revoked_reason: reason || null,
+      owner: owner,
+      status: 'revoked',
+    },
+  });
+  return _persist(entry);
+}
+
+/**
+ * Record a hardware bad-actor event on chain.
+ * Entry type: HARDWARE_BAD_ACTOR
+ */
+function recordHardwareBadActor(owner, hardwareHash, reason, epoch) {
+  if (!owner) throw new Error('owner required');
+  if (!hardwareHash) throw new Error('hardwareHash required');
+  const entry = _entry({
+    type: 'HARDWARE_BAD_ACTOR',
+    from: owner,
+    epoch: epoch || 0,
+    hardware_claim_data: {
+      hardware_hash: hardwareHash,
+      bad_actor_by: owner,
+      bad_actor_reason: reason || null,
+      owner: owner,
+      status: 'bad_actor',
+    },
+  });
+  return _persist(entry);
+}
+
+/**
  * Record a gateway heartbeat on chain.
  * Entry type: GATEWAY_HEARTBEAT
  *
@@ -3475,6 +3519,8 @@ module.exports = {
   recordGatewayHeartbeat,
   recordHardwareClaim,
   recordHardwareTakeover,
+  recordHardwareRevoke,
+  recordHardwareBadActor,
   // Bridge (v2.16-alpha)
   recordBridgeWrap,
   recordBridgeUnwrap,

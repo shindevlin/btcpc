@@ -49,6 +49,15 @@ function _clearGatewayState(gatewayId) {
   gatewayStats.delete(gatewayId);
 }
 
+function _assertHardwareClaimUsable(record, label) {
+  if (!record || !record.hardware_hash) return;
+  var claim = hardwareClaims.getHardwareClaim(record.hardware_hash);
+  if (!claim) return;
+  if (claim.status === "revoked" || claim.status === "bad_actor") {
+    throw new Error(label + " hardware hash is " + claim.status + " and cannot be used");
+  }
+}
+
 function parseGatewayId(gatewayId) {
   if (typeof gatewayId !== "string") {
     return { ok: false, error: "gateway_id must be a string" };
@@ -150,6 +159,10 @@ function registerGateway(owner, gatewayId, spec, options) {
     }
   }
 
+  if (existing && existing.hardware_hash) {
+    _assertHardwareClaimUsable(existing, "gateway");
+  }
+
   if (existing) {
     record = existing;
     record.region = spec.region;
@@ -247,6 +260,7 @@ function heartbeat(gatewayId, stats, epoch) {
   if (record.status === "retired") {
     throw new Error("cannot send heartbeat for a retired gateway");
   }
+  _assertHardwareClaimUsable(record, "gateway");
 
   var ep = epoch || 0;
   stats = stats || {};
@@ -412,6 +426,14 @@ function resetForTests() {
   gatewayStats.clear();
 }
 
+function revokeHardwareClaim(hardwareHash, options) {
+  return hardwareClaims.revokeHardwareClaim(hardwareHash, options || {});
+}
+
+function markHardwareBadActor(hardwareHash, options) {
+  return hardwareClaims.markHardwareBadActor(hardwareHash, options || {});
+}
+
 module.exports = {
   // Mutators
   registerGateway: registerGateway,
@@ -425,6 +447,8 @@ module.exports = {
   getGatewayStats: getGatewayStats,
   // Security
   verifyGatewaySignature: verifyGatewaySignature,
+  revokeHardwareClaim: revokeHardwareClaim,
+  markHardwareBadActor: markHardwareBadActor,
   // Helpers
   parseGatewayId: parseGatewayId,
   _checkIdleTransition: _checkIdleTransition,

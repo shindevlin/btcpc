@@ -169,6 +169,21 @@ describe('loraGatewayRegistry — registration', () => {
     }))).toThrow(/hardware_hash already claimed/);
   });
 
+  it('blocks a revoked hardware hash from being used again without takeover', () => {
+    gr.registerGateway('shindevlin', 'shindevlin/helium-01', baseSpec({
+      hardware_hash: 'e'.repeat(64),
+      hardware_id_kind: 'serial_number',
+      hardware_id: 'GW-REV',
+    }));
+    gr.revokeHardwareClaim('e'.repeat(64), { owner: 'shindevlin', reason: 'test revoke', epoch: 2 });
+    expect(() => gr.heartbeat('shindevlin/helium-01', { packets_relayed_this_epoch: 1 }, 3)).toThrow(/revoked/);
+    expect(() => gr.registerGateway('shindevlin', 'shindevlin/helium-01', baseSpec({
+      hardware_hash: 'e'.repeat(64),
+      hardware_id_kind: 'serial_number',
+      hardware_id: 'GW-REV',
+    }))).toThrow(/revoked/);
+  });
+
   it('allows a retired gateway to come back fresh with the same hardware hash', () => {
     gr.registerGateway('shindevlin', 'shindevlin/helium-01', baseSpec());
     gr.retireGateway('shindevlin', 'shindevlin/helium-01');

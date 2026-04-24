@@ -152,6 +152,21 @@ describe('sensorRegistry — registration', () => {
     }), { epoch: 2 })).toThrow(/hardware_hash already claimed/);
   });
 
+  it('blocks a revoked hardware hash from being used again without takeover', () => {
+    sr.registerSensor('shindevlin', 'shindevlin/temp-01', baseSpec({
+      hardware_hash: 'e'.repeat(64),
+      hardware_id_kind: 'serial_number',
+      hardware_id: 'SN-REV',
+    }), { epoch: 1 });
+    sr.revokeHardwareClaim('e'.repeat(64), { owner: 'shindevlin', reason: 'test revoke', epoch: 2 });
+    expect(() => sr.submitReading('shindevlin/temp-01', 22.5, {}, 3)).toThrow(/revoked/);
+    expect(() => sr.registerSensor('shindevlin', 'shindevlin/temp-01', baseSpec({
+      hardware_hash: 'e'.repeat(64),
+      hardware_id_kind: 'serial_number',
+      hardware_id: 'SN-REV',
+    }), { epoch: 4 })).toThrow(/revoked/);
+  });
+
   it('rejects invalid sensor types', () => {
     expect(() => sr.registerSensor('shindevlin', 'shindevlin/temp-01', baseSpec({ type: 'volcano' }))).toThrow(/type/);
   });

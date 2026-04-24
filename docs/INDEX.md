@@ -2,18 +2,25 @@
 
 > Open `docs/` as an Obsidian vault. This file is the entry point. Every link below is wikilink-friendly — Obsidian will resolve them.
 
+> BTCPC's proof of compute is built from real work sources: AI inference, storage, sensors, service hosting, and clocks. These are not side features — they are the core work products the chain pays for.
+
 ## Architecture
 
-- [[BTCPC_WHITEPAPER]] — full whitepaper, 12 appendices, inscribed on Dream #0
+- [[BTCPC_WHITEPAPER]] — original whitepaper inscription on Dream #0; living docs continue to evolve; the latest whitepaper is re-inscribed natively on BTCPC every 10,000 epochs
 - [[TOKENOMICS]] — canonical economic model: 42M supply, No Burn All Recycle, fees, Area Pioneers
 - [[governance]] — sovereignty model, founder-irrelevance design
 - [[founders]] — what BTCPC is for and why
 - [[bots]] — Telegram bot architecture (`@btcpcbot`, `@btcpcwalletbot`)
+- [[ROLE_MATRIX]] — which BTCPC roles each device class can run, one process per role
+- [Visual Knowledge Map](knowledge-map.html) — clickable Obsidian-style overview of how BTCPC fits together
+- [[code-wiki/README]] — generated code wiki with the most useful graph pages
+- [[code-wiki/index]] — full community index from the code knowledge graph
 
 ## Implementation plan
 
 - [[PLAN_v2.10.1_to_v2.14]] — multi-phase plan covering commerce → BTCPC-FS → block-cap → service hosting → stateful compute
 - [[CLAUDE_HANDOFF_2026-04-08]] — session handoff for cleanup/test pass
+- [[PRIVATE_AUTH_FUTURE]] — staged private authorization future notes, chain comparison, and enablement checklist
 
 ## What's shipped (v2.13)
 
@@ -41,11 +48,10 @@
 
 ## Quick links
 
-- Run miner: `systemctl --user status btcpc-miner` or `node bin/btcpc-mine --miner shindevlin`
-- Mongo: `mongodb://root:example@localhost:27017/btcpc?authSource=admin`
-- Explorer: `localhost:4242`
-- P2P: `localhost:6942`
-- Multi-role supervisor: `node bin/btcpc-all` (with `BTCPC_ROLES=all`)
+- BTCPC Testnet: `https://btcpc.net/testnet`
+- BTCPC Tree: `https://btcpc.net/tree/`
+- Public website: `https://btcpc.net`
+- Multi-role supervisor: `node bin/btcpc-all` (for local/dev orchestration only)
 
 ## Specs
 

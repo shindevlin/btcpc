@@ -314,6 +314,37 @@ describe('sensor + gateway HTTP routes (v2.15-beta)', () => {
   });
 
   // ─────────────────────────────────────────────────────────────────
+  // POST /api/sensors/:id/revoke-hardware
+  // ─────────────────────────────────────────────────────────────────
+
+  describe('POST /api/sensors/:id/revoke-hardware', () => {
+    beforeEach(async () => {
+      await request(port, 'POST', '/api/sensors', {
+        name: 'temp1', type: 'temperature', unit: 'celsius', decimals: 2, region: 'us-east',
+        hardware_hash: 'e'.repeat(64),
+      }, 'alice');
+    });
+
+    it('revokes the hardware claim and blocks future readings', async () => {
+      const res = await request(
+        port, 'POST',
+        '/api/sensors/' + encodeURIComponent('alice/temp1') + '/revoke-hardware',
+        { reason: 'compromised device' }, 'alice'
+      );
+      expect(res.status).toBe(200);
+      expect(res.body.hardware_claim.status).toBe('revoked');
+
+      const retry = await request(
+        port, 'POST',
+        '/api/sensors/' + encodeURIComponent('alice/temp1') + '/readings',
+        { value: 22.5 }, 'alice'
+      );
+      expect(retry.status).toBe(422);
+      expect(retry.body.error).toMatch(/revoked/);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────
   // GET /api/sensors
   // ─────────────────────────────────────────────────────────────────
 
@@ -545,6 +576,37 @@ describe('sensor + gateway HTTP routes (v2.15-beta)', () => {
         {}, 'alice'
       );
       expect(res.status).toBe(404);
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────
+  // POST /api/gateways/:id/revoke-hardware
+  // ─────────────────────────────────────────────────────────────────
+
+  describe('POST /api/gateways/:id/revoke-hardware', () => {
+    beforeEach(async () => {
+      await request(port, 'POST', '/api/gateways', {
+        name: 'gw1', region: 'us-east', latitude: 40.7, longitude: -74.0,
+        hardware_hash: 'd'.repeat(64),
+      }, 'alice');
+    });
+
+    it('revokes the hardware claim and blocks future heartbeats', async () => {
+      const res = await request(
+        port, 'POST',
+        '/api/gateways/' + encodeURIComponent('alice/gw1') + '/revoke-hardware',
+        { reason: 'compromised gateway' }, 'alice'
+      );
+      expect(res.status).toBe(200);
+      expect(res.body.hardware_claim.status).toBe('revoked');
+
+      const retry = await request(
+        port, 'POST',
+        '/api/gateways/' + encodeURIComponent('alice/gw1') + '/heartbeat',
+        { packets_relayed_this_epoch: 1 }, 'alice'
+      );
+      expect(retry.status).toBe(422);
+      expect(retry.body.error).toMatch(/revoked/);
     });
   });
 

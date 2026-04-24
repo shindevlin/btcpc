@@ -20,7 +20,8 @@ Bind each device hardware hash to the owning account's posting key hash, and all
 2. Add a stablecoin receipt verifier for takeover payments.
 3. Mirror those entries in the state store so claim state survives replay.
 4. Expose the claim/takeover state in the sensor and gateway registries.
-5. Add tests for:
+5. Add chain-level revocation and bad-actor events that immediately block further use.
+6. Add tests for:
    - owner binding
    - duplicate claim rejection
    - paid takeover

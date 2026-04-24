@@ -57,6 +57,10 @@ const OPERATION_COSTS = {
   STORAGE_HEARTBEAT:       0,   // Free — infrastructure heartbeat, no stake required
   SENSOR_READING:          0,   // Free — sensor data submission
   GATEWAY_HEARTBEAT:       0,   // Free — IoT gateway heartbeat
+  HARDWARE_CLAIM:          0,
+  HARDWARE_TAKEOVER:       0,
+  HARDWARE_REVOKE:         0,
+  HARDWARE_BAD_ACTOR:      0,
   _DEFAULT:           5,
 };
 
