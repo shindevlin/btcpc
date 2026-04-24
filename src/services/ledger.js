@@ -1942,6 +1942,52 @@ function recordGatewayRegister(owner, gatewayId, spec, epoch) {
 }
 
 /**
+ * Record a hardware claim on chain.
+ * Entry type: HARDWARE_CLAIM
+ */
+function recordHardwareClaim(owner, hardwareHash, postingKeyHash, hardwareIdKind, hardwareId, epoch) {
+  if (!owner) throw new Error('owner required');
+  if (!hardwareHash) throw new Error('hardwareHash required');
+  const entry = _entry({
+    type: 'HARDWARE_CLAIM',
+    from: owner,
+    epoch: epoch || 0,
+    hardware_claim_data: {
+      hardware_hash: hardwareHash,
+      posting_key_hash: postingKeyHash || null,
+      hardware_id_kind: hardwareIdKind || null,
+      hardware_id: hardwareId || null,
+      owner: owner,
+      status: 'active',
+    },
+  });
+  return _persist(entry);
+}
+
+/**
+ * Record a hardware takeover on chain.
+ * Entry type: HARDWARE_TAKEOVER
+ */
+function recordHardwareTakeover(owner, hardwareHash, txHash, token, usdAmount, epoch) {
+  if (!owner) throw new Error('owner required');
+  if (!hardwareHash) throw new Error('hardwareHash required');
+  const entry = _entry({
+    type: 'HARDWARE_TAKEOVER',
+    from: owner,
+    epoch: epoch || 0,
+    hardware_claim_data: {
+      hardware_hash: hardwareHash,
+      takeover_tx_hash: txHash || null,
+      takeover_token: token || null,
+      takeover_usd: usdAmount !== undefined ? Number(usdAmount) : null,
+      owner: owner,
+      status: 'active',
+    },
+  });
+  return _persist(entry);
+}
+
+/**
  * Record a gateway heartbeat on chain.
  * Entry type: GATEWAY_HEARTBEAT
  *
@@ -3427,6 +3473,8 @@ module.exports = {
   recordSensorDataCommit,
   recordGatewayRegister,
   recordGatewayHeartbeat,
+  recordHardwareClaim,
+  recordHardwareTakeover,
   // Bridge (v2.16-alpha)
   recordBridgeWrap,
   recordBridgeUnwrap,

@@ -254,6 +254,8 @@ var gatewayHeartbeats = new Map();
 // hardware_hash → sensor_id / gateway_id (active lifecycle only)
 var sensorHardwareHashes = new Map();
 var gatewayHardwareHashes = new Map();
+// hardware_hash → claim record
+var hardwareClaims = new Map();
 
 // witnessMap: "<sensorId>|<epoch>" → Set of relay_account strings
 // Tracks unique relay nodes that submitted a reading for a given sensor+epoch.
@@ -3009,6 +3011,25 @@ function applyEntry(entry) {
       }
       break;
 
+    case "HARDWARE_CLAIM":
+    case "HARDWARE_TAKEOVER":
+      if (entry.hardware_claim_data && entry.hardware_claim_data.hardware_hash) {
+        var hcd = entry.hardware_claim_data;
+        hardwareClaims.set(hcd.hardware_hash, {
+          hardware_hash: hcd.hardware_hash,
+          owner: hcd.owner || from || null,
+          posting_key_hash: hcd.posting_key_hash || null,
+          hardware_id_kind: hcd.hardware_id_kind || null,
+          hardware_id: hcd.hardware_id || null,
+          takeover_tx_hash: hcd.takeover_tx_hash || null,
+          takeover_token: hcd.takeover_token || null,
+          takeover_usd: hcd.takeover_usd || null,
+          status: hcd.status || "active",
+          last_updated_epoch: entry.epoch || 0,
+        });
+      }
+      break;
+
     case "DEVICE_REVOKE":
       // Remove a device key authorization.
       if (entry.device_data && entry.device_data.device_pubkey) {
@@ -5194,6 +5215,7 @@ function resetAll() {
   gatewayHeartbeats.clear();
   sensorHardwareHashes.clear();
   gatewayHardwareHashes.clear();
+  hardwareClaims.clear();
   bridgeWraps.clear();
   bridgeUnwraps.clear();
   bridgeFunders.clear();
@@ -5379,6 +5401,9 @@ module.exports = {
   getSensorReadings: getSensorReadings,
   getGateway: getGateway,
   getGatewayByHardwareHash: getGatewayByHardwareHash,
+  getHardwareClaim: function (hardwareHash) {
+    return hardwareClaims.get(String(hardwareHash || "").toLowerCase()) || null;
+  },
   getAllGateways: getAllGateways,
   getGatewaysForEpoch: getGatewaysForEpoch,
   // Bridge (v2.16-alpha)

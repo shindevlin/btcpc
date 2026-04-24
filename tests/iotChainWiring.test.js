@@ -198,6 +198,27 @@ describe('ledger.recordGatewayRegister', () => {
   });
 });
 
+describe('ledger.recordHardwareClaim / recordHardwareTakeover', () => {
+  it('records a hardware claim and mirrors it in stateStore', () => {
+    const entry = ledger.recordHardwareClaim('shindevlin', 'a'.repeat(64), 'pkhash-1', 'device_mac', 'aa:bb', 7);
+    expect(entry.type).toBe('HARDWARE_CLAIM');
+    expect(entry.hardware_claim_data.hardware_hash).toBe('a'.repeat(64));
+    const claim = stateStore.getHardwareClaim('a'.repeat(64));
+    expect(claim.owner).toBe('shindevlin');
+    expect(claim.posting_key_hash).toBe('pkhash-1');
+  });
+
+  it('records a hardware takeover and mirrors the new owner', () => {
+    ledger.recordHardwareClaim('shindevlin', 'b'.repeat(64), 'pkhash-1', 'serial_number', 'SN-1', 7);
+    const takeover = ledger.recordHardwareTakeover('alice', 'b'.repeat(64), 'tx-123', 'USDC', 5, 8);
+    expect(takeover.type).toBe('HARDWARE_TAKEOVER');
+    const claim = stateStore.getHardwareClaim('b'.repeat(64));
+    expect(claim.owner).toBe('alice');
+    expect(claim.takeover_token).toBe('USDC');
+    expect(claim.takeover_usd).toBe(5);
+  });
+});
+
 describe('ledger.recordGatewayHeartbeat', () => {
   it('creates a GATEWAY_HEARTBEAT entry', () => {
     const entry = ledger.recordGatewayHeartbeat(

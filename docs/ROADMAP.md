@@ -34,6 +34,7 @@ Roadmap policy:
 - [ ] Systemd services for bots (auto-restart, no zombies)
 - [ ] Cloudflare webhook mode for bots (eliminate polling entirely)
 - [ ] Scrub git history to remove leaked .env / bot tokens
+- [ ] Hardware claim registry — bind device hardware hashes to posting keys, log paid takeovers in USDC/USDT/DAI, and add chain-level revoke/bad-actor events
 
 ## Phase 1 — Multi-Miner
 
