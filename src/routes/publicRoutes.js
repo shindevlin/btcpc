@@ -15,7 +15,8 @@ const rateLimit = require('express-rate-limit');
 const {
   rejectObjectInputs, sanitizeString, validAccountName,
 } = require('../middlewares/validate');
-const { createAccountForUser } = require('../services/accountCreation');
+const { createAccountForUser, validateNewUsername, accountExists } = require('../services/accountCreation');
+const { getDeveloperAccessPolicy } = require('../chain/testnetRewardEngine');
 
 // In-memory tracker of active browser-clock heartbeats.
 // Map<clientId, { account, lastHeartbeat, ip }>
@@ -396,6 +397,7 @@ router.get('/testnet/rewards', async (req, res) => {
       blockReward,
       testnetNodes,
       stateStore,
+      previewOnly: true,
     });
 
     res.json({
@@ -412,6 +414,34 @@ router.get('/testnet/rewards', async (req, res) => {
         reward_source: r.reward_source || null,
         type: r.type || 'MINING_REWARD',
       })),
+      timestamp: Date.now(),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /testnet/access — public summary of BTCPCTEST developer access policy.
+ * Does not expose usernames.
+ */
+router.get('/testnet/access', async (req, res) => {
+  try {
+    const stateStore = require('../chain/stateStore');
+    const policy = getDeveloperAccessPolicy(
+      stateStore,
+      null,
+      false
+    );
+
+    res.json({
+      network: 'btcpctest',
+      developer_access_enabled: policy.enabled,
+      developer_access_source: policy.source,
+      developer_access_allowlist_count: policy.allowAll ? (policy.allowlist.length || 0) : policy.allowlist.length,
+      developer_access_allow_all: !!policy.allowAll,
+      developer_access_username_scoped: true,
+      report_only_default: !policy.enabled,
       timestamp: Date.now(),
     });
   } catch (err) {
@@ -802,6 +832,45 @@ router.post('/signup', publicSignupLimiter, async (req, res) => {
     });
   } catch (err) {
     res.status(err.statusCode || 500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /public/username-availability?username=...
+ * Returns whether a BTCPC username is valid and available.
+ */
+router.get('/username-availability', async (req, res) => {
+  try {
+    const username = sanitizeString(req.query && req.query.username, 20);
+    const validation = validateNewUsername(username);
+    if (!validation.ok) {
+      return res.status(400).json({
+        success: false,
+        available: false,
+        username: username || '',
+        valid: false,
+        reason: validation.error,
+      });
+    }
+    const taken = await accountExists(validation.username);
+    const suggestions = taken
+      ? [
+          validation.username + '-1',
+          validation.username + '-btcpc',
+          validation.username + '01',
+        ].filter((name) => validateNewUsername(name).ok)
+      : [];
+    res.json({
+      success: true,
+      username: validation.username,
+      valid: true,
+      available: !taken,
+      taken,
+      suggestions,
+      reason: taken ? 'That username is already on chain.' : null,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

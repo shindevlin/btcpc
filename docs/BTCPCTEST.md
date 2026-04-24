@@ -47,3 +47,4 @@ By default, the public testnet is report-only:
 Developer access can turn real work back on for testing purposes, but only for allowlisted usernames.
 
 Live public preview: `/public/testnet/rewards`
+Allowlist status: `/public/testnet/access`

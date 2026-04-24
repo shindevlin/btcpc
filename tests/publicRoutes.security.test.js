@@ -18,6 +18,10 @@ const mockGetAccount = jest.fn((username) => ({
   p2p_address: "ws://10.0.0.1:6942",
 }));
 const mockGetChainHeight = jest.fn(() => 123);
+const mockGetNetworkPolicy = jest.fn(() => ({
+  btcpctestDeveloperEnabled: true,
+  btcpctestDeveloperAllowlist: ["alice", "bob"],
+}));
 
 jest.mock("express-rate-limit", () => () => (req, res, next) => next());
 
@@ -28,6 +32,7 @@ jest.mock("../src/chain/stateStore", () => ({
   getAccount: (...args) => mockGetAccount(...args),
   getAllAccounts: () => mockGetAllAccounts(),
   getChainHeight: () => mockGetChainHeight(),
+  getNetworkPolicy: () => mockGetNetworkPolicy(),
 }));
 
 jest.mock("../src/p2p/protocol", () => ({
@@ -239,5 +244,33 @@ describe("public testnet rewards", () => {
     expect(res.body.summary.btcpctest_nodes).toBeGreaterThanOrEqual(0);
     expect(res.body.summary.work_mode).toBe("report_only");
     expect(res.body.summary.developer_access_required).toBe(true);
+  });
+});
+
+describe("public testnet access policy", () => {
+  let testServer;
+  let port;
+
+  beforeAll(async () => {
+    const s = await makeTestServer();
+    testServer = s.server;
+    port = s.port;
+  });
+
+  afterAll(async () => {
+    if (testServer) await closeServer(testServer);
+  });
+
+  test("exposes allowlist status without usernames", async () => {
+    const res = await request(port, "GET", "/public/testnet/access");
+    expect(res.status).toBe(200);
+    expect(res.body.network).toBe("btcpctest");
+    expect(res.body.developer_access_enabled).toBe(true);
+    expect(res.body.developer_access_source).toBe("policy");
+    expect(res.body.developer_access_allowlist_count).toBe(2);
+    expect(res.body.developer_access_allow_all).toBe(false);
+    expect(res.body.developer_access_username_scoped).toBe(true);
+    expect(res.body).not.toHaveProperty("allowlist");
+    expect(res.body).not.toHaveProperty("usernames");
   });
 });

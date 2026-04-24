@@ -163,6 +163,7 @@ function computeTestnetRewards(input) {
     testnetNodes = null,
     developerAccess = false,
     developerAccessUsers = null,
+    previewOnly = false,
   } = input || {};
 
   let stateStore = null;
@@ -172,7 +173,14 @@ function computeTestnetRewards(input) {
   const rewards = [];
   let recycled = 0;
 
-  const policy = getDeveloperAccessPolicy(stateStore, developerAccessUsers, developerAccess);
+  const policy = previewOnly
+    ? {
+        enabled: false,
+        allowlist: [],
+        allowAll: false,
+        source: "preview",
+      }
+    : getDeveloperAccessPolicy(stateStore, developerAccessUsers, developerAccess);
   const reportOnlyNodes = uniqueByAccount(nodes);
 
   const pools = [
