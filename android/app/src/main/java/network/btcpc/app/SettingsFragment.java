@@ -3,6 +3,7 @@ package network.btcpc.app;
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
@@ -18,7 +19,10 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.TextView;
+
+import androidx.appcompat.app.AlertDialog;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -171,6 +175,9 @@ public class SettingsFragment extends Fragment {
         deviceNameInput.setText(prefs.getDeviceName());
 
         saveBtn.setOnClickListener(v -> saveSettings());
+
+        view.findViewById(R.id.settings_backup_qr_btn).setOnClickListener(v -> showBackupQr());
+        view.findViewById(R.id.settings_restore_btn).setOnClickListener(v -> showRestoreDialog());
 
         refreshTrustedWifiUi();
         refreshServiceStatuses();
@@ -442,5 +449,68 @@ public class SettingsFragment extends Fragment {
     private static boolean isError(String s) {
         String lower = s.toLowerCase();
         return lower.contains("error") || lower.contains("failed") || lower.contains("unavailable");
+    }
+
+    // ---- backup / restore ----
+
+    private void showBackupQr() {
+        if (!isAdded()) return;
+        String account = prefs.getAccount();
+        String postingKey = prefs.getPostingKey();
+        if (account.isEmpty() || postingKey.isEmpty()) {
+            saveStatus.setText("Sign in and save your posting key first");
+            saveStatus.setTextColor(0xFFEF4444);
+            handler.postDelayed(() -> { if (isAdded()) saveStatus.setText(""); }, 3000);
+            return;
+        }
+        int sizePx = (int) (280 * getResources().getDisplayMetrics().density);
+        Bitmap qr = WalletBackupHelper.generateQr(account, postingKey, sizePx);
+        if (qr == null) {
+            saveStatus.setText("Failed to generate QR");
+            saveStatus.setTextColor(0xFFEF4444);
+            return;
+        }
+        android.view.View dialogView = LayoutInflater.from(requireContext())
+                .inflate(R.layout.dialog_backup_qr, null, false);
+        ImageView qrView = dialogView.findViewById(R.id.backup_qr_image);
+        TextView labelView = dialogView.findViewById(R.id.backup_qr_label);
+        qrView.setImageBitmap(qr);
+        labelView.setText("Screenshot this QR. On a new phone: Settings → Restore Wallet → scan or paste.");
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Wallet Backup QR")
+                .setView(dialogView)
+                .setPositiveButton("Done", null)
+                .show();
+    }
+
+    private void showRestoreDialog() {
+        if (!isAdded()) return;
+        android.view.View dialogView = LayoutInflater.from(requireContext())
+                .inflate(R.layout.dialog_restore_wallet, null, false);
+        EditText input = dialogView.findViewById(R.id.restore_input);
+        new AlertDialog.Builder(requireContext())
+                .setTitle("Restore Wallet")
+                .setMessage("Paste your backup code (account:postingKey) from a screenshot or note.")
+                .setView(dialogView)
+                .setPositiveButton("Restore", (dialog, which) -> {
+                    String raw = input.getText() != null ? input.getText().toString().trim() : "";
+                    String[] parts = WalletBackupHelper.parsePayload(raw);
+                    if (parts == null || parts[1].length() != 64) {
+                        saveStatus.setText("Invalid backup code. Format: account:64hexkey");
+                        saveStatus.setTextColor(0xFFEF4444);
+                        handler.postDelayed(() -> { if (isAdded()) saveStatus.setText(""); }, 4000);
+                        return;
+                    }
+                    prefs.setAccount(parts[0]);
+                    prefs.setPostingKey(parts[1]);
+                    accountLabel.setText("Signed in as " + parts[0]);
+                    signOutBtn.setVisibility(android.view.View.VISIBLE);
+                    postingKeyInput.setText(parts[1]);
+                    saveStatus.setText("Wallet restored for " + parts[0]);
+                    saveStatus.setTextColor(0xFF22C55E);
+                    handler.postDelayed(() -> { if (isAdded()) saveStatus.setText(""); }, 3000);
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 }
