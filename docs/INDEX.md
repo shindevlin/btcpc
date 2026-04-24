@@ -8,6 +8,7 @@
 
 - [[BTCPC_WHITEPAPER]] — original whitepaper inscription on Dream #0; living docs continue to evolve; the latest whitepaper is re-inscribed natively on BTCPC every 10,000 epochs
 - [[TOKENOMICS]] — canonical economic model: 42M supply, No Burn All Recycle, fees, Area Pioneers
+- [[BTCPCTEST]] — separate BTCPC testnet chain and token, report-only by default, with BTCPC side bonuses for participation
 - [[governance]] — sovereignty model, founder-irrelevance design
 - [[founders]] — what BTCPC is for and why
 - [[bots]] — Telegram bot architecture (`@btcpcbot`, `@btcpcwalletbot`)
@@ -18,6 +19,9 @@
 
 ## Implementation plan
 
+- [[CHAIN_TRUTH_IMPLEMENTATION_PLAN]] — chain truth, P2P hygiene, two-node deterministic height, and storage segregation
+- [[START_FIRST_ROLLOUT_PLAN]] — `/start`, guided onboarding, controller UX, and legal surfaces
+- [[VERSION_NOTES]] — public surface version log for onboarding and legal updates
 - [[PLAN_v2.10.1_to_v2.14]] — multi-phase plan covering commerce → BTCPC-FS → block-cap → service hosting → stateful compute
 - [[CLAUDE_HANDOFF_2026-04-08]] — session handoff for cleanup/test pass
 - [[PRIVATE_AUTH_FUTURE]] — staged private authorization future notes, chain comparison, and enablement checklist
@@ -52,6 +56,7 @@
 - BTCPC Tree: `https://btcpc.net/tree/`
 - Public website: `https://btcpc.net`
 - Multi-role supervisor: `node bin/btcpc-all` (for local/dev orchestration only)
+- Go Live Checklist: [[GO_LIVE_CHECKLIST]]
 
 ## Specs
 

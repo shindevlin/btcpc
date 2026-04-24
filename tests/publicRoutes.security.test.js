@@ -237,5 +237,7 @@ describe("public testnet rewards", () => {
     expect(res.body.bonus_token).toBe("BTCPC");
     expect(typeof res.body.summary).toBe("object");
     expect(res.body.summary.btcpctest_nodes).toBeGreaterThanOrEqual(0);
+    expect(res.body.summary.work_mode).toBe("report_only");
+    expect(res.body.summary.developer_access_required).toBe(true);
   });
 });

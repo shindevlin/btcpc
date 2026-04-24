@@ -362,22 +362,24 @@ Every sub-token would:
 
 **Reward rule**
 
-- Contributors to the public testnet earn the full `BTCPCTEST` reward amount on the testnet chain.
+- Contributors to the public testnet earn the same role-based allotment they would receive on BTCPC mainnet, but denominated in `BTCPCTEST` on the testnet chain.
 - They also earn a small BTCPC bonus for helping keep the testnet alive.
 - If no qualifying testnet nodes are online, the testnet rewards recycle back into the testnet recycle account.
-- Rewards are equal-split across qualifying nodes that have recently announced or heartbeated on-chain.
+- Rewards are split across qualifying nodes by reported role presence.
 
 **Eligibility**
 
 - The node account must declare `node_types` including `btcpctest` or `testnet` for compatibility.
 - The node must have a recent on-chain announce or heartbeat.
 - The reward split is chain-aware: BTCPCTEST is the native testnet asset, BTCPC is the small side bonus.
+- Public testnet is report-only by default: clocks keep time, nodes report role presence, and real inference/storage work stays off unless developer access is enabled.
 
 **Why this exists**
 
 - Public testnet participation is flaky by nature, so the network needs a live incentive to keep multiple devices online.
 - A separate testnet token keeps the public surface honest without confusing it with BTCPC mainnet rewards.
 - The chain can be reset, replumbed, and stress-tested without touching mainnet economics.
+- Making the testnet report-only by default keeps the public chain lightweight while preserving the same reward shape.
 
 ---
 
