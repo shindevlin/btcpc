@@ -10,6 +10,7 @@
 
 const { Client, PrivateKey } = require("@hiveio/dhive");
 const mongoose = require("mongoose");
+const { assertEpochFinalized } = require("../services/crossChainFinalityConsumer");
 
 // ---------------------------------------------------------------------------
 // Hive client setup
@@ -109,6 +110,8 @@ const HiveClaim = mongoose.model("HiveClaim", hiveClaimSchema);
  * @returns {Object} Result with tx_id and status
  */
 async function postClaimToHive(proof, hiveAccount, hivePostingKey) {
+  assertEpochFinalized("hive", proof.epoch);
+
   // Check for duplicate claim
   const existing = await HiveClaim.findOne({
     miner: proof.miner,

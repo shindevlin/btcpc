@@ -22,6 +22,7 @@
 const crypto   = require("crypto");
 const ethers   = require("ethers");
 const { getCurrentPeriod } = require("../services/emissionSchedule");
+const { assertEpochFinalized } = require("../services/crossChainFinalityConsumer");
 
 /**
  * Cross-chain decay ratio for a given epoch.
@@ -53,6 +54,9 @@ function generateClaimProof({ btcpcAccount, chain, targetWallet, amount, nonce, 
   if (!targetWallet)  throw new Error("targetWallet required");
   if (!nonce)         throw new Error("nonce required");
   if (!oraclePrivKey) throw new Error("oraclePrivKey required");
+  if (chain && epoch != null) {
+    assertEpochFinalized(chain, epoch);
+  }
 
   const chainIds = {
     ethereum:  1,

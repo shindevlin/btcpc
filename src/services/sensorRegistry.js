@@ -151,10 +151,7 @@ function registerSensor(owner, sensorId, spec, options) {
       throw new Error("only the original owner can update this sensor");
     }
     if (existing.status === "retired") {
-      // Allow owner to reactivate a retired sensor by re-registering it
-      existing.status = "active";
-      existing.retired = false;
-      existing.retired_epoch = null;
+      throw new Error("cannot update a retired sensor");
     }
     record = existing;
     record.type = spec.type;

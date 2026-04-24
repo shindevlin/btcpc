@@ -1,13 +1,19 @@
 # BTCPC Roadmap
 
+Roadmap policy:
+- This roadmap must be updated whenever scope or implementation meaningfully changes.
+- Version roadmap updates alongside the code they describe, so the public plan and the repo stay in sync.
+- Treat roadmap entries as living release commitments, not static notes.
+
 ## Phase 0 — Genesis (current)
 
 - [x] Sovereign chain with 42M supply, 10 decimal precision
 - [x] BIP-39 mnemonic wallets with multi-chain derivation (7 chains)
-- [x] Proof of Useful Work mining (GPU + CPU)
+- [x] Proof of Useful Work mining built around real inference, storage, sensors, service hosting, and clock timing
 - [x] P2P inference routing (async submit/poll)
 - [x] Dynamic pricing (tokens × verified param count)
 - [x] Verified reward splitting by actual parameter count
+- [x] Storage and sensor reward rails as first-class work inputs, not side features
 - [x] RAG — context documents with inference requests
 - [x] MCP — user-specified tool servers, saved to profile
 - [x] Telegram bots (thin HTTP clients via bot API)
@@ -35,6 +41,7 @@
 - [ ] Work proof mempool — gossip proofs for block validation
 - [ ] Variable block size (1 to thousands of proofs per epoch)
 - [ ] Cross-chain signatures — accept ETH/Solana/TON keys as BTCPC auth
+- [ ] Expand proof-of-work sources so storage, sensors, and hosting continue to scale as core work pools
 - [ ] Cascading bid system (escalate when initial bid rejected)
 - [ ] Model auto-download on demand broadcast
 - [ ] Streaming inference (/v1/chat/completions SSE)
@@ -45,6 +52,7 @@
 - [ ] Proof of life: detect signed transactions from BTCPC-linked wallets
 - [ ] Cross-chain reputation scoring (active wallets = higher trust)
 - [ ] wBTCPC ERC-20 deployment on Base
+- [ ] Bridge narrative keeps BTCPC work sources front and center: inference, storage, sensors, hosting
 - [ ] Bridge signer (shindevlin → multisig transition)
 - [ ] Bridge transaction detection via chain watcher
 - [ ] wBTCPC/USDC liquidity pool on Base DEX
@@ -61,6 +69,7 @@
 - [ ] Encrypted inference with client-side decryption
 - [ ] Private authorization stack — BTCPC spends approved by Bitcoin, Lightning, zkVM, or other supported chains
   - Implementation plan: [docs/PRIVATE_AUTH_IMPLEMENTATION_PLAN.md](PRIVATE_AUTH_IMPLEMENTATION_PLAN.md)
+  - Future notes: [docs/PRIVATE_AUTH_FUTURE.md](PRIVATE_AUTH_FUTURE.md)
 - [ ] BTCPC-native ZK verifier backend for private authorization receipts
 
 ## Phase 4 — Maturity

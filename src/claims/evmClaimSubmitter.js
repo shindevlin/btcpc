@@ -22,6 +22,7 @@ var https = require("https");
 var http = require("http");
 var { keccak256 } = require("js-sha3");
 var secp256k1 = require("secp256k1");
+var { isEpochFinalized } = require("../services/crossChainFinalityConsumer");
 
 // Phase E: CrossChainClaim Mongoose model removed.
 // In-memory claim store: "miner|chain|epoch" → claim object
@@ -256,6 +257,14 @@ async function submitAllClaims(miner, epoch, amount, linkedChains, signingKey) {
     var wallet = linkedChains[chain] || linkedChains.evm;
     if (!wallet) continue;
     if (!CHAINS[chain].contract) continue;
+    if (!isEpochFinalized(chain, epoch)) {
+      results.push({
+        chain: chain,
+        status: "skipped_unfinalized",
+        epoch: epoch
+      });
+      continue;
+    }
 
     try {
       var proof = generateClaimProof(miner, epoch, amount, chain, wallet, signingKey);
