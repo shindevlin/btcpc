@@ -769,8 +769,8 @@
         if (playing) {
           const visibleCount = files.reduce((count, node) => count + (node.ts <= currentTs ? 1 : 0), 0);
           const density = visibleCount / totalFiles;
-          const slowFactor = Math.max(0.08, Math.pow(1 - density, 1.8));
-          const delta = 0.0005 * speed * slowFactor * (now - (tick.last || now));
+          const slowFactor = Math.max(0.015, Math.pow(1 - density, 2.35));
+          const delta = 0.00018 * speed * slowFactor * (now - (tick.last || now));
           const next = Math.min(maxTs, currentTs + delta * (maxTs - minTs));
           currentTs = next;
           timeEl.value = String(Math.floor(currentTs));
