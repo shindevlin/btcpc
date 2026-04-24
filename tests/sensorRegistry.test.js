@@ -62,6 +62,18 @@ describe('sensorRegistry — registration', () => {
     expect(rec.lora_gateway).toBe('shindevlin/helium-01');
   });
 
+  it('records hardware identity and looks it up by hardware hash', () => {
+    const rec = sr.registerSensor('shindevlin', 'shindevlin/temp-01', baseSpec({
+      hardware_hash: 'a'.repeat(64),
+      hardware_id_kind: 'device_mac',
+      hardware_id: 'aa:bb:cc:dd:ee:ff',
+    }), { epoch: 100 });
+    expect(rec.hardware_hash).toBe('a'.repeat(64));
+    expect(rec.hardware_id_kind).toBe('device_mac');
+    expect(rec.hardware_id).toBe('aa:bb:cc:dd:ee:ff');
+    expect(sr.getSensorByHardwareHash('a'.repeat(64)).sensor_id).toBe('shindevlin/temp-01');
+  });
+
   it('rejects registration where sensor_id prefix does not match owner', () => {
     expect(() => sr.registerSensor('alice', 'shindevlin/temp-01', baseSpec())).toThrow(/owner prefix/);
   });
@@ -71,6 +83,19 @@ describe('sensorRegistry — registration', () => {
     // Second register is an update, not a duplicate error
     const updated = sr.registerSensor('shindevlin', 'shindevlin/temp-01', baseSpec({ unit: 'fahrenheit' }), { epoch: 2 });
     expect(updated.unit).toBe('fahrenheit');
+  });
+
+  it('rejects a second active sensor using the same hardware hash', () => {
+    sr.registerSensor('shindevlin', 'shindevlin/temp-01', baseSpec({
+      hardware_hash: 'b'.repeat(64),
+      hardware_id_kind: 'serial_number',
+      hardware_id: 'SN-001',
+    }), { epoch: 1 });
+    expect(() => sr.registerSensor('alice', 'alice/temp-02', baseSpec({
+      hardware_hash: 'b'.repeat(64),
+      hardware_id_kind: 'serial_number',
+      hardware_id: 'SN-001',
+    }), { epoch: 2 })).toThrow(/hardware_hash already registered/);
   });
 
   it('rejects invalid sensor types', () => {
@@ -114,6 +139,22 @@ describe('sensorRegistry — registration', () => {
     expect(rec.total_readings).toBe(0);
     expect(rec.retired).not.toBe(true);
     expect(sr.getReadingsForEpoch('shindevlin/temp-01', 12)).toEqual([]);
+  });
+
+  it('keeps the same hardware hash when a retired sensor returns fresh', () => {
+    sr.registerSensor('shindevlin', 'shindevlin/temp-01', baseSpec({
+      hardware_hash: 'c'.repeat(64),
+      hardware_id_kind: 'device_mac',
+      hardware_id: 'aa:bb:cc:dd:ee:ff',
+    }), { epoch: 10 });
+    sr.retireSensor('shindevlin', 'shindevlin/temp-01', 20);
+    const rec = sr.registerSensor('shindevlin', 'shindevlin/temp-01', baseSpec({
+      hardware_hash: 'c'.repeat(64),
+      hardware_id_kind: 'device_mac',
+      hardware_id: 'aa:bb:cc:dd:ee:ff',
+    }), { epoch: 30 });
+    expect(rec.status).toBe('active');
+    expect(sr.getSensorByHardwareHash('c'.repeat(64)).sensor_id).toBe('shindevlin/temp-01');
   });
 });
 

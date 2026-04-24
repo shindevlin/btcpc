@@ -23,15 +23,30 @@
  */
 
 var SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,62}$/;
+var normalizeHardwareIdentity = require("./hardwareIdentity").normalizeHardwareIdentity;
 
 // gateway_id → gateway record
 var gateways = new Map();
+// hardware_hash → gateway_id (active lifecycle only)
+var gatewaysByHardwareHash = new Map();
 
 // gateway_id → stats accumulator
 var gatewayStats = new Map();
 
 // Number of epochs of silence before a gateway transitions to "idle"
 var IDLE_HEARTBEAT_THRESHOLD = 100;
+
+function _clearGatewayState(gatewayId) {
+  var existing = gateways.get(gatewayId);
+  if (existing && existing.hardware_hash) {
+    var mapped = gatewaysByHardwareHash.get(existing.hardware_hash);
+    if (mapped === gatewayId) {
+      gatewaysByHardwareHash.delete(existing.hardware_hash);
+    }
+  }
+  gateways.delete(gatewayId);
+  gatewayStats.delete(gatewayId);
+}
 
 function parseGatewayId(gatewayId) {
   if (typeof gatewayId !== "string") {
@@ -90,14 +105,37 @@ function registerGateway(owner, gatewayId, spec, options) {
   var epoch = options.epoch || 0;
   var existing = gateways.get(gatewayId);
   var record;
+  var hardware = normalizeHardwareIdentity(spec, gatewayId, "gateway_id");
+
+  if (hardware.hardware_hash) {
+    var mappedGatewayId = gatewaysByHardwareHash.get(hardware.hardware_hash);
+    if (mappedGatewayId && mappedGatewayId !== gatewayId) {
+      var mappedGateway = gateways.get(mappedGatewayId);
+      if (mappedGateway && mappedGateway.status !== "retired") {
+        throw new Error("hardware_hash already registered to active gateway " + mappedGatewayId);
+      }
+      if (!mappedGateway) {
+        gatewaysByHardwareHash.delete(hardware.hardware_hash);
+      }
+    }
+  }
 
   if (existing) {
     if (existing.owner !== owner) {
       throw new Error("only the original owner can update this gateway");
     }
     if (existing.status === "retired") {
-      throw new Error("cannot update a retired gateway");
+      _clearGatewayState(gatewayId);
+      existing = null;
+    } else if (existing.hardware_hash && existing.hardware_hash !== hardware.hardware_hash) {
+      var oldMappedGateway = gatewaysByHardwareHash.get(existing.hardware_hash);
+      if (oldMappedGateway === gatewayId) {
+        gatewaysByHardwareHash.delete(existing.hardware_hash);
+      }
     }
+  }
+
+  if (existing) {
     record = existing;
     record.region = spec.region;
     record.latitude = lat;
@@ -106,6 +144,9 @@ function registerGateway(owner, gatewayId, spec, options) {
     record.hardware_model = spec.hardware_model || record.hardware_model || null;
     record.firmware_version = spec.firmware_version || record.firmware_version || null;
     record.max_sensors = spec.max_sensors !== undefined ? parseInt(spec.max_sensors, 10) : record.max_sensors;
+    record.hardware_hash = hardware.hardware_hash || record.hardware_hash || null;
+    record.hardware_id_kind = hardware.hardware_id_kind || record.hardware_id_kind || null;
+    record.hardware_id = hardware.hardware_id || record.hardware_id || null;
     if (spec.public_key) record.public_key = spec.public_key;
     record.last_updated_epoch = epoch;
     record.status = "active";
@@ -119,6 +160,9 @@ function registerGateway(owner, gatewayId, spec, options) {
       antenna_gain_dbi: spec.antenna_gain_dbi !== undefined ? Number(spec.antenna_gain_dbi) : null,
       hardware_model: spec.hardware_model || null,
       firmware_version: spec.firmware_version || null,
+      hardware_hash: hardware.hardware_hash || null,
+      hardware_id_kind: hardware.hardware_id_kind || null,
+      hardware_id: hardware.hardware_id || null,
       // secp256k1 compressed hex public key for gateway signature verification
       public_key: spec.public_key || null,
       max_sensors: spec.max_sensors !== undefined ? parseInt(spec.max_sensors, 10) : 50,
@@ -139,6 +183,9 @@ function registerGateway(owner, gatewayId, spec, options) {
   }
 
   gateways.set(gatewayId, record);
+  if (record.hardware_hash) {
+    gatewaysByHardwareHash.set(record.hardware_hash, gatewayId);
+  }
   return record;
 }
 
@@ -152,6 +199,10 @@ function retireGateway(owner, gatewayId, epoch) {
     throw new Error("only the owner can retire this gateway");
   }
   if (record.status === "retired") return record;
+  if (record.hardware_hash) {
+    var mapped = gatewaysByHardwareHash.get(record.hardware_hash);
+    if (mapped === gatewayId) gatewaysByHardwareHash.delete(record.hardware_hash);
+  }
   record.status = "retired";
   record.retired_epoch = epoch || 0;
   gateways.set(gatewayId, record);
@@ -236,6 +287,22 @@ function getGateway(gatewayId) {
   return gateways.get(gatewayId) || null;
 }
 
+function getGatewayByHardwareHash(hardwareHash) {
+  if (!hardwareHash) return null;
+  var normalized = String(hardwareHash).toLowerCase();
+  var gatewayId = gatewaysByHardwareHash.get(normalized);
+  if (!gatewayId) {
+    for (var entry of gateways) {
+      var gateway = entry[1];
+      if (gateway && gateway.hardware_hash && gateway.hardware_hash === normalized) {
+        return gateway;
+      }
+    }
+    return null;
+  }
+  return getGateway(gatewayId);
+}
+
 function getAllGateways(filter) {
   var result = [];
   for (var entry of gateways) {
@@ -315,6 +382,7 @@ function verifyGatewaySignature(gatewayId, payload, signature) {
 
 function resetForTests() {
   gateways.clear();
+  gatewaysByHardwareHash.clear();
   gatewayStats.clear();
 }
 
@@ -325,6 +393,7 @@ module.exports = {
   heartbeat: heartbeat,
   // Readers
   getGateway: getGateway,
+  getGatewayByHardwareHash: getGatewayByHardwareHash,
   getAllGateways: getAllGateways,
   getGatewaysInRegion: getGatewaysInRegion,
   getGatewayStats: getGatewayStats,

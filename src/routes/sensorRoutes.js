@@ -89,7 +89,7 @@ const sensorsRouter = express.Router();
 /**
  * POST /api/sensors
  * Register a sensor. The authenticated user becomes the owner.
- * Body: { name, type, unit, decimals, region, lora_gateway?, hardware_model?, firmware_version? }
+ * Body: { name, type, unit, decimals, region, lora_gateway?, hardware_model?, firmware_version?, hardware_hash?, hardware_id?, hardware_identifier?, device_mac?, serial_number?, device_serial?, serial?, device_id? }
  * sensor_id is computed server-side as "<owner>/<name>".
  */
 sensorsRouter.post('/', authenticateToken, async (req, res) => {
@@ -115,7 +115,17 @@ sensorsRouter.post('/', authenticateToken, async (req, res) => {
     if (body.lora_gateway !== undefined) spec.lora_gateway = sanitizeString(body.lora_gateway, 128) || null;
     if (body.hardware_model !== undefined) spec.hardware_model = sanitizeString(body.hardware_model, 128) || null;
     if (body.firmware_version !== undefined) spec.firmware_version = sanitizeString(body.firmware_version, 32) || null;
+    if (body.hardware_hash !== undefined) spec.hardware_hash = sanitizeString(body.hardware_hash, 128) || null;
+    if (body.hardware_id_kind !== undefined) spec.hardware_id_kind = sanitizeString(body.hardware_id_kind, 64) || null;
+    if (body.hardware_id !== undefined) spec.hardware_id = sanitizeString(body.hardware_id, 128) || null;
+    if (body.hardware_identifier !== undefined) spec.hardware_identifier = sanitizeString(body.hardware_identifier, 128) || null;
+    if (body.device_mac !== undefined) spec.device_mac = sanitizeString(body.device_mac, 128) || null;
+    if (body.serial_number !== undefined) spec.serial_number = sanitizeString(body.serial_number, 128) || null;
+    if (body.device_serial !== undefined) spec.device_serial = sanitizeString(body.device_serial, 128) || null;
+    if (body.serial !== undefined) spec.serial = sanitizeString(body.serial, 128) || null;
+    if (body.device_id !== undefined) spec.device_id = sanitizeString(body.device_id, 128) || null;
     if (body.allow_precise_location !== undefined) spec.allow_precise_location = body.allow_precise_location === true;
+    if (body.device_name !== undefined) spec.device_name = sanitizeString(body.device_name, 64) || null;
 
     const options = { epoch: await getCurrentEpoch() };
 
@@ -434,7 +444,7 @@ const gatewaysRouter = express.Router();
 /**
  * POST /api/gateways
  * Register a LoRa gateway. The authenticated user becomes the owner.
- * Body: { name, region, latitude, longitude, antenna_gain_dbi?, hardware_model?, firmware_version?, max_sensors? }
+ * Body: { name, region, latitude, longitude, antenna_gain_dbi?, hardware_model?, firmware_version?, max_sensors?, hardware_hash?, hardware_id?, hardware_identifier?, device_mac?, serial_number?, device_serial?, serial?, device_id? }
  * gateway_id is computed server-side as "<owner>/<name>".
  */
 gatewaysRouter.post('/', authenticateToken, async (req, res) => {
@@ -457,6 +467,15 @@ gatewaysRouter.post('/', authenticateToken, async (req, res) => {
     if (body.antenna_gain_dbi !== undefined) spec.antenna_gain_dbi = Number(body.antenna_gain_dbi);
     if (body.hardware_model !== undefined) spec.hardware_model = sanitizeString(body.hardware_model, 128) || null;
     if (body.firmware_version !== undefined) spec.firmware_version = sanitizeString(body.firmware_version, 32) || null;
+    if (body.hardware_hash !== undefined) spec.hardware_hash = sanitizeString(body.hardware_hash, 128) || null;
+    if (body.hardware_id_kind !== undefined) spec.hardware_id_kind = sanitizeString(body.hardware_id_kind, 64) || null;
+    if (body.hardware_id !== undefined) spec.hardware_id = sanitizeString(body.hardware_id, 128) || null;
+    if (body.hardware_identifier !== undefined) spec.hardware_identifier = sanitizeString(body.hardware_identifier, 128) || null;
+    if (body.device_mac !== undefined) spec.device_mac = sanitizeString(body.device_mac, 128) || null;
+    if (body.serial_number !== undefined) spec.serial_number = sanitizeString(body.serial_number, 128) || null;
+    if (body.device_serial !== undefined) spec.device_serial = sanitizeString(body.device_serial, 128) || null;
+    if (body.serial !== undefined) spec.serial = sanitizeString(body.serial, 128) || null;
+    if (body.device_id !== undefined) spec.device_id = sanitizeString(body.device_id, 128) || null;
     if (body.max_sensors !== undefined) {
       const ms = parseInt(body.max_sensors, 10);
       if (!Number.isFinite(ms) || ms < 1 || ms > 10000) {

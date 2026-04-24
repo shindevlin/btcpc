@@ -251,19 +251,38 @@ var gateways = new Map();
 // gatewayHeartbeats: gateway_id → { epochs: Set<number>, last_heartbeat_epoch, total_heartbeats }
 var gatewayHeartbeats = new Map();
 
+// hardware_hash → sensor_id / gateway_id (active lifecycle only)
+var sensorHardwareHashes = new Map();
+var gatewayHardwareHashes = new Map();
+
 // witnessMap: "<sensorId>|<epoch>" → Set of relay_account strings
 // Tracks unique relay nodes that submitted a reading for a given sensor+epoch.
 var witnessMap = new Map();
 
 function clearSensorState(sensorId) {
   var prefix = sensorId + "|";
+  var existing = sensors.get(sensorId);
   for (var key of Array.from(sensorReadings.keys())) {
     if (key.indexOf(prefix) === 0) sensorReadings.delete(key);
   }
   for (var wKey of Array.from(witnessMap.keys())) {
     if (wKey.indexOf(prefix) === 0) witnessMap.delete(wKey);
   }
+  if (existing && existing.hardware_hash) {
+    var mapped = sensorHardwareHashes.get(existing.hardware_hash);
+    if (mapped === sensorId) sensorHardwareHashes.delete(existing.hardware_hash);
+  }
   sensors.delete(sensorId);
+}
+
+function clearGatewayState(gatewayId) {
+  var existing = gateways.get(gatewayId);
+  if (existing && existing.hardware_hash) {
+    var mapped = gatewayHardwareHashes.get(existing.hardware_hash);
+    if (mapped === gatewayId) gatewayHardwareHashes.delete(existing.hardware_hash);
+  }
+  gateways.delete(gatewayId);
+  gatewayHeartbeats.delete(gatewayId);
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -2695,8 +2714,13 @@ function applyEntry(entry) {
         if (existingSensor.status === "retired") {
           clearSensorState(ssd.sensor_id);
           existingSensor = {};
+        } else if (existingSensor.hardware_hash && existingSensor.hardware_hash !== ssd.hardware_hash) {
+          var oldSensorMapped = sensorHardwareHashes.get(existingSensor.hardware_hash);
+          if (oldSensorMapped === ssd.sensor_id) {
+            sensorHardwareHashes.delete(existingSensor.hardware_hash);
+          }
         }
-        sensors.set(ssd.sensor_id, Object.assign(existingSensor, {
+        var sensorRecord = Object.assign(existingSensor, {
           sensor_id: ssd.sensor_id,
           owner: ssd.owner || from,
           type: ssd.type || null,
@@ -2706,12 +2730,19 @@ function applyEntry(entry) {
           lora_gateway: ssd.lora_gateway || null,
           hardware_model: ssd.hardware_model || null,
           firmware_version: ssd.firmware_version || null,
+          hardware_hash: ssd.hardware_hash || existingSensor.hardware_hash || null,
+          hardware_id_kind: ssd.hardware_id_kind || existingSensor.hardware_id_kind || null,
+          hardware_id: ssd.hardware_id || existingSensor.hardware_id || null,
           status: existingSensor.status === "retired" ? "retired" : "active",
           created_epoch: existingSensor.created_epoch || entry.epoch || 0,
           last_updated_epoch: entry.epoch || 0,
           last_reading_epoch: existingSensor.last_reading_epoch || null,
           total_readings: existingSensor.total_readings || 0,
-        }));
+        });
+        sensors.set(ssd.sensor_id, sensorRecord);
+        if (sensorRecord.hardware_hash) {
+          sensorHardwareHashes.set(sensorRecord.hardware_hash, ssd.sensor_id);
+        }
       }
       break;
 
@@ -2779,6 +2810,15 @@ function applyEntry(entry) {
       if (entry.gateway_data && entry.gateway_data.gateway_id) {
         var sgd = entry.gateway_data;
         var existingGateway = gateways.get(sgd.gateway_id) || {};
+        if (existingGateway.status === "retired") {
+          clearGatewayState(sgd.gateway_id);
+          existingGateway = {};
+        } else if (existingGateway.hardware_hash && existingGateway.hardware_hash !== sgd.hardware_hash) {
+          var oldGatewayMapped = gatewayHardwareHashes.get(existingGateway.hardware_hash);
+          if (oldGatewayMapped === sgd.gateway_id) {
+            gatewayHardwareHashes.delete(existingGateway.hardware_hash);
+          }
+        }
         gateways.set(sgd.gateway_id, Object.assign(existingGateway, {
           gateway_id: sgd.gateway_id,
           owner: sgd.owner || from,
@@ -2789,6 +2829,9 @@ function applyEntry(entry) {
           hardware_model: sgd.hardware_model || null,
           firmware_version: sgd.firmware_version || null,
           max_sensors: sgd.max_sensors !== undefined ? sgd.max_sensors : 50,
+          hardware_hash: sgd.hardware_hash || existingGateway.hardware_hash || null,
+          hardware_id_kind: sgd.hardware_id_kind || existingGateway.hardware_id_kind || null,
+          hardware_id: sgd.hardware_id || existingGateway.hardware_id || null,
           status: existingGateway.status === "retired" ? "retired" : "active",
           created_epoch: existingGateway.created_epoch || entry.epoch || 0,
           last_updated_epoch: entry.epoch || 0,
@@ -2797,6 +2840,9 @@ function applyEntry(entry) {
         }));
         if (!gatewayHeartbeats.has(sgd.gateway_id)) {
           gatewayHeartbeats.set(sgd.gateway_id, { epochs: new Set(), last_heartbeat_epoch: null, total_heartbeats: 0 });
+        }
+        if (sgd.hardware_hash) {
+          gatewayHardwareHashes.set(sgd.hardware_hash, sgd.gateway_id);
         }
       }
       break;
@@ -4207,6 +4253,20 @@ function getSensor(sensorId) {
   return sensors.get(sensorId) || null;
 }
 
+function getSensorByHardwareHash(hardwareHash) {
+  if (!hardwareHash) return null;
+  var normalized = String(hardwareHash).toLowerCase();
+  var sensorId = sensorHardwareHashes.get(normalized);
+  if (sensorId) {
+    return getSensor(sensorId);
+  }
+  for (var entry of sensors) {
+    var sensor = entry[1];
+    if (sensor && sensor.hardware_hash && sensor.hardware_hash === normalized) return sensor;
+  }
+  return null;
+}
+
 function getAllSensors(filter) {
   var result = [];
   for (var entry of sensors) {
@@ -4273,6 +4333,20 @@ function getSensorReadings(sensorId, fromEpoch, toEpoch, maxReadings) {
 
 function getGateway(gatewayId) {
   return gateways.get(gatewayId) || null;
+}
+
+function getGatewayByHardwareHash(hardwareHash) {
+  if (!hardwareHash) return null;
+  var normalized = String(hardwareHash).toLowerCase();
+  var gatewayId = gatewayHardwareHashes.get(normalized);
+  if (gatewayId) {
+    return getGateway(gatewayId);
+  }
+  for (var entry of gateways) {
+    var gateway = entry[1];
+    if (gateway && gateway.hardware_hash && gateway.hardware_hash === normalized) return gateway;
+  }
+  return null;
 }
 
 function getAllGateways(filter) {
@@ -5106,6 +5180,8 @@ function resetAll() {
   witnessMap.clear();
   gateways.clear();
   gatewayHeartbeats.clear();
+  sensorHardwareHashes.clear();
+  gatewayHardwareHashes.clear();
   bridgeWraps.clear();
   bridgeUnwraps.clear();
   bridgeFunders.clear();
@@ -5285,10 +5361,12 @@ module.exports = {
   CLAIMABLE_THRESHOLD: CLAIMABLE_THRESHOLD,
   // IoT sensor + gateway (v2.15-beta)
   getSensor: getSensor,
+  getSensorByHardwareHash: getSensorByHardwareHash,
   getAllSensors: getAllSensors,
   getSensorsForEpoch: getSensorsForEpoch,
   getSensorReadings: getSensorReadings,
   getGateway: getGateway,
+  getGatewayByHardwareHash: getGatewayByHardwareHash,
   getAllGateways: getAllGateways,
   getGatewaysForEpoch: getGatewaysForEpoch,
   // Bridge (v2.16-alpha)

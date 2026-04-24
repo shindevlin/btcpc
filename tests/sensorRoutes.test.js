@@ -112,6 +112,23 @@ describe('sensor + gateway HTTP routes (v2.15-beta)', () => {
       expect(res.body.sensor.type).toBe('temperature');
     });
 
+    it('accepts hardware identity fields for the sensor', async () => {
+      const res = await request(port, 'POST', '/api/sensors', {
+        name: 'temp2',
+        type: 'temperature',
+        unit: 'celsius',
+        decimals: 2,
+        region: 'us-east',
+        hardware_hash: 'a'.repeat(64),
+        hardware_id_kind: 'device_mac',
+        hardware_id: 'aa:bb:cc:dd:ee:ff',
+      }, 'alice');
+      expect(res.status).toBe(201);
+      expect(res.body.sensor.hardware_hash).toBe('a'.repeat(64));
+      expect(res.body.sensor.hardware_id_kind).toBe('device_mac');
+      expect(res.body.sensor.hardware_id).toBe('aa:bb:cc:dd:ee:ff');
+    });
+
     it('rejects missing name', async () => {
       const res = await request(port, 'POST', '/api/sensors', {
         type: 'temperature', unit: 'celsius', decimals: 2, region: 'us-east',
@@ -388,6 +405,22 @@ describe('sensor + gateway HTTP routes (v2.15-beta)', () => {
       expect(res.body.gateway.gateway_id).toBe('alice/gw1');
       expect(res.body.gateway.owner).toBe('alice');
       expect(res.body.gateway.status).toBe('active');
+    });
+
+    it('accepts hardware identity fields for the gateway', async () => {
+      const res = await request(port, 'POST', '/api/gateways', {
+        name: 'gw2',
+        region: 'us-east',
+        latitude: 40.7,
+        longitude: -74.0,
+        hardware_hash: 'b'.repeat(64),
+        hardware_id_kind: 'serial_number',
+        hardware_id: 'GW-001',
+      }, 'alice');
+      expect(res.status).toBe(201);
+      expect(res.body.gateway.hardware_hash).toBe('b'.repeat(64));
+      expect(res.body.gateway.hardware_id_kind).toBe('serial_number');
+      expect(res.body.gateway.hardware_id).toBe('GW-001');
     });
 
     it('rejects missing name', async () => {

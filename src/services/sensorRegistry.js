@@ -27,9 +27,12 @@
 
 var oracle = require('./oracleFeeds');
 var stateStore = require('../chain/stateStore');
+var normalizeHardwareIdentity = require('./hardwareIdentity').normalizeHardwareIdentity;
 
 // sensor_id → sensor record
 var sensors = new Map();
+// hardware_hash → sensor_id (active lifecycle only)
+var sensorsByHardwareHash = new Map();
 
 // "<sensor_id>|<epoch>" → array of reading records
 var readingsByEpoch = new Map();
@@ -88,6 +91,7 @@ function _readingsKey(sensorId, epoch) {
 }
 
 function _clearSensorState(sensorId) {
+  var existing = sensors.get(sensorId);
   var prefix = sensorId + "|";
 
   for (var key of Array.from(readingsByEpoch.keys())) {
@@ -101,6 +105,12 @@ function _clearSensorState(sensorId) {
   }
 
   sensors.delete(sensorId);
+  if (existing && existing.hardware_hash) {
+    var mapped = sensorsByHardwareHash.get(existing.hardware_hash);
+    if (mapped === sensorId) {
+      sensorsByHardwareHash.delete(existing.hardware_hash);
+    }
+  }
   sensorStats.delete(sensorId);
   readingHistory.delete(sensorId);
   lastEpochBySensor.delete(sensorId);
@@ -165,9 +175,23 @@ function registerSensor(owner, sensorId, spec, options) {
     throw new Error("spec.region required");
   }
 
+  var hardware = normalizeHardwareIdentity(spec, sensorId, "sensor_id");
   var existing = sensors.get(sensorId);
   var epoch = options.epoch || 0;
   var record;
+
+  if (hardware.hardware_hash) {
+    var mappedSensorId = sensorsByHardwareHash.get(hardware.hardware_hash);
+    if (mappedSensorId && mappedSensorId !== sensorId) {
+      var mappedSensor = sensors.get(mappedSensorId);
+      if (mappedSensor && mappedSensor.status !== "retired") {
+        throw new Error("hardware_hash already registered to active sensor " + mappedSensorId);
+      }
+      if (!mappedSensor) {
+        sensorsByHardwareHash.delete(hardware.hardware_hash);
+      }
+    }
+  }
 
   if (existing) {
     if (existing.owner !== owner) {
@@ -176,6 +200,11 @@ function registerSensor(owner, sensorId, spec, options) {
     if (existing.status === "retired") {
       _clearSensorState(sensorId);
       existing = null;
+    } else if (existing.hardware_hash && existing.hardware_hash !== hardware.hardware_hash) {
+      var oldMappedSensor = sensorsByHardwareHash.get(existing.hardware_hash);
+      if (oldMappedSensor === sensorId) {
+        sensorsByHardwareHash.delete(existing.hardware_hash);
+      }
     }
   }
 
@@ -188,7 +217,11 @@ function registerSensor(owner, sensorId, spec, options) {
     record.lora_gateway = spec.lora_gateway || record.lora_gateway || null;
     record.hardware_model = spec.hardware_model || record.hardware_model || null;
     record.firmware_version = spec.firmware_version || record.firmware_version || null;
+    record.device_name = spec.device_name || record.device_name || null;
     record.allow_precise_location = spec.allow_precise_location === true ? true : (record.allow_precise_location || false);
+    record.hardware_hash = hardware.hardware_hash || record.hardware_hash || null;
+    record.hardware_id_kind = hardware.hardware_id_kind || record.hardware_id_kind || null;
+    record.hardware_id = hardware.hardware_id || record.hardware_id || null;
     record.last_updated_epoch = epoch;
     record.status = "active";
   } else {
@@ -202,7 +235,11 @@ function registerSensor(owner, sensorId, spec, options) {
       lora_gateway: spec.lora_gateway || null,
       hardware_model: spec.hardware_model || null,
       firmware_version: spec.firmware_version || null,
+      device_name: spec.device_name || null,
       allow_precise_location: spec.allow_precise_location === true,
+      hardware_hash: hardware.hardware_hash || null,
+      hardware_id_kind: hardware.hardware_id_kind || null,
+      hardware_id: hardware.hardware_id || null,
       status: "active",
       created_epoch: epoch,
       last_updated_epoch: epoch,
@@ -222,6 +259,9 @@ function registerSensor(owner, sensorId, spec, options) {
   }
 
   sensors.set(sensorId, record);
+  if (record.hardware_hash) {
+    sensorsByHardwareHash.set(record.hardware_hash, sensorId);
+  }
   return record;
 }
 
@@ -240,6 +280,10 @@ function retireSensor(owner, sensorId, epoch) {
     throw new Error("only the owner can retire this sensor");
   }
   if (record.status === "retired") return record;
+  if (record.hardware_hash) {
+    var mapped = sensorsByHardwareHash.get(record.hardware_hash);
+    if (mapped === sensorId) sensorsByHardwareHash.delete(record.hardware_hash);
+  }
   record.status = "retired";
   record.retired = true;
   record.retired_epoch = epoch || 0;
@@ -624,6 +668,21 @@ function getSensor(sensorId) {
   return sensors.get(sensorId) || null;
 }
 
+function getSensorByHardwareHash(hardwareHash) {
+  if (!hardwareHash) return null;
+  var sensorId = sensorsByHardwareHash.get(String(hardwareHash).toLowerCase());
+  if (!sensorId) {
+    for (var entry of sensors) {
+      var sensor = entry[1];
+      if (sensor && sensor.hardware_hash && sensor.hardware_hash === String(hardwareHash).toLowerCase()) {
+        return sensor;
+      }
+    }
+    return null;
+  }
+  return getSensor(sensorId);
+}
+
 function getAllSensors(filter) {
   var result = [];
   for (var entry of sensors) {
@@ -690,6 +749,7 @@ function getSensorStats(sensorId, currentEpoch) {
 
 function resetForTests() {
   sensors.clear();
+  sensorsByHardwareHash.clear();
   readingsByEpoch.clear();
   finalizedReadings.clear();
   sensorStats.clear();
@@ -707,6 +767,7 @@ module.exports = {
   finalizeEpochReadings: finalizeEpochReadings,
   // Readers
   getSensor: getSensor,
+  getSensorByHardwareHash: getSensorByHardwareHash,
   getAllSensors: getAllSensors,
   getSensorsInRegion: getSensorsInRegion,
   getReadingsForEpoch: getReadingsForEpoch,

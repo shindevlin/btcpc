@@ -59,6 +59,18 @@ describe('loraGatewayRegistry — registration', () => {
     expect(rec.created_epoch).toBe(50);
   });
 
+  it('records hardware identity and looks it up by hardware hash', () => {
+    const rec = gr.registerGateway('shindevlin', 'shindevlin/helium-01', baseSpec({
+      hardware_hash: 'd'.repeat(64),
+      hardware_id_kind: 'device_mac',
+      hardware_id: 'aa:bb:cc:dd:ee:ff',
+    }), { epoch: 50 });
+    expect(rec.hardware_hash).toBe('d'.repeat(64));
+    expect(rec.hardware_id_kind).toBe('device_mac');
+    expect(rec.hardware_id).toBe('aa:bb:cc:dd:ee:ff');
+    expect(gr.getGatewayByHardwareHash('d'.repeat(64)).gateway_id).toBe('shindevlin/helium-01');
+  });
+
   it('rejects registration where gateway_id prefix does not match owner', () => {
     expect(() => gr.registerGateway('alice', 'shindevlin/helium-01', baseSpec())).toThrow(/owner prefix/);
   });
@@ -90,10 +102,29 @@ describe('loraGatewayRegistry — registration', () => {
     expect(() => gr.registerGateway('natoshisakamoto', 'shindevlin/helium-01', baseSpec())).toThrow(/owner/);
   });
 
-  it('cannot update a retired gateway', () => {
+  it('rejects a second active gateway using the same hardware hash', () => {
+    gr.registerGateway('shindevlin', 'shindevlin/helium-01', baseSpec({
+      hardware_hash: 'e'.repeat(64),
+      hardware_id_kind: 'serial_number',
+      hardware_id: 'GW-001',
+    }));
+    expect(() => gr.registerGateway('alice', 'alice/gw-02', baseSpec({
+      hardware_hash: 'e'.repeat(64),
+      hardware_id_kind: 'serial_number',
+      hardware_id: 'GW-001',
+    }))).toThrow(/hardware_hash already registered/);
+  });
+
+  it('allows a retired gateway to come back fresh with the same hardware hash', () => {
     gr.registerGateway('shindevlin', 'shindevlin/helium-01', baseSpec());
     gr.retireGateway('shindevlin', 'shindevlin/helium-01');
-    expect(() => gr.registerGateway('shindevlin', 'shindevlin/helium-01', baseSpec())).toThrow(/retired/);
+    const rec = gr.registerGateway('shindevlin', 'shindevlin/helium-01', baseSpec({
+      hardware_hash: 'f'.repeat(64),
+      hardware_id_kind: 'device_id',
+      hardware_id: 'gateway-001',
+    }));
+    expect(rec.status).toBe('active');
+    expect(gr.getGatewayByHardwareHash('f'.repeat(64)).gateway_id).toBe('shindevlin/helium-01');
   });
 });
 

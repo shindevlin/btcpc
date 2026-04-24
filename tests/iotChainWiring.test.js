@@ -57,6 +57,7 @@ describe('ledger.recordSensorRegister', () => {
     expect(entry.sensor_data.type).toBe('temperature');
     expect(entry.sensor_data.unit).toBe('celsius');
     expect(entry.sensor_data.region).toBe('us-west');
+    expect(entry.sensor_data.hardware_hash).toMatch(/^[a-f0-9]{64}$/);
   });
 
   it('throws if owner is missing', () => {
@@ -81,6 +82,18 @@ describe('ledger.recordSensorRegister', () => {
     expect(s.owner).toBe('shindevlin');
     expect(s.type).toBe('humidity');
     expect(s.status).toBe('active');
+  });
+
+  it('applies to stateStore — getSensorByHardwareHash returns the record', () => {
+    const entry = ledger.recordSensorRegister(
+      'shindevlin',
+      'shindevlin/temp-hash',
+      { type: 'temperature', unit: 'celsius', decimals: 2, region: 'us-west', hardware_hash: 'a'.repeat(64) },
+      6
+    );
+    const s = stateStore.getSensorByHardwareHash(entry.sensor_data.hardware_hash);
+    expect(s).not.toBeNull();
+    expect(s.sensor_id).toBe('shindevlin/temp-hash');
   });
 });
 
@@ -158,6 +171,7 @@ describe('ledger.recordGatewayRegister', () => {
     expect(entry.gateway_data.gateway_id).toBe('shindevlin/nebra-1');
     expect(entry.gateway_data.region).toBe('US915');
     expect(entry.gateway_data.latitude).toBe(37.77);
+    expect(entry.gateway_data.hardware_hash).toMatch(/^[a-f0-9]{64}$/);
   });
 
   it('throws if owner is missing', () => {
@@ -173,6 +187,14 @@ describe('ledger.recordGatewayRegister', () => {
     expect(gw.owner).toBe('shindevlin');
     expect(gw.region).toBe('EU868');
     expect(gw.status).toBe('active');
+  });
+
+  it('applies to stateStore — getGatewayByHardwareHash returns the record', () => {
+    const entry = ledger.recordGatewayRegister('shindevlin', 'shindevlin/gw-hash',
+      { region: 'EU868', latitude: 52.5, longitude: 13.4, hardware_hash: 'b'.repeat(64) }, 2);
+    const gw = stateStore.getGatewayByHardwareHash(entry.gateway_data.hardware_hash);
+    expect(gw).not.toBeNull();
+    expect(gw.gateway_id).toBe('shindevlin/gw-hash');
   });
 });
 
