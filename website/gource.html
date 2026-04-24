@@ -637,6 +637,7 @@
         const orbitY = targetCameraY + Math.sin(orbitAngle * 0.8) * orbitRadiusY;
         cameraX += (orbitX - cameraX) * 0.06;
         cameraY += (orbitY - cameraY) * 0.06;
+        const turnAngle = ((currentTs - minTs) / Math.max(maxTs - minTs, 1)) * 275 + Math.sin(currentTs * 0.0011) * 18;
         const branchColor = 'rgba(148,163,184,0.28)';
         const rootX = xScale(root.xSlot || 0);
         const rootY = 44;
@@ -678,7 +679,7 @@
             </linearGradient>
           </defs>
           <rect x="0" y="0" width="${width}" height="${height}" fill="url(#bgFade)"></rect>
-          <g transform="translate(${Math.round(-cameraX * 0.08)}, ${Math.round(-cameraY * 0.06)})">
+          <g transform="translate(${Math.round(-cameraX * 0.08)}, ${Math.round(-cameraY * 0.06)}) rotate(${turnAngle.toFixed(2)} 800 480)">
             <text x="40" y="30" fill="#f7931a" font-size="12" letter-spacing="4" text-transform="uppercase" style="font-weight:800;">BTCPC GOURCE</text>
             <text x="40" y="58" fill="#ffffff" font-size="28" font-weight="900">Animated vault tree</text>
             <text x="40" y="86" fill="#92a4bf" font-size="13">Nodes reveal over time; search and time slider are both live.</text>
