@@ -20,7 +20,11 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import android.graphics.BitmapFactory;
+import android.net.Uri;
+
 import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 
 import androidx.annotation.NonNull;
@@ -28,6 +32,10 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.core.content.ContextCompat;
 
+import com.google.zxing.BinaryBitmap;
+import com.google.zxing.MultiFormatReader;
+import com.google.zxing.RGBLuminanceSource;
+import com.google.zxing.common.HybridBinarizer;
 import com.journeyapps.barcodescanner.ScanContract;
 import com.journeyapps.barcodescanner.ScanOptions;
 
@@ -86,6 +94,24 @@ public class SettingsFragment extends Fragment {
                 applyWalletRestore(parts);
             } else {
                 showRestoreDialogWithText(raw);
+            }
+        });
+
+    private final ActivityResultLauncher<String> qrImportLauncher =
+        registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
+            if (uri == null) return;
+            String decoded = decodeQrFromUri(uri);
+            if (decoded == null) {
+                saveStatus.setText("Could not read QR from image");
+                saveStatus.setTextColor(0xFFEF4444);
+                handler.postDelayed(() -> { if (isAdded()) saveStatus.setText(""); }, 4000);
+                return;
+            }
+            String[] parts = WalletBackupHelper.parsePayload(decoded);
+            if (parts != null && parts[1].length() == 64) {
+                applyWalletRestore(parts);
+            } else {
+                showRestoreDialogWithText(decoded);
             }
         });
 
@@ -520,6 +546,8 @@ public class SettingsFragment extends Fragment {
         if (!prefill.isEmpty()) input.setText(prefill);
         com.google.android.material.button.MaterialButton scanBtn =
                 dialogView.findViewById(R.id.restore_scan_btn);
+        com.google.android.material.button.MaterialButton importBtn =
+                dialogView.findViewById(R.id.restore_import_btn);
 
         AlertDialog dialog = new AlertDialog.Builder(requireContext())
                 .setTitle("Restore Wallet")
@@ -549,7 +577,28 @@ public class SettingsFragment extends Fragment {
             qrScanLauncher.launch(opts);
         });
 
+        importBtn.setOnClickListener(v -> {
+            dialog.dismiss();
+            qrImportLauncher.launch("image/*");
+        });
+
         dialog.show();
+    }
+
+    private String decodeQrFromUri(Uri uri) {
+        try (java.io.InputStream is = requireContext().getContentResolver().openInputStream(uri)) {
+            android.graphics.Bitmap bmp = BitmapFactory.decodeStream(is);
+            if (bmp == null) return null;
+            int w = bmp.getWidth(), h = bmp.getHeight();
+            int[] pixels = new int[w * h];
+            bmp.getPixels(pixels, 0, w, 0, 0, w, h);
+            bmp.recycle();
+            RGBLuminanceSource source = new RGBLuminanceSource(w, h, pixels);
+            BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
+            return new MultiFormatReader().decode(bitmap).getText();
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     private void applyWalletRestore(String[] parts) {
