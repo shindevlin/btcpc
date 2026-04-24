@@ -13,6 +13,8 @@ const http = require("http");
 const app = express();
 const PORT = process.env.PORT || 4243;
 const ROOT = __dirname;
+const DOCS_ROOT = path.resolve(__dirname, "..", "docs");
+const WIKI_ROOT = path.resolve(__dirname, "..", ".code-review-graph", "wiki");
 const API_PORT = process.env.BTCPC_API_PORT || 3000;
 
 // Permissions-Policy header for PWA sensor access on Android Chrome
@@ -113,9 +115,63 @@ app.use("/public", (req, res) => {
   }
 });
 
+app.get("/docs", (_req, res) => {
+  res.redirect("/docs/");
+});
+
+function sendDocsFile(res, root, relPath) {
+  const normalized = path.normalize(relPath).replace(/^([/\\])+/, "");
+  const abs = path.join(root, normalized);
+  if (!abs.startsWith(root)) return false;
+  if (!require("fs").existsSync(abs)) return false;
+  if (!require("fs").statSync(abs).isFile()) return false;
+  res.sendFile(abs);
+  return true;
+}
+
+app.get(/^\/docs\/?$/, (req, res, next) => {
+  if (sendDocsFile(res, DOCS_ROOT, "index.html")) return;
+  next();
+});
+
+app.get(/^\/docs\/(.*)$/, (req, res, next) => {
+  const rel = req.path.replace(/^\/docs\/?/, "");
+  if (!rel) {
+    if (sendDocsFile(res, DOCS_ROOT, "index.html")) return;
+    return next();
+  }
+  if (rel.startsWith("code-wiki/")) {
+    const wikiRel = rel.slice("code-wiki/".length);
+    if (wikiRel === "README.md" && sendDocsFile(res, DOCS_ROOT, "code-wiki/README.md")) return;
+    if (wikiRel === "index.md" && sendDocsFile(res, DOCS_ROOT, "code-wiki/index.md")) return;
+    if (wikiRel && sendDocsFile(res, WIKI_ROOT, wikiRel)) return;
+    if (wikiRel === "" && sendDocsFile(res, WIKI_ROOT, "index.md")) return;
+  }
+  if (sendDocsFile(res, DOCS_ROOT, rel)) return;
+  next();
+});
+
+app.get("/obsidian", (_req, res) => {
+  res.redirect("/tree/");
+});
+
+app.get("/gource", (_req, res) => {
+  res.redirect("/tree/");
+});
+
+app.get(/^\/tree\/?$/, (_req, res) => {
+  res.sendFile(path.join(ROOT, "gource.html"));
+});
+
+app.use("/tree", express.static(path.join(ROOT, "public"), {
+  extensions: ["html", "json"],
+  etag: true,
+  lastModified: true,
+}));
+
 // Extensionless URLs: /install → /install.html, /clock → /clock.html, etc.
 app.use((req, res, next) => {
-  if (req.path === "/" || req.path.includes(".")) return next();
+  if (req.path === "/" || req.path.includes(".") || req.path.startsWith("/docs")) return next();
   const htmlPath = path.join(ROOT, req.path + ".html");
   require("fs").stat(htmlPath, (err, stats) => {
     if (!err && stats.isFile()) {

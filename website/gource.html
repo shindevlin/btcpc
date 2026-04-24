@@ -354,8 +354,8 @@
     <aside class="panel sidebar">
       <div class="title">BTCPC Tree</div>
       <div class="headline">BTCPC Tree</div>
-      <div class="sub">BTCPC's public vault, visualized as a moving code history. It updates daily from the repo and keeps local vault state private.</div>
-      <div class="sub" style="margin-top:8px;font-size:12px;color:#7dd3fc;">Credit: Gource-inspired motion, powered by BTCPC repo history.</div>
+      <div class="sub">BTCPC's public tree, visualized as a moving code history. It updates daily from the repo and keeps local state private.</div>
+      <div class="sub" style="margin-top:8px;font-size:12px;color:#7dd3fc;">Attribution: Gource-inspired motion, powered by BTCPC repo history.</div>
       <input id="search" class="search" placeholder="Search files, folders, summaries..." />
       <div id="sections" class="section-list"></div>
       <div class="legend">
@@ -383,11 +383,11 @@
     <section class="panel stream">
       <div class="stream-head">
         <div>
-          <div class="label">Logstalgia stream</div>
-          <div class="sub" style="margin:6px 0 0;">Files arrive as flowing packets across their lane, derived from git timestamps so the public vault feels historical instead of static.</div>
+          <div class="label">Branch stream</div>
+          <div class="sub" style="margin:6px 0 0;">Files arrive as flowing packets across their lane, derived from git timestamps so the public tree feels historical instead of static.</div>
         </div>
         <div class="stream-controls">
-          <div id="status" class="status-pill">Loading historical vault...</div>
+          <div id="status" class="status-pill">Loading historical tree...</div>
           <button id="play" class="btn">Pause</button>
           <button id="reset" class="btn secondary">Reset</button>
           <label style="display:flex;gap:10px;align-items:center;color:var(--muted);font-size:12px;">
@@ -417,12 +417,12 @@
   </script>
   <script>
     (async function () {
-      const dataResponse = await fetch('/gource/gource-data.json');
+      const dataResponse = await fetch('./gource-data.json');
       if (!dataResponse.ok) {
-        throw new Error(`Failed to load gource data: ${dataResponse.status} ${dataResponse.statusText}`);
+        throw new Error(`Failed to load tree data: ${dataResponse.status} ${dataResponse.statusText}`);
       }
       const data = await dataResponse.json();
-      const root = { kind: 'folder', name: 'BTCPC Public Vault', rel: '', depth: 0, ts: data.stats.maxTs, children: data.root };
+      const root = { kind: 'folder', name: 'BTCPC Public Tree', rel: '', depth: 0, ts: data.stats.maxTs, children: data.root };
       const svg = document.getElementById('graphSvg');
       const sectionsEl = document.getElementById('sections');
       const metaEl = document.getElementById('meta');
@@ -492,7 +492,7 @@
       }
 
       function label(node) {
-        if (node.rel === '') return 'BTCPC Public Vault';
+        if (node.rel === '') return 'BTCPC Public Tree';
         return node.name || node.rel.split('/').pop();
       }
 
@@ -624,7 +624,7 @@
         const sectionNames = Array.from(topSections.keys()).sort();
         const orbitSpan = Math.max(sectionNames.length, 1);
         orbitIndex = Math.floor(((currentTs - minTs) / Math.max(maxTs - minTs, 1)) * orbitSpan) % orbitSpan;
-        const orbitSection = sectionNames[orbitIndex] || 'Vault';
+        const orbitSection = sectionNames[orbitIndex] || 'Tree';
         const cycle = (currentTs - minTs) / Math.max(maxTs - minTs, 1);
         const globalSpin = cycle * Math.PI * 2 * 0.85;
         const centerX = 800;
@@ -744,8 +744,8 @@
           <g>
             ${orbitRings}
             <text x="40" y="30" fill="#f7931a" font-size="12" letter-spacing="4" text-transform="uppercase" style="font-weight:800;">BTCPC TREE</text>
-            <text x="40" y="58" fill="#ffffff" font-size="28" font-weight="900">Center vault orbit</text>
-            <text x="40" y="86" fill="#92a4bf" font-size="13">The vault sits at the center while sections rotate around it in depth.</text>
+            <text x="40" y="58" fill="#ffffff" font-size="28" font-weight="900">Center tree orbit</text>
+            <text x="40" y="86" fill="#92a4bf" font-size="13">The tree sits at the center while branches rotate around it in depth.</text>
             ${linkMarkup}
             ${sectionHubs}
             ${nodeMarkup}
