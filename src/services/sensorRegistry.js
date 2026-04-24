@@ -22,7 +22,7 @@
  * Sensor states:
  *   active  — registered and sending readings recently
  *   idle    — no readings for >= IDLE_EPOCH_THRESHOLD epochs
- *   retired — permanently deactivated by owner
+ *   retired — removed from active lifecycle by owner
  */
 
 var oracle = require('./oracleFeeds');
@@ -87,6 +87,26 @@ function _readingsKey(sensorId, epoch) {
   return sensorId + "|" + epoch;
 }
 
+function _clearSensorState(sensorId) {
+  var prefix = sensorId + "|";
+
+  for (var key of Array.from(readingsByEpoch.keys())) {
+    if (key.indexOf(prefix) === 0) readingsByEpoch.delete(key);
+  }
+  for (var key2 of Array.from(finalizedReadings.keys())) {
+    if (key2.indexOf(prefix) === 0) finalizedReadings.delete(key2);
+  }
+  for (var key3 of Array.from(witnessedByGateway.keys())) {
+    if (key3.indexOf(prefix) === 0) witnessedByGateway.delete(key3);
+  }
+
+  sensors.delete(sensorId);
+  sensorStats.delete(sensorId);
+  readingHistory.delete(sensorId);
+  lastEpochBySensor.delete(sensorId);
+  divergenceStrikes.delete(sensorId);
+}
+
 function parseSensorId(sensorId) {
   if (typeof sensorId !== "string") {
     return { ok: false, error: "sensor_id must be a string" };
@@ -103,6 +123,9 @@ function parseSensorId(sensorId) {
 /**
  * Register a new IoT sensor. Can also update an existing sensor's spec
  * (owner cannot change on update).
+ * If the previous sensor was retired, re-registration starts a fresh
+ * lifecycle and clears its buffered history so retired records do not
+ * linger as zombie state.
  *
  * @param {string} owner — BTCPC account that owns this sensor
  * @param {string} sensorId — "<owner>/<device-name>"
@@ -151,8 +174,12 @@ function registerSensor(owner, sensorId, spec, options) {
       throw new Error("only the original owner can update this sensor");
     }
     if (existing.status === "retired") {
-      throw new Error("cannot update a retired sensor");
+      _clearSensorState(sensorId);
+      existing = null;
     }
+  }
+
+  if (existing) {
     record = existing;
     record.type = spec.type;
     record.unit = spec.unit;
@@ -199,10 +226,12 @@ function registerSensor(owner, sensorId, spec, options) {
 }
 
 /**
- * Permanently deactivate a sensor. Only the current owner can retire.
+ * Retire a sensor from the active lifecycle. Only the current owner can
+ * retire. The retired record blocks readings until the owner re-registers
+ * the same sensor_id, at which point the registry starts a fresh lifecycle
+ * with clean buffered state.
  * Sets both status = "retired" and retired = true (explicit flag for
  * getDeviceStatus() in stateStore to detect without Map lookup of status).
- * No new readings can be submitted after retirement.
  */
 function retireSensor(owner, sensorId, epoch) {
   var record = sensors.get(sensorId);

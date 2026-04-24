@@ -8,8 +8,8 @@
  *   - getDeviceStatus() derivation from epoch-gap (active/dormant/claimable/retired)
  *   - stateStore threshold exports (DORMANT_THRESHOLD, CLAIMABLE_THRESHOLD)
  *   - sensorRegistry.submitReading() auto-recovery from dormant and claimable
- *   - sensorRegistry.retireSensor() sets retired flag permanently
- *   - retired sensors cannot recover via new readings
+ *   - sensorRegistry.retireSensor() marks a sensor retired until it is re-registered fresh
+ *   - retired sensors can be re-registered as a fresh lifecycle
  *   - getAllSensors() lifecycle filtering
  */
 
@@ -179,7 +179,7 @@ describe('sensorRegistry.submitReading — auto-recovery', () => {
 // retireSensor — permanent flag
 // ─────────────────────────────────────────────────────────────────
 
-describe('sensorRegistry.retireSensor — permanent retirement', () => {
+describe('sensorRegistry.retireSensor — lifecycle reset', () => {
   beforeEach(() => sr.resetForTests());
 
   it('sets status = "retired" and retired = true', () => {
@@ -196,11 +196,18 @@ describe('sensorRegistry.retireSensor — permanent retirement', () => {
     expect(() => sr.submitReading('shindevlin/wind-01', 5.0, {}, 501)).toThrow(/retired/);
   });
 
-  it('retired flag survives re-register attempts (throws on update)', () => {
+  it('re-registering a retired sensor starts a fresh lifecycle', () => {
     sr.registerSensor('shindevlin', 'shindevlin/wind-01', baseSpec({ type: 'motion' }), { epoch: 0 });
+    sr.submitReading('shindevlin/wind-01', 4.0, {}, 100);
     sr.retireSensor('shindevlin', 'shindevlin/wind-01', 500);
-    expect(() => sr.registerSensor('shindevlin', 'shindevlin/wind-01', baseSpec({ type: 'motion' }), { epoch: 600 }))
-      .toThrow(/retired/);
+
+    const rec = sr.registerSensor('shindevlin', 'shindevlin/wind-01', baseSpec({ type: 'motion' }), { epoch: 600 });
+    expect(rec.status).toBe('active');
+    expect(rec.created_epoch).toBe(600);
+    expect(rec.last_reading_epoch).toBeNull();
+    expect(rec.total_readings).toBe(0);
+    expect(sr.getReadingsForEpoch('shindevlin/wind-01', 100)).toEqual([]);
+    expect(() => sr.submitReading('shindevlin/wind-01', 5.0, {}, 601)).not.toThrow();
   });
 
   it('only the owner can retire', () => {
@@ -215,6 +222,67 @@ describe('sensorRegistry.retireSensor — permanent retirement', () => {
     expect(rec.status).toBe('retired');
     // retired_epoch should remain 400 (first retirement wins)
     expect(rec.retired_epoch).toBe(400);
+  });
+});
+
+describe('stateStore — retired sensor re-registration', () => {
+  beforeEach(() => stateStore.resetAll());
+
+  it('re-registering a retired sensor clears old readings and returns it as active', () => {
+    stateStore.applyEntry({
+      type: 'SENSOR_REGISTER',
+      from: 'shindevlin',
+      sensor_data: {
+        sensor_id: 'shindevlin/wind-01',
+        owner: 'shindevlin',
+        type: 'motion',
+        unit: 'degrees',
+        decimals: 2,
+        region: 'us-west-2',
+        status: 'active',
+        retired: false,
+      },
+      epoch: 10,
+      timestamp: Date.now(),
+    });
+    stateStore.applyEntry({
+      type: 'SENSOR_READING',
+      from: 'shindevlin',
+      sensor_data: {
+        sensor_id: 'shindevlin/wind-01',
+        value: 12.3,
+        metadata: {},
+      },
+      epoch: 11,
+      timestamp: Date.now(),
+    });
+
+    const rec = stateStore.getSensor('shindevlin/wind-01');
+    rec.status = 'retired';
+    rec.retired = true;
+
+    stateStore.applyEntry({
+      type: 'SENSOR_REGISTER',
+      from: 'shindevlin',
+      sensor_data: {
+        sensor_id: 'shindevlin/wind-01',
+        owner: 'shindevlin',
+        type: 'motion',
+        unit: 'degrees',
+        decimals: 2,
+        region: 'us-west-2',
+        status: 'active',
+        retired: false,
+      },
+      epoch: 20,
+      timestamp: Date.now(),
+    });
+
+    const fresh = stateStore.getSensor('shindevlin/wind-01');
+    expect(fresh.status).toBe('active');
+    expect(fresh.created_epoch).toBe(20);
+    expect(fresh.last_reading_epoch).toBeNull();
+    expect(stateStore.getSensorReadings('shindevlin/wind-01', 0, 50).length).toBe(0);
   });
 });
 

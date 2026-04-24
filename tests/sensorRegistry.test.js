@@ -101,10 +101,19 @@ describe('sensorRegistry — registration', () => {
     expect(() => sr.registerSensor('natoshisakamoto', 'shindevlin/temp-01', baseSpec())).toThrow(/owner/);
   });
 
-  it('cannot update a retired sensor', () => {
-    sr.registerSensor('shindevlin', 'shindevlin/temp-01', baseSpec());
-    sr.retireSensor('shindevlin', 'shindevlin/temp-01');
-    expect(() => sr.registerSensor('shindevlin', 'shindevlin/temp-01', baseSpec())).toThrow(/retired/);
+  it('re-registers a retired sensor as a fresh active sensor', () => {
+    sr.registerSensor('shindevlin', 'shindevlin/temp-01', baseSpec(), { epoch: 10 });
+    sr.submitReading('shindevlin/temp-01', 22.5, {}, 12);
+    sr.retireSensor('shindevlin', 'shindevlin/temp-01', 20);
+
+    const rec = sr.registerSensor('shindevlin', 'shindevlin/temp-01', baseSpec({ unit: 'fahrenheit' }), { epoch: 30 });
+    expect(rec.status).toBe('active');
+    expect(rec.unit).toBe('fahrenheit');
+    expect(rec.created_epoch).toBe(30);
+    expect(rec.last_reading_epoch).toBeNull();
+    expect(rec.total_readings).toBe(0);
+    expect(rec.retired).not.toBe(true);
+    expect(sr.getReadingsForEpoch('shindevlin/temp-01', 12)).toEqual([]);
   });
 });
 

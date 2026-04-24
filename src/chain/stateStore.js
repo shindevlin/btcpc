@@ -255,6 +255,17 @@ var gatewayHeartbeats = new Map();
 // Tracks unique relay nodes that submitted a reading for a given sensor+epoch.
 var witnessMap = new Map();
 
+function clearSensorState(sensorId) {
+  var prefix = sensorId + "|";
+  for (var key of Array.from(sensorReadings.keys())) {
+    if (key.indexOf(prefix) === 0) sensorReadings.delete(key);
+  }
+  for (var wKey of Array.from(witnessMap.keys())) {
+    if (wKey.indexOf(prefix) === 0) witnessMap.delete(wKey);
+  }
+  sensors.delete(sensorId);
+}
+
 // ─────────────────────────────────────────────────────────────────
 // Name Auctions (v3.6)
 // nameAuctions: name → AuctionRecord
@@ -346,9 +357,9 @@ var miningProofsByEpoch = new Map();
 var computeProofsByEpoch = new Map();
 
 // ─────────────────────────────────────────────────────────────────
-// Four-tier finality anchor log (v3.2)
+// Four-tier finality anchor log + native whitepaper revisions (v3.2+)
 // ─────────────────────────────────────────────────────────────────
-// anchorLog: ring buffer of the last ANCHOR_LOG_CAP L2/ETH/BTC anchor
+// anchorLog: ring buffer of the last ANCHOR_LOG_CAP anchor/publication
 // entries written by finalityAnchoring.js.
 // Entry shape: { type, epoch, state_root, anchor_level, anchored_at, ... }
 var anchorLog = [];
@@ -2681,6 +2692,10 @@ function applyEntry(entry) {
       if (entry.sensor_data && entry.sensor_data.sensor_id) {
         var ssd = entry.sensor_data;
         var existingSensor = sensors.get(ssd.sensor_id) || {};
+        if (existingSensor.status === "retired") {
+          clearSensorState(ssd.sensor_id);
+          existingSensor = {};
+        }
         sensors.set(ssd.sensor_id, Object.assign(existingSensor, {
           sensor_id: ssd.sensor_id,
           owner: ssd.owner || from,
@@ -2971,7 +2986,8 @@ function applyEntry(entry) {
     // ── Four-tier finality anchors (v3.2) ──────────────────────────
     case "L2_ANCHOR":
     case "ETH_ANCHOR":
-    case "BTC_ANCHOR": {
+    case "BTC_ANCHOR":
+    case "WHITEPAPER_REVISION": {
       var _al = {
         type: entry.type,
         epoch: entry.epoch,
@@ -2981,6 +2997,15 @@ function applyEntry(entry) {
       };
       if (entry.calldata_hex) _al.calldata_hex = entry.calldata_hex;
       if (entry.op_return_hex) _al.op_return_hex = entry.op_return_hex;
+      var whitepaperData = entry.whitepaper_data || {};
+      if (entry.whitepaper_hash || whitepaperData.hash) _al.whitepaper_hash = entry.whitepaper_hash || whitepaperData.hash;
+      if (entry.whitepaper_length || whitepaperData.length) _al.whitepaper_length = entry.whitepaper_length || whitepaperData.length;
+      if (entry.whitepaper_title || whitepaperData.title) _al.whitepaper_title = entry.whitepaper_title || whitepaperData.title;
+      if (entry.whitepaper_version || whitepaperData.version) _al.whitepaper_version = entry.whitepaper_version || whitepaperData.version;
+      if (entry.whitepaper_path || whitepaperData.path) _al.whitepaper_path = entry.whitepaper_path || whitepaperData.path;
+      if (entry.whitepaper_manifest_path || whitepaperData.manifest_path) _al.whitepaper_manifest_path = entry.whitepaper_manifest_path || whitepaperData.manifest_path;
+      if (entry.whitepaper_source || whitepaperData.source) _al.whitepaper_source = entry.whitepaper_source || whitepaperData.source;
+      if (entry.whitepaper_source_kind || whitepaperData.source_kind) _al.whitepaper_source_kind = entry.whitepaper_source_kind || whitepaperData.source_kind;
       anchorLog.push(_al);
       if (anchorLog.length > ANCHOR_LOG_CAP) {
         anchorLog.splice(0, anchorLog.length - ANCHOR_LOG_CAP);
@@ -3701,9 +3726,11 @@ function getRecentComputeProofs(epochNumber, lookback) {
 }
 
 /**
- * Return the last up-to-100 anchor log entries (L2/ETH/BTC anchors).
- * Anchors are written by finalityAnchoring.js and also stored here
- * when applyEntry processes L2_ANCHOR / ETH_ANCHOR / BTC_ANCHOR entries.
+ * Return the last up-to-100 anchor log entries (L2/ETH/BTC anchors and
+ * native whitepaper revisions).
+ * Anchors are written by finalityAnchoring.js and also stored here when
+ * applyEntry processes L2_ANCHOR / ETH_ANCHOR / BTC_ANCHOR /
+ * WHITEPAPER_REVISION entries.
  */
 function getRecentAnchors() {
   return anchorLog.slice();
