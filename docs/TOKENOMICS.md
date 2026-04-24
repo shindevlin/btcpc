@@ -372,7 +372,7 @@ Every sub-token would:
 - The node account must declare `node_types` including `btcpctest` or `testnet` for compatibility.
 - The node must have a recent on-chain announce or heartbeat.
 - The reward split is chain-aware: BTCPCTEST is the native testnet asset, BTCPC is the small side bonus.
-- Public testnet is report-only by default: clocks keep time, nodes report role presence, and real inference/storage work stays off unless developer access is enabled.
+- Public testnet is report-only by default: clocks keep time, nodes report role presence, and real inference/storage work stays off unless developer access is enabled for allowlisted usernames.
 
 **Why this exists**
 

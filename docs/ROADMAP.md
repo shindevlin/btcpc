@@ -39,8 +39,9 @@ Roadmap policy:
 ## Phase 0.2 — Start-First UX, Legal, and Controller Onboarding
 
 - [ ] Canonicalize `/start` as the public first-stop route for humans and agents
-- [ ] Turn `/start` into a single-step wizard with persistent progress and a machine-readable manifest
+- [ ] Turn `/start` into a single-step wizard with persistent progress and a machine-readable manifest, starting with on-chain username availability
 - [ ] Turn the install flow into one guided path instead of many disconnected choices
+- [ ] Let `/setup` inherit the chosen on-chain username instead of asking again
 - [ ] Add Terms and Privacy pages and link them from the homepage, install page, controller page, and app shell
 - [ ] Make controller mode turnkey inside the existing BTCPC web and desktop surfaces
 - [ ] Make mobile controller approval QR/deeplink friendly and one-tap where possible
@@ -58,7 +59,7 @@ Roadmap policy:
 - [ ] Scrub git history to remove leaked .env / bot tokens
 - [ ] Hardware claim registry — bind device hardware hashes to posting keys, log paid takeovers in USDC/USDT/DAI, and add chain-level revoke/bad-actor events
 - [ ] Public testnet surface — replace localhost-first docs with `https://btcpc.net/testnet` and keep chain truth off local fallback paths
-- [ ] `BTCPCTEST` separate testnet chain — mint native testnet rewards for public testnet nodes, mirror the mainnet-style role allotment in BTCPCTEST, keep public testnet report-only by default, and add a small BTCPC side bonus without polluting mainnet economics
+- [ ] `BTCPCTEST` separate testnet chain — mint native testnet rewards for public testnet nodes, mirror the mainnet-style role allotment in BTCPCTEST, keep public testnet report-only by default, allow developer real-work access only for username-scoped allowlists, and add a small BTCPC side bonus without polluting mainnet economics
 
 ## Phase 1 — Multi-Miner
 

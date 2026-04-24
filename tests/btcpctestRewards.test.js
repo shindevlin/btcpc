@@ -47,18 +47,26 @@ describe("BTCPCTEST testnet rewards", () => {
     expect(result.summary.recycled).toBeCloseTo(100.1, 10);
   });
 
-  test("developer access flips the work mode flag", () => {
+  test("developer allowlist flips only the allowed username into developer mode", () => {
     const result = computeTestnetRewards({
       epochNumber: 123,
       blockReward: 100,
-      developerAccess: true,
+      developerAccessUsers: ["btcpctest-a"],
       testnetNodes: [
         { account: "btcpctest-a", node_types: ["btcpctest", "miner"], p2p_address: "ws://10.0.0.1:6942", last_seen_epoch: 123 },
+        { account: "btcpctest-b", node_types: ["btcpctest", "clock"], p2p_address: "ws://10.0.0.2:6942", last_seen_epoch: 123 },
       ],
     });
 
-    expect(result.summary.work_mode).toBe("developer");
+    const aRewards = result.rewards.filter(r => r.to === "btcpctest-a" && r.token === "BTCPCTEST");
+    const bRewards = result.rewards.filter(r => r.to === "btcpctest-b" && r.token === "BTCPCTEST");
+
+    expect(result.summary.work_mode).toBe("mixed");
+    expect(result.summary.developer_access_enabled).toBe(true);
     expect(result.summary.developer_access_required).toBe(false);
-    expect(result.rewards.some(r => r.token === "BTCPCTEST")).toBe(true);
+    expect(result.summary.developer_access_allowlist_count).toBe(1);
+    expect(result.summary.developer_access_allowed_nodes).toBe(1);
+    expect(aRewards.every(r => r.meta.work_mode === "developer")).toBe(true);
+    expect(bRewards.every(r => r.meta.work_mode === "report_only")).toBe(true);
   });
 });

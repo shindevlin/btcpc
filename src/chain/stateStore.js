@@ -69,8 +69,24 @@ var seenEntries = new Set(); // deduplicate replayed entries
 var communityModels = new Map();
 // Sponsored stakes: beneficiary → { sponsor, amount, sharePercent, epoch }
 var sponsoredStakes = new Map();
+function _parseAllowlist(value) {
+  if (Array.isArray(value)) {
+    return value.map(v => String(v || "").trim()).filter(Boolean);
+  }
+  return String(value || "")
+    .split(/[\s,]+/)
+    .map(v => String(v || "").trim())
+    .filter(Boolean);
+}
+
 // Mutable network policy (admin-settable, replayed from ledger)
-var networkPolicy = { stakeFreeUntilStakers: 1000 };
+var networkPolicy = {
+  stakeFreeUntilStakers: 1000,
+  btcpctestDeveloperEnabled: String(process.env.BTCPC_TESTNET_DEVELOPER_ENABLED || "").toLowerCase() === "true",
+  btcpctestDeveloperAllowlist: _parseAllowlist(
+    process.env.BTCPC_TESTNET_DEVELOPER_USERNAMES || process.env.BTCPC_TESTNET_DEVELOPER_ALLOWLIST || ""
+  ),
+};
 
 // ─────────────────────────────────────────────────────────────────
 // Commerce state (v2.10)
@@ -900,6 +916,12 @@ function applyEntry(entry) {
     case "NETWORK_POLICY": {
       if (typeof entry.stake_free_until_stakers === 'number') {
         networkPolicy.stakeFreeUntilStakers = entry.stake_free_until_stakers;
+      }
+      if (typeof entry.btcpctest_developer_enabled === 'boolean') {
+        networkPolicy.btcpctestDeveloperEnabled = entry.btcpctest_developer_enabled;
+      }
+      if (entry.btcpctest_developer_allowlist !== undefined) {
+        networkPolicy.btcpctestDeveloperAllowlist = _parseAllowlist(entry.btcpctest_developer_allowlist);
       }
       break;
     }

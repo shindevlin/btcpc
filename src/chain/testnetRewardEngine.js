@@ -47,6 +47,53 @@ function uniqueByAccount(nodes) {
   return Array.from(map.values());
 }
 
+function parseAllowlist(value) {
+  if (Array.isArray(value)) {
+    return value.map(v => String(v || "").trim()).filter(Boolean);
+  }
+  return String(value || "")
+    .split(/[\s,]+/)
+    .map(v => String(v || "").trim())
+    .filter(Boolean);
+}
+
+function getDeveloperAccessPolicy(stateStore, overrideUsers, forceAll) {
+  const storePolicy = stateStore && typeof stateStore.getNetworkPolicy === "function"
+    ? (stateStore.getNetworkPolicy() || {})
+    : {};
+  const explicitAllowlist = parseAllowlist(overrideUsers);
+  if (forceAll) {
+    return {
+      enabled: true,
+      allowlist: [],
+      allowAll: true,
+      source: "override",
+    };
+  }
+  if (explicitAllowlist.length > 0) {
+    return {
+      enabled: true,
+      allowlist: explicitAllowlist,
+      allowAll: false,
+      source: "override",
+    };
+  }
+  return {
+    enabled: !!storePolicy.btcpctestDeveloperEnabled,
+    allowlist: parseAllowlist(storePolicy.btcpctestDeveloperAllowlist),
+    allowAll: false,
+    source: "policy",
+  };
+}
+
+function isDeveloperAllowed(username, policy) {
+  if (!policy || !policy.enabled) return false;
+  if (policy.allowAll) return true;
+  const name = String(username || "").trim();
+  if (!name) return false;
+  return policy.allowlist.indexOf(name) !== -1;
+}
+
 function extractTestnetNodes(stateStore, epochNumber) {
   const nodes = [];
   if (!stateStore || typeof stateStore.getAllAccounts !== "function" || typeof stateStore.getAccount !== "function") {
@@ -100,7 +147,7 @@ function distributeRolePool(rewards, poolAmount, nodes, role, workMode) {
         node_types: node.node_types || [],
         p2p_address: node.p2p_address || null,
         last_seen_epoch: node.last_seen_epoch || 0,
-        work_mode: workMode,
+        work_mode: node.work_mode || REPORT_ONLY_MODE,
       },
     });
   }
@@ -115,6 +162,7 @@ function computeTestnetRewards(input) {
     btcpcBonusBase = blockReward,
     testnetNodes = null,
     developerAccess = false,
+    developerAccessUsers = null,
   } = input || {};
 
   let stateStore = null;
@@ -124,7 +172,7 @@ function computeTestnetRewards(input) {
   const rewards = [];
   let recycled = 0;
 
-  const workMode = developerAccess ? DEVELOPER_MODE : REPORT_ONLY_MODE;
+  const policy = getDeveloperAccessPolicy(stateStore, developerAccessUsers, developerAccess);
   const reportOnlyNodes = uniqueByAccount(nodes);
 
   const pools = [
@@ -137,7 +185,16 @@ function computeTestnetRewards(input) {
   ];
 
   for (const { role, amount: poolAmount } of pools) {
-    recycled += distributeRolePool(rewards, poolAmount, reportOnlyNodes, role, workMode);
+    recycled += distributeRolePool(
+      rewards,
+      poolAmount,
+      reportOnlyNodes.map((node) => ({
+        ...node,
+        work_mode: isDeveloperAllowed(node.account, policy) ? DEVELOPER_MODE : REPORT_ONLY_MODE,
+      })),
+      role,
+      null
+    );
   }
 
   recycled += round(blockReward * POOL.reserve);
@@ -159,7 +216,7 @@ function computeTestnetRewards(input) {
           node_types: node.node_types || [],
           p2p_address: node.p2p_address || null,
           last_seen_epoch: node.last_seen_epoch || 0,
-          work_mode: workMode,
+          work_mode: isDeveloperAllowed(node.account, policy) ? DEVELOPER_MODE : REPORT_ONLY_MODE,
         },
       });
     }
@@ -171,8 +228,12 @@ function computeTestnetRewards(input) {
     native_reward: round(blockReward),
     btcpc_bonus_reward: round(bonusPool),
     btcpctest_nodes: reportOnlyNodes.length,
-    work_mode: workMode,
-    developer_access_required: !developerAccess,
+    work_mode: policy.enabled ? "mixed" : REPORT_ONLY_MODE,
+    developer_access_enabled: policy.enabled,
+    developer_access_required: !policy.enabled,
+    developer_access_allowlist_count: policy.allowAll ? reportOnlyNodes.length : policy.allowlist.length,
+    developer_access_allowed_nodes: reportOnlyNodes.filter(node => isDeveloperAllowed(node.account, policy)).length,
+    developer_access_source: policy.source,
     role_counts: {
       miner: reportOnlyNodes.filter(node => hasRole(node, "miner")).length,
       verifier: reportOnlyNodes.filter(node => hasRole(node, "verifier")).length,
@@ -194,4 +255,6 @@ module.exports = {
   DEVELOPER_MODE,
   computeTestnetRewards,
   extractTestnetNodes,
+  getDeveloperAccessPolicy,
+  isDeveloperAllowed,
 };

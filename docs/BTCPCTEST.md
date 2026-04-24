@@ -28,6 +28,8 @@ It is meant for real devices that stay online, publish a valid P2P address, and 
 - The node must still be online enough to be considered active
 - If the node declares role types like `miner`, `clock`, `storage`, `sensor`, `verifier`, or `service`, it can collect the matching role pool
 - Generic `btcpctest` / `testnet` nodes count as clock participants so they can help keep testnet time moving
+- Real-work developer access is username-allowlisted, so only named operator accounts can turn on non-report-only roles
+- The allowlist can be set by network authority policy or operator config, but it always stays username-scoped
 
 ## Why it exists
 
@@ -42,6 +44,6 @@ By default, the public testnet is report-only:
 - clocks keep time
 - nodes report their roles and stay reachable
 
-Developer access can turn real work back on for testing purposes.
+Developer access can turn real work back on for testing purposes, but only for allowlisted usernames.
 
 Live public preview: `/public/testnet/rewards`

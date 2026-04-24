@@ -17,6 +17,16 @@ const AUTHORITY_ACCOUNTS = new Set([
 // Persisted via ledger UNSTAKE_REQUEST entries; stateStore holds the canonical state.
 const unstakeRequests = new Map();
 
+function parseAllowlist(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeString(item, 64)).filter(Boolean);
+  }
+  return String(value || "")
+    .split(/[\s,]+/)
+    .map((item) => sanitizeString(item, 64))
+    .filter(Boolean);
+}
+
 function activeKeyChallenge(action, username, amount) {
   return ['BTCPC_STAKE', action, username, amount || ''].join(':');
 }
@@ -342,13 +352,28 @@ async function setStakePolicy(req, res) {
     if (!AUTHORITY_ACCOUNTS.has(req.user.username)) {
       return res.status(403).json({ error: 'only network authorities may set stake policy' });
     }
-    const { freeUntilStakers } = req.body;
+    const { freeUntilStakers, btcpctestDeveloperEnabled, btcpctestDeveloperAllowlist } = req.body;
     if (typeof freeUntilStakers !== 'number' || freeUntilStakers < 0) {
       return res.status(400).json({ error: 'freeUntilStakers must be a non-negative number' });
     }
+    let developerEnabledPatch = {};
+    if (btcpctestDeveloperEnabled !== undefined) {
+      developerEnabledPatch.btcpctest_developer_enabled = !!btcpctestDeveloperEnabled;
+    }
+    if (btcpctestDeveloperAllowlist !== undefined) {
+      developerEnabledPatch.btcpctest_developer_allowlist = parseAllowlist(btcpctestDeveloperAllowlist);
+    }
     const epoch = await ledger.getCurrentEpoch();
-    await ledger.recordNetworkPolicy(req.user.username, { stake_free_until_stakers: freeUntilStakers }, epoch);
-    res.json({ success: true, freeUntilStakers });
+    await ledger.recordNetworkPolicy(req.user.username, {
+      stake_free_until_stakers: freeUntilStakers,
+      ...developerEnabledPatch,
+    }, epoch);
+    res.json({
+      success: true,
+      freeUntilStakers,
+      btcpctestDeveloperEnabled: developerEnabledPatch.btcpctest_developer_enabled,
+      btcpctestDeveloperAllowlist: developerEnabledPatch.btcpctest_developer_allowlist || [],
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
