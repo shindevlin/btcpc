@@ -8,6 +8,8 @@
  */
 
 const gr = require('../src/services/loraGatewayRegistry');
+const stateStore = require('../src/chain/stateStore');
+const crypto = require('crypto');
 
 function baseSpec(overrides) {
   return Object.assign({
@@ -71,6 +73,54 @@ describe('loraGatewayRegistry — registration', () => {
     expect(gr.getGatewayByHardwareHash('d'.repeat(64)).gateway_id).toBe('shindevlin/helium-01');
   });
 
+  it('binds the hardware hash to the owner posting key hash when present', () => {
+    const postingKey = '03' + '2'.repeat(64);
+    stateStore.applyEntry({
+      type: 'ACCOUNT_CREATE',
+      to: 'shindevlin',
+      epoch: 1,
+      account_data: { public_keys: { posting: postingKey }, chain_addresses: {} },
+    });
+    const rec = gr.registerGateway('shindevlin', 'shindevlin/helium-posting', baseSpec({
+      hardware_hash: 'c'.repeat(64),
+      hardware_id_kind: 'serial_number',
+      hardware_id: 'GW-001',
+    }), { epoch: 2 });
+    expect(rec.posting_key_hash).toBe(crypto.createHash('sha256').update('posting_key:' + postingKey.toLowerCase(), 'utf8').digest('hex'));
+  });
+
+  it('allows a gateway hardware takeover when the new owner pays a nominal stablecoin fee', () => {
+    stateStore.applyEntry({
+      type: 'ACCOUNT_CREATE',
+      to: 'shindevlin',
+      epoch: 1,
+      account_data: { public_keys: { posting: '03' + '1'.repeat(64) }, chain_addresses: {} },
+    });
+    stateStore.applyEntry({
+      type: 'ACCOUNT_CREATE',
+      to: 'alice',
+      epoch: 1,
+      account_data: { public_keys: { posting: '03' + '2'.repeat(64) }, chain_addresses: {} },
+    });
+    gr.registerGateway('shindevlin', 'shindevlin/helium-takeover', baseSpec({
+      hardware_hash: 'b'.repeat(64),
+      hardware_id_kind: 'serial_number',
+      hardware_id: 'GW-002',
+    }), { epoch: 2 });
+    const rec = gr.registerGateway('alice', 'alice/helium-takeover', baseSpec({
+      hardware_hash: 'b'.repeat(64),
+      hardware_id_kind: 'serial_number',
+      hardware_id: 'GW-002',
+      hardware_takeover: {
+        tx_hash: 'tx-' + '8'.repeat(10),
+        token: 'DAI',
+        usd_amount: 5,
+      },
+    }), { epoch: 3 });
+    expect(rec.hardware_owner).toBe('alice');
+    expect(rec.hardware_takeover_token).toBe('DAI');
+  });
+
   it('rejects registration where gateway_id prefix does not match owner', () => {
     expect(() => gr.registerGateway('alice', 'shindevlin/helium-01', baseSpec())).toThrow(/owner prefix/);
   });
@@ -112,7 +162,7 @@ describe('loraGatewayRegistry — registration', () => {
       hardware_hash: 'e'.repeat(64),
       hardware_id_kind: 'serial_number',
       hardware_id: 'GW-001',
-    }))).toThrow(/hardware_hash already registered/);
+    }))).toThrow(/hardware_hash already claimed/);
   });
 
   it('allows a retired gateway to come back fresh with the same hardware hash', () => {

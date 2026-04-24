@@ -28,6 +28,7 @@
 var oracle = require('./oracleFeeds');
 var stateStore = require('../chain/stateStore');
 var normalizeHardwareIdentity = require('./hardwareIdentity').normalizeHardwareIdentity;
+var hardwareClaims = require('./hardwareClaims');
 
 // sensor_id → sensor record
 var sensors = new Map();
@@ -179,12 +180,26 @@ function registerSensor(owner, sensorId, spec, options) {
   var existing = sensors.get(sensorId);
   var epoch = options.epoch || 0;
   var record;
+  var takeover = spec.hardware_takeover || null;
+  var postingKey = "";
+  try {
+    var acct = stateStore.getAccount(owner);
+    postingKey = acct && acct.public_keys && acct.public_keys.posting ? String(acct.public_keys.posting) : "";
+  } catch (_) {}
+
+  var hardwareClaim = hardwareClaims.claimHardware(owner, hardware.hardware_hash, {
+    posting_key: postingKey,
+    hardware_id_kind: hardware.hardware_id_kind,
+    hardware_id: hardware.hardware_id,
+    takeover: takeover,
+    epoch: epoch,
+  });
 
   if (hardware.hardware_hash) {
     var mappedSensorId = sensorsByHardwareHash.get(hardware.hardware_hash);
     if (mappedSensorId && mappedSensorId !== sensorId) {
       var mappedSensor = sensors.get(mappedSensorId);
-      if (mappedSensor && mappedSensor.status !== "retired") {
+      if (mappedSensor && mappedSensor.status !== "retired" && !takeover) {
         throw new Error("hardware_hash already registered to active sensor " + mappedSensorId);
       }
       if (!mappedSensor) {
@@ -222,6 +237,11 @@ function registerSensor(owner, sensorId, spec, options) {
     record.hardware_hash = hardware.hardware_hash || record.hardware_hash || null;
     record.hardware_id_kind = hardware.hardware_id_kind || record.hardware_id_kind || null;
     record.hardware_id = hardware.hardware_id || record.hardware_id || null;
+    record.posting_key_hash = hardwareClaim.posting_key_hash || record.posting_key_hash || null;
+    record.hardware_owner = hardwareClaim.owner || record.hardware_owner || owner;
+    record.hardware_takeover_token = hardwareClaim.takeover_token || null;
+    record.hardware_takeover_usd = hardwareClaim.takeover_usd || null;
+    record.hardware_takeover_tx_hash = hardwareClaim.takeover_tx_hash || null;
     record.last_updated_epoch = epoch;
     record.status = "active";
   } else {
@@ -240,6 +260,11 @@ function registerSensor(owner, sensorId, spec, options) {
       hardware_hash: hardware.hardware_hash || null,
       hardware_id_kind: hardware.hardware_id_kind || null,
       hardware_id: hardware.hardware_id || null,
+      posting_key_hash: hardwareClaim.posting_key_hash || null,
+      hardware_owner: hardwareClaim.owner || owner,
+      hardware_takeover_token: hardwareClaim.takeover_token || null,
+      hardware_takeover_usd: hardwareClaim.takeover_usd || null,
+      hardware_takeover_tx_hash: hardwareClaim.takeover_tx_hash || null,
       status: "active",
       created_epoch: epoch,
       last_updated_epoch: epoch,
@@ -750,6 +775,7 @@ function getSensorStats(sensorId, currentEpoch) {
 function resetForTests() {
   sensors.clear();
   sensorsByHardwareHash.clear();
+  try { hardwareClaims.resetForTests(); } catch (_) {}
   readingsByEpoch.clear();
   finalizedReadings.clear();
   sensorStats.clear();

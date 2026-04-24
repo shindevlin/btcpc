@@ -24,6 +24,7 @@
 
 var SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,62}$/;
 var normalizeHardwareIdentity = require("./hardwareIdentity").normalizeHardwareIdentity;
+var hardwareClaims = require("./hardwareClaims");
 
 // gateway_id → gateway record
 var gateways = new Map();
@@ -106,12 +107,26 @@ function registerGateway(owner, gatewayId, spec, options) {
   var existing = gateways.get(gatewayId);
   var record;
   var hardware = normalizeHardwareIdentity(spec, gatewayId, "gateway_id");
+  var takeover = spec.hardware_takeover || null;
+  var postingKey = "";
+  try {
+    var acct = require("../chain/stateStore").getAccount(owner);
+    postingKey = acct && acct.public_keys && acct.public_keys.posting ? String(acct.public_keys.posting) : "";
+  } catch (_) {}
+
+  var hardwareClaim = hardwareClaims.claimHardware(owner, hardware.hardware_hash, {
+    posting_key: postingKey,
+    hardware_id_kind: hardware.hardware_id_kind,
+    hardware_id: hardware.hardware_id,
+    takeover: takeover,
+    epoch: epoch,
+  });
 
   if (hardware.hardware_hash) {
     var mappedGatewayId = gatewaysByHardwareHash.get(hardware.hardware_hash);
     if (mappedGatewayId && mappedGatewayId !== gatewayId) {
       var mappedGateway = gateways.get(mappedGatewayId);
-      if (mappedGateway && mappedGateway.status !== "retired") {
+      if (mappedGateway && mappedGateway.status !== "retired" && !takeover) {
         throw new Error("hardware_hash already registered to active gateway " + mappedGatewayId);
       }
       if (!mappedGateway) {
@@ -147,6 +162,11 @@ function registerGateway(owner, gatewayId, spec, options) {
     record.hardware_hash = hardware.hardware_hash || record.hardware_hash || null;
     record.hardware_id_kind = hardware.hardware_id_kind || record.hardware_id_kind || null;
     record.hardware_id = hardware.hardware_id || record.hardware_id || null;
+    record.posting_key_hash = hardwareClaim.posting_key_hash || record.posting_key_hash || null;
+    record.hardware_owner = hardwareClaim.owner || record.hardware_owner || owner;
+    record.hardware_takeover_token = hardwareClaim.takeover_token || null;
+    record.hardware_takeover_usd = hardwareClaim.takeover_usd || null;
+    record.hardware_takeover_tx_hash = hardwareClaim.takeover_tx_hash || null;
     if (spec.public_key) record.public_key = spec.public_key;
     record.last_updated_epoch = epoch;
     record.status = "active";
@@ -163,6 +183,11 @@ function registerGateway(owner, gatewayId, spec, options) {
       hardware_hash: hardware.hardware_hash || null,
       hardware_id_kind: hardware.hardware_id_kind || null,
       hardware_id: hardware.hardware_id || null,
+      posting_key_hash: hardwareClaim.posting_key_hash || null,
+      hardware_owner: hardwareClaim.owner || owner,
+      hardware_takeover_token: hardwareClaim.takeover_token || null,
+      hardware_takeover_usd: hardwareClaim.takeover_usd || null,
+      hardware_takeover_tx_hash: hardwareClaim.takeover_tx_hash || null,
       // secp256k1 compressed hex public key for gateway signature verification
       public_key: spec.public_key || null,
       max_sensors: spec.max_sensors !== undefined ? parseInt(spec.max_sensors, 10) : 50,
@@ -383,6 +408,7 @@ function verifyGatewaySignature(gatewayId, payload, signature) {
 function resetForTests() {
   gateways.clear();
   gatewaysByHardwareHash.clear();
+  try { hardwareClaims.resetForTests(); } catch (_) {}
   gatewayStats.clear();
 }
 

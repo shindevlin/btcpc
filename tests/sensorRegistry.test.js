@@ -10,6 +10,8 @@
 
 const sr = require('../src/services/sensorRegistry');
 const oracle = require('../src/services/oracleFeeds');
+const stateStore = require('../src/chain/stateStore');
+const crypto = require('crypto');
 
 function baseSpec(overrides) {
   return Object.assign({
@@ -74,6 +76,54 @@ describe('sensorRegistry — registration', () => {
     expect(sr.getSensorByHardwareHash('a'.repeat(64)).sensor_id).toBe('shindevlin/temp-01');
   });
 
+  it('binds the hardware hash to the owner posting key hash when present', () => {
+    const postingKey = '03' + '1'.repeat(64);
+    stateStore.applyEntry({
+      type: 'ACCOUNT_CREATE',
+      to: 'shindevlin',
+      epoch: 1,
+      account_data: { public_keys: { posting: postingKey }, chain_addresses: {} },
+    });
+    const rec = sr.registerSensor('shindevlin', 'shindevlin/temp-posting', baseSpec({
+      hardware_hash: 'e'.repeat(64),
+      hardware_id_kind: 'device_mac',
+      hardware_id: 'aa:bb:cc:dd:ee:ff',
+    }), { epoch: 2 });
+    expect(rec.posting_key_hash).toBe(crypto.createHash('sha256').update('posting_key:' + postingKey.toLowerCase(), 'utf8').digest('hex'));
+  });
+
+  it('allows a hardware takeover when the new owner pays a nominal stablecoin fee', () => {
+    stateStore.applyEntry({
+      type: 'ACCOUNT_CREATE',
+      to: 'shindevlin',
+      epoch: 1,
+      account_data: { public_keys: { posting: '03' + '1'.repeat(64) }, chain_addresses: {} },
+    });
+    stateStore.applyEntry({
+      type: 'ACCOUNT_CREATE',
+      to: 'alice',
+      epoch: 1,
+      account_data: { public_keys: { posting: '03' + '2'.repeat(64) }, chain_addresses: {} },
+    });
+    sr.registerSensor('shindevlin', 'shindevlin/temp-takeover', baseSpec({
+      hardware_hash: 'f'.repeat(64),
+      hardware_id_kind: 'serial_number',
+      hardware_id: 'SENSOR-001',
+    }), { epoch: 2 });
+    const rec = sr.registerSensor('alice', 'alice/temp-takeover', baseSpec({
+      hardware_hash: 'f'.repeat(64),
+      hardware_id_kind: 'serial_number',
+      hardware_id: 'SENSOR-001',
+      hardware_takeover: {
+        tx_hash: 'tx-' + '9'.repeat(10),
+        token: 'USDC',
+        usd_amount: 5,
+      },
+    }), { epoch: 3 });
+    expect(rec.hardware_owner).toBe('alice');
+    expect(rec.hardware_takeover_token).toBe('USDC');
+  });
+
   it('rejects registration where sensor_id prefix does not match owner', () => {
     expect(() => sr.registerSensor('alice', 'shindevlin/temp-01', baseSpec())).toThrow(/owner prefix/);
   });
@@ -95,7 +145,7 @@ describe('sensorRegistry — registration', () => {
       hardware_hash: 'b'.repeat(64),
       hardware_id_kind: 'serial_number',
       hardware_id: 'SN-001',
-    }), { epoch: 2 })).toThrow(/hardware_hash already registered/);
+    }), { epoch: 2 })).toThrow(/hardware_hash already claimed/);
   });
 
   it('rejects invalid sensor types', () => {

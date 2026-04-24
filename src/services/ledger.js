@@ -18,6 +18,15 @@ const stateStore = require('../chain/stateStore');
 const epochBandwidth = require('./epochBandwidth');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+const { normalizeHardwareIdentity } = require('./hardwareIdentity');
+const https = require('https');
+
+function _postingKeyHash(postingKey) {
+  const key = typeof postingKey === 'string' ? postingKey.trim() : '';
+  if (!key) return null;
+  return crypto.createHash('sha256').update('posting_key:' + key.toLowerCase(), 'utf8').digest('hex');
+}
 
 // Pending entries — collected during an epoch, written into the next block.
 //
@@ -234,6 +243,66 @@ function _persist(entry) {
   _appendPendingToDisk(entry);
   _gossipEntry(entry);
   return entry;
+}
+
+function _persistSystem(entry) {
+  stateStore.applyEntry(entry);
+  pendingEntries.push(entry);
+  _appendPendingToDisk(entry);
+  return entry;
+}
+
+function _httpGetText(url) {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, (res) => {
+      if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        resolve(_httpGetText(res.headers.location));
+        res.resume();
+        return;
+      }
+      if (res.statusCode !== 200) {
+        reject(new Error('HTTP ' + res.statusCode + ' while fetching whitepaper'));
+        res.resume();
+        return;
+      }
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('data', (chunk) => { body += chunk; });
+      res.on('end', () => resolve(body));
+    });
+    req.on('error', reject);
+    req.setTimeout(15000, () => {
+      req.destroy(new Error('whitepaper fetch timed out'));
+    });
+  });
+}
+
+function _extractWhitepaperMetadata(whitepaper) {
+  const text = String(whitepaper || '');
+  const lines = text.split(/\r?\n/);
+  let title = 'BTCPC Whitepaper';
+  for (let i = 0; i < Math.min(lines.length, 8); i++) {
+    const line = lines[i].trim();
+    if (line.indexOf('# ') === 0) {
+      title = line.replace(/^#\s+/, '').trim() || title;
+      break;
+    }
+  }
+  const versionMatch = text.match(/\*\*Version\s+([^*]+)\*\*/i);
+  return {
+    title,
+    version: versionMatch ? versionMatch[1].trim() : null,
+  };
+}
+
+async function _loadWhitepaperText() {
+  const sourceMode = (process.env.BTCPC_WHITEPAPER_SOURCE || 'local').toLowerCase();
+  const rawUrl = process.env.BTCPC_WHITEPAPER_GITHUB_RAW_URL || process.env.BTCPC_WHITEPAPER_SOURCE_URL || '';
+  if (sourceMode === 'github' && rawUrl) {
+    return { text: await _httpGetText(rawUrl), source: rawUrl, source_kind: 'github' };
+  }
+  const localPath = path.resolve(__dirname, '..', '..', 'docs', 'BTCPC_WHITEPAPER.md');
+  return { text: fs.readFileSync(localPath, 'utf8'), source: localPath, source_kind: 'local' };
 }
 
 /**
@@ -478,6 +547,84 @@ async function recordMiningReward(miner, amount, epoch, _token, _memo, rewardSou
   // Cross-chain credits (0.1 BTCPC per chain) are accrued automatically by
   // stateStore.applyEntry on every MINING_REWARD — both for new blocks and
   // when replaying historical blocks, giving all miners retroactive credit.
+}
+
+/**
+ * Record the current whitepaper as a native on-chain revision.
+ * This is a system publication, so it bypasses epoch bandwidth and gossip,
+ * but it still enters pendingEntries so the next block includes it.
+ */
+async function recordWhitepaperRevision(epoch, stateRoot, options) {
+  const source = options && options.source ? options.source : null;
+  const sourceKind = options && options.source_kind ? options.source_kind : null;
+  const loaded = options && typeof options.whitepaper === 'string'
+    ? { text: options.whitepaper, source: source || null, source_kind: sourceKind || 'inline' }
+    : await _loadWhitepaperText();
+  const whitepaperText = loaded.text;
+  const whitepaperSource = source || loaded.source;
+  const whitepaperSourceKind = sourceKind || loaded.source_kind;
+  const meta = _extractWhitepaperMetadata(whitepaperText);
+  const whitepaperHash = require('crypto').createHash('sha256').update(whitepaperText, 'utf8').digest('hex');
+  const anchorsDir = path.resolve(__dirname, '..', '..', 'data', 'anchors');
+  const base = 'whitepaper-' + String(epoch).padStart(8, '0');
+  const mdPath = path.join(anchorsDir, base + '.md');
+  const jsonPath = path.join(anchorsDir, base + '.json');
+
+  const entry = _entry({
+    type: 'WHITEPAPER_REVISION',
+    from: 'btcpc',
+    to: 'btcpc',
+    token: 'BTCPC',
+    amount: 0,
+    epoch,
+    state_root: stateRoot || null,
+    signed_by: 'protocol',
+    memo: 'Native whitepaper revision',
+    whitepaper_source: whitepaperSource,
+    whitepaper_source_kind: whitepaperSourceKind,
+    whitepaper_hash: whitepaperHash,
+    whitepaper_length: whitepaperText.length,
+    whitepaper_title: meta.title,
+    whitepaper_version: meta.version,
+    whitepaper_path: mdPath,
+    whitepaper_manifest_path: jsonPath,
+    whitepaper_data: {
+      title: meta.title,
+      version: meta.version,
+      source_kind: whitepaperSourceKind,
+      source: whitepaperSource,
+      hash: whitepaperHash,
+      length: whitepaperText.length,
+      content: whitepaperText,
+    }
+  });
+
+  _persistSystem(entry);
+
+  // Persist a convenience snapshot alongside the block history for explorers.
+  try {
+    if (!fs.existsSync(anchorsDir)) fs.mkdirSync(anchorsDir, { recursive: true });
+    fs.writeFileSync(mdPath + '.tmp', whitepaperText);
+    fs.renameSync(mdPath + '.tmp', mdPath);
+    const manifest = {
+      type: 'WHITEPAPER_REVISION',
+      epoch,
+      state_root: stateRoot || null,
+      whitepaper_hash: whitepaperHash,
+      whitepaper_length: whitepaperText.length,
+      whitepaper_title: meta.title,
+      whitepaper_version: meta.version,
+      whitepaper_source: whitepaperSource,
+      whitepaper_source_kind: whitepaperSourceKind,
+      whitepaper_path: mdPath,
+      whitepaper_manifest_path: jsonPath,
+      anchored_at: Date.now(),
+    };
+    fs.writeFileSync(jsonPath + '.tmp', JSON.stringify(manifest, null, 2));
+    fs.renameSync(jsonPath + '.tmp', jsonPath);
+  } catch (_) {}
+
+  return entry;
 }
 
 /**
@@ -1656,6 +1803,16 @@ function recordSensorRegister(owner, sensorId, spec, epoch) {
   if (!sensorId) throw new Error('sensorId required');
   if (!spec || typeof spec !== 'object') throw new Error('spec required');
 
+  const hardware = normalizeHardwareIdentity(spec, sensorId, "sensor_id");
+  const postingKey = (() => {
+    try {
+      const acct = stateStore.getAccount(owner);
+      return acct && acct.public_keys && acct.public_keys.posting ? acct.public_keys.posting : null;
+    } catch (_) {
+      return null;
+    }
+  })();
+  const postingKeyHash = _postingKeyHash(postingKey);
   const entry = _entry({
     type: 'SENSOR_REGISTER',
     from: owner,
@@ -1670,6 +1827,12 @@ function recordSensorRegister(owner, sensorId, spec, epoch) {
       lora_gateway: spec.lora_gateway || null,
       hardware_model: spec.hardware_model || null,
       firmware_version: spec.firmware_version || null,
+      hardware_hash: hardware.hardware_hash,
+      hardware_id_kind: hardware.hardware_id_kind,
+      hardware_id: hardware.hardware_id,
+      posting_key: postingKey,
+      posting_key_hash: postingKeyHash,
+      hardware_owner: owner,
     },
   });
   return _persist(entry);
@@ -1743,6 +1906,16 @@ function recordGatewayRegister(owner, gatewayId, spec, epoch) {
   if (!gatewayId) throw new Error('gatewayId required');
   if (!spec || typeof spec !== 'object') throw new Error('spec required');
 
+  const hardware = normalizeHardwareIdentity(spec, gatewayId, "gateway_id");
+  const postingKey = (() => {
+    try {
+      const acct = stateStore.getAccount(owner);
+      return acct && acct.public_keys && acct.public_keys.posting ? acct.public_keys.posting : null;
+    } catch (_) {
+      return null;
+    }
+  })();
+  const postingKeyHash = _postingKeyHash(postingKey);
   const entry = _entry({
     type: 'GATEWAY_REGISTER',
     from: owner,
@@ -1757,6 +1930,12 @@ function recordGatewayRegister(owner, gatewayId, spec, epoch) {
       hardware_model: spec.hardware_model || null,
       firmware_version: spec.firmware_version || null,
       max_sensors: spec.max_sensors !== undefined ? parseInt(spec.max_sensors, 10) : 50,
+      hardware_hash: hardware.hardware_hash,
+      hardware_id_kind: hardware.hardware_id_kind,
+      hardware_id: hardware.hardware_id,
+      posting_key: postingKey,
+      posting_key_hash: postingKeyHash,
+      hardware_owner: owner,
     },
   });
   return _persist(entry);
@@ -3161,6 +3340,7 @@ module.exports = {
   recordTransfer,
   recordAuthorizedTransfer,
   recordMiningReward,
+  recordWhitepaperRevision,
   recordProjectRevenueSplit,
   recordModelUpload,
   recordFaucet,
