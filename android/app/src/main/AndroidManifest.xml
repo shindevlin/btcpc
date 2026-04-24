@@ -125,6 +125,9 @@
     <!-- Sensor / activity -->
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
     <uses-permission android:name="android.permission.BODY_SENSORS" />
+    <!-- Camera (QR code scanner for wallet restore) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
     <!-- Microphone (noise level sensor) -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <!-- NFC (tag scanner sensor) -->

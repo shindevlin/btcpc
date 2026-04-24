@@ -20,12 +20,16 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.activity.result.ActivityResultLauncher;
 import androidx.appcompat.app.AlertDialog;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.core.content.ContextCompat;
+
+import com.journeyapps.barcodescanner.ScanContract;
+import com.journeyapps.barcodescanner.ScanOptions;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.chip.Chip;
@@ -72,6 +76,18 @@ public class SettingsFragment extends Fragment {
     private TextView updateStatus;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
+
+    private final ActivityResultLauncher<ScanOptions> qrScanLauncher =
+        registerForActivityResult(new ScanContract(), result -> {
+            if (result.getContents() == null) return;
+            String raw = result.getContents().trim();
+            String[] parts = WalletBackupHelper.parsePayload(raw);
+            if (parts != null && parts[1].length() == 64) {
+                applyWalletRestore(parts);
+            } else {
+                showRestoreDialogWithText(raw);
+            }
+        });
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -493,15 +509,23 @@ public class SettingsFragment extends Fragment {
     }
 
     private void showRestoreDialog() {
+        showRestoreDialogWithText("");
+    }
+
+    private void showRestoreDialogWithText(String prefill) {
         if (!isAdded()) return;
         android.view.View dialogView = LayoutInflater.from(requireContext())
                 .inflate(R.layout.dialog_restore_wallet, null, false);
         EditText input = dialogView.findViewById(R.id.restore_input);
-        new AlertDialog.Builder(requireContext())
+        if (!prefill.isEmpty()) input.setText(prefill);
+        com.google.android.material.button.MaterialButton scanBtn =
+                dialogView.findViewById(R.id.restore_scan_btn);
+
+        AlertDialog dialog = new AlertDialog.Builder(requireContext())
                 .setTitle("Restore Wallet")
-                .setMessage("Paste your backup code (account:postingKey) from a screenshot or note.")
+                .setMessage("Paste your backup code or scan the backup QR.")
                 .setView(dialogView)
-                .setPositiveButton("Restore", (dialog, which) -> {
+                .setPositiveButton("Restore", (d, which) -> {
                     String raw = input.getText() != null ? input.getText().toString().trim() : "";
                     String[] parts = WalletBackupHelper.parsePayload(raw);
                     if (parts == null || parts[1].length() != 64) {
@@ -510,16 +534,32 @@ public class SettingsFragment extends Fragment {
                         handler.postDelayed(() -> { if (isAdded()) saveStatus.setText(""); }, 4000);
                         return;
                     }
-                    prefs.setAccount(parts[0]);
-                    prefs.setPostingKey(parts[1]);
-                    accountLabel.setText("Signed in as " + parts[0]);
-                    signOutBtn.setVisibility(android.view.View.VISIBLE);
-                    postingKeyInput.setText(parts[1]);
-                    saveStatus.setText("Wallet restored for " + parts[0]);
-                    saveStatus.setTextColor(0xFF22C55E);
-                    handler.postDelayed(() -> { if (isAdded()) saveStatus.setText(""); }, 3000);
+                    applyWalletRestore(parts);
                 })
                 .setNegativeButton("Cancel", null)
-                .show();
+                .create();
+
+        scanBtn.setOnClickListener(v -> {
+            dialog.dismiss();
+            ScanOptions opts = new ScanOptions()
+                    .setPrompt("Scan your BTCPC wallet backup QR")
+                    .setBeepEnabled(false)
+                    .setOrientationLocked(false)
+                    .setBarcodeImageEnabled(false);
+            qrScanLauncher.launch(opts);
+        });
+
+        dialog.show();
+    }
+
+    private void applyWalletRestore(String[] parts) {
+        prefs.setAccount(parts[0]);
+        prefs.setPostingKey(parts[1]);
+        accountLabel.setText("Signed in as " + parts[0]);
+        signOutBtn.setVisibility(android.view.View.VISIBLE);
+        postingKeyInput.setText(parts[1]);
+        saveStatus.setText("Wallet restored for " + parts[0]);
+        saveStatus.setTextColor(0xFF22C55E);
+        handler.postDelayed(() -> { if (isAdded()) saveStatus.setText(""); }, 3000);
     }
 }
