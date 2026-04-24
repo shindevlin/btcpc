@@ -369,12 +369,81 @@ function iterateBlocks(fromEpoch, toEpoch, callback) {
 }
 
 // ─────────────────────────────────────────────────────────────────
+// Live block watcher — for processes that share the filesystem
+// but not in-memory state (e.g. API server watching miner output).
+// ─────────────────────────────────────────────────────────────────
+
+/**
+ * Watch for new blocks written by another process on the same filesystem.
+ * Calls onBlock(epochNumber, payload) for each new block in order.
+ * Watches index.json (atomically updated via rename on every writeBlock).
+ * Returns a stop() function.
+ *
+ * Falls back to 35s polling if fs.watch is unavailable (NFS, etc.).
+ *
+ * @param {number} fromEpoch — first epoch to watch for (exclusive lower bound)
+ * @param {function} onBlock — callback(epochNumber, payload)
+ */
+function watchBlocks(fromEpoch, onBlock) {
+  var nextEpoch = fromEpoch;
+  var processing = false;
+
+  function drain() {
+    if (processing) return;
+    processing = true;
+    try {
+      // Read index directly from disk — do not use _indexCache, which belongs
+      // to the miner's process and is not updated in this process.
+      var latest = -1;
+      try {
+        var indexData = JSON.parse(fs.readFileSync(INDEX_PATH, "utf8"));
+        var epochs = Object.keys(indexData).map(Number);
+        if (epochs.length > 0) latest = Math.max.apply(null, epochs);
+      } catch (_) {}
+
+      while (nextEpoch <= latest) {
+        var data = readBlock(nextEpoch);
+        if (data && data.payload) {
+          try { onBlock(nextEpoch, data.payload); } catch (_) {}
+        }
+        nextEpoch++;
+      }
+    } finally {
+      processing = false;
+    }
+  }
+
+  // Watch the directory, not the index file itself.
+  // fs.watch on a specific file loses the watch when the file is replaced
+  // atomically via rename (which is exactly what saveIndex() does).
+  // Watching the directory catches IN_MOVED_TO events for index.json.
+  var watcher = null;
+  var pollTimer = null;
+  try {
+    ensureBlockDir();
+    watcher = fs.watch(BLOCKS_DIR, { persistent: false }, function(event, filename) {
+      if (filename === "index.json" || (filename && filename.startsWith("block-"))) {
+        drain();
+      }
+    });
+  } catch (_) {}
+  // Belt-and-suspenders: poll every 10s in case fs.watch misses atomic rename events
+  pollTimer = setInterval(drain, 10000);
+  drain(); // immediate drain on startup
+  return function stop() {
+    if (watcher) { watcher.close(); watcher = null; }
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────
 // Exports
 // ─────────────────────────────────────────────────────────────────
 
 module.exports = {
   ensureBlockDir: ensureBlockDir,
   writeBlock: writeBlock,
+  watchBlocks: watchBlocks,
   writeFinality: writeFinality,
   readBlock: readBlock,
   readBlockHeader: readBlockHeader,
