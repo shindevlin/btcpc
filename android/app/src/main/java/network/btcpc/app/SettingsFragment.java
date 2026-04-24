@@ -16,8 +16,6 @@ import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
-import android.widget.AutoCompleteTextView;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -55,10 +53,11 @@ public class SettingsFragment extends Fragment {
     private EditText apiUrlInput;
     private EditText relayUrlInput;
     private EditText deviceNameInput;
-    private AutoCompleteTextView wifiSuggestionInput;
+    private EditText wifiSuggestionInput;
     private MaterialButton wifiAddBtn;
+    private ChipGroup wifiNearbyChips;
+    private TextView wifiPermissionHint;
     private ChipGroup trustedWifiChips;
-    private ArrayAdapter<String> wifiSuggestionAdapter;
     private MaterialButton saveBtn;
     private TextView saveStatus;
 
@@ -93,9 +92,11 @@ public class SettingsFragment extends Fragment {
         apiUrlInput     = view.findViewById(R.id.settings_api_url);
         relayUrlInput   = view.findViewById(R.id.settings_relay_url);
         deviceNameInput = view.findViewById(R.id.settings_device_name);
-        wifiSuggestionInput = view.findViewById(R.id.settings_wifi_suggestion);
-        wifiAddBtn      = view.findViewById(R.id.settings_wifi_add_btn);
-        trustedWifiChips = view.findViewById(R.id.settings_trusted_wifi_chips);
+        wifiSuggestionInput  = view.findViewById(R.id.settings_wifi_suggestion);
+        wifiAddBtn           = view.findViewById(R.id.settings_wifi_add_btn);
+        wifiNearbyChips      = view.findViewById(R.id.settings_wifi_nearby_chips);
+        wifiPermissionHint   = view.findViewById(R.id.settings_wifi_permission_hint);
+        trustedWifiChips     = view.findViewById(R.id.settings_trusted_wifi_chips);
         saveBtn         = view.findViewById(R.id.settings_save_btn);
         saveStatus      = view.findViewById(R.id.settings_save_status);
 
@@ -112,43 +113,6 @@ public class SettingsFragment extends Fragment {
         versionView.setText("v" + BuildConfig.VERSION_NAME);
         updateBtn.setOnClickListener(v -> checkForUpdate());
 
-        wifiSuggestionAdapter = new ArrayAdapter<String>(
-                requireContext(),
-                R.layout.wifi_suggestion_row,
-                new ArrayList<String>()) {
-            @NonNull
-            @Override
-            public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
-                return bindWifiSuggestion(convertView, parent, getItem(position));
-            }
-
-            @NonNull
-            @Override
-            public View getDropDownView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
-                return bindWifiSuggestion(convertView, parent, getItem(position));
-            }
-
-            private View bindWifiSuggestion(View convertView, ViewGroup parent, String ssid) {
-                View view = convertView;
-                if (view == null) {
-                    view = LayoutInflater.from(requireContext()).inflate(R.layout.wifi_suggestion_row, parent, false);
-                }
-                if (view != null) {
-                    TextView badge = view.findViewById(R.id.wifi_private_badge);
-                    TextView label = view.findViewById(R.id.wifi_ssid_label);
-                    boolean privateWifi = prefs != null && prefs.getTrustedWifiSsidSet().contains(ssid);
-                    if (label != null) label.setText(ssid == null ? "" : ssid);
-                    if (badge != null) badge.setVisibility(privateWifi ? View.VISIBLE : View.GONE);
-                }
-                return view;
-            }
-        };
-        wifiSuggestionInput.setAdapter(wifiSuggestionAdapter);
-        wifiSuggestionInput.setThreshold(0);
-        wifiSuggestionInput.setOnItemClickListener((parent, itemView, position, id) -> {
-            Object selected = parent.getItemAtPosition(position);
-            if (selected != null) wifiSuggestionInput.setText(selected.toString(), false);
-        });
         wifiAddBtn.setOnClickListener(v -> addTrustedWifiFromInput());
 
         // Show signed-in account or prompt to sign in
@@ -197,6 +161,16 @@ public class SettingsFragment extends Fragment {
                 accountLabel.setText("Not signed in — use the Wallet tab to sign in");
                 signOutBtn.setVisibility(android.view.View.GONE);
             }
+            // Refresh fields that may have been updated by login in another tab
+            if (postingKeyInput != null && postingKeyInput.getText().toString().isEmpty()) {
+                String saved = prefs.getPostingKey();
+                if (!saved.isEmpty()) postingKeyInput.setText(saved);
+            }
+            if (deviceNameInput != null) {
+                String saved = prefs.getDeviceName();
+                String current = deviceNameInput.getText().toString();
+                if (!saved.equals(current)) deviceNameInput.setText(saved);
+            }
         }
         refreshTrustedWifiUi();
         refreshServiceStatuses();
@@ -240,8 +214,15 @@ public class SettingsFragment extends Fragment {
         if (!isAdded() || prefs == null || wifiSuggestionInput == null) return;
         String ssid = TrustedWifiPolicy.normalizeSsid(text(wifiSuggestionInput));
         if (ssid.isEmpty()) return;
-        prefs.addTrustedWifiSsid(ssid);
+        addTrustedWifiFromInput(ssid);
         wifiSuggestionInput.setText("");
+    }
+
+    private void addTrustedWifiFromInput(String ssid) {
+        if (!isAdded() || prefs == null) return;
+        ssid = TrustedWifiPolicy.normalizeSsid(ssid);
+        if (ssid.isEmpty()) return;
+        prefs.addTrustedWifiSsid(ssid);
         refreshTrustedWifiUi();
         saveStatus.setText("Added " + ssid + " to privacy list.");
         saveStatus.setTextColor(0xFF22C55E);
@@ -279,7 +260,7 @@ public class SettingsFragment extends Fragment {
             chip.setChipBackgroundColorResource(android.R.color.transparent);
             chip.setCloseIconVisible(true);
             chip.setCheckable(false);
-            chip.setOnClickListener(v -> wifiSuggestionInput.setText(ssid, false));
+            chip.setOnClickListener(v -> wifiSuggestionInput.setText(ssid));
             chip.setOnCloseIconClickListener(v -> {
                 prefs.removeTrustedWifiSsid(ssid);
                 refreshTrustedWifiUi();
@@ -289,11 +270,39 @@ public class SettingsFragment extends Fragment {
     }
 
     private void refreshWifiSuggestions() {
-        if (wifiSuggestionAdapter == null) return;
+        if (!isAdded()) return;
+        boolean hasPerm = hasWifiScanPermission();
+        if (wifiPermissionHint != null) {
+            wifiPermissionHint.setVisibility(hasPerm ? View.GONE : View.VISIBLE);
+            if (!hasPerm) {
+                wifiPermissionHint.setOnClickListener(v -> requestPermissions(
+                        new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 0));
+            }
+        }
+        if (wifiNearbyChips == null) return;
+        wifiNearbyChips.removeAllViews();
         List<String> visible = loadVisibleWifiSsids();
-        wifiSuggestionAdapter.clear();
-        wifiSuggestionAdapter.addAll(visible);
-        wifiSuggestionAdapter.notifyDataSetChanged();
+        Set<String> trusted = prefs.getTrustedWifiSsidSet();
+        if (visible.isEmpty()) {
+            Chip placeholder = new Chip(requireContext());
+            placeholder.setText(hasPerm ? "No networks found" : "Grant location to scan");
+            placeholder.setCheckable(false);
+            placeholder.setClickable(false);
+            placeholder.setEnabled(false);
+            wifiNearbyChips.addView(placeholder);
+            return;
+        }
+        for (String ssid : visible) {
+            Chip chip = new Chip(requireContext());
+            chip.setText(ssid);
+            chip.setCheckable(false);
+            chip.setCloseIconVisible(false);
+            if (trusted.contains(ssid)) {
+                chip.setChipBackgroundColorResource(R.color.btcpc_surface_alt);
+            }
+            chip.setOnClickListener(v -> addTrustedWifiFromInput(ssid));
+            wifiNearbyChips.addView(chip);
+        }
     }
 
     private List<String> loadVisibleWifiSsids() {

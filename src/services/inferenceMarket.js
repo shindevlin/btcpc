@@ -21,7 +21,9 @@
 
 const crypto = require("crypto");
 const stateStore = require("../chain/stateStore");
+const nodeRegistry = require("../chain/nodeRegistry");
 const ledger = require("./ledger");
+const reviewerSelection = require("./reviewerSelection");
 const protocolTools = require("./protocolTools");
 
 const PROTOCOL_FEE_ACCOUNT = "btcpc_fees";
@@ -417,6 +419,97 @@ async function reviewJob(jobId, reviewer, verdict, reviewData) {
     ? (normalizedVerdict === "accepted" ? "denied" : "upheld")
     : null;
 
+  if (reviewStage === "appeal") {
+    const reviewVoteVerdict = (String(verdict || "").toLowerCase() === "fraud" || normalizedVerdict === "rejected")
+      ? "fraud"
+      : "non_fraud";
+    await ledger.recordInferenceJobReviewVote(jobId, reviewer, {
+      verdict: reviewVoteVerdict,
+      review_mode: reviewMode,
+      review_stage: reviewStage,
+      status: "review_voting",
+      review_committee_hash: job.review_committee_hash || null,
+    }, epoch);
+
+    const updated = stateStore.getInferenceJob(jobId) || job;
+    const assignedReviewers = Array.isArray(updated.assigned_reviewers) ? updated.assigned_reviewers.slice() : [];
+    const reviewVotes = Array.isArray(updated.review_votes) ? updated.review_votes.slice() : stateStore.getInferenceReviewVotes(jobId);
+    const voteCount = Array.isArray(reviewVotes) ? reviewVotes.length : 0;
+    const committeeSize = assignedReviewers.length || Math.max(3, voteCount);
+    if (voteCount < committeeSize) {
+      return {
+        job_id: jobId,
+        status: "review_voting",
+        reviewer,
+        verdict: reviewVoteVerdict,
+        review_stage: reviewStage,
+        review_vote_count: voteCount,
+        assigned_reviewers: assignedReviewers,
+        epoch,
+      };
+    }
+
+    const voteTally = reviewVotes.reduce((acc, vote) => {
+      const bucket = String(vote && vote.verdict || "").toLowerCase();
+      acc[bucket] = (acc[bucket] || 0) + 1;
+      return acc;
+    }, {});
+    const fraudVotes = voteTally.fraud || 0;
+    const nonFraudVotes = voteTally.non_fraud || 0;
+    const majorityVerdict = fraudVotes >= nonFraudVotes ? "fraud" : "non_fraud";
+    const challengeOutcome = majorityVerdict === "fraud" ? "upheld" : "denied";
+    const dissenters = reviewVotes
+      .filter((vote) => String(vote && vote.verdict || "").toLowerCase() !== majorityVerdict)
+      .map((vote) => vote && vote.reviewer)
+      .filter(Boolean);
+
+    for (const dissentingReviewer of dissenters) {
+      try {
+        const stakePool = stateStore.getStakePool ? stateStore.getStakePool(dissentingReviewer) : null;
+        const stakedAmount = stakePool ? Number(stakePool.total_staked || 0) : 0;
+        const slashAmount = parseFloat((stakedAmount * 0.02).toFixed(10));
+        if (slashAmount > 0) {
+          await ledger.recordSlash(dissentingReviewer, slashAmount, epoch, "review dissent", {
+            account: dissentingReviewer,
+            role: "verifier",
+            offenseType: "REVIEW_DISSENT",
+            tier: 0,
+            evidence: {
+              job_id: jobId,
+              review_stage: reviewStage,
+              majority_verdict: majorityVerdict,
+              vote_count: voteCount,
+            },
+          });
+          await ledger.recordNodeReputationUpdate(dissentingReviewer, "review", false, epoch);
+          if (typeof nodeRegistry.updateStake === "function") {
+            const updatedStakePool = stateStore.getStakePool ? stateStore.getStakePool(dissentingReviewer) : null;
+            const updatedStake = updatedStakePool ? Number(updatedStakePool.total_staked || 0) : 0;
+            nodeRegistry.updateStake(dissentingReviewer, updatedStake);
+          }
+        }
+      } catch (_) {}
+    }
+
+    await ledger.recordInferenceJobReviewOutcome(jobId, {
+      review_verdict: majorityVerdict,
+      challenge_status: challengeOutcome,
+      review_winner: majorityVerdict,
+      review_dissenters: dissenters,
+      review_vote_count: voteCount,
+      status: "challenged",
+    }, epoch);
+
+    const outcome = await finalizeJob(jobId, reviewer);
+    return {
+      ...outcome,
+      review_outcome: majorityVerdict,
+      assigned_reviewers: assignedReviewers,
+      review_vote_count: voteCount,
+      review_stage: reviewStage,
+    };
+  }
+
   await ledger.recordInferenceJobReview(jobId, reviewer, {
     verdict: normalizedVerdict,
     review_mode: reviewMode,
@@ -510,6 +603,12 @@ async function challengeJob(jobId, challenger, reason) {
 
   const challengeFee = parseFloat(job.challenge_fee || 0);
   const challengeEscrowId = _challengeEscrowId(jobId);
+  const committee = reviewerSelection.selectCommittee(job, {
+    stage: "appeal",
+    epoch,
+    committeeSize: 3,
+    mode: job.review_mode || "computer",
+  });
   if (challengeFee > 0) {
     await ledger.recordEscrowLock(challenger, challengeEscrowId, challengeFee, epoch);
   }
@@ -520,6 +619,8 @@ async function challengeJob(jobId, challenger, reason) {
     challenge_bond: challengeFee,
     challenge_escrow_id: challengeEscrowId,
     challenge_deadline_epoch: deadline,
+    assigned_reviewers: committee.committee,
+    review_committee_hash: committee.committee_hash,
   }, epoch);
 
   return {
@@ -528,6 +629,8 @@ async function challengeJob(jobId, challenger, reason) {
     challenger,
     challenge_fee: challengeFee,
     challenge_deadline_epoch: deadline,
+    assigned_reviewers: committee.committee,
+    review_committee_hash: committee.committee_hash,
     epoch,
   };
 }
@@ -553,6 +656,7 @@ async function finalizeJob(jobId, finalizer) {
   const reviewPayout = parseFloat((job.review_fee || 0).toFixed(10));
   const inferenceRefund = parseFloat((job.max_fee - actualCost).toFixed(10));
   const reviewStage = job.review_stage || "initial";
+  const resolvedChallengeStatus = job.challenge_status || (job.review_verdict === "accepted" ? "non_fraud" : null);
   const finalityHash = _jobFinalityHash(job);
 
   if (job.status === "challenged" && !["upheld", "denied"].includes(job.challenge_status || "")) {
@@ -562,15 +666,12 @@ async function finalizeJob(jobId, finalizer) {
     throw new Error("Challenge window still open");
   }
 
-  if (job.challenge_status === "upheld") {
+  if (resolvedChallengeStatus === "upheld") {
     if (reviewPayout > 0) {
       await ledger.recordEscrowRelease(job.reviewer || PROTOCOL_FEE_ACCOUNT, jobId, reviewPayout, epoch, "Inference review fee");
     }
     if (job.max_fee > 0) {
       await ledger.recordEscrowRefund(job.buyer, jobId, job.max_fee, epoch);
-    }
-    if (challengeEscrowId && job.challenge_fee > 0) {
-      await ledger.recordEscrowRefund(job.buyer, challengeEscrowId, job.challenge_fee, epoch);
     }
   } else if (job.status === "review_rejected" && !job.challenge_status) {
     if (reviewPayout > 0) {
@@ -579,7 +680,7 @@ async function finalizeJob(jobId, finalizer) {
     if (job.max_fee > 0) {
       await ledger.recordEscrowRefund(job.buyer, jobId, job.max_fee, epoch);
     }
-  } else if (job.challenge_status === "denied" || job.status === "awaiting_challenge" || job.status === "review_rejected") {
+  } else if (resolvedChallengeStatus === "denied" || job.status === "awaiting_challenge" || job.status === "review_rejected") {
     if (minerPayout > 0) {
       await ledger.recordEscrowRelease(job.miner, jobId, minerPayout, epoch, "Inference job payout");
     }
@@ -592,7 +693,7 @@ async function finalizeJob(jobId, finalizer) {
     if (inferenceRefund > 0.000001) {
       await ledger.recordEscrowRefund(job.buyer, jobId, inferenceRefund, epoch);
     }
-    if (job.challenge_status === "denied" && challengeEscrowId && job.challenge_fee > 0) {
+    if (resolvedChallengeStatus === "denied" && challengeEscrowId && job.challenge_fee > 0) {
       await ledger.recordEscrowRelease(PROTOCOL_FEE_ACCOUNT, challengeEscrowId, job.challenge_fee, epoch, "Inference challenge fee forfeited");
     }
   }
@@ -600,16 +701,16 @@ async function finalizeJob(jobId, finalizer) {
   await ledger.recordInferenceJobFinality(jobId, {
     finality_epoch: epoch,
     finality_hash: finalityHash,
-    finality_outcome: job.challenge_status || (job.review_verdict || "accepted"),
+    finality_outcome: resolvedChallengeStatus || (job.review_verdict || "accepted"),
     review_stage: reviewStage,
-    challenge_status: job.challenge_status || null,
+    challenge_status: resolvedChallengeStatus || null,
     status: "finalized",
     challenge_closed: true,
   }, epoch);
 
   try {
     if (job.miner) {
-      await ledger.recordNodeReputationUpdate(job.miner, "inference", job.challenge_status !== "upheld", epoch);
+      await ledger.recordNodeReputationUpdate(job.miner, "inference", resolvedChallengeStatus !== "upheld", epoch);
     }
   } catch (_) {}
 
@@ -620,7 +721,7 @@ async function finalizeJob(jobId, finalizer) {
     buyer: job.buyer,
     finality_epoch: epoch,
     finality_hash: finalityHash,
-    challenge_status: job.challenge_status || null,
+    challenge_status: resolvedChallengeStatus || null,
     review_stage: reviewStage,
   };
 }

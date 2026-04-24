@@ -135,9 +135,12 @@ async function transfer(req, res) {
       return res.status(400).json({ error: 'Cannot transfer to your own wallet' });
     }
 
-    const privateAuth = senderUser.privateAuth && senderUser.privateAuth.enabled ? req.body.private_auth : null;
+    const privateAuthEnabled = typeof privateAuthorization.isPrivateAuthEnabled === 'function'
+      ? privateAuthorization.isPrivateAuthEnabled()
+      : String(process.env.BTCPC_PRIVATE_AUTH_ENABLED || '').toLowerCase() === 'true';
+    const privateAuth = senderUser.privateAuth && senderUser.privateAuth.enabled && privateAuthEnabled ? req.body.private_auth : null;
     let authorization = null;
-    if (senderUser.privateAuth && senderUser.privateAuth.enabled) {
+    if (senderUser.privateAuth && senderUser.privateAuth.enabled && privateAuthEnabled) {
       if (!privateAuth) {
         return res.status(403).json({ error: 'Private authorization required for this account' });
       }
@@ -150,6 +153,9 @@ async function transfer(req, res) {
       } catch (authErr) {
         return res.status(403).json({ error: authErr.message });
       }
+    } else if (senderUser.privateAuth && senderUser.privateAuth.enabled && !privateAuthEnabled) {
+      // Private auth policy exists, but the runtime feature flag is off.
+      // The transfer proceeds as a normal BTCPC spend until the future update is enabled.
     }
 
     // Record on permanent ledger

@@ -6,6 +6,7 @@ const { authenticateToken } = require('../middlewares/auth');
 const { requireTOTP } = require('../services/totp');
 const ledger = require('../services/ledger');
 const stateStore = require('../chain/stateStore');
+const crossChainFinalityConsumer = require('../services/crossChainFinalityConsumer');
 const privateAuthorization = require('../services/privateAuthorization');
 
 // All wallet routes require authentication
@@ -19,7 +20,42 @@ router.get('/private-auth', authenticateToken, async (req, res) => {
     const user = req.user && req.user.username ? req.user.username : null;
     if (!user) return res.status(401).json({ error: 'unauthenticated' });
     const policy = await privateAuthorization.getPolicy(user);
-    res.json({ success: true, policy });
+    res.json({ success: true, policy, banner: privateAuthorization.getPrivateAuthBanner() });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.get('/private-auth/routes', authenticateToken, async (_req, res) => {
+  try {
+    res.json({
+      success: true,
+      staged: true,
+      runtimeEnabled: privateAuthorization.isPrivateAuthEnabled(),
+      banner: privateAuthorization.getPrivateAuthBanner(),
+      routes: privateAuthorization.getPrivateAuthRouteSummary('/api/wallet/private-auth')
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.get('/private-auth/preview', authenticateToken, async (req, res) => {
+  try {
+    const user = req.user && req.user.username ? req.user.username : null;
+    if (!user) return res.status(401).json({ error: 'unauthenticated' });
+    const chain = req.query && req.query.chain;
+    const preview = privateAuthorization.previewTransferAuthorization(user, {
+      from: user,
+      to: req.query && req.query.to ? req.query.to : '',
+      amount: req.query && req.query.amount ? req.query.amount : 0,
+      token: req.query && req.query.token ? req.query.token : 'BTCPC',
+      memo: req.query && req.query.memo ? req.query.memo : '',
+      approval_chain: chain,
+      proof_backend: req.query && req.query.proof_backend ? req.query.proof_backend : null
+    });
+    const enrollment = privateAuthorization.previewEnrollment(user, chain, req.query && req.query.label ? req.query.label : null);
+    res.json({ success: true, preview, enrollment, banner: privateAuthorization.getPrivateAuthBanner() });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -27,6 +63,9 @@ router.get('/private-auth', authenticateToken, async (req, res) => {
 
 router.post('/private-auth/policy', authenticateToken, async (req, res) => {
   try {
+    if (!privateAuthorization.isPrivateAuthEnabled()) {
+      return res.status(503).json({ error: 'Private authorization is staged but disabled by feature flag' });
+    }
     const user = req.user && req.user.username ? req.user.username : null;
     if (!user) return res.status(401).json({ error: 'unauthenticated' });
     const threshold = req.body && req.body.threshold;
@@ -40,6 +79,9 @@ router.post('/private-auth/policy', authenticateToken, async (req, res) => {
 
 router.post('/private-auth/enroll/request', authenticateToken, async (req, res) => {
   try {
+    if (!privateAuthorization.isPrivateAuthEnabled()) {
+      return res.status(503).json({ error: 'Private authorization is staged but disabled by feature flag' });
+    }
     const user = req.user && req.user.username ? req.user.username : null;
     if (!user) return res.status(401).json({ error: 'unauthenticated' });
     const chain = req.body && req.body.chain;
@@ -54,12 +96,15 @@ router.post('/private-auth/enroll/request', authenticateToken, async (req, res) 
 
 router.post('/private-auth/enroll/verify', authenticateToken, async (req, res) => {
   try {
-    const challengeId = req.body && req.body.challengeId;
-    const signature = req.body && req.body.signature;
-    if (!challengeId || !signature) {
-      return res.status(400).json({ error: 'challengeId and signature required' });
+    if (!privateAuthorization.isPrivateAuthEnabled()) {
+      return res.status(503).json({ error: 'Private authorization is staged but disabled by feature flag' });
     }
-    const result = await privateAuthorization.verifyEnrollment(challengeId, signature);
+    const challengeId = req.body && req.body.challengeId;
+    const payload = req.body && (req.body.signature || req.body.receipt || req.body.proof || req.body.invoice);
+    if (!challengeId || !payload) {
+      return res.status(400).json({ error: 'challengeId and signature, receipt, or proof required' });
+    }
+    const result = await privateAuthorization.verifyEnrollment(challengeId, payload);
     if (!result.success) return res.status(400).json({ error: result.error });
     res.json({ success: true, result });
   } catch (err) {
@@ -69,6 +114,9 @@ router.post('/private-auth/enroll/verify', authenticateToken, async (req, res) =
 
 router.post('/private-auth/transfer/request', authenticateToken, async (req, res) => {
   try {
+    if (!privateAuthorization.isPrivateAuthEnabled()) {
+      return res.status(503).json({ error: 'Private authorization is staged but disabled by feature flag' });
+    }
     const user = req.user && req.user.username ? req.user.username : null;
     if (!user) return res.status(401).json({ error: 'unauthenticated' });
     const toAddress = req.body && req.body.toAddress;
@@ -87,6 +135,25 @@ router.post('/private-auth/transfer/request', authenticateToken, async (req, res
       proof_backend: proofBackend
     });
     res.json({ success: true, challenge });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/private-auth/transfer/verify', authenticateToken, async (req, res) => {
+  try {
+    if (!privateAuthorization.isPrivateAuthEnabled()) {
+      return res.status(503).json({ error: 'Private authorization is staged but disabled by feature flag' });
+    }
+    const user = req.user && req.user.username ? req.user.username : null;
+    if (!user) return res.status(401).json({ error: 'unauthenticated' });
+    const transfer = req.body && req.body.transfer;
+    const privateAuth = req.body && (req.body.private_auth || req.body.privateAuth);
+    if (!transfer || !privateAuth) {
+      return res.status(400).json({ error: 'transfer and private_auth required' });
+    }
+    const result = await privateAuthorization.verifyTransferAuthorization(user, transfer, privateAuth);
+    res.json({ success: true, result });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -412,6 +479,15 @@ router.post('/claim-cross-chain', authenticateToken, async (req, res) => {
     if (claimAmount <= 0) return res.status(400).json({ error: 'amount must be > 0' });
 
     const epoch = stateStore.getChainHeight ? stateStore.getChainHeight() : 0;
+    try {
+      crossChainFinalityConsumer.assertEpochFinalized(chain, epoch);
+    } catch (finalityErr) {
+      const finalityCutoff = crossChainFinalityConsumer.getFinalityCutoff(chain);
+      return res.status(409).json({
+        error: finalityErr.message,
+        finality_cutoff: finalityCutoff,
+      });
+    }
     await ledger.recordCrossChainClaim(account, chain, claimAmount, claimAddress, signature, epoch);
 
     // The signed claim payload — the wBTCPC oracle verifies this and mints on the target chain

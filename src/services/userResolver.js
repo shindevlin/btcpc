@@ -28,6 +28,7 @@ async function resolveUserFromAuth(authUser) {
         totpEnabled: !!rec.totp_enabled,
         totpSecret: rec.totp_secret || null,
         totpBackupCodes: rec.totp_backup_codes || [],
+        privateAuth: rec.privateAuth || rec.private_auth || null,
         record: rec,
       };
     }
@@ -46,6 +47,7 @@ async function resolveUserFromAuth(authUser) {
         totpEnabled: !!mongoUser.totpEnabled,
         totpSecret: mongoUser.totpSecret || null,
         totpBackupCodes: mongoUser.totpBackupCodes || [],
+        privateAuth: mongoUser.privateAuth || mongoUser.private_auth || null,
         record: mongoUser,
       };
     }

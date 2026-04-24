@@ -32,6 +32,7 @@ const ISOLATED_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'btcpc-botapi-redesig
 process.env.BTCPC_SECRETS_PATH = path.join(ISOLATED_DIR, 'secrets.json');
 process.env.JWT_SECRET = 'test-jwt-secret-botapi-redesign';
 process.env.BOT_API_KEY = 'test-bot-key-redesign';
+process.env.BTCPC_PRIVATE_AUTH_ENABLED = 'true';
 
 // ── Mock heavy dependencies so tests run without Mongo/Ledger/P2P ────────────
 
@@ -111,6 +112,68 @@ jest.mock('../src/services/emissionSchedule', () => ({
 jest.mock('../src/services/telegramVerify', () => ({
   startLink: jest.fn(async () => ({ ok: true })),
   verifySignedChallenge: jest.fn(async () => ({ ok: true })),
+}));
+
+jest.mock('../src/services/privateAuthorization', () => ({
+  isPrivateAuthEnabled: jest.fn(() => true),
+  getPolicy: jest.fn(async () => ({ enabled: true, threshold: 2, chains: ['bitcoin'], factors: [] })),
+  getPrivateAuthBanner: jest.fn(() => ({
+    staged: true,
+    runtimeEnabled: false,
+    title: 'Private authorization is staged in code and disabled by default.',
+    summary: 'Future chain-based 2FA, Bitcoin verification, Lightning verification, and zkVM hooks are documented for later rollout.',
+    docsPath: '/docs/PRIVATE_AUTH_FUTURE.md'
+  })),
+  setPolicy: jest.fn(async (_username, updates) => ({
+    enabled: updates && Object.prototype.hasOwnProperty.call(updates, 'enabled') ? !!updates.enabled : true,
+    threshold: Number(updates && updates.threshold) || 1,
+    chains: ['bitcoin'],
+    factors: []
+  })),
+  requestEnrollment: jest.fn(async () => ({
+    challengeId: 'enroll-1',
+    factorId: 'factor-1',
+    chain: 'bitcoin',
+    message: 'BTCPC-PRIVATE-AUTH:ENROLL:alice:bitcoin:factor-1:enroll-1',
+    expiresIn: 600
+  })),
+  verifyEnrollment: jest.fn(async () => ({ success: true, factorId: 'factor-1', chain: 'bitcoin' })),
+  requestTransferAuthorization: jest.fn(async () => ({
+    requestId: 'req-1',
+    approvalChain: 'bitcoin',
+    threshold: 2,
+    message: 'BTCPC-PRIVATE-AUTH:TRANSFER:alice:req-1:bitcoin:alice:bob:10:BTCPC:note:2',
+    expiresIn: 600
+  })),
+  verifyTransferAuthorization: jest.fn(async () => ({ requestId: 'req-1', threshold: 2, approvalCount: 2, factors: [] })),
+  previewTransferAuthorization: jest.fn((_username, transfer) => ({
+    requestId: 'preview-1',
+    approvalChain: transfer && transfer.approval_chain ? transfer.approval_chain : 'bitcoin',
+    approvalKind: 'signature',
+    message: 'preview transfer',
+    copy: {
+      title: 'Bitcoin approval preview',
+      summary: 'Use a signed Bitcoin challenge as the approval receipt.',
+      note: 'This is the simplest existing-wallet path and stays readable to the user.'
+    },
+    samplePayload: { signature: '<approval-signature>' }
+  })),
+  previewEnrollment: jest.fn((_username, chain) => ({
+    chain: chain || 'bitcoin',
+    factorId: 'preview-factor',
+    message: 'preview enrollment',
+    approvalKind: 'signature',
+    copy: {
+      title: 'Bitcoin approval preview',
+      summary: 'Use a signed Bitcoin challenge as the approval receipt.',
+      note: 'This is the simplest existing-wallet path and stays readable to the user.'
+    },
+    samplePayload: { signature: '<approval-signature>' }
+  })),
+  getPrivateAuthRouteSummary: jest.fn(() => ([
+    { path: '/api/bot/private-auth', method: 'GET', status: 'staged', purpose: 'Read the current private-auth policy.' },
+    { path: '/api/bot/private-auth/preview', method: 'GET', status: 'staged', purpose: 'Render the future approval shape without activating it.' }
+  ])),
 }));
 
 // p2p/network mock
@@ -449,5 +512,79 @@ describe('Bot API redesign — conversational wallet + password auth', () => {
     });
     expect(res.status).toBe(200);
     expect(res.body.password_set).toBe(false);
+  });
+
+  // ── 15. private-auth bot endpoints expose policy and spend challenges ────
+  it('15. private-auth endpoints return policy and spend challenge', async () => {
+    _mongoUsers.botpa1 = {
+      username: 'botpa1',
+      telegramId: '515',
+      privateAuth: { enabled: true, threshold: 2, factors: [] },
+      save: jest.fn(async function () { _mongoUsers[this.username] = this; }),
+    };
+
+    const policyRes = await request(port, {
+      method: 'GET', path: '/api/bot/private-auth?telegramId=515',
+      headers: BOT_HEADERS,
+    });
+    expect(policyRes.status).toBe(200);
+    expect(policyRes.body.success).toBe(true);
+    expect(policyRes.body.policy.threshold).toBe(2);
+    expect(policyRes.body.banner.title).toContain('Private authorization');
+
+    const challengeRes = await request(port, {
+      method: 'POST', path: '/api/bot/private-auth/transfer/request',
+      headers: BOT_HEADERS,
+      body: {
+        telegramId: '515',
+        toAddress: 'walletuser2',
+        amount: 10,
+        memo: 'note',
+        approval_chain: 'bitcoin',
+      },
+    });
+    expect(challengeRes.status).toBe(200);
+    expect(challengeRes.body.challenge.approvalChain).toBe('bitcoin');
+  });
+
+  // ── 16. private-auth preview returns future-path artifacts ───────────────
+  it('16. private-auth preview returns staged future-path artifacts', async () => {
+    _mongoUsers.botpa2 = {
+      username: 'botpa2',
+      telegramId: '616',
+      privateAuth: { enabled: false, threshold: 1, factors: [] },
+      save: jest.fn(async function () { _mongoUsers[this.username] = this; }),
+    };
+
+    const previewRes = await request(port, {
+      method: 'GET',
+      path: '/api/bot/private-auth/preview?telegramId=616&chain=lightning&to=walletuser2&amount=5&memo=future&label=test',
+      headers: BOT_HEADERS,
+    });
+    expect(previewRes.status).toBe(200);
+    expect(previewRes.body.preview.approvalChain).toBe('lightning');
+    expect(previewRes.body.enrollment.chain).toBe('lightning');
+    expect(previewRes.body.banner.runtimeEnabled).toBe(false);
+    expect(previewRes.body.preview.copy.title).toContain('preview');
+  });
+
+  // ── 17. private-auth route summary exposes staged endpoints ──────────────
+  it('17. private-auth route summary returns staged routes', async () => {
+    _mongoUsers.botpa3 = {
+      username: 'botpa3',
+      telegramId: '717',
+      privateAuth: { enabled: false, threshold: 1, factors: [] },
+      save: jest.fn(async function () { _mongoUsers[this.username] = this; }),
+    };
+
+    const routesRes = await request(port, {
+      method: 'GET',
+      path: '/api/bot/private-auth/routes?telegramId=717',
+      headers: BOT_HEADERS,
+    });
+    expect(routesRes.status).toBe(200);
+    expect(routesRes.body.success).toBe(true);
+    expect(routesRes.body.banner.staged).toBe(true);
+    expect(routesRes.body.routes.some((route) => route.path.includes('/private-auth/preview'))).toBe(true);
   });
 });
