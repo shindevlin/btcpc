@@ -81,6 +81,7 @@ router.get('/machine-status', async (req, res) => {
     const fs = require('fs');
     const path = require('path');
     const axios = require('axios');
+    const p2pNetwork = require('../p2p/network');
 
     const uptimeSec = Math.round(os.uptime());
     const loadAvg = os.loadavg()[0].toFixed(2);
@@ -144,6 +145,11 @@ router.get('/machine-status', async (req, res) => {
       }
     } catch (_) {}
 
+    const connectedPeers = typeof p2pNetwork.getConnectedCount === 'function'
+      ? p2pNetwork.getConnectedCount()
+      : 0;
+    const truthBearing = connectedPeers >= 1 && chainHeight > 0;
+
     res.json({
       uptime_sec: uptimeSec,
       load_avg: parseFloat(loadAvg),
@@ -152,6 +158,10 @@ router.get('/machine-status', async (req, res) => {
       processes: Array.from(runningRoles).map(role => ({ role })),
       ollama: { running: ollamaRunning },
       chain_height: chainHeight,
+      truth_bearing: truthBearing,
+      connected_peers: connectedPeers,
+      external_peers: connectedPeers,
+      observer_mode: connectedPeers < 1,
       timestamp: Date.now(),
     });
   } catch (err) {
@@ -172,6 +182,7 @@ router.get('/network', async (req, res) => {
     const fs = require('fs');
     const path = require('path');
     const nodeRegistry = require('../chain/nodeRegistry');
+    const p2pNetwork = require('../p2p/network');
 
     // Read latest block from disk (source of truth for chain state).
     // Prefer index.json (updated every epoch) over block-*.bin files (pruned after finality).
@@ -205,6 +216,7 @@ router.get('/network', async (req, res) => {
     let registered = [];
     let miners = 0;
     let registeredClocks = 0;
+    let btcpctestNodes = 0;
     try {
       // Lazy-load registry from blocks if empty (API server may not have loaded yet)
       if (nodeRegistry.getNodeCount() === 0 && typeof nodeRegistry.loadFromBlocks === 'function') {
@@ -213,6 +225,10 @@ router.get('/network', async (req, res) => {
       registered = nodeRegistry.getRegisteredNodes();
       miners = registered.filter(n => n.type === 'miner').length;
       registeredClocks = registered.filter(n => n.type === 'clock').length;
+      btcpctestNodes = registered.filter(n => {
+        const types = Array.isArray(n.node_types) && n.node_types.length > 0 ? n.node_types : [n.type];
+        return types.map(t => String(t || "").trim().toLowerCase()).indexOf('btcpctest') !== -1;
+      }).length;
     } catch (_) {}
 
     // Active browser clocks (heartbeated within the last 2 min via HTTP)
@@ -322,12 +338,18 @@ router.get('/network', async (req, res) => {
       serviceNodeCount = snReg.getActiveServiceNodes(wallEpoch, 10).length;
     } catch (_) {}
 
+    const connectedPeers = typeof p2pNetwork.getConnectedCount === 'function'
+      ? p2pNetwork.getConnectedCount()
+      : 0;
+    const truthBearing = connectedPeers >= 1 && alive;
+
     res.json({
       epoch: latestEpoch,
       nodes: uniqueAccounts.size,
       peer_count: registered.length + browserClocks.length + p2pClockAccounts.size,
       miners,
       clocks: activeClockAccounts.size,
+      btcpctest_nodes: btcpctestNodes,
       sensor_nodes: sensorNodes,
       sensor_feeds: sensorCount,
       sensors: sensorNodes,
@@ -340,7 +362,56 @@ router.get('/network', async (req, res) => {
       p2p_clocks: p2pClockAccounts.size,
       active_clock_accounts: Array.from(activeClockAccounts),
       alive,
+      truth_bearing: truthBearing,
+      connected_peers: connectedPeers,
+      external_peers: connectedPeers,
+      observer_mode: connectedPeers < 1,
       epoch_age_seconds: Math.round(epochAgeMs / 1000),
+      timestamp: Date.now(),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /testnet/rewards — live preview of the public testnet reward split.
+ */
+router.get('/testnet/rewards', async (req, res) => {
+  try {
+    const { getBlockReward } = require('../services/emissionSchedule');
+    const stateStore = require('../chain/stateStore');
+    const nodeRegistry = require('../chain/nodeRegistry');
+    const { computeTestnetRewards, extractTestnetNodes } = require('../chain/testnetRewardEngine');
+
+    if (nodeRegistry.getNodeCount && nodeRegistry.getNodeCount() === 0 && typeof nodeRegistry.loadFromBlocks === 'function') {
+      try { nodeRegistry.loadFromBlocks(); } catch (_) {}
+    }
+
+    const epoch = stateStore.getChainHeight ? stateStore.getChainHeight() : 0;
+    const blockReward = getBlockReward(epoch);
+    const testnetNodes = extractTestnetNodes(stateStore, epoch);
+    const result = computeTestnetRewards({
+      epochNumber: epoch,
+      blockReward,
+      testnetNodes,
+      stateStore,
+    });
+
+    res.json({
+      network: 'btcpctest',
+      epoch,
+      block_reward: blockReward,
+      native_token: 'BTCPCTEST',
+      bonus_token: 'BTCPC',
+      summary: result.summary,
+      rewards: result.rewards.map(r => ({
+        to: r.to,
+        amount: r.amount,
+        token: r.token || 'BTCPCTEST',
+        reward_source: r.reward_source || null,
+        type: r.type || 'MINING_REWARD',
+      })),
       timestamp: Date.now(),
     });
   } catch (err) {

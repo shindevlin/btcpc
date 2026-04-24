@@ -10,6 +10,7 @@
  * Node types:
  *   miner — full mining node (requires stake, GPU)
  *   clock — lightweight clock node
+ *   btcpctest — public testnet chain participant
  *
  * Permission tiers:
  *   permissioned — approved by genesis operator, no stake required
@@ -133,6 +134,35 @@ function processLedgerEntry(entry) {
         entry.epoch,
         accountData.permissioned
       );
+      break;
+    }
+
+    case "NODE_ANNOUNCE": {
+      var announceData = entry.account_data || {};
+      var announcedAddress = announceData.p2p_address || null;
+      var existingNode = nodes.get(entry.from || announceData.username);
+      if (existingNode) {
+        if (announcedAddress) {
+          existingNode.p2pAddress = announcedAddress;
+        }
+        if (Array.isArray(announceData.node_types) && announceData.node_types.length > 0) {
+          existingNode.node_types = announceData.node_types.slice();
+          existingNode.type = announceData.node_types[0] || existingNode.type || "clock";
+        }
+        if (announceData.permissioned !== undefined) {
+          existingNode.permissioned = !!announceData.permissioned;
+        }
+        existingNode.registeredEpoch = entry.epoch || existingNode.registeredEpoch || 0;
+      } else {
+        registerNode(
+          entry.from || announceData.username,
+          announceData.node_types || ["clock"],
+          0,
+          announcedAddress,
+          entry.epoch,
+          announceData.permissioned
+        );
+      }
       break;
     }
 

@@ -59,6 +59,7 @@ function round(n) {
  * @param {Array}  input.storageHosts     — [{ account, capacity_gb, queries_served, cids_count }]
  * @param {Array}  input.activeSensors    — [{ account, readings_count }] sensors that submitted readings this epoch
  * @param {Array}  input.serviceHosts     — [accountName, ...]
+ * @param {Array}  input.testnetNodes     — [{ account, node_types, p2p_address, last_seen_epoch }]
  * @param {object} [input.stateStore]     — injected for Phase 2 checks (optional, falls back to live require)
  *
  * @returns {object} { rewards, recycled, summary, phase2 }
@@ -102,6 +103,9 @@ function computeRewards(input) {
   } catch (_) {
     // stateStore not available in test isolation — use blockReward as-is
   }
+
+  let _ss = null;
+  try { _ss = input.stateStore || require("./stateStore"); } catch (_) {}
 
   const rewards = [];
   let recycled = 0;
@@ -286,11 +290,11 @@ function computeRewards(input) {
             recycled += recycleShare;
           }
         }
-      } else {
-        // No sensor_ids or no stateStore — fall back: 90/10 split on full share
-        const ownerShare = round(share * 0.90);
-        const recycleShare = round(share - ownerShare);
-        rewards.push({
+  } else {
+    // No sensor_ids or no stateStore — fall back: 90/10 split on full share
+    const ownerShare = round(share * 0.90);
+    const recycleShare = round(share - ownerShare);
+    rewards.push({
           to: sensor.account, amount: ownerShare, type: "SENSOR_EPOCH_REWARD",
           meta: { readings: sensor.readings_count, sensor_ids: sensorIds }
         });

@@ -82,7 +82,7 @@ var GOSSIP_HASH_CAP = 50000;
  */
 var BLOCK_ONLY_GOSSIP_SKIP = new Set([
   'MINING_REWARD', 'CLOCK_REWARD', 'STORAGE_REWARD',
-  'SERVICE_REWARD', 'IOT_REWARD', 'FAUCET',
+  'SERVICE_REWARD', 'IOT_REWARD', 'BTCPCTEST_REWARD', 'FAUCET',
 ]);
 
 function _gossipEntry(entry) {
@@ -538,7 +538,7 @@ async function recordMiningReward(miner, amount, epoch, _token, _memo, rewardSou
   const entry = _entry({
     type: 'MINING_REWARD',
     to: miner,
-    token: 'BTCPC',
+    token: _token || 'BTCPC',
     amount,
     epoch,
     reward_source: rewardSource || 'mining',
@@ -1033,6 +1033,30 @@ async function recordNodeRegister(username, nodeType, p2pAddress, permissioned, 
     from: username,
     epoch: epoch || 0,
     memo: types.join(','),
+    account_data: accountData,
+  });
+  return _persist(entry);
+}
+
+/**
+ * Record a lightweight node announcement that refreshes the advertised
+ * P2P address for an already-registered node.
+ */
+async function recordNodeAnnounce(username, p2pAddress, epoch, extra) {
+  var accountData = {
+    username: username,
+    p2p_address: p2pAddress || null,
+  };
+  if (extra && Array.isArray(extra.node_types)) {
+    accountData.node_types = extra.node_types;
+  }
+  if (extra && extra.permissioned !== undefined) {
+    accountData.permissioned = !!extra.permissioned;
+  }
+  const entry = _entry({
+    type: 'NODE_ANNOUNCE',
+    from: username,
+    epoch: epoch || 0,
     account_data: accountData,
   });
   return _persist(entry);
@@ -3451,6 +3475,7 @@ module.exports = {
   recordEscrowRelease,
   recordEscrowRefund,
   recordNodeRegister,
+  recordNodeAnnounce,
   recordHeartbeat,
   recordNFTCreate,
   recordNFTMint,

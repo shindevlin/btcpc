@@ -36,6 +36,17 @@ function distributeSupply(amount) {
   });
 }
 
+function distributeTestnetSupply(amount) {
+  stateStore.applyEntry({
+    type: 'MINING_REWARD',
+    to: 'btcpctest-node',
+    amount,
+    token: 'BTCPCTEST',
+    epoch: 0,
+    reward_source: 'btcpctest',
+  });
+}
+
 beforeEach(() => {
   stateStore.resetAll();
   stateStore.applyEntry({ type: 'ACCOUNT_CREATE', to: 'shindevlin', epoch: 0, account_data: { public_keys: {}, chain_addresses: {} } });
@@ -340,5 +351,11 @@ describe('btcpc_recycle balance in live stateStore', () => {
   test('miner rewards do contribute to totalSupplyDistributed', () => {
     distributeSupply(1000);
     expect(stateStore.getTotalSupplyDistributed()).toBe(1000);
+  });
+
+  test('BTCPCTEST rewards do not count toward BTCPC totalSupplyDistributed', () => {
+    distributeTestnetSupply(1000);
+    expect(stateStore.getTotalSupplyDistributed()).toBe(0);
+    expect(stateStore.getBalance('btcpctest-node', 'BTCPCTEST')).toBe(1000);
   });
 });

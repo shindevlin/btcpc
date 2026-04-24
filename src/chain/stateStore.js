@@ -923,7 +923,7 @@ function applyEntry(entry) {
       }
       // Track earnings by source for the earnings breakdown endpoint
       if (entry.type === "MINING_REWARD" && to) {
-        var earningRecord = earnings.get(to) || { mining: 0, clock: 0, storage: 0, iot: 0, verifier: 0, service: 0, inference_split: 0, total: 0 };
+        var earningRecord = earnings.get(to) || { mining: 0, btcpctest: 0, btcpctest_bonus: 0, clock: 0, storage: 0, iot: 0, verifier: 0, service: 0, inference_split: 0, total: 0 };
         var rewardSource = entry.reward_source || "mining";
         if (earningRecord[rewardSource] !== undefined) {
           earningRecord[rewardSource] = _round(earningRecord[rewardSource] + amount);
@@ -932,23 +932,35 @@ function applyEntry(entry) {
         }
         earningRecord.total = _round(earningRecord.total + amount);
         earnings.set(to, earningRecord);
-        // Each accepted mining reward is a passed reputation event
-        _applyRepEvent(to, 'mining', true, entry.epoch);
-        // Track total supply distributed (excludes recycle account)
-        if (to !== "btcpc_recycle") {
-          totalSupplyDistributed = _round(totalSupplyDistributed + amount);
-        }
-        // Auto-accrue cross-chain credits (0.1 BTCPC per chain per BTCPC earned).
-        // Runs for both new blocks (no companion CROSS_CHAIN_CREDIT entry yet) and
-        // historical blocks replayed from disk, giving all miners retroactive credit.
-        var ccCreditAmount = _round(amount * 0.1);
-        if (ccCreditAmount > 0) {
-          var ccChains = CROSS_CHAIN_SUPPORTED;
-          for (var ci = 0; ci < ccChains.length; ci++) {
-            var ccKey = to + '|' + ccChains[ci];
-            crossChainCredits.set(ccKey, _round((crossChainCredits.get(ccKey) || 0) + ccCreditAmount));
+        if (token === "BTCPC") {
+          // Each accepted BTCPC mining reward is a passed reputation event
+          _applyRepEvent(to, 'mining', true, entry.epoch);
+          // Track total supply distributed (excludes recycle account)
+          if (to !== "btcpc_recycle") {
+            totalSupplyDistributed = _round(totalSupplyDistributed + amount);
+          }
+          // Auto-accrue cross-chain credits (0.1 BTCPC per chain per BTCPC earned).
+          // Runs for both new blocks (no companion CROSS_CHAIN_CREDIT entry yet) and
+          // historical blocks replayed from disk, giving all miners retroactive credit.
+          var ccCreditAmount = _round(amount * 0.1);
+          if (ccCreditAmount > 0) {
+            var ccChains = CROSS_CHAIN_SUPPORTED;
+            for (var ci = 0; ci < ccChains.length; ci++) {
+              var ccKey = to + '|' + ccChains[ci];
+              crossChainCredits.set(ccKey, _round((crossChainCredits.get(ccKey) || 0) + ccCreditAmount));
+            }
           }
         }
+      }
+      break;
+
+    case "BTCPCTEST_REWARD":
+      _credit(to, token, amount);
+      if (to) {
+        var testnetRecord = earnings.get(to) || { mining: 0, btcpctest: 0, btcpctest_bonus: 0, clock: 0, storage: 0, iot: 0, verifier: 0, service: 0, inference_split: 0, total: 0 };
+        testnetRecord.btcpctest = _round(testnetRecord.btcpctest + amount);
+        testnetRecord.total = _round(testnetRecord.total + amount);
+        earnings.set(to, testnetRecord);
       }
       break;
 
@@ -1148,6 +1160,30 @@ function applyEntry(entry) {
         }
         acct.last_registered_epoch = entry.epoch;
         accounts.set(from, acct);
+      }
+      break;
+
+    case "NODE_ANNOUNCE":
+      _ensureAccount(from || to);
+      if (from && accounts.has(from) && entry.account_data) {
+        var annAcct = accounts.get(from);
+        if (entry.account_data.p2p_address) {
+          annAcct.p2p_address = entry.account_data.p2p_address;
+        }
+        if (Array.isArray(entry.account_data.node_types) && entry.account_data.node_types.length > 0) {
+          var annUnique = {};
+          for (var ani = 0; ani < entry.account_data.node_types.length; ani++) {
+            var annType = String(entry.account_data.node_types[ani] || "").trim().toLowerCase();
+            if (annType) annUnique[annType] = true;
+          }
+          var annTypes = Object.keys(annUnique);
+          if (annTypes.length > 0) annAcct.node_types = annTypes;
+        }
+        if (entry.account_data.permissioned !== undefined) {
+          annAcct.permissioned = !!entry.account_data.permissioned;
+        }
+        annAcct.last_announced_epoch = entry.epoch;
+        accounts.set(from, annAcct);
       }
       break;
 
@@ -3897,7 +3933,7 @@ function getModelRoyalty(modelId) {
 }
 
 function getEarnings(account) {
-  return earnings.get(account) || { mining: 0, clock: 0, storage: 0, iot: 0, verifier: 0, service: 0, inference_split: 0, total: 0 };
+  return earnings.get(account) || { mining: 0, btcpctest: 0, btcpctest_bonus: 0, clock: 0, storage: 0, iot: 0, verifier: 0, service: 0, inference_split: 0, total: 0 };
 }
 
 // ─────────────────────────────────────────────────────────────────

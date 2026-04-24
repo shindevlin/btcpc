@@ -43,6 +43,15 @@ function epochTimestamp(epoch) {
   return GENESIS_TIMESTAMP + epoch * EPOCH_MS;
 }
 
+function latestWhitepaperRevision(store) {
+  const recent = store.getRecentAnchors ? store.getRecentAnchors() : [];
+  for (let i = recent.length - 1; i >= 0; i--) {
+    const item = recent[i];
+    if (item && item.type === "WHITEPAPER_REVISION") return item;
+  }
+  return null;
+}
+
 // Scan a range of epochs and aggregate ledger entries.
 // Returns { byAccount, byType, entries[] } where entries are the last `limit` entries.
 function scanBlocks(fromEpoch, toEpoch, limit) {
@@ -66,7 +75,9 @@ function scanBlocks(fromEpoch, toEpoch, limit) {
         CLOCK_REWARD: "clock",
         SENSOR_REWARD: "sensor",
       };
-      const role = ROLE_MAP[e.type];
+      const role = (e.type === "MINING_REWARD" && String(e.token || "").toUpperCase() === "BTCPCTEST")
+        ? "btcpctest"
+        : ROLE_MAP[e.type];
       const account = e.to || e.from || e.account;
       if (role && account) {
         if (!byAccount.has(account)) {
@@ -103,11 +114,12 @@ router.get("/status", (req, res) => {
     const height = store.getChainHeight ? store.getChainHeight() : 0;
     const allAccounts = store.getAllAccounts ? store.getAllAccounts() : [];
     const latestFin = bstore.getLatestFinalityNumber ? bstore.getLatestFinalityNumber() : -1;
+    const latestWhitepaper = latestWhitepaperRevision(store);
 
     const fromEpoch = Math.max(0, height - 100);
     const { byAccount, byType } = scanBlocks(fromEpoch, height, 0);
 
-    const roles = { miner: 0, storage: 0, clock: 0, sensor: 0 };
+    const roles = { miner: 0, btcpctest: 0, storage: 0, clock: 0, sensor: 0 };
     for (const n of byAccount.values()) {
       for (const r of n.roles) if (r in roles) roles[r]++;
     }
@@ -125,6 +137,14 @@ router.get("/status", (req, res) => {
       epoch_time_ms: EPOCH_MS,
       genesis_timestamp: GENESIS_TIMESTAMP,
       latest_finality: latestFin,
+      latest_whitepaper_revision: latestWhitepaper ? {
+        epoch: latestWhitepaper.epoch,
+        title: latestWhitepaper.whitepaper_title || null,
+        version: latestWhitepaper.whitepaper_version || null,
+        hash: latestWhitepaper.whitepaper_hash || null,
+        source: latestWhitepaper.whitepaper_source || null,
+        source_kind: latestWhitepaper.whitepaper_source_kind || null,
+      } : null,
       blocks_indexed: epochsInIndex,
       accounts: allAccounts.length,
       circulating_supply: Math.round(circulating * 1e8) / 1e8,
@@ -133,10 +153,52 @@ router.get("/status", (req, res) => {
       active_window_epochs: 100,
       active_nodes: byAccount.size,
       miners: roles.miner,
+      btcpctest_nodes: roles.btcpctest,
       storage_nodes: roles.storage,
       clock_nodes: roles.clock,
       sensor_nodes: roles.sensor,
       entry_types_last_100: byType,
+      timestamp: Date.now(),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /whitepaper — latest native whitepaper revision.
+ */
+router.get("/whitepaper", (req, res) => {
+  try {
+    ensureHydrated();
+    const store = ss();
+    const latest = latestWhitepaperRevision(store);
+    if (!latest) {
+      return res.json({ latest: null, revisions: [] });
+    }
+    const recent = (store.getRecentAnchors ? store.getRecentAnchors() : [])
+      .filter((entry) => entry && entry.type === "WHITEPAPER_REVISION")
+      .slice(-10)
+      .reverse();
+    res.json({
+      latest: {
+        epoch: latest.epoch,
+        hash: latest.whitepaper_hash || null,
+        title: latest.whitepaper_title || null,
+        version: latest.whitepaper_version || null,
+        source: latest.whitepaper_source || null,
+        source_kind: latest.whitepaper_source_kind || null,
+        path: latest.whitepaper_path || null,
+      },
+      revisions: recent.map((entry) => ({
+        epoch: entry.epoch,
+        hash: entry.whitepaper_hash || null,
+        title: entry.whitepaper_title || null,
+        version: entry.whitepaper_version || null,
+        source: entry.whitepaper_source || null,
+        source_kind: entry.whitepaper_source_kind || null,
+        path: entry.whitepaper_path || null,
+      })),
       timestamp: Date.now(),
     });
   } catch (err) {

@@ -356,6 +356,29 @@ Every sub-token would:
 
 **The Helium community is specifically traumatized by sub-tokens.** Offering them a native-BTCPC-only story is a feature, not a limitation. It's a differentiator.
 
+### BTCPCTEST: the separate testnet chain
+
+`BTCPCTEST` is the native token for BTCPC's public testnet chain. It is separate from BTCPC mainnet, like testnet ETH is separate from ETH.
+
+**Reward rule**
+
+- Contributors to the public testnet earn the full `BTCPCTEST` reward amount on the testnet chain.
+- They also earn a small BTCPC bonus for helping keep the testnet alive.
+- If no qualifying testnet nodes are online, the testnet rewards recycle back into the testnet recycle account.
+- Rewards are equal-split across qualifying nodes that have recently announced or heartbeated on-chain.
+
+**Eligibility**
+
+- The node account must declare `node_types` including `btcpctest` or `testnet` for compatibility.
+- The node must have a recent on-chain announce or heartbeat.
+- The reward split is chain-aware: BTCPCTEST is the native testnet asset, BTCPC is the small side bonus.
+
+**Why this exists**
+
+- Public testnet participation is flaky by nature, so the network needs a live incentive to keep multiple devices online.
+- A separate testnet token keeps the public surface honest without confusing it with BTCPC mainnet rewards.
+- The chain can be reset, replumbed, and stress-tested without touching mainnet economics.
+
 ---
 
 ## 8. The protocol treasury
@@ -573,6 +596,8 @@ To keep the tokenomics focused, these ideas are explicitly OUT of scope and will
   - Added storage_hosts role to v2.11+ block reward split
   - Added service_hosts role to v2.13+ block reward split
   - Added sensor_bridges role to v2.15+ block reward split
+  - Added `BTCPCTEST` as a separate public testnet token with BTCPC side bonuses for participation
+  - Reframed `BTCPCTEST` as the separate public testnet token with BTCPC side bonuses
   - Locked the 42M supply cap
   - Confirmed native BTCPC only — no sub-tokens for any capability track
   - Documented stake requirements for all capabilities

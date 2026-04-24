@@ -53,17 +53,31 @@ async function applyFinalization(epochNumber, proposal, authorAccount) {
 
   var rewards = proposal.rewards || [];
 
+  if (epochNumber > 0 && epochNumber % 10000 === 0) {
+    try {
+      var whitepaperSource = process.env.BTCPC_WHITEPAPER_GITHUB_RAW_URL || process.env.BTCPC_WHITEPAPER_SOURCE_URL || null;
+      var whitepaperSourceKind = whitepaperSource ? 'github' : 'local';
+      await ledger.recordWhitepaperRevision(epochNumber, null, {
+        source: whitepaperSource,
+        source_kind: whitepaperSourceKind,
+      });
+      console.log("[BTCPC] Whitepaper revision queued for epoch " + epochNumber);
+    } catch (err) {
+      console.warn("[BTCPC] Whitepaper revision queue failed (non-fatal): " + err.message);
+    }
+  }
+
   var epochProofs = stateStore.getMiningProofs(epochNumber).slice();
   for (var i = 0; i < rewards.length; i++) {
     var r = rewards[i];
-    await ledger.recordMiningReward(r.miner, r.amount, epochNumber, null, null, r.type || "mining");
+    await ledger.recordMiningReward(r.miner || r.to, r.amount, epochNumber, r.token || "BTCPC", null, r.reward_source || r.type || "mining");
     for (var j = 0; j < epochProofs.length; j++) {
-      if (epochProofs[j].miner === r.miner) {
+      if (epochProofs[j].miner === (r.miner || r.to)) {
         epochProofs[j].reward_earned = r.amount;
         break;
       }
     }
-    console.log("[BTCPC]   " + r.miner + ": " + r.amount.toFixed(4) + " BTCPC (" + (r.type || "mining") + ")");
+    console.log("[BTCPC]   " + (r.miner || r.to) + ": " + r.amount.toFixed(4) + " " + (r.token || "BTCPC") + " (" + (r.reward_source || r.type || "mining") + ")");
   }
   stateStore.setMiningProofs(epochNumber, epochProofs);
 

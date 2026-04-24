@@ -25,6 +25,28 @@ Roadmap policy:
 - [x] Shared epochs — multiple miners submit to same epoch, never double rewards
 - [x] Finalization delay (60s) to wait for all miners before splitting
 
+## Phase 0.1 — Chain Truth & P2P Hardening
+
+- [ ] Canonicalize chain truth to on-chain block height and finalized state only
+- [ ] Remove localhost from every chain-truth P2P path, seed list, and advertised peer identity
+- [ ] Make clock nodes derive height from on-chain P2P agreement and reject one-node truth
+- [ ] Persist node P2P addresses in ledger state so live nodes publish connectable endpoints
+- [ ] Keep storage data segregated and encrypted on storage nodes, invisible to normal users
+- [ ] Tighten health checks so they go green only when the network is actually truth-bearing
+- [ ] Add regression tests for epoch/current, node list publication, localhost rejection, and two-node truth
+- [ ] Implementation plan: [docs/CHAIN_TRUTH_IMPLEMENTATION_PLAN.md](CHAIN_TRUTH_IMPLEMENTATION_PLAN.md)
+
+## Phase 0.2 — Start-First UX, Legal, and Controller Onboarding
+
+- [ ] Canonicalize `/start` as the public first-stop route for humans and agents
+- [ ] Turn `/start` into a single-step wizard with persistent progress and a machine-readable manifest
+- [ ] Turn the install flow into one guided path instead of many disconnected choices
+- [ ] Add Terms and Privacy pages and link them from the homepage, install page, controller page, and app shell
+- [ ] Make controller mode turnkey inside the existing BTCPC web and desktop surfaces
+- [ ] Make mobile controller approval QR/deeplink friendly and one-tap where possible
+- [ ] Add versioned public notes so the site, README, roadmap, and whitepaper stay aligned
+- [ ] Implementation plan: [docs/START_FIRST_ROLLOUT_PLAN.md](START_FIRST_ROLLOUT_PLAN.md)
+
 ## Pending (user-requested, not yet scheduled)
 
 - [ ] Wallet bot alerts only for users whose miner earned tokens (not broadcast to all)
@@ -36,6 +58,7 @@ Roadmap policy:
 - [ ] Scrub git history to remove leaked .env / bot tokens
 - [ ] Hardware claim registry — bind device hardware hashes to posting keys, log paid takeovers in USDC/USDT/DAI, and add chain-level revoke/bad-actor events
 - [ ] Public testnet surface — replace localhost-first docs with `https://btcpc.net/testnet` and keep chain truth off local fallback paths
+- [ ] `BTCPCTEST` separate testnet chain — mint native testnet rewards for public testnet nodes, plus a small BTCPC side bonus, without polluting mainnet economics
 
 ## Phase 1 — Multi-Miner
 
