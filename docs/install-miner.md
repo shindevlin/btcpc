@@ -60,6 +60,8 @@ P2P_PORT=6942
 JWT_SECRET=<generate with: openssl rand -hex 32>
 ```
 
+For testnet-facing flows, point BTCPC API calls at `https://btcpc.net/testnet` instead of a local node.
+
 ## Step 5: Build Silicon Fingerprint (Optional but Recommended)
 
 If you have CUDA toolkit installed:
@@ -141,7 +143,9 @@ Larger models earn more per epoch but require more VRAM:
 | Model | VRAM Needed | Weight | Reward Multiplier |
 |-------|------------|--------|-------------------|
 | qwen3.5:9b | 8GB | 2.0x | Standard |
+| gemma4:14b | 10GB | 3.1x | 1.5x more |
 | qwen3.5:27b | 20GB | 4.0x | 2x more |
+| gemma4:26b | 18GB | 5.8x | 3x more |
 | llama3.1:70b | 48GB | 16.0x | 8x more |
 
 Pick the largest model your GPU can run.

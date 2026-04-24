@@ -30,6 +30,7 @@ var blockStore = require("../src/chain/blockStore");
 var stateManager = require("../src/chain/stateManager");
 var nodeRegistry = require("../src/chain/nodeRegistry");
 var epochConsensus = require("../src/chain/authorityRotation");
+var ledger = require("../src/services/ledger");
 var mempool = require("../src/p2p/mempool");
 var { getBlockReward } = require("../src/services/emissionSchedule");
 var messageAuth = require("../src/p2p/messageAuth");
@@ -67,6 +68,9 @@ var peers = new Map();
 var seenMessages = new Set();
 var running = false;
 var peerZeroSince = null;
+// Module-level so handleEpochFinalized (peer blocks) can advance the proposal loop
+var highestFinalizedEpoch = -1;
+var lastProposedEpoch = -1;
 
 // ─── P2P Layer ───────────────────────────────────────────────────
 
@@ -235,6 +239,21 @@ function handleMessage(msg, fromAddress) {
       handleLedgerResponse(msg);
       break;
 
+    case "CLOCK_HEARTBEAT": {
+      var hbData = msg.data || {};
+      var hbAccount = hbData.account || msg.nodeId;
+      // File under chain-synced epoch — phone clocks drift, sender's claimed epoch may be stale
+      var hbEpoch = Math.max(currentEpoch, highestFinalizedEpoch);
+      if (hbAccount && hbEpoch > 0) {
+        protocolGossip.recordNodeActivity(msg.nodeId || hbAccount, hbAccount, hbEpoch);
+      }
+      var hbLabel = hbData.device_name && hbData.device_name !== hbAccount
+        ? hbData.device_name + " (" + hbAccount + ")" : hbAccount;
+      console.log("[CLOCK] CLOCK_HEARTBEAT from " + hbLabel + " (filing under epoch " + hbEpoch + ")");
+      broadcast(msg, fromAddress);
+      break;
+    }
+
     case "INFERENCE_REVEAL":
     case "INFERENCE_RESULT": {
       // Track gossiped miner work for reward calculation
@@ -297,6 +316,11 @@ function handleEpochFinalized(msg) {
   }
 
   currentEpoch = Math.max(currentEpoch, epochNum);
+  // Advance proposal trackers so the loop doesn't re-propose already-finalized epochs
+  if (epochNum > highestFinalizedEpoch) {
+    highestFinalizedEpoch = epochNum;
+    if (lastProposedEpoch < highestFinalizedEpoch) lastProposedEpoch = highestFinalizedEpoch;
+  }
 }
 
 function handleBlock(msg) {
@@ -487,18 +511,23 @@ function startEpochClock() {
   // ── Block proposal loop (only when BTCPC_CLOCK_PROPOSE=true) ──
   // Runs every 5s, proposes a block for the next epoch when wall clock reaches it.
   if (CLOCK_PROPOSES) {
-    var lastProposedEpoch = -1;
-    var highestFinalizedEpoch = currentEpoch - 1;
+    // Initialize from chain tip on disk (module-level vars, also updated by handleEpochFinalized)
+    if (highestFinalizedEpoch < 0) highestFinalizedEpoch = currentEpoch - 1;
+    if (lastProposedEpoch < 0) lastProposedEpoch = currentEpoch - 1;
 
     finalizationConsensus.onResolved(function (epochNumber) {
-      if (epochNumber > highestFinalizedEpoch) highestFinalizedEpoch = epochNumber;
+      if (epochNumber > highestFinalizedEpoch) {
+        highestFinalizedEpoch = epochNumber;
+        // Reset so the clock proposes the very next epoch after any finalization
+        if (lastProposedEpoch < highestFinalizedEpoch) lastProposedEpoch = highestFinalizedEpoch;
+      }
     });
 
     setInterval(function () {
       if (!running) return;
-      var wallEpoch = epochConsensus.computeEpochNumber(genesisTimestamp, EPOCH_DURATION_MS);
       var targetEpoch = highestFinalizedEpoch + 1;
-      if (wallEpoch < targetEpoch) return;
+      // Use chain-synced highestFinalizedEpoch as the reference — local wall clock
+      // may differ from chain genesis anchor on the proposing machine.
       if (targetEpoch <= lastProposedEpoch) return;
 
       lastProposedEpoch = targetEpoch;
@@ -623,6 +652,12 @@ function start() {
   // Clock nodes that are also known miners (from block replay) are already registered
   if (!nodeRegistry.isRegistered(CLOCK_ACCOUNT)) {
     nodeRegistry.registerNode(CLOCK_ACCOUNT, "clock", 0, RELAY_URL, currentEpoch, true);
+    ledger.recordNodeRegister(CLOCK_ACCOUNT, "clock", RELAY_URL, true, currentEpoch).catch(function (err) {
+      console.warn("[CLOCK] Node registration record failed: " + err.message);
+    });
+    ledger.recordNodeAnnounce(CLOCK_ACCOUNT, RELAY_URL, currentEpoch, { node_types: ["clock"], permissioned: true }).catch(function (err) {
+      console.warn("[CLOCK] Node announce failed: " + err.message);
+    });
     console.log("[CLOCK] Registered as permissioned clock node");
   } else {
     // Ensure existing registration is permissioned
@@ -632,6 +667,13 @@ function start() {
     }
     console.log("[CLOCK] Already registered: " + existing.type + " (permissioned: " + existing.permissioned + ")");
   }
+
+  setInterval(function () {
+    var epochPromise = ledger.getCurrentEpoch ? ledger.getCurrentEpoch() : Promise.resolve(currentEpoch);
+    Promise.resolve(epochPromise).then(function (ep) {
+      return ledger.recordNodeAnnounce(CLOCK_ACCOUNT, RELAY_URL, ep, { node_types: ["clock"], permissioned: true });
+    }).catch(function () {});
+  }, 15 * 60 * 1000);
 
   // Start P2P server
   startServer();
@@ -709,7 +751,7 @@ function start() {
     var hb = createMessage("CLOCK_HEARTBEAT", hbData);
     broadcast(hb);
     console.log("[CLOCK] Heartbeat broadcast for epoch " + currentEpoch + " (" + CLOCK_ACCOUNT + ")");
-  }, 60000);
+  }, 30000);
 
   // Status logging
   setInterval(function () {

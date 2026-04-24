@@ -342,10 +342,15 @@ function handleMessage(peer, msg, ctx) {
     }
   }
 
-  // Replay attack prevention: reject stale messages (>5 min old)
+  // Replay attack prevention: reject stale messages
+  // CLOCK_HEARTBEAT is a liveness signal filed under the receiver's current epoch,
+  // so relay latency and phone clock skew are harmless — allow up to 1 hour.
   if (msg.timestamp) {
     var msgAge = Date.now() - msg.timestamp;
-    if (msgAge > STALE_MSG_MS) {
+    var staleLimit = (msg.type === "CLOCK_HEARTBEAT" || msg.type === "DEVICE_HEARTBEAT")
+      ? 3600000
+      : STALE_MSG_MS;
+    if (msgAge > staleLimit) {
       console.log("[BTCPC P2P] Rejected stale " + msg.type + " from " +
         (msg.nodeId || "?").slice(0, 12) + " (age: " + Math.round(msgAge / 1000) + "s)");
       return;
@@ -2208,8 +2213,12 @@ function handleClockHeartbeat(peer, msg, ctx) {
 
   // Track which node relayed this heartbeat for anti-self-credit checks
   recordHeartbeatWitness(account, fileEpoch, msg.nodeId || peer.nodeId || "unknown");
-  // Rebroadcast so all nodes see the heartbeat
-  ctx.broadcast(msg, peer.address);
+  // Rebroadcast with a fresh outer timestamp so downstream nodes with tight staleness
+  // limits accept it. The data payload (account, epoch_number) is unchanged.
+  var relayMsg = msg.timestamp && (Date.now() - msg.timestamp) > STALE_MSG_MS
+    ? Object.assign({}, msg, { timestamp: Date.now() })
+    : msg;
+  ctx.broadcast(relayMsg, peer.address);
 }
 
 // ---------------------------------------------------------------------------

@@ -67,6 +67,8 @@ async function downloadTokenizer(model, key) {
     "deepseek-r1:8b": "deepseek-ai/DeepSeek-R1-Distill-Qwen-8B",
     "llama3.1:8b": "meta-llama/Llama-3.1-8B",
     "gemma2:9b": "google/gemma-2-9b",
+    "gemma4:26b": "google/gemma-4-26b",
+    "gemma4:14b": "google/gemma-4-14b",
   };
 
   const repo = hfRepos[model] || hfRepos[model.split(":")[0]];

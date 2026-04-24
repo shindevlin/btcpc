@@ -1,6 +1,6 @@
 {
   "name": "btcpc",
-  "version": "3.1.157",
+  "version": "3.1.158",
   "description": "Bitcoin Proof of Compute — sovereign blockchain where mining means useful AI inference",
   "main": "src/index.js",
   "scripts": {
@@ -29,6 +29,7 @@
     "android:build": "npx cap sync android && cd android && ./gradlew assembleDebug",
     "smoke:api": "bash scripts/smoke-api.sh",
     "smoke:inference": "node scripts/smoke-inference.js",
+    "smoke:testnet": "bash scripts/smoke-testnet.sh",
     "docs": "npx docsify-cli serve docs",
     "pair-flipper": "node scripts/pair-flipper.js",
     "phone-setup": "node scripts/phone-setup.js",
