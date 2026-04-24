@@ -257,10 +257,70 @@ router.get('/network', async (req, res) => {
     browserClocks.forEach(c => { if (c.account) uniqueAccounts.add(c.account); });
     p2pClockAccounts.forEach(a => uniqueAccounts.add(a));
 
-    // Role breakdown
-    const storageNodes = registered.filter(n => n.type === 'storage').length;
     const gatewayNodes = registered.filter(n => n.type === 'gateway').length;
     const verifierNodes = registered.filter(n => n.type === 'verifier').length;
+
+    // Storage: on-chain heartbeat hosts + live phone hosts (separate path)
+    let storageCount = 0;
+    try {
+      const stateStore = require('../chain/stateStore');
+      if (typeof stateStore.getActiveStorageHosts === 'function') {
+        storageCount = stateStore.getActiveStorageHosts(wallEpoch, 200).length;
+      } else {
+        storageCount = registered.filter(n => n.type === 'storage').length;
+      }
+    } catch (_) { storageCount = registered.filter(n => n.type === 'storage').length; }
+    try {
+      const phoneStorage = require('./phoneStorageRoutes');
+      if (typeof phoneStorage.getOnlinePhoneHostCount === 'function') {
+        storageCount += phoneStorage.getOnlinePhoneHostCount();
+      }
+    } catch (_) {}
+
+    // Sensors: REST-registered (sensorRegistry) + on-chain (stateStore), deduped by sensor_id.
+    // sensor_nodes = unique physical devices (owner + device_name).
+    // sensor_feeds = total individual channels.
+    let sensorCount = 0;    // feeds
+    let sensorNodes = 0;    // devices
+    try {
+      const sensorRegistry = require('../services/sensorRegistry');
+      const stateStore = require('../chain/stateStore');
+      const sensorIds = new Set();
+      const deviceKeys = new Set();
+      const addSensor = (s) => {
+        const id = s.sensor_id || s.id;
+        if (!id) return;
+        sensorIds.add(id);
+        // device key = "owner/device_name" when available, else "owner"
+        const devKey = (s.owner || s.account || '') + '/' + (s.device_name || '__default__');
+        deviceKeys.add(devKey);
+      };
+      if (typeof sensorRegistry.getAllSensors === 'function') {
+        sensorRegistry.getAllSensors().filter(s => s.status !== 'retired').forEach(addSensor);
+      }
+      if (typeof stateStore.getAllSensors === 'function') {
+        stateStore.getAllSensors().forEach(addSensor);
+      }
+      sensorCount = sensorIds.size;
+      sensorNodes = deviceKeys.size;
+    } catch (_) { sensorCount = registered.filter(n => n.type === 'sensor').length; sensorNodes = sensorCount; }
+
+    // Reviewer count — nodes staked with purpose 'human_reviewer'
+    let reviewerCount = 0;
+    try {
+      const stateStore = require('../chain/stateStore');
+      if (typeof stateStore.getAllStakePools === 'function') {
+        reviewerCount = stateStore.getAllStakePools()
+          .filter(p => p.purpose === 'human_reviewer' && (p.total_staked || 0) >= 1).length;
+      }
+    } catch (_) {}
+
+    // Service node count — active staked service nodes (api/relay/explorer/bridge)
+    let serviceNodeCount = 0;
+    try {
+      const snReg = require('../services/serviceNodeRegistry');
+      serviceNodeCount = snReg.getActiveServiceNodes(wallEpoch, 10).length;
+    } catch (_) {}
 
     res.json({
       epoch: latestEpoch,
@@ -268,9 +328,14 @@ router.get('/network', async (req, res) => {
       peer_count: registered.length + browserClocks.length + p2pClockAccounts.size,
       miners,
       clocks: activeClockAccounts.size,
-      storage: storageNodes,
+      sensor_nodes: sensorNodes,
+      sensor_feeds: sensorCount,
+      sensors: sensorNodes,
+      storage: storageCount,
       gateways: gatewayNodes,
       verifiers: verifierNodes,
+      reviewers: reviewerCount,
+      service_nodes: serviceNodeCount,
       browser_clocks: browserClocks.length,
       p2p_clocks: p2pClockAccounts.size,
       active_clock_accounts: Array.from(activeClockAccounts),
@@ -364,48 +429,51 @@ router.get('/network/nodes', async (req, res) => {
       }
     });
 
-    // ── Sensors ──
+    // ── Sensors: sensorRegistry (REST) + stateStore (on-chain), deduped ──
     let sensorNodes = [];
     try {
-      // Use stateStore if it exposes sensor data
-      if (typeof stateStore.getAllSensors === 'function') {
-        sensorNodes = stateStore.getAllSensors().map(s => ({
-          sensor_id: s.sensor_id || s.id,
-          account: s.owner || s.account,
-          last_reading_epoch: s.last_reading_epoch || s.lastEpoch || null,
-          total_readings: s.total_readings || s.readings || 0,
-        }));
-      } else if (typeof stateStore.getSensorsForEpoch === 'function') {
-        sensorNodes = stateStore.getSensorsForEpoch(latestEpoch).map(s => ({
-          sensor_id: s.sensor_id || s.id,
-          account: s.owner || s.account,
-          last_reading_epoch: latestEpoch,
-          total_readings: s.total_readings || 0,
-        }));
-      } else {
-        // Fall back to registry
-        sensorNodes = registered.filter(n => n.type === 'sensor').map(n => ({
-          sensor_id: n.sensor_id || n.id || n.account,
-          account: n.account,
-          last_reading_epoch: null,
-          total_readings: 0,
-        }));
+      const sensorRegistry = require('../services/sensorRegistry');
+      const sensorMap = new Map();
+      if (typeof sensorRegistry.getAllSensors === 'function') {
+        sensorRegistry.getAllSensors().filter(s => s.status !== 'retired').forEach(s => {
+          sensorMap.set(s.sensor_id, { sensor_id: s.sensor_id, account: s.owner, last_reading_epoch: s.last_reading_epoch || null, total_readings: s.total_readings || 0 });
+        });
       }
+      if (typeof stateStore.getAllSensors === 'function') {
+        stateStore.getAllSensors().forEach(s => {
+          const id = s.sensor_id || s.id;
+          if (!sensorMap.has(id)) sensorMap.set(id, { sensor_id: id, account: s.owner || s.account, last_reading_epoch: s.last_reading_epoch || null, total_readings: s.total_readings || 0 });
+        });
+      }
+      sensorNodes = Array.from(sensorMap.values());
     } catch (_) {
-      sensorNodes = registered.filter(n => n.type === 'sensor').map(n => ({
-        sensor_id: n.sensor_id || n.account,
-        account: n.account,
-        last_reading_epoch: null,
-        total_readings: 0,
-      }));
+      sensorNodes = registered.filter(n => n.type === 'sensor').map(n => ({ sensor_id: n.sensor_id || n.account, account: n.account, last_reading_epoch: null, total_readings: 0 }));
     }
 
-    // ── Storage ──
-    const storageNodes = registered.filter(n => n.type === 'storage').map(n => ({
-      account: n.account,
-      capacity_gb: n.capacity_gb || n.capacityGb || null,
-      files_stored: n.files_stored || n.filesStored || 0,
-    }));
+    // ── Storage: on-chain heartbeat hosts + live phone hosts ──
+    let storageNodes = [];
+    try {
+      if (typeof stateStore.getActiveStorageHosts === 'function') {
+        storageNodes = stateStore.getActiveStorageHosts(wallEpoch, 200).map(h => ({
+          account: h.host || h.account,
+          capacity_gb: h.capacity_used_gb || null,
+          files_stored: h.cids ? h.cids.length : 0,
+        }));
+      } else {
+        storageNodes = registered.filter(n => n.type === 'storage').map(n => ({ account: n.account, capacity_gb: null, files_stored: 0 }));
+      }
+    } catch (_) {
+      storageNodes = registered.filter(n => n.type === 'storage').map(n => ({ account: n.account, capacity_gb: null, files_stored: 0 }));
+    }
+    try {
+      const phoneStorage = require('./phoneStorageRoutes');
+      if (typeof phoneStorage.getOnlinePhoneHosts === 'function') {
+        const existingAccounts = new Set(storageNodes.map(n => n.account));
+        phoneStorage.getOnlinePhoneHosts().forEach(h => {
+          if (!existingAccounts.has(h.account)) storageNodes.push({ account: h.account, capacity_gb: null, files_stored: h.blob_count || 0, source: 'phone' });
+        });
+      }
+    } catch (_) {}
 
     // ── Gateways ──
     const gatewayNodes = registered.filter(n => n.type === 'gateway').map(n => ({
@@ -419,6 +487,17 @@ router.get('/network/nodes', async (req, res) => {
       account: n.account,
     }));
 
+    // ── Reviewers (staked human_reviewer) ──
+    let reviewerNodes = [];
+    try {
+      const stateStoreR = require('../chain/stateStore');
+      if (typeof stateStoreR.getAllStakePools === 'function') {
+        reviewerNodes = stateStoreR.getAllStakePools()
+          .filter(p => p.purpose === 'human_reviewer' && (p.total_staked || 0) >= 1)
+          .map(p => ({ account: p.username, staked: p.total_staked }));
+      }
+    } catch (_) {}
+
     res.json({
       miners: minerNodes,
       clocks: clockNodes,
@@ -426,6 +505,7 @@ router.get('/network/nodes', async (req, res) => {
       storage: storageNodes,
       gateways: gatewayNodes,
       verifiers: verifierNodes,
+      reviewers: reviewerNodes,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

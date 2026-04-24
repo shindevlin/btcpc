@@ -1702,7 +1702,9 @@ function handleVerifyRequest(peer, msg, ctx) {
 
   // This node's identity — could be a miner OR a clock-only node
   var myAccount = process.env.BTCPC_MINER || process.env.BTCPC_CLOCK_ACCOUNT || null;
-  var verifierOptIn = process.env.BTCPC_VERIFIER_ENABLED === "true" || process.env.BTCPC_NODE_ROLE === "verifier";
+  // Verification is on by default — lightweight text analysis, no GPU needed.
+  // Set BTCPC_VERIFIER_ENABLED=false to explicitly disable.
+  var verifierOptIn = process.env.BTCPC_VERIFIER_ENABLED !== "false";
 
   if (!myAccount || myAccount === data.miner || !verifierOptIn) {
     // Miner doesn't verify own work; nodes without accounts can't verify
@@ -2164,6 +2166,8 @@ function getActiveClockNodes(epochNumber) {
 function handleClockHeartbeat(peer, msg, ctx) {
   var data = msg.data || {};
   var account = data.account || msg.nodeId;
+  // Use device_name as display label when provided (Android devices set a friendly name)
+  var displayName = data.device_name && data.device_name !== account ? data.device_name : account;
   var claimedEpoch = data.epoch_number || 0;
   var source = data.source || 'p2p';
 
@@ -2196,7 +2200,8 @@ function handleClockHeartbeat(peer, msg, ctx) {
     timeDerivedEpoch
   );
 
-  console.log("[BTCPC P2P] CLOCK_HEARTBEAT from " + account + " (claimed epoch " + claimedEpoch + ", filing under " + fileEpoch + ", source: " + source + ")");
+  var label = displayName !== account ? displayName + " (" + account + ")" : account;
+  console.log("[BTCPC P2P] CLOCK_HEARTBEAT from " + label + " (claimed epoch " + claimedEpoch + ", filing under " + fileEpoch + ", source: " + source + ")");
 
   recordPeerEpoch(msg.nodeId || account, claimedEpoch);
   recordNodeActivity(msg.nodeId, account, fileEpoch);

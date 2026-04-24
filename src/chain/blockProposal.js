@@ -160,17 +160,22 @@ function buildProposal(options) {
   activeClocks.sort();
 
   var rewards = [];
+  var activeServiceNodes = [];
 
   if (miners.length === 0 || totalWorkValue === 0) {
-    // ── Idle epoch: 98% unminted, 1% to verifiers, 1% to clocks ──
+    // ── Idle epoch: 98% unminted, 1% to verifiers, 1% to clocks; unclaimed → recycle ──
+    var idleVerifierPool = roundAmount(blockReward * IDLE_VERIFIER_PCT);
+    var idleClockPool = roundAmount(blockReward * IDLE_CLOCK_PCT);
     if (activeVerifiers.length > 0) {
-      var vShare = roundAmount(blockReward * IDLE_VERIFIER_PCT / activeVerifiers.length);
+      var vShare = roundAmount(idleVerifierPool / activeVerifiers.length);
       for (var v of activeVerifiers) {
         rewards.push({ to: v, amount: vShare, type: "verifier" });
       }
+    } else {
+      rewards.push({ to: "btcpc_recycle", amount: idleVerifierPool, type: "recycle" });
     }
     if (activeClocks.length > 0) {
-      var cShare = roundAmount(blockReward * IDLE_CLOCK_PCT / activeClocks.length);
+      var cShare = roundAmount(idleClockPool / activeClocks.length);
       for (var c of activeClocks) {
         var existing = rewards.find(function (r) { return r.to === c; });
         if (existing) {
@@ -179,6 +184,8 @@ function buildProposal(options) {
           rewards.push({ to: c, amount: cShare, type: "clock" });
         }
       }
+    } else {
+      rewards.push({ to: "btcpc_recycle", amount: idleClockPool, type: "recycle" });
     }
   } else {
     // ── Active epoch: 85% miners (by work), 10% verifiers (split), 5% clocks (split) ──
@@ -222,21 +229,17 @@ function buildProposal(options) {
       }
     }
 
-    // Verifiers — split equally (or redistribute to miners if none)
+    // Verifiers — split equally; unclaimed → recycle
     if (activeVerifiers.length > 0) {
       var vEqual = roundAmount(verifierPool / activeVerifiers.length);
       for (var ver of activeVerifiers) {
         rewards.push({ to: ver, amount: vEqual, type: "verifier" });
       }
     } else {
-      // No verifiers — redistribute to miners
-      var extraPerMiner = roundAmount(verifierPool / miners.length);
-      for (var r of rewards) {
-        if (r.type === "mining") r.amount = roundAmount(r.amount + extraPerMiner);
-      }
+      rewards.push({ to: "btcpc_recycle", amount: verifierPool, type: "recycle" });
     }
 
-    // Clocks — split equally (or redistribute to miners if none)
+    // Clocks — split equally; unclaimed → recycle
     if (activeClocks.length > 0) {
       var cEqual = roundAmount(clockPool / activeClocks.length);
       for (var clk of activeClocks) {
@@ -248,10 +251,7 @@ function buildProposal(options) {
         }
       }
     } else {
-      var extraClock = roundAmount(clockPool / miners.length);
-      for (var r2 of rewards) {
-        if (r2.type === "mining") r2.amount = roundAmount(r2.amount + extraClock);
-      }
+      rewards.push({ to: "btcpc_recycle", amount: clockPool, type: "recycle" });
     }
 
     // Storage hosts — 12% pool, split equally among hosts that heartbeated
@@ -277,6 +277,8 @@ function buildProposal(options) {
           rewards.push({ to: sh, amount: sEqual, type: "storage" });
         }
       }
+    } else {
+      rewards.push({ to: "btcpc_recycle", amount: storagePool, type: "recycle" });
     }
 
     // IoT pool — 10%, split 60% sensors (by readings) + 40% gateways (equal)
@@ -301,7 +303,7 @@ function buildProposal(options) {
       activeGateways = Array.from(new Set(activeGateways));
     } catch (_) {}
 
-    // Sensor rewards — split among sensor owners
+    // Sensor rewards — split among sensor owners; unclaimed sub-pool → recycle
     if (activeSensors.length > 0) {
       var sensorEqual = roundAmount(sensorPool / activeSensors.length);
       for (var so of activeSensors) {
@@ -312,9 +314,11 @@ function buildProposal(options) {
           rewards.push({ to: so, amount: sensorEqual, type: "iot_sensor" });
         }
       }
+    } else {
+      rewards.push({ to: "btcpc_recycle", amount: sensorPool, type: "recycle" });
     }
 
-    // Gateway rewards — split among gateway owners
+    // Gateway rewards — split among gateway owners; unclaimed sub-pool → recycle
     if (activeGateways.length > 0) {
       var gwEqual = roundAmount(gatewayPool / activeGateways.length);
       for (var gw of activeGateways) {
@@ -325,17 +329,46 @@ function buildProposal(options) {
           rewards.push({ to: gw, amount: gwEqual, type: "iot_gateway" });
         }
       }
+    } else {
+      rewards.push({ to: "btcpc_recycle", amount: gatewayPool, type: "recycle" });
     }
 
-    // Service pool — 8%, reserved for future service hosting rewards
-    // Currently redistributed to miners if no services active
+    // Service pool — 8% to staked service nodes; unclaimed → recycle
     var servicePool = roundAmount(blockReward * SERVICE_PCT);
-    if (miners.length > 0) {
-      var serviceExtra = roundAmount(servicePool / miners.length);
-      for (var r3 of rewards) {
-        if (r3.type === "mining") r3.amount = roundAmount(r3.amount + serviceExtra);
+    try {
+      var snReg = require("../services/serviceNodeRegistry");
+      activeServiceNodes = snReg.getActiveServiceNodes(epochNumber, 10).filter(isValidAccount);
+      activeServiceNodes = Array.from(new Set(activeServiceNodes));
+    } catch (_) {}
+
+    if (activeServiceNodes.length > 0) {
+      var snEqual = roundAmount(servicePool / activeServiceNodes.length);
+      for (var sn of activeServiceNodes) {
+        var existingSn = rewards.find(function (r) { return r.to === sn; });
+        if (existingSn) {
+          existingSn.amount = roundAmount(existingSn.amount + snEqual);
+        } else {
+          rewards.push({ to: sn, amount: snEqual, type: "service_node" });
+        }
       }
+    } else {
+      rewards.push({ to: "btcpc_recycle", amount: servicePool, type: "recycle" });
     }
+  }
+
+  // ── Consolidate btcpc_recycle entries into one before sorting ──
+  var recycleTotal = 0;
+  var nonRecycle = [];
+  for (var rr of rewards) {
+    if (rr.to === "btcpc_recycle") {
+      recycleTotal = roundAmount(recycleTotal + rr.amount);
+    } else {
+      nonRecycle.push(rr);
+    }
+  }
+  rewards = nonRecycle;
+  if (recycleTotal > 0) {
+    rewards.push({ to: "btcpc_recycle", amount: recycleTotal, type: "recycle" });
   }
 
   // ── Sort rewards deterministically (by recipient name) for hashing ──
@@ -356,6 +389,7 @@ function buildProposal(options) {
     miners_active: miners.length,
     verifiers_active: activeVerifiers.length,
     clocks_active: activeClocks.length,
+    service_nodes_active: activeServiceNodes ? activeServiceNodes.length : 0,
     total_work: totalWorkValue,
     consensus_hash: consensusHash,
     timestamp: Date.now(),
@@ -367,6 +401,9 @@ module.exports = {
   MINER_PCT: MINER_PCT,
   VERIFIER_PCT: VERIFIER_PCT,
   CLOCK_PCT: CLOCK_PCT,
+  STORAGE_PCT: STORAGE_PCT,
+  IOT_PCT: IOT_PCT,
+  SERVICE_PCT: SERVICE_PCT,
   IDLE_VERIFIER_PCT: IDLE_VERIFIER_PCT,
   IDLE_CLOCK_PCT: IDLE_CLOCK_PCT,
 };

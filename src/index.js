@@ -193,6 +193,7 @@ const streamingRoutes = require("./routes/streamingRoutes");
 const finetuneRoutes = require("./routes/finetuneRoutes");
 const computerUseRoutes = require("./routes/computerUseRoutes");
 const memoryRoutes = require("./routes/memoryRoutes");
+const serviceNodeRoutes = require("./routes/serviceNodeRoutes");
 app.use("/api/user", userRoutes);
 app.use("/api/wallet", walletRoutes);
 app.use("/api/faucet", faucetRoutes);
@@ -223,6 +224,8 @@ app.use("/api/memory", memoryRoutes);
 app.use("/api/purchase", purchaseRoutes);
 app.use("/api/mining/phone", phoneMiningRoutes);
 app.use("/api/storage/phone", phoneStorageRoutes);
+app.use("/api/service-nodes", serviceNodeRoutes);
+app.use("/public/service-nodes", serviceNodeRoutes);
 app.use("/public", publicRoutes);
 app.use("/api/auth", sessionRoutes);
 app.use("/api", dreamRoutes);
@@ -296,13 +299,34 @@ const { loadFromDatabase } = require('./p2p/chainSync');
 const PORT = process.env.BTCPC_API_PORT || process.env.PORT || 3000;
 connectDB().then(async () => {
   // Phase B: replay blocks into stateStore at startup so shadow reads have data
+  let _replayHighWater = -1;
   try {
     const replay = require('./chain/replay');
     const result = await replay.replayFromDisk({ verbose: true });
+    _replayHighWater = result.to >= 0 ? result.to : -1;
     console.log('[BTCPC] stateStore replay: ' + result.replayed + ' blocks, ' +
       result.accounts + ' accounts, height=' + result.chainHeight + ', ' + result.durationMs + 'ms');
   } catch (err) {
     console.error('[BTCPC] stateStore replay error:', err.message);
+  }
+
+  // Phase B2: watch for new blocks written by the miner process.
+  // The miner and API share the filesystem but not in-memory state.
+  // watchBlocks fires on every atomic index.json update and applies
+  // new ledger entries directly — no IPC, no polling lag.
+  try {
+    const blockStore = require('./chain/blockStore');
+    const stateStore = require('./chain/stateStore');
+    blockStore.watchBlocks(_replayHighWater + 1, function(epochNumber, payload) {
+      const entries = payload.ledger_entries || [];
+      for (const entry of entries) {
+        try { stateStore.applyEntry(entry); } catch (_) {}
+      }
+      try { stateStore.setChainHeight(epochNumber); } catch (_) {}
+    });
+    console.log('[BTCPC] block watcher active from epoch ' + (_replayHighWater + 1));
+  } catch (err) {
+    console.error('[BTCPC] block watcher setup failed:', err.message);
   }
 
   // Bootstrap: if BTCPC_ACTIVE_KEY is set and the miner account has no active
