@@ -2,6 +2,7 @@
 
 const crypto = require("crypto");
 const stateStore = require("../chain/stateStore");
+const stablecoinVerifier = require("./stablecoinVerifier");
 
 const SUPPORTED_TAKEOVER_TOKENS = new Set(["USDC", "USDT", "DAI"]);
 const DEFAULT_TAKEOVER_USD = Number(process.env.BTCPC_HARDWARE_TAKEOVER_USD || 5);
@@ -40,6 +41,9 @@ function _validateTakeover(takeover) {
   const txHash = _trim(takeover && takeover.tx_hash);
   const token = _trim(takeover && takeover.token).toUpperCase();
   const usdAmount = Number(takeover && takeover.usd_amount);
+  const paymentAddress = _trim(takeover && takeover.payment_address);
+  const paymentProof = takeover && takeover.payment_proof ? takeover.payment_proof : null;
+  const verified = takeover && takeover.verified === true;
 
   if (!txHash) throw new Error("hardware takeover tx_hash required");
   if (!SUPPORTED_TAKEOVER_TOKENS.has(token)) {
@@ -48,11 +52,22 @@ function _validateTakeover(takeover) {
   if (!Number.isFinite(usdAmount) || usdAmount < DEFAULT_TAKEOVER_USD) {
     throw new Error("hardware takeover usd_amount must be at least " + DEFAULT_TAKEOVER_USD);
   }
+  if (!paymentAddress) throw new Error("hardware takeover payment_address required");
+  if (!paymentProof || typeof paymentProof !== "object") {
+    throw new Error("hardware takeover payment_proof required");
+  }
+  if (!verified) {
+    throw new Error("hardware takeover must be verified before registration");
+  }
 
   return {
     tx_hash: txHash,
     token: token,
     usd_amount: usdAmount,
+    payment_address: paymentAddress,
+    payment_proof: paymentProof,
+    verified: true,
+    verification_hash: _trim(takeover && takeover.verification_hash) || null,
   };
 }
 
@@ -153,11 +168,29 @@ function resetForTests() {
   claims.clear();
 }
 
+async function prepareHardwareTakeover(takeover) {
+  const normalized = _validateTakeover(takeover);
+  const proof = Object.assign({}, normalized.payment_proof, {
+    chain: normalized.payment_proof.chain || "ethereum",
+    token: normalized.token,
+    tx_hash: normalized.tx_hash,
+    payment_address: normalized.payment_address,
+    usd_amount: normalized.usd_amount,
+  });
+  const verification = await stablecoinVerifier.verifyStablecoinPayment(proof);
+  return Object.assign({}, normalized, {
+    verified: true,
+    verification_hash: verification.receipt_hash,
+    verification: verification,
+  });
+}
+
 module.exports = {
   claimHardware,
   getHardwareClaim,
   getHardwareClaimByPostingKey,
   resetForTests,
+  prepareHardwareTakeover,
   supportedTakeoverTokens: Array.from(SUPPORTED_TAKEOVER_TOKENS),
   defaultTakeoverUsd: DEFAULT_TAKEOVER_USD,
 };

@@ -115,6 +115,10 @@ describe('loraGatewayRegistry — registration', () => {
         tx_hash: 'tx-' + '8'.repeat(10),
         token: 'DAI',
         usd_amount: 5,
+        payment_address: '0x' + '2'.repeat(40),
+        payment_proof: { mock_receipt: true },
+        verified: true,
+        verification_hash: 'w'.repeat(64),
       },
     }), { epoch: 3 });
     expect(rec.hardware_owner).toBe('alice');

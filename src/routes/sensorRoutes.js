@@ -40,6 +40,7 @@ const gatewayRegistry = require('../services/loraGatewayRegistry');
 const blobStore = require('../services/blobStore');
 const ledger = require('../services/ledger');
 const stateStore = require('../chain/stateStore');
+const hardwareClaims = require('../services/hardwareClaims');
 
 // ─────────────────────────────────────────────────────────────────
 // Helpers
@@ -124,6 +125,15 @@ sensorsRouter.post('/', authenticateToken, async (req, res) => {
     if (body.device_serial !== undefined) spec.device_serial = sanitizeString(body.device_serial, 128) || null;
     if (body.serial !== undefined) spec.serial = sanitizeString(body.serial, 128) || null;
     if (body.device_id !== undefined) spec.device_id = sanitizeString(body.device_id, 128) || null;
+    if (body.hardware_takeover && typeof body.hardware_takeover === 'object') {
+      spec.hardware_takeover = await hardwareClaims.prepareHardwareTakeover({
+        tx_hash: sanitizeString(body.hardware_takeover.tx_hash, 128) || null,
+        token: sanitizeString(body.hardware_takeover.token || body.hardware_takeover.stable_token, 16) || null,
+        usd_amount: body.hardware_takeover.usd_amount !== undefined ? Number(body.hardware_takeover.usd_amount) : null,
+        payment_address: sanitizeString(body.hardware_takeover.payment_address, 128) || null,
+        payment_proof: body.hardware_takeover.payment_proof || null,
+      });
+    }
     if (body.allow_precise_location !== undefined) spec.allow_precise_location = body.allow_precise_location === true;
     if (body.device_name !== undefined) spec.device_name = sanitizeString(body.device_name, 64) || null;
 
@@ -476,6 +486,15 @@ gatewaysRouter.post('/', authenticateToken, async (req, res) => {
     if (body.device_serial !== undefined) spec.device_serial = sanitizeString(body.device_serial, 128) || null;
     if (body.serial !== undefined) spec.serial = sanitizeString(body.serial, 128) || null;
     if (body.device_id !== undefined) spec.device_id = sanitizeString(body.device_id, 128) || null;
+    if (body.hardware_takeover && typeof body.hardware_takeover === 'object') {
+      spec.hardware_takeover = await hardwareClaims.prepareHardwareTakeover({
+        tx_hash: sanitizeString(body.hardware_takeover.tx_hash, 128) || null,
+        token: sanitizeString(body.hardware_takeover.token || body.hardware_takeover.stable_token, 16) || null,
+        usd_amount: body.hardware_takeover.usd_amount !== undefined ? Number(body.hardware_takeover.usd_amount) : null,
+        payment_address: sanitizeString(body.hardware_takeover.payment_address, 128) || null,
+        payment_proof: body.hardware_takeover.payment_proof || null,
+      });
+    }
     if (body.max_sensors !== undefined) {
       const ms = parseInt(body.max_sensors, 10);
       if (!Number.isFinite(ms) || ms < 1 || ms > 10000) {

@@ -118,6 +118,10 @@ describe('sensorRegistry — registration', () => {
         tx_hash: 'tx-' + '9'.repeat(10),
         token: 'USDC',
         usd_amount: 5,
+        payment_address: '0x' + '1'.repeat(40),
+        payment_proof: { mock_receipt: true },
+        verified: true,
+        verification_hash: 'v'.repeat(64),
       },
     }), { epoch: 3 });
     expect(rec.hardware_owner).toBe('alice');

@@ -17,9 +17,10 @@ Bind each device hardware hash to the owning account's posting key hash, and all
 
 ## Implementation Steps
 1. Add chain-level ledger entries for hardware claim and hardware takeover.
-2. Mirror those entries in the state store so claim state survives replay.
-3. Expose the claim/takeover state in the sensor and gateway registries.
-4. Add tests for:
+2. Add a stablecoin receipt verifier for takeover payments.
+3. Mirror those entries in the state store so claim state survives replay.
+4. Expose the claim/takeover state in the sensor and gateway registries.
+5. Add tests for:
    - owner binding
    - duplicate claim rejection
    - paid takeover
