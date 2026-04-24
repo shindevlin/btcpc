@@ -221,12 +221,20 @@ router.get('/network', async (req, res) => {
     // Live P2P clock nodes — miners acting as clocks + Android phones sending
     // CLOCK_HEARTBEAT via the relay. Both paths end up in clockUptimeByEpoch.
     // These are often NOT in nodeRegistry (which only has on-chain registered nodes).
+    // Use the wall-clock epoch as well as the disk epoch — heartbeats are filed
+    // under the time-derived epoch, which can be far ahead of the last written block
+    // during a finalization gap.
+    const GENESIS_TS = 1776236400000;
+    const EPOCH_MS = 30000;
+    const wallEpoch = Math.floor((Date.now() - GENESIS_TS) / EPOCH_MS);
     const p2pClockAccounts = new Set();
     try {
       const protocol = require('../p2p/protocol');
       if (typeof protocol.getActiveClockNodes === 'function') {
-        const p2pClocks = protocol.getActiveClockNodes(latestEpoch);
-        p2pClocks.forEach(a => p2pClockAccounts.add(a));
+        // Query disk tip, wall epoch, and wall+5 to cover ahead-of-disk heartbeats
+        protocol.getActiveClockNodes(latestEpoch).forEach(a => p2pClockAccounts.add(a));
+        protocol.getActiveClockNodes(wallEpoch).forEach(a => p2pClockAccounts.add(a));
+        protocol.getActiveClockNodes(wallEpoch + 5).forEach(a => p2pClockAccounts.add(a));
       }
     } catch (_) {}
 
@@ -269,6 +277,155 @@ router.get('/network', async (req, res) => {
       alive,
       epoch_age_seconds: Math.round(epochAgeMs / 1000),
       timestamp: Date.now(),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /public/network/nodes — breakdown of all live node types
+ *
+ * Returns arrays of miner, clock, sensor, storage, gateway, and verifier
+ * nodes as seen by the registry and the live P2P clock tracker.
+ */
+router.get('/network/nodes', async (req, res) => {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const nodeRegistry = require('../chain/nodeRegistry');
+    const stateStore = require('../chain/stateStore');
+
+    // Determine latest chain epoch from index.json
+    const blocksDir = path.join(process.cwd(), 'data', 'blocks');
+    let latestEpoch = 0;
+    try {
+      const indexPath = path.join(blocksDir, 'index.json');
+      const indexData = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
+      const keys = Object.keys(indexData).map(Number).sort((a, b) => a - b);
+      if (keys.length > 0) latestEpoch = keys[keys.length - 1];
+    } catch (_) {}
+
+    const GENESIS_TS = 1776236400000;
+    const EPOCH_MS = 30000;
+    const wallEpoch = Math.floor((Date.now() - GENESIS_TS) / EPOCH_MS);
+
+    // Ensure registry is loaded
+    if (nodeRegistry.getNodeCount() === 0 && typeof nodeRegistry.loadFromBlocks === 'function') {
+      try { nodeRegistry.loadFromBlocks(); } catch (_) {}
+    }
+    const registered = nodeRegistry.getRegisteredNodes();
+
+    // ── Miners ──
+    const minerNodes = registered.filter(n => n.type === 'miner').map(n => {
+      const entry = { account: n.account };
+      if (n.model) entry.model = n.model;
+      // Try to get last known epoch from stateStore
+      try {
+        const acc = stateStore.getAccount(n.account);
+        if (acc && acc.last_epoch != null) entry.last_epoch = acc.last_epoch;
+      } catch (_) {}
+      entry.status = 'active';
+      return entry;
+    });
+
+    // ── Clocks ──
+    const clockSet = new Set();
+    const clockNodes = [];
+
+    // Browser clocks
+    getActiveBrowserClocks().forEach(c => {
+      if (c.account && !clockSet.has(c.account)) {
+        clockSet.add(c.account);
+        clockNodes.push({ account: c.account, source: 'browser' });
+      }
+    });
+
+    // P2P clocks (query disk tip, wall epoch, and wall+5 for ahead-of-disk heartbeats)
+    try {
+      const protocol = require('../p2p/protocol');
+      if (typeof protocol.getActiveClockNodes === 'function') {
+        [latestEpoch, wallEpoch, wallEpoch + 5].forEach(ep => {
+          protocol.getActiveClockNodes(ep).forEach(a => {
+            if (!clockSet.has(a)) {
+              clockSet.add(a);
+              clockNodes.push({ account: a, source: 'p2p', last_epoch: ep });
+            }
+          });
+        });
+      }
+    } catch (_) {}
+
+    // nodeRegistry-registered clock type
+    registered.filter(n => n.type === 'clock').forEach(n => {
+      if (n.account && !clockSet.has(n.account)) {
+        clockSet.add(n.account);
+        clockNodes.push({ account: n.account, source: 'registry' });
+      }
+    });
+
+    // ── Sensors ──
+    let sensorNodes = [];
+    try {
+      // Use stateStore if it exposes sensor data
+      if (typeof stateStore.getAllSensors === 'function') {
+        sensorNodes = stateStore.getAllSensors().map(s => ({
+          sensor_id: s.sensor_id || s.id,
+          account: s.owner || s.account,
+          last_reading_epoch: s.last_reading_epoch || s.lastEpoch || null,
+          total_readings: s.total_readings || s.readings || 0,
+        }));
+      } else if (typeof stateStore.getSensorsForEpoch === 'function') {
+        sensorNodes = stateStore.getSensorsForEpoch(latestEpoch).map(s => ({
+          sensor_id: s.sensor_id || s.id,
+          account: s.owner || s.account,
+          last_reading_epoch: latestEpoch,
+          total_readings: s.total_readings || 0,
+        }));
+      } else {
+        // Fall back to registry
+        sensorNodes = registered.filter(n => n.type === 'sensor').map(n => ({
+          sensor_id: n.sensor_id || n.id || n.account,
+          account: n.account,
+          last_reading_epoch: null,
+          total_readings: 0,
+        }));
+      }
+    } catch (_) {
+      sensorNodes = registered.filter(n => n.type === 'sensor').map(n => ({
+        sensor_id: n.sensor_id || n.account,
+        account: n.account,
+        last_reading_epoch: null,
+        total_readings: 0,
+      }));
+    }
+
+    // ── Storage ──
+    const storageNodes = registered.filter(n => n.type === 'storage').map(n => ({
+      account: n.account,
+      capacity_gb: n.capacity_gb || n.capacityGb || null,
+      files_stored: n.files_stored || n.filesStored || 0,
+    }));
+
+    // ── Gateways ──
+    const gatewayNodes = registered.filter(n => n.type === 'gateway').map(n => ({
+      account: n.account,
+      name: n.name || n.gateway_id || null,
+      region: n.region || null,
+    }));
+
+    // ── Verifiers ──
+    const verifierNodes = registered.filter(n => n.type === 'verifier').map(n => ({
+      account: n.account,
+    }));
+
+    res.json({
+      miners: minerNodes,
+      clocks: clockNodes,
+      sensors: sensorNodes,
+      storage: storageNodes,
+      gateways: gatewayNodes,
+      verifiers: verifierNodes,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

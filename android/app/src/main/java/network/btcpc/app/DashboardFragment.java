@@ -1,5 +1,6 @@
 package network.btcpc.app;
 
+import android.app.AlertDialog;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -13,6 +14,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.IOException;
@@ -45,11 +47,18 @@ public class DashboardFragment extends Fragment {
 
     // Chain stats
     private TextView tvEpoch, tvPeers, tvMiners, tvClocks, tvNodes, tvStatus;
+    private TextView tvSensorsCount, tvGateways, tvVerifiers;
     private ProgressBar epochProgress;
     private TextView tvEpochProgress;
 
     // Sync indicator
     private TextView tvSyncStatus;
+
+    // Clickable tiles
+    private View tileMiners, tileClocks, tileSensors, tileGateways, tileVerifiers;
+
+    // Last known chain epoch (from network response) for progress bar calculation
+    private long lastNetworkEpoch = 0;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -91,10 +100,26 @@ public class DashboardFragment extends Fragment {
         tvClocks        = view.findViewById(R.id.stat_clocks);
         tvNodes         = view.findViewById(R.id.stat_nodes);
         tvStatus        = view.findViewById(R.id.stat_status);
+        tvSensorsCount  = view.findViewById(R.id.stat_sensors);
+        tvGateways      = view.findViewById(R.id.stat_gateways);
+        tvVerifiers     = view.findViewById(R.id.stat_verifiers);
         epochProgress   = view.findViewById(R.id.epoch_progress);
         tvEpochProgress = view.findViewById(R.id.epoch_progress_label);
 
         tvSyncStatus = view.findViewById(R.id.sync_status);
+
+        // Clickable tiles
+        tileMiners   = view.findViewById(R.id.tile_miners);
+        tileClocks   = view.findViewById(R.id.tile_clocks);
+        tileSensors  = view.findViewById(R.id.tile_sensors);
+        tileGateways = view.findViewById(R.id.tile_gateways);
+        tileVerifiers = view.findViewById(R.id.tile_verifiers);
+
+        if (tileMiners   != null) tileMiners.setOnClickListener(v -> fetchAndShowNodeDetail("miners",    "Miners"));
+        if (tileClocks   != null) tileClocks.setOnClickListener(v -> fetchAndShowNodeDetail("clocks",    "Clocks"));
+        if (tileSensors  != null) tileSensors.setOnClickListener(v -> fetchAndShowNodeDetail("sensors",  "Sensors"));
+        if (tileGateways != null) tileGateways.setOnClickListener(v -> fetchAndShowNodeDetail("gateways","Gateways"));
+        if (tileVerifiers != null) tileVerifiers.setOnClickListener(v -> fetchAndShowNodeDetail("verifiers","Verifiers"));
     }
 
     @Override
@@ -154,9 +179,16 @@ public class DashboardFragment extends Fragment {
         applyCard(tvStorageDot, tvStorageTitle, tvStorageStatus,
                 storageOn, "Storage", storageState.isEmpty() ? "Stopped" : storageState);
 
-        // Epoch progress from local clock
+        // Epoch progress bar: use chain epoch from last network response.
+        // If we haven't received a network response yet, compute from wall clock as fallback.
         long now = System.currentTimeMillis();
-        long msIntoEpoch = (now - EPOCH_ZERO_MS) % EPOCH_DURATION_MS;
+        long baseEpoch = lastNetworkEpoch > 0 ? lastNetworkEpoch
+                : (now - EPOCH_ZERO_MS) / EPOCH_DURATION_MS;
+        long epochStartMs = baseEpoch * EPOCH_DURATION_MS + EPOCH_ZERO_MS;
+        long msIntoEpoch = now - epochStartMs;
+        // Clamp to valid range in case of drift
+        if (msIntoEpoch < 0) msIntoEpoch = 0;
+        if (msIntoEpoch > EPOCH_DURATION_MS) msIntoEpoch = EPOCH_DURATION_MS;
         int pct = (int) ((msIntoEpoch * 100) / EPOCH_DURATION_MS);
         long secLeft = (EPOCH_DURATION_MS - msIntoEpoch) / 1000;
         if (epochProgress != null) epochProgress.setProgress(pct);
@@ -166,8 +198,6 @@ public class DashboardFragment extends Fragment {
     private void applyCard(TextView dot, TextView title, TextView status,
                            boolean enabled, String label, String state) {
         if (dot == null) return;
-        boolean active = enabled && !state.equalsIgnoreCase("stopped")
-                && !state.equalsIgnoreCase("stopped") && !state.isEmpty();
 
         int dotColor;
         if (!enabled) {
@@ -222,29 +252,137 @@ public class DashboardFragment extends Fragment {
         int  miners    = j.optInt("miners", 0);
         int  clocks    = j.optInt("clocks", 0) + j.optInt("browser_clocks", 0);
         int  nodes     = j.optInt("nodes", 0);
+        int  sensors   = j.optInt("sensors", 0);
+        int  gateways  = j.optInt("gateways", 0);
+        int  verifiers = j.optInt("verifiers", 0);
         boolean alive  = j.optBoolean("alive", false);
 
-        if (tvEpoch  != null) tvEpoch.setText(String.valueOf(epoch));
-        if (tvPeers  != null) tvPeers.setText(String.valueOf(peers));
-        if (tvMiners != null) tvMiners.setText(String.valueOf(miners));
-        if (tvClocks != null) tvClocks.setText(String.valueOf(clocks));
-        if (tvNodes  != null) tvNodes.setText(String.valueOf(nodes));
+        if (epoch > 0) lastNetworkEpoch = epoch;
+
+        if (tvEpoch   != null) tvEpoch.setText(String.valueOf(epoch));
+        if (tvPeers   != null) tvPeers.setText(String.valueOf(peers));
+        if (tvMiners  != null) tvMiners.setText(String.valueOf(miners));
+        if (tvClocks  != null) tvClocks.setText(String.valueOf(clocks));
+        if (tvNodes   != null) tvNodes.setText(String.valueOf(nodes));
+        if (tvSensorsCount != null) tvSensorsCount.setText(String.valueOf(sensors));
+        if (tvGateways   != null) tvGateways.setText(String.valueOf(gateways));
+        if (tvVerifiers  != null) tvVerifiers.setText(String.valueOf(verifiers));
 
         if (tvStatus != null) {
             tvStatus.setText(alive ? "alive" : "stalled");
             tvStatus.setTextColor(alive ? 0xFF22C55E : 0xFFEF4444);
         }
+
+        // Sync status: if we received a network response, the phone is synced.
+        // The local wall-clock epoch can differ from the chain epoch due to
+        // block finalization lag — use the network response as the authority.
         if (tvSyncStatus != null) {
-            // Show whether phone epoch is in sync
-            long localEpoch = (System.currentTimeMillis() - EPOCH_ZERO_MS) / 30000L;
-            long diff = Math.abs(localEpoch - epoch);
-            if (diff <= 2) {
-                tvSyncStatus.setText("In sync");
-                tvSyncStatus.setTextColor(0xFF22C55E);
-            } else {
-                tvSyncStatus.setText("Syncing (" + diff + " epochs behind)");
-                tvSyncStatus.setTextColor(0xFFF7931A);
+            tvSyncStatus.setText("Synced");
+            tvSyncStatus.setTextColor(0xFF22C55E);
+        }
+    }
+
+    // ---- node detail bottom sheet ----
+
+    private void fetchAndShowNodeDetail(String nodeType, String title) {
+        if (!isAdded()) return;
+        String url = prefs.getApiUrl() + "/public/network/nodes";
+        Request req = new Request.Builder().url(url).get().build();
+        http.newCall(req).enqueue(new Callback() {
+            @Override public void onFailure(Call call, IOException e) {
+                handler.post(() -> {
+                    if (!isAdded()) return;
+                    showNodeDialog(title, "Could not reach server.");
+                });
+            }
+            @Override public void onResponse(Call call, Response response) throws IOException {
+                String body = "";
+                try (ResponseBody rb = response.body()) {
+                    if (rb != null) body = rb.string();
+                }
+                final String finalBody = body;
+                handler.post(() -> {
+                    if (!isAdded()) return;
+                    try {
+                        JSONObject root = new JSONObject(finalBody);
+                        JSONArray arr = root.optJSONArray(nodeType);
+                        if (arr == null || arr.length() == 0) {
+                            showNodeDialog(title, "No " + title.toLowerCase() + " found.");
+                            return;
+                        }
+                        StringBuilder sb = new StringBuilder();
+                        for (int i = 0; i < arr.length(); i++) {
+                            JSONObject node = arr.optJSONObject(i);
+                            if (node == null) continue;
+                            sb.append(formatNodeEntry(nodeType, node));
+                            if (i < arr.length() - 1) sb.append('\n');
+                        }
+                        showNodeDialog(title, sb.toString());
+                    } catch (Exception e) {
+                        showNodeDialog(title, "Error parsing response.");
+                    }
+                });
+            }
+        });
+    }
+
+    private String formatNodeEntry(String nodeType, JSONObject node) {
+        switch (nodeType) {
+            case "miners": {
+                String account = node.optString("account", "?");
+                String model   = node.optString("model", "");
+                long lastEpoch = node.optLong("last_epoch", 0);
+                StringBuilder s = new StringBuilder(account);
+                if (!model.isEmpty()) s.append(" — ").append(model);
+                if (lastEpoch > 0) s.append(" (ep ").append(lastEpoch).append(')');
+                return s.toString();
+            }
+            case "clocks": {
+                String account = node.optString("account", "?");
+                String source  = node.optString("source", "");
+                return account + (source.isEmpty() ? "" : " [" + source + "]");
+            }
+            case "sensors": {
+                String account = node.optString("account", "?");
+                String sensorId = node.optString("sensor_id", "");
+                long lastEpoch  = node.optLong("last_reading_epoch", 0);
+                int readings    = node.optInt("total_readings", 0);
+                StringBuilder s = new StringBuilder(account);
+                if (!sensorId.isEmpty() && !sensorId.equals(account)) s.append('/').append(sensorId);
+                if (lastEpoch > 0) s.append(" ep ").append(lastEpoch);
+                if (readings > 0) s.append(" (").append(readings).append(" readings)");
+                return s.toString();
+            }
+            case "storage": {
+                String account = node.optString("account", "?");
+                long capacity  = node.optLong("capacity_gb", 0);
+                int files      = node.optInt("files_stored", 0);
+                StringBuilder s = new StringBuilder(account);
+                if (capacity > 0) s.append(" — ").append(capacity).append(" GB");
+                if (files > 0) s.append(", ").append(files).append(" files");
+                return s.toString();
+            }
+            case "gateways": {
+                String account = node.optString("account", "?");
+                String name    = node.optString("name", "");
+                String region  = node.optString("region", "");
+                StringBuilder s = new StringBuilder(account);
+                if (!name.isEmpty()) s.append(" — ").append(name);
+                if (!region.isEmpty()) s.append(" (").append(region).append(')');
+                return s.toString();
+            }
+            default: {
+                return node.optString("account", node.toString());
             }
         }
+    }
+
+    private void showNodeDialog(String title, String message) {
+        if (!isAdded()) return;
+        new AlertDialog.Builder(requireContext())
+                .setTitle(title)
+                .setMessage(message)
+                .setPositiveButton("OK", null)
+                .show();
     }
 }
