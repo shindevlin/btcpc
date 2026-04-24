@@ -1,0 +1,1222 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // When running inside the Android/iOS app, go straight to the mobile UI.
+      if (location.protocol === "https:" && location.hostname === "localhost") {
+        window.location.replace("/app.html");
+      }
+    </script>
+    <title>BTCPC - Bitcoin Proof of Compute | btcpc.net</title>
+    <meta
+      name="description"
+      content="The blockchain where mining means doing real work: AI inference, data storage, sensor networks, cloud hosting, and optional external-chain private authorization. 42,000,000 BTCPC total supply."
+    />
+    <meta property="og:title" content="BTCPC - Bitcoin Proof of Compute" />
+    <meta
+      property="og:description"
+      content="A way to earn. Any device. No burn, all recycle. The digital labor market."
+    />
+    <meta property="og:url" content="https://btcpc.net" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="BTCPC — Bitcoin, but the work is the product."
+    />
+    <meta property="og:image" content="https://btcpc.net/btcpc-logo.jpeg" />
+    <meta name="twitter:image" content="https://btcpc.net/btcpc-logo.jpeg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- Navigation -->
+    <div
+      id="nav-bar"
+      style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 30;
+        display: flex;
+        align-items: center;
+        padding: 6px 16px;
+        background: rgba(10, 14, 23, 0.95);
+        border-bottom: 1px solid rgba(247, 147, 26, 0.3);
+        font-size: 12px;
+        gap: 16px;
+      "
+    >
+      <a
+        href="/"
+        style="
+          color: #f7931a;
+          font-weight: bold;
+          font-size: 14px;
+          text-decoration: none;
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+        "
+        ><img
+          src="/btcpc-logo.jpeg"
+          alt="BTCPC"
+          style="
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            object-fit: cover;
+            box-shadow: 0 0 14px rgba(247, 147, 26, 0.35);
+          "
+        />BTCPC</a
+      >
+      <a href="/globe" style="color: #c8ccd4; text-decoration: none">Globe</a>
+      <a href="/dashboard" style="color: #c8ccd4; text-decoration: none"
+        >Dashboard</a
+      >
+      <a href="/map" style="color: #c8ccd4; text-decoration: none">Map</a>
+      <a href="/install" style="color: #c8ccd4; text-decoration: none"
+        >Install</a
+      >
+      <a href="/agent" style="color: #22c55e; text-decoration: none"
+        >Agent Guide</a
+      >
+      <a href="/docs" style="color: #c8ccd4; text-decoration: none">Docs</a>
+      <a href="/device-dashboard" style="color: #c8ccd4; text-decoration: none"
+        >Devices</a
+      >
+      <a href="/meshtastic" style="color: #c8ccd4; text-decoration: none"
+        >Meshtastic</a
+      >
+      <a href="/app" style="color: #c8ccd4; text-decoration: none">Start</a>
+      <a
+        href="/run-a-node"
+        style="color: #f7931a; text-decoration: none; font-weight: bold"
+        >Run a Node</a
+      >
+      <a
+        href="/name-auction"
+        style="color: #f7931a; text-decoration: none; font-weight: bold"
+        >Name Auction</a
+      >
+      <a
+        href="/buy"
+        style="color: #f7931a; text-decoration: none; font-weight: bold"
+        >Buy BTCPC</a
+      >
+      <a
+        href="https://t.me/btcpcbot"
+        style="color: #c8ccd4; text-decoration: none"
+        target="_blank"
+        >Telegram</a
+      >
+    </div>
+
+    <!-- Genesis Countdown (disappears after launch) -->
+    <div
+      id="genesis-countdown"
+      style="text-align: center; padding: 40px 20px; display: none"
+    >
+      <div
+        style="
+          font-size: 12px;
+          letter-spacing: 2px;
+          color: #64748b;
+          text-transform: uppercase;
+          margin-bottom: 8px;
+        "
+      >
+        Genesis Launches In
+      </div>
+      <div
+        style="
+          display: flex;
+          gap: 16px;
+          justify-content: center;
+          margin-bottom: 16px;
+        "
+      >
+        <div>
+          <span
+            id="cd-h"
+            style="font-size: 48px; font-weight: bold; color: #f7931a"
+            >--</span
+          >
+          <div style="font-size: 10px; color: #64748b">HOURS</div>
+        </div>
+        <div>
+          <span
+            id="cd-m"
+            style="font-size: 48px; font-weight: bold; color: #f7931a"
+            >--</span
+          >
+          <div style="font-size: 10px; color: #64748b">MINUTES</div>
+        </div>
+        <div>
+          <span
+            id="cd-s"
+            style="font-size: 48px; font-weight: bold; color: #f7931a"
+            >--</span
+          >
+          <div style="font-size: 10px; color: #64748b">SECONDS</div>
+        </div>
+      </div>
+      <div style="font-size: 12px; color: #64748b">
+        Midnight California &bull; April 15, 2026 &bull; All nodes launch
+        together
+      </div>
+    </div>
+    <script>
+      (function () {
+        var G = 1776236400000;
+        var el = document.getElementById("genesis-countdown");
+        function tick() {
+          var d = G - Date.now();
+          if (d <= 0) {
+            el.style.display = "none";
+            return;
+          }
+          el.style.display = "block";
+          document.getElementById("cd-h").textContent = String(
+            Math.floor(d / 3600000),
+          ).padStart(2, "0");
+          document.getElementById("cd-m").textContent = String(
+            Math.floor((d % 3600000) / 60000),
+          ).padStart(2, "0");
+          document.getElementById("cd-s").textContent = String(
+            Math.floor((d % 60000) / 1000),
+          ).padStart(2, "0");
+        }
+        tick();
+        setInterval(tick, 1000);
+      })();
+    </script>
+
+    <!-- Hero -->
+    <section class="hero" id="hero">
+      <img
+        src="/btcpc-logo.jpeg"
+        alt="BTCPC"
+        style="
+          width: 132px;
+          height: 132px;
+          border-radius: 24px;
+          object-fit: cover;
+          margin: 0 auto 24px;
+          display: block;
+          box-shadow:
+            0 0 42px rgba(247, 147, 26, 0.24),
+            0 0 54px rgba(34, 211, 238, 0.12);
+        "
+      />
+      <p class="section-label">Sovereign Blockchain</p>
+      <h1 class="hero-title">Bitcoin <span>Proof of Compute</span></h1>
+      <p class="hero-tagline">
+        The blockchain where mining means doing real work: AI inference, data
+        storage, sensor networks, cloud hosting, and optional external-chain
+        private authorization. These are the proof-of-work sources. Any machine.
+        Any device. Every token earned.
+      </p>
+      <div class="hero-badge">42,000,000 BTCPC</div>
+      <p class="hero-sub">
+        Total supply &mdash; fixed forever, like Bitcoin. Every token earned by
+        a machine doing something useful. Optional private authorization can
+        require a second wallet or policy chain for high-value spends.
+      </p>
+      <div
+        style="
+          display: flex;
+          gap: 12px;
+          justify-content: center;
+          margin-top: 32px;
+          flex-wrap: wrap;
+        "
+      >
+        <a
+          href="/install"
+          style="
+            background: #f7931a;
+            color: #000;
+            padding: 12px 28px;
+            border-radius: 8px;
+            font-weight: 700;
+            text-decoration: none;
+          "
+          >Install BTCPC</a
+        >
+        <a
+          href="/agent"
+          style="
+            background: rgba(34, 197, 94, 0.14);
+            color: #22c55e;
+            padding: 12px 28px;
+            border-radius: 8px;
+            font-weight: 700;
+            text-decoration: none;
+            border: 1px solid #22c55e;
+          "
+          >Agent Guide</a
+        >
+        <a
+          href="/buy"
+          style="
+            background: rgba(247, 147, 26, 0.9);
+            color: #000;
+            padding: 12px 28px;
+            border-radius: 8px;
+            font-weight: 700;
+            text-decoration: none;
+            border: 2px solid #f7931a;
+          "
+          >Buy BTCPC</a
+        >
+        <a
+          href="/globe"
+          style="
+            background: rgba(34, 197, 94, 0.15);
+            color: #22c55e;
+            padding: 12px 28px;
+            border-radius: 8px;
+            font-weight: 700;
+            text-decoration: none;
+            border: 1px solid #22c55e;
+          "
+          >Live Network Globe</a
+        >
+        <a
+          href="/map"
+          style="
+            background: rgba(247, 147, 26, 0.15);
+            color: #f7931a;
+            padding: 12px 28px;
+            border-radius: 8px;
+            font-weight: 700;
+            text-decoration: none;
+            border: 1px solid #f7931a;
+          "
+          >View Network Map</a
+        >
+      </div>
+      <div
+        style="
+          max-width: 760px;
+          margin: 28px auto 0;
+          padding: 18px 20px;
+          border-radius: 16px;
+          border: 1px solid rgba(247, 147, 26, 0.25);
+          background: linear-gradient(
+            180deg,
+            rgba(15, 23, 42, 0.95),
+            rgba(10, 14, 23, 0.98)
+          );
+          box-shadow: 0 20px 50px rgba(0, 0, 0, 0.24);
+          text-align: left;
+        "
+      >
+        <div
+          style="
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+          "
+        >
+          <div>
+            <div
+              style="
+                font-size: 11px;
+                letter-spacing: 1.8px;
+                text-transform: uppercase;
+                color: #f7931a;
+                font-weight: 700;
+              "
+            >
+              Docs / Code Wiki
+            </div>
+            <div
+              style="
+                margin-top: 4px;
+                font-size: 18px;
+                font-weight: 800;
+                color: #f8fafc;
+              "
+            >
+              Generated repo map for code, tests, and flows.
+            </div>
+          </div>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap">
+            <a
+              href="/docs"
+              style="
+                background: #f7931a;
+                color: #000;
+                padding: 10px 16px;
+                border-radius: 999px;
+                font-weight: 700;
+                text-decoration: none;
+              "
+              >Open Docs</a
+            >
+            <a
+              href="/tree/"
+              style="
+                background: rgba(244, 114, 182, 0.14);
+                color: #f9a8d4;
+                padding: 10px 16px;
+                border-radius: 999px;
+                font-weight: 700;
+                text-decoration: none;
+                border: 1px solid rgba(244, 114, 182, 0.35);
+              "
+              >Open BTCPC Tree</a
+            >
+            <a
+              href="/docs/code-wiki/README.md"
+              style="
+                background: rgba(34, 197, 94, 0.14);
+                color: #86efac;
+                padding: 10px 16px;
+                border-radius: 999px;
+                font-weight: 700;
+                text-decoration: none;
+                border: 1px solid rgba(34, 197, 94, 0.35);
+              "
+              >Open Code Wiki</a
+            >
+            <a
+              href="/docs/knowledge-map.html"
+              style="
+                background: rgba(56, 189, 248, 0.14);
+                color: #7dd3fc;
+                padding: 10px 16px;
+                border-radius: 999px;
+                font-weight: 700;
+                text-decoration: none;
+                border: 1px solid rgba(56, 189, 248, 0.35);
+              "
+              >Visual Map</a
+            >
+          </div>
+        </div>
+        <p
+          style="
+            margin: 12px 0 0;
+            color: #cbd5e1;
+            font-size: 14px;
+            line-height: 1.6;
+          "
+        >
+          The docs site is the human-written guide. The code wiki is the
+          generated map for readers who want to jump straight to the module,
+          tests, or execution flow behind a feature.
+        </p>
+      </div>
+    </section>
+
+    <!-- Live Network Stats -->
+    <section style="text-align: center; padding: 32px 24px">
+      <div class="stats-row" style="max-width: 900px; margin: 0 auto">
+        <div class="stat">
+          <div class="stat-value" id="stat-epoch">--</div>
+          <div class="stat-label">Current Epoch</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="stat-peers">--</div>
+          <div class="stat-label">Peer Count</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="stat-clocks">--</div>
+          <div class="stat-label">Active Clocks</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="stat-status" style="font-size: 16px">
+            --
+          </div>
+          <div class="stat-label">Chain Status</div>
+        </div>
+      </div>
+      <script>
+        fetch("https://btcpc.net/public/network")
+          .then((r) => r.json())
+          .then((d) => {
+            if (d.epoch)
+              document.getElementById("stat-epoch").textContent = d.epoch;
+            if (d.peers)
+              document.getElementById("stat-peers").textContent = d.peers;
+            if (d.clocks)
+              document.getElementById("stat-clocks").textContent = d.clocks;
+            if (d.status) {
+              var el = document.getElementById("stat-status");
+              el.textContent = d.status;
+              el.style.color = d.status === "alive" ? "#22c55e" : "#f7931a";
+            }
+          })
+          .catch(() => {
+            document.getElementById("stat-status").textContent = "live";
+            document.getElementById("stat-status").style.color = "#22c55e";
+          });
+      </script>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- The Problem -->
+    <section id="problem">
+      <p class="section-label">01 &mdash; The Problem</p>
+      <h2 class="section-title">
+        Compute is <span>wasted</span>. Cloud is <span>centralized</span>.
+      </h2>
+      <p class="section-text">
+        The machines are everywhere. The work is waiting. The current system
+        routes everything through the wrong hands.
+      </p>
+      <ul class="bullet-list">
+        <li>
+          <strong>GPUs burn electricity solving purposeless hashes</strong>
+          &mdash; Bitcoin's PoW consumes ~150 TWh/year. The work proves effort.
+          It produces nothing else. Those same GPUs could run AI inference that
+          real people are already paying for.
+        </li>
+        <li>
+          <strong>Cloud computing is a $500B/year monopoly</strong> &mdash; AI
+          inference, data storage, and application hosting are routed through a
+          handful of corporations. Millions of devices with spare capacity sit
+          idle or mine hashes nobody uses.
+        </li>
+        <li>
+          <strong>IoT hardware goes to waste</strong> &mdash; Helium miners,
+          Raspberry Pis, LoRa gateways, Flipper Zeros &mdash; devices
+          purpose-built for useful sensing work sit idle with nothing to do.
+          There is no chain that pays for environmental data.
+        </li>
+      </ul>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- How It Works — Ways to Earn -->
+    <section id="how">
+      <p class="section-label">02 &mdash; Ways to Earn</p>
+      <h2 class="section-title">Bring a device. <span>Any device.</span></h2>
+      <p class="section-text">
+        Every block's emission is split across six reward pools. Join any pool
+        that matches what you have. Multiple pools stack. Inference, storage,
+        sensors, hosting, clocks, and verification are the proof-of-work itself,
+        not side workloads.
+      </p>
+      <div class="card-grid">
+        <div class="card">
+          <span class="card-icon">&#9201;</span>
+          <h3>Clock &mdash; 5%</h3>
+          <p>
+            Keep epoch timing for the network. Zero GPU required. A phone,
+            laptop, or Raspberry Pi qualifies. Clock nodes receive verifier
+            consensus results and broadcast finalized blocks to the network.
+          </p>
+        </div>
+        <div class="card">
+          <span class="card-icon">&#128296;</span>
+          <h3>Miner &mdash; 55%</h3>
+          <p>
+            GPU + Ollama. Run AI inference for real jobs submitted through the
+            API. Rewards scale with verified parameter count from Ollama's model
+            metadata. No synthetic puzzles &mdash; real jobs only.
+          </p>
+        </div>
+        <div class="card">
+          <span class="card-icon">&#9989;</span>
+          <h3>Verifier &mdash; 10%</h3>
+          <p>
+            Validate inference results, independently compute reward proposals,
+            and reach consensus with other verifiers on the payout distribution.
+            Verifiers decide rewards &mdash; the clock just logs and pays out
+            what they agree on.
+          </p>
+        </div>
+        <div class="card">
+          <span class="card-icon">&#128190;</span>
+          <h3>Storage Host &mdash; 12%</h3>
+          <p>
+            Spare disk. Host content-addressed files on BTCPC-FS. Paid for
+            delivery. Never penalized for going offline &mdash; you just stop
+            earning until you're back. Storage is a proof-of-work source, not an
+            afterthought.
+          </p>
+        </div>
+        <div class="card">
+          <span class="card-icon">&#127760;</span>
+          <h3>Service Host &mdash; 8%</h3>
+          <p>
+            Run applications and services for the network via a cloud VM or
+            server. Apps, games, APIs. Stake to enter the pool, earn per
+            delivery. Same stake-and-rep primitive as storage.
+          </p>
+        </div>
+        <div class="card">
+          <span class="card-icon">&#128225;</span>
+          <h3>IoT Sensor &mdash; 10%</h3>
+          <p>
+            LoRa gateway, Flipper Zero, or standalone sensors. Report
+            environmental data &mdash; temperature, air quality, RF spectrum,
+            crowd density, weather. Like Helium, but the data goes on-chain and
+            the rewards are real. Sensors are a proof-of-work source, not a side
+            feature.
+          </p>
+        </div>
+      </div>
+
+      <!-- Pool percentage visual -->
+      <div class="feature-visual" style="margin-top: 32px">
+        <pre>Reward pool split every epoch:
+
+  <span class="hl">Miners       55%</span>  ████████████████████████████████████████████████████▌
+  <span class="hlg">Verifiers    10%</span>  ██████████
+  <span class="hlb">Storage      12%</span>  ████████████
+  <span class="hlp">IoT + Svcs   10%</span>  ██████████
+  <span class="hl">Clocks        5%</span>  █████
+  <span class="hlg">Recycle (↩)   8%</span>  unused pool shares flow to btcpc_recycle → future rewards</pre>
+      </div>
+
+      <p class="section-text" style="margin-top: 24px">
+        Verifiers (10%) validate inference results on behalf of the network.
+        Pools with no active participants recycle their share &mdash; nothing is
+        ever burned.
+      </p>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- No Burn, All Recycle -->
+    <section id="recycle">
+      <p class="section-label">03 &mdash; No Burn, All Recycle</p>
+      <h2 class="section-title">42,000,000 BTCPC. <span>Forever.</span></h2>
+      <p class="section-text">
+        Bitcoin is digital gold. Ethereum burns fees for scarcity. BTCPC is No
+        Burn, All Recycle.
+      </p>
+      <div class="feature-row" style="margin-top: 40px">
+        <div class="feature-content">
+          <h3>Perpetual Circulation</h3>
+          <p>
+            All fees, slashed stakes, and unclaimed pool shares flow to
+            <code>btcpc_recycle</code> and are re-earned via future block
+            rewards. The total supply is 42,000,000 BTCPC, fixed like Bitcoin,
+            in perpetual circulation.
+          </p>
+          <p>
+            No deflationary burns. No disappearing supply. Every token that ever
+            existed keeps circulating through real work and real demand.
+          </p>
+          <p>
+            No slashing for going offline. Storage hosts, sensor nodes, and
+            service hosts are paid for delivery &mdash; never punished for
+            absence. Your home internet drops? Your balance is untouched. You
+            just stop earning until you're back.
+          </p>
+        </div>
+        <div class="feature-visual">
+          <pre>Fee flow on every transaction:
+
+  User pays fee
+       ↓
+  <span class="hl">btcpc_recycle</span>   ← all fees land here
+       ↓
+  Next epoch reward pool
+       ↓
+  <span class="hlg">Miners, clocks, storage,</span>
+  <span class="hlg">sensors, verifiers earn it back</span>
+
+  Supply stays: <span class="hl">42,000,000 BTCPC</span>
+  Burned: <span class="hlp">0</span></pre>
+        </div>
+      </div>
+      <div class="card-grid" style="margin-top: 8px">
+        <div class="card">
+          <h3>No Synthetic Work</h3>
+          <p>
+            Miners only earn from real inference jobs submitted by real users
+            through the API. If nobody needs AI inference today, the miner pool
+            recycles. This creates natural demand pressure: the chain is only as
+            valuable as the work it does.
+          </p>
+        </div>
+        <div class="card">
+          <h3>Blockchain Is the Database</h3>
+          <p>
+            No MongoDB, no cloud dependency. Block files on disk are the source
+            of truth. An in-memory state cache rebuilds from blocks on startup.
+            A new node downloads the latest snapshot, verifies the Merkle root,
+            and starts in minutes.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- Cross-Chain Bridge -->
+    <section id="bridge">
+      <p class="section-label">04 &mdash; Cross-Chain Bridge</p>
+      <h2 class="section-title">
+        Lock-and-recycle. <span>Not burn-and-mint.</span>
+      </h2>
+      <p class="section-text">
+        When you wrap BTCPC to wBTCPC on Base, your native tokens are locked
+        1:1. When you unwrap, they're released. No minting, no burning &mdash;
+        just transfers between reserve pools.
+      </p>
+      <div class="feature-row" style="margin-top: 48px">
+        <div class="feature-content">
+          <h3>Hard Cap Per Chain</h3>
+          <p>
+            Each destination chain has a hard cap of 4,200,000 wBTCPC (10% of
+            native supply), pre-minted at deployment. This is not an arbitrary
+            limit &mdash; it is the 42 constant applied to bridge design.
+          </p>
+          <p>
+            Bridge liquidity is provided by permissionless LPs who lock BTCPC
+            with a variable commitment period (30 days to 4 years) and earn fees
+            weighted by lock duration &mdash; the same veCRV model that powers
+            Curve Finance.
+          </p>
+          <p>
+            Wrap fee: 0.05%. Unwrap fee: 0.20% (short lock), 0.15% (medium),
+            0.10% (long). Fees flow to LPs and btcpc_recycle &mdash; never
+            burned.
+          </p>
+        </div>
+        <div class="feature-visual">
+          <pre>Bridge design:
+
+  Native BTCPC → <span class="hl">lock</span> → wBTCPC (Base)
+  wBTCPC (Base) → <span class="hlg">unlock</span> → Native BTCPC
+
+  Per-chain cap: <span class="hl">4,200,000 wBTCPC</span>
+  Wrap fee:      <span class="hlb">0.05%</span>
+  Unwrap fee:    <span class="hlb">0.20% / 0.15% / 0.10%</span>
+                 (by LP lock duration)
+
+  Destination chains:</pre>
+        </div>
+      </div>
+      <div
+        style="
+          display: flex;
+          gap: 12px;
+          justify-content: center;
+          flex-wrap: wrap;
+          margin-top: 20px;
+        "
+      >
+        <span
+          style="
+            padding: 10px 24px;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 8px;
+            color: #3b82f6;
+            font-weight: 600;
+          "
+          >Base &mdash; Coming at launch</span
+        >
+        <span
+          style="
+            padding: 10px 24px;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 8px;
+            color: #3b82f6;
+            font-weight: 600;
+          "
+          >Arbitrum &mdash; Coming at launch</span
+        >
+        <span
+          style="
+            padding: 10px 24px;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 8px;
+            color: #3b82f6;
+            font-weight: 600;
+          "
+          >Ethereum &mdash; Coming at launch</span
+        >
+        <span
+          style="
+            padding: 10px 24px;
+            background: rgba(247, 147, 26, 0.1);
+            border: 1px solid rgba(247, 147, 26, 0.3);
+            border-radius: 8px;
+            color: #f7931a;
+            font-weight: 600;
+          "
+          >Bitcoin &mdash; Coming at launch</span
+        >
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- Four-Tier Finality -->
+    <section id="finality">
+      <p class="section-label">05 &mdash; Four-Tier Finality</p>
+      <h2 class="section-title">
+        30 seconds to 3.5 days &mdash; <span>every tier has a purpose</span>
+      </h2>
+      <p class="section-text">
+        BTCPC state is anchored to external chains for independent verification.
+        Working consensus runs fast. Deep finality anchors to Bitcoin.
+      </p>
+      <div class="card-grid" style="margin-top: 40px">
+        <div class="card">
+          <h3>Native BTCPC &mdash; every epoch</h3>
+          <p>
+            30-second epochs. Working consensus across the BTCPC P2P network.
+            Fast enough for real-time inference markets and service delivery.
+          </p>
+        </div>
+        <div class="card">
+          <h3>L2 (Base, Arbitrum) &mdash; every 100 epochs</h3>
+          <p>
+            ~50 minutes. State root anchored to Base and Arbitrum for fast
+            cross-chain verification. wBTCPC holders can verify BTCPC state
+            without running a native node.
+          </p>
+        </div>
+        <div class="card">
+          <h3>Ethereum &mdash; every 1,000 epochs</h3>
+          <p>
+            ~8.3 hours. Deep finality anchor. Long-lived contracts and staking
+            positions can checkpoint against Ethereum's security guarantees.
+          </p>
+        </div>
+        <div class="card">
+          <h3>Bitcoin &mdash; every 10,000 epochs</h3>
+          <p>
+            ~3.5 days. Ultimate anchoring. The most secure timestamp in
+            existence. Not a dependency &mdash; a witness. BTCPC consensus does
+            not wait for Bitcoin.
+          </p>
+        </div>
+      </div>
+      <div class="feature-visual" style="margin-top: 32px">
+        <pre>Finality ladder:
+
+  <span class="hlg">Native   30s  </span> ←→←→←→←→←→←→←→←→←→←→←→←→←→←→←→←→ every epoch
+  <span class="hlb">L2       50m  </span> ←——————→ ←——————→ ←——————→        every 100 epochs
+  <span class="hlp">Ethereum 8.3h </span> ←—————————————————→                 every 1,000 epochs
+  <span class="hl">Bitcoin  3.5d </span> ←—————————————————————————————————→  every 10,000 epochs</pre>
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- Security -->
+    <section id="security">
+      <p class="section-label">06 &mdash; Security</p>
+      <h2 class="section-title">
+        Sensitive-action <span>multi-factor authentication</span>
+      </h2>
+      <p class="section-text">
+        BTCPC supports account-level 2FA for sensitive actions and an optional
+        external-chain approval layer for high-value spends. This is policy
+        enforcement, not a blanket consensus rule on every transaction.
+      </p>
+      <div class="card-grid">
+        <div class="card">
+          <h3>Four-Key Hierarchy</h3>
+          <p>
+            Four key pairs derived from a single BIP-39 mnemonic: Owner (cold
+            storage), Active (financial), Posting (mining operations), Memo
+            (communication). A compromised mining rig cannot steal your funds.
+          </p>
+        </div>
+        <div class="card">
+          <h3>Sensitive-Action 2FA</h3>
+          <p>
+            Password-derived key signatures and TOTP (Google Authenticator
+            compatible) protect sensitive actions when enabled. Configurable per
+            account. Signed P2P messages remain required for authority-bearing
+            operations.
+          </p>
+        </div>
+        <div class="card">
+          <h3>72-Hour Recovery</h3>
+          <p>
+            Submit a recovery request with the Owner key. A 72-hour time-lock
+            begins on-chain. If the real owner contests during that window, the
+            recovery is blocked. After 72 hours, 2FA resets safely.
+          </p>
+        </div>
+        <div class="card">
+          <h3>Private Authorization 2FA</h3>
+          <p>
+            Optional and staged for rollout: a spend can require a second
+            approval from Bitcoin, Lightning, EVM, Solana, TON, or a portable
+            zkVM backend. BTCPC verifies the exact transfer request before
+            execution, and the approval source can remain hidden from BTCPC if
+            the verifier only receives a proof or receipt.
+          </p>
+        </div>
+      </div>
+      <div class="stats-row" style="margin-top: 24px">
+        <div class="stat">
+          <div class="stat-value">4</div>
+          <div class="stat-label">Key Pairs</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">2FA</div>
+          <div class="stat-label">Sensitive Actions</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">72h</div>
+          <div class="stat-label">Recovery Window</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">BIP-39</div>
+          <div class="stat-label">Hardware Wallet Compatible</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">2FA+</div>
+          <div class="stat-label">Optional External Approval</div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- The 42 Connection -->
+    <section id="42">
+      <p class="section-label">07 &mdash; The 42 Connection</p>
+      <h2 class="section-title">
+        The answer is <span>42</span>. The question was always about compute.
+      </h2>
+      <p class="section-text">
+        Deep Thought was the first proof of compute system: a massive machine
+        that ran for 7.5 million years to produce a single verified answer.
+        BTCPC is the modern incarnation of that idea.
+      </p>
+      <div class="forty-two-grid">
+        <div class="forty-two-item">
+          <div class="num">42,000,000</div>
+          <h3>Total Supply</h3>
+          <p>
+            The answer to the Ultimate Question of Life, the Universe, and
+            Everything &mdash; as computed by Deep Thought in Douglas Adams' The
+            Hitchhiker's Guide to the Galaxy. Fixed forever, like Bitcoin.
+          </p>
+        </div>
+        <div class="forty-two-item">
+          <div class="num">42</div>
+          <h3>Token Creation Fee</h3>
+          <p>
+            Creating a user-issued token on BTCPC costs exactly 42 BTCPC. The
+            fee flows to btcpc_recycle &mdash; never burned. Scarce enough to
+            prevent spam, accessible enough to build.
+          </p>
+        </div>
+        <div class="forty-two-item">
+          <div class="num">420</div>
+          <h3>Reserved Names</h3>
+          <p>
+            420 account names reserved at genesis for protocol infrastructure,
+            early contributors, and community allocation. Scarce digital
+            identities on the sovereign chain.
+          </p>
+        </div>
+        <div class="forty-two-item">
+          <div class="num">4,200,000</div>
+          <h3>wBTCPC per Bridge Chain</h3>
+          <p>
+            Each destination chain (Base, Arbitrum, Ethereum, Bitcoin) has a
+            hard cap of 4,200,000 wBTCPC &mdash; exactly 10% of total supply.
+            The 42 constant applied to bridge design.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Quote -->
+    <div class="quote">
+      <blockquote>
+        "I think the problem, to be quite honest with you, is that you've never
+        actually known what the question is."
+      </blockquote>
+      <cite>&mdash; Deep Thought, The Hitchhiker's Guide to the Galaxy</cite>
+    </div>
+
+    <hr class="divider" />
+
+    <!-- Get Started -->
+    <section id="start">
+      <p class="section-label">08 &mdash; Get Started</p>
+      <h2 class="section-title">Every machine <span>welcome</span></h2>
+      <p class="section-text">
+        Three paths to your first BTCPC reward. Pick the one that matches what
+        you have. If an AI agent is driving the machine, start at
+        <a href="/agent" style="color: #f7931a">/agent</a>.
+      </p>
+      <p class="section-text">
+        If the user has the tokens, BTCPC can also act as a token-gated
+        sub-agent runtime from the website, desktop app, CLI, or any
+        Ollama-capable desktop client.
+      </p>
+      <p class="section-text">
+        The primary agent can also use BTCPC directly when it wants the chain
+        itself to be the reasoning lane.
+      </p>
+      <p class="section-text">
+        For transfers, token holders can keep the BTCPC active key local and
+        sign a one-time challenge in the browser. The wallet export contains the
+        active key; the server only receives the signature.
+      </p>
+      <div class="card-grid">
+        <div class="card">
+          <span class="card-icon">&#9201;</span>
+          <h3>Clock Node &mdash; Any Device</h3>
+          <p>
+            No GPU required. Any laptop, phone, or Pi can earn clock rewards
+            immediately.
+          </p>
+          <div class="feature-visual" style="margin-top: 16px; padding: 16px">
+            <pre><span class="hl">BTCPC_MINER</span>=yourname \
+<span class="hl">BTCPC_ROLES</span>=clock \
+node bin/btcpc-all</pre>
+          </div>
+        </div>
+        <div class="card">
+          <span class="card-icon">&#128296;</span>
+          <h3>Full Node &mdash; GPU Mining</h3>
+          <p>
+            GPU required. Runs all pools: miner, clock, verifier. Ollama must be
+            installed and a model pulled before starting.
+          </p>
+          <div class="feature-visual" style="margin-top: 16px; padding: 16px">
+            <pre><span class="hl">BTCPC_MINER</span>=yourname \
+node bin/btcpc-all</pre>
+          </div>
+        </div>
+        <div class="card">
+          <span class="card-icon">&#128172;</span>
+          <h3>Telegram Wallet</h3>
+          <p>
+            No install needed. Create a wallet instantly from Telegram. Send,
+            receive, check balance. Good first step before running a node.
+          </p>
+          <p style="margin-top: 12px">
+            Message
+            <a href="/app" style="color: #c8ccd4; text-decoration: none"
+              >Start</a
+            >
+            <a href="https://t.me/btcpcbot">@btcpcbot</a> on Telegram:
+          </p>
+          <div class="feature-visual" style="margin-top: 12px; padding: 16px">
+            <pre><span class="hlg">/create yourname</span></pre>
+          </div>
+        </div>
+      </div>
+      <p class="section-text" style="margin-top: 24px">
+        Docker and Windows paths: <a href="/install">/install</a>.
+        Windows-specific setup: <a href="/windows">/windows</a>.
+      </p>
+      <div
+        style="
+          margin-top: 28px;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 16px;
+          justify-content: center;
+          align-items: center;
+        "
+      >
+        <a
+          href="https://github.com/shindevlin/btcpc/releases/latest/download/BTCPC-android-release.apk"
+          download="BTCPC-android-release.apk"
+          style="
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(247, 147, 26, 0.15);
+            color: #f7931a;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-weight: 700;
+            text-decoration: none;
+            border: 1px solid #f7931a;
+            font-size: 15px;
+          "
+          >&#8659; Android APK (signed release)</a
+        >
+        <a
+          href="https://github.com/shindevlin/btcpc/releases/latest/download/BTCPC-desktop-linux.AppImage"
+          download="BTCPC-desktop-linux.AppImage"
+          style="
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(247, 147, 26, 0.1);
+            color: #f7931a;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-weight: 700;
+            text-decoration: none;
+            border: 1px solid rgba(247, 147, 26, 0.5);
+            font-size: 15px;
+          "
+          >&#8659; Linux AppImage</a
+        >
+        <a
+          href="https://github.com/shindevlin/btcpc/releases/latest/download/btcpc-desktop-linux.deb"
+          download="btcpc-desktop-linux.deb"
+          style="
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(247, 147, 26, 0.1);
+            color: #f7931a;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-weight: 700;
+            text-decoration: none;
+            border: 1px solid rgba(247, 147, 26, 0.5);
+            font-size: 15px;
+          "
+          >&#8659; Linux .deb</a
+        >
+      </div>
+    </section>
+
+    <hr class="divider" />
+
+    <!-- Network Map -->
+    <section id="map" style="text-align: center">
+      <p class="section-label">09 &mdash; Network Map</p>
+      <h2 class="section-title">See the network <span>live</span></h2>
+      <p class="section-text" style="margin: 0 auto 32px">
+        Every gateway, sensor node, clock, and miner on one map. Updated in real
+        time from the P2P network.
+      </p>
+      <a
+        href="/map"
+        style="
+          display: inline-block;
+          background: rgba(247, 147, 26, 0.15);
+          color: #f7931a;
+          padding: 14px 36px;
+          border-radius: 8px;
+          font-weight: 700;
+          text-decoration: none;
+          border: 1px solid #f7931a;
+          font-size: 15px;
+        "
+        >See every gateway, sensor, and node on the live map &#8594;</a
+      >
+    </section>
+
+    <hr class="divider" />
+
+    <!-- Mobile Sensors -->
+    <section id="sensors">
+      <p class="section-label">10 &mdash; Mobile Sensors</p>
+      <h2 class="section-title">
+        Carry a Flipper Zero. <span>Earn BTCPC while you walk.</span>
+      </h2>
+      <p class="section-text">
+        Fixed sensors cover one location. Your pocket covers every street you
+        walk down. A Flipper Zero turns your daily commute into a
+        data-generating machine. BTCPC treats sensors as a core product surface,
+        and the sensor market is designed to expand into more devices over time.
+      </p>
+      <div class="card-grid">
+        <div class="card">
+          <span class="card-icon">&#128225;</span>
+          <h3>What It Scans</h3>
+          <p>
+            Sub-GHz RF spectrum mapping, BLE device density, NFC field
+            detection, temperature, and anything you wire to the GPIO header.
+            Scans continuously while you carry it.
+          </p>
+        </div>
+        <div class="card">
+          <span class="card-icon">&#128178;</span>
+          <h3>Who Buys the Data</h3>
+          <p>
+            <strong>Telecoms</strong> &mdash; RF coverage and interference maps.
+            <strong>Retailers</strong> &mdash; foot traffic and crowd density
+            ($10B+ market). <strong>Fintech</strong> &mdash; contactless payment
+            terminal mapping. <strong>Weather</strong> &mdash; hyperlocal
+            temperature grids. <strong>Security</strong> &mdash; rogue
+            transmitter detection.
+          </p>
+        </div>
+        <div class="card">
+          <span class="card-icon">&#128260;</span>
+          <h3>How It Syncs</h3>
+          <p>
+            Readings buffer to microSD with GPS coordinates. Connect via USB or
+            BLE to any BTCPC gateway or PC &mdash; readings sync to the chain
+            automatically, signed with your memo key for attestation.
+          </p>
+        </div>
+        <div class="card">
+          <span class="card-icon">&#128640;</span>
+          <h3>Future Expansion</h3>
+          <p>
+            New sensor families plug into the same signed-reading pipeline. The
+            roadmap expands from LoRa, GNSS, ADS-B, and environmental probes
+            into wearables, vehicle-mounted arrays, infrastructure diagnostics,
+            edge relay devices, and other signed telemetry sources that can
+            prove useful work.
+          </p>
+        </div>
+      </div>
+      <div class="feature-visual" style="margin-top: 32px">
+        <pre>Mobile sensor mesh:
+
+  <span class="hl">Flipper Zero</span>  scans RF, BLE, NFC, temp
+       ↓
+  Buffers to <span class="hlb">microSD</span> with GPS + timestamp
+       ↓
+  Syncs via USB/BLE to <span class="hlg">BTCPC gateway</span>
+       ↓
+  Gateway co-signs → <span class="hl">IoT reward pool (10%)</span>
+       ↓
+  Data sold to telecoms, retailers,
+  fintech, weather services, security</pre>
+      </div>
+      <p class="section-text" style="margin-top: 24px">
+        Supported devices: <strong>Nebra</strong>, <strong>Hyfix</strong>,
+        <strong>Raspberry Pi</strong>, <strong>Flipper Zero</strong>, and any
+        GPIO/I2C/SPI sensor. Bring what you have. The next sensor classes are
+        intentionally open-ended so the network can keep expanding without
+        redesigning the protocol.
+      </p>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="footer-inner">
+        <p class="footer-creator">
+          Shin Devlin &mdash;
+          <a href="mailto:shin@btcpc.network">shin@btcpc.network</a>
+        </p>
+        <div class="footer-links">
+          <a href="https://t.me/btcpcbot">Telegram Bot</a>
+          <a href="https://btcpc.substack.com">Substack</a>
+          <a href="https://reddit.com/r/btcpc">Reddit</a>
+          <a href="https://github.com/shindevlin/btcpc">GitHub</a>
+          <a href="/docs">Documentation</a>
+        </div>
+        <p class="footer-copy">
+          Bitcoin Proof of Compute &mdash; every token earned, every machine
+          welcome.
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>
