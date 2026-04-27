@@ -26,7 +26,7 @@
  *   --region <region>   LoRa region: US915 | EU868 | AU915 | AS923 | IN865
  *   --lat <float>       GPS latitude
  *   --lon <float>       GPS longitude
- *   --node-url <url>    BTCPC node API base URL (default: http://localhost:4242)
+ *   --node-url <url>    BTCPC node API base URL (default: https://btcpc.net)
  *   --lora-device <dev> LoRa concentrator device (default: /dev/spidev0.0)
  *   --dry-run           Parse and log packets without submitting
  */
@@ -36,7 +36,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const https = require('https');
-const { execSync } = require('child_process');
+const { execSync, spawn } = require('child_process');
 
 // ─── Argument parsing ───────────────────────────────────────────
 
@@ -57,10 +57,11 @@ const GATEWAY_NAME = getArg('--gateway', process.env.BTCPC_GATEWAY_NAME || 'nebr
 const REGION     = (getArg('--region', process.env.BTCPC_LORA_REGION || 'US915')).toUpperCase();
 const LAT        = parseFloat(getArg('--lat', process.env.BTCPC_LAT || '0'));
 const LON        = parseFloat(getArg('--lon', process.env.BTCPC_LON || '0'));
-const NODE_URL   = getArg('--node-url', process.env.BTCPC_NODE_URL || 'http://localhost:4242');
+const NODE_URL   = getArg('--node-url', process.env.BTCPC_NODE_URL || 'https://btcpc.net');
 const LORA_DEV   = getArg('--lora-device', process.env.BTCPC_LORA_DEVICE || '/dev/spidev0.0');
 const DRY_RUN    = hasFlag('--dry-run') || process.env.BTCPC_DRY_RUN === '1';
 const AUTH_TOKEN = process.env.BTCPC_AUTH_TOKEN || '';
+const ROLES = (process.env.BTCPC_ROLES || 'gateway').split(',').map(r => r.trim());
 
 // Nebra config file path (auto-detects region if available)
 const NEBRA_CONFIG_PATH = '/etc/nebra/config.json';
@@ -244,7 +245,7 @@ async function ensureSensorRegistered(sensorId, metadata) {
   const unit = (metadata && metadata.unit) || 'raw';
   const region = (metadata && metadata.region) || 'onboard/' + ACCOUNT;
   try {
-    const resp = await apiRequest('POST', '/api/sensors', { account, name, type, unit, region, decimals: 4 });
+    const resp = await apiRequest('POST', '/api/sensors', { account, name, type, unit, region, decimals: 4, device_name: GATEWAY_NAME });
     if (resp.status === 201 || resp.status === 409) {
       _registeredSensors.add(sensorId);
       if (resp.status === 201) console.log('[btcpc-nebra] Registered sensor:', sensorId);
@@ -512,17 +513,39 @@ async function main() {
   // Start LoRa listener
   startLoRaListener(ACCOUNT, GATEWAY_NAME);
 
+  // Clock node — spawn btcpc-clock as a child process if role is enabled
+  let clockProc = null;
+  if (ROLES.includes('clock')) {
+    function spawnClock() {
+      console.log('[btcpc-nebra] Starting clock node (BTCPC_ROLES includes clock)');
+      clockProc = spawn(process.execPath, [path.resolve(__dirname, 'btcpc-clock')], {
+        env: { ...process.env, BTCPC_CLOCK_ACCOUNT: ACCOUNT },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      clockProc.stdout.on('data', d => process.stdout.write('[btcpc-clock] ' + d));
+      clockProc.stderr.on('data', d => process.stderr.write('[btcpc-clock] ' + d));
+      clockProc.on('exit', code => {
+        console.warn('[btcpc-nebra] Clock process exited (' + code + ') — restarting in 10s');
+        setTimeout(spawnClock, 10000);
+      });
+    }
+    spawnClock();
+  }
+
   // Handle SIGTERM cleanly
   process.on('SIGTERM', () => {
     console.log('[btcpc-nebra] Received SIGTERM, shutting down');
+    if (clockProc) clockProc.kill('SIGTERM');
     process.exit(0);
   });
   process.on('SIGINT', () => {
     console.log('[btcpc-nebra] Received SIGINT, shutting down');
+    if (clockProc) clockProc.kill('SIGTERM');
     process.exit(0);
   });
 
   console.log('[btcpc-nebra] Gateway daemon running. Account:', ACCOUNT, '| Gateway:', ACCOUNT + '/' + GATEWAY_NAME);
+  console.log('[btcpc-nebra] Roles:', ROLES.join(', '));
 }
 
 main().catch((err) => {
