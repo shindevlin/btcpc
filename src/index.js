@@ -204,6 +204,33 @@ app.use("/api/delegation", delegationRoutes);
 app.use("/api/recovery", recoveryRoutes);
 app.use("/api/totp", totpRoutes);
 app.use("/api/appeal", appealRoutes);
+// BTCPC_RUST_MARKET=enabled → proxy /api/commerce/* to btcpc-market (Rust, port 7042).
+// Falls back to Node.js commerceRoutes when the Rust sidecar is not running.
+if (process.env.BTCPC_RUST_MARKET === "enabled") {
+  const axios = require("axios");
+  const MARKET_BASE = process.env.BTCPC_MARKET_URL || "http://localhost:7042";
+  app.use("/api/commerce", async (req, res, next) => {
+    try {
+      const url = MARKET_BASE + "/api/commerce" + req.path;
+      const axRes = await axios({
+        method: req.method,
+        url,
+        params: req.query,
+        data: req.body,
+        headers: {
+          "content-type": req.headers["content-type"] || "application/json",
+          ...(req.headers["authorization"] ? { authorization: req.headers["authorization"] } : {}),
+        },
+        validateStatus: () => true,
+        timeout: 15000,
+      });
+      res.status(axRes.status).json(axRes.data);
+    } catch (err) {
+      // Rust service offline — fall through to Node.js routes
+      next();
+    }
+  });
+}
 app.use("/api/commerce", commerceRoutes);
 app.use("/api/amber-pills", amberPillRoutes);
 app.use("/api/sensors", sensorsRouter);
