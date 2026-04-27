@@ -2531,5 +2531,6 @@ module.exports = {
   stopPeerAnnounce,
   addModelDemand,
   getModelDemand,
+  flushSeenMessages,
   VERIFIER_REVEAL_WINDOW_MS: VERIFIER_REVEAL_WINDOW_MS
 };
