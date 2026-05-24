@@ -99,6 +99,7 @@ mod nostr_transport;
 mod matrix_transport;
 mod i2p;
 mod lorawan;
+mod bitcoin_relay;
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -291,11 +292,17 @@ async fn main() -> Result<()> {
         });
     }
 
+    // ── Bitcoin Mesh Relay — gateway service for Bitcoin tx relay over LoRa/Tor ──
+    // Started before LoRaWAN so the handle is ready for dispatch wiring.
+    // BMR is a gateway service only: it has zero interaction with BTCPC chain state.
+    // Bitcoin payloads NEVER call chain.apply_entry() and NEVER touch btcpc/entries.
+    let bmr_handle = bitcoin_relay::start_bitcoin_relay().await;
+
     // ── LoRaWAN transport — Phase 8 transport cascade ────────────────────────
     // Must be started before the seal handler so the handle can be captured.
     // LoRaWAN peers do NOT count toward peer_count — libp2p-only hardline intact.
     let lorawan_handle =
-        lorawan::start_lorawan(chain.clone(), net_handle.cmd_tx.clone()).await;
+        lorawan::start_lorawan(chain.clone(), net_handle.cmd_tx.clone(), bmr_handle).await;
 
     // Wire: clock sealed events → chain epoch advancement + MineReward emission + consensus proposal
     {

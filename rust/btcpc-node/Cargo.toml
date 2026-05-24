@@ -46,6 +46,9 @@ ripemd = "0.1"
 bech32 = "0.9"
 blake2 = "0.10"
 everscale-types = { version = "0.1", default-features = false, features = ["sync"] }
+# Bitcoin Mesh Relay (BMR): structural tx validation and chunk CRC
+bitcoin = "0.32"
+crc = "3"
 
 # Networking
 libp2p = { version = "0.56", features = [
@@ -58,7 +61,8 @@ rustls = { version = "0.23", features = ["ring"], default-features = false }
 
 # HTTP client (peer discovery — Hive + TON registry queries; streaming for agent chat)
 # Use rustls so cross-compilation (ARM64/Pi) works without system OpenSSL.
-reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
+# socks feature: required by bitcoin_relay.rs for Tor SOCKS5 egress (reqwest::Proxy::all).
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls", "socks"] }
 # Force vendored OpenSSL for any crates (wasmtime, libp2p transports) that still pull it in.
 openssl = { version = "0.10", features = ["vendored"] }
 tokio-stream = { version = "0.1", features = ["sync"] }

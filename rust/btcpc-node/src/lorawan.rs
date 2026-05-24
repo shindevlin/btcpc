@@ -44,6 +44,7 @@ use tracing::{debug, info, warn};
 
 use btcpc_types::LedgerEntry;
 
+use crate::bitcoin_relay::BitcoinRelayHandle;
 use crate::chain::Chain;
 use crate::net::NetCmd;
 
@@ -94,9 +95,14 @@ impl LoraWanHandle {
 
 /// Start the LoRaWAN module if `BTCPC_LORAWAN=true`.
 /// Returns `Some(handle)` if the socket bound successfully, `None` otherwise.
+///
+/// `bmr_handle` is the Bitcoin Mesh Relay handle. Pass `BitcoinRelayHandle::noop()`
+/// (or the active handle from `start_bitcoin_relay()`) — LoRaWAN does not own or
+/// start the BMR; it merely dispatches BTC1-prefixed payloads to it.
 pub async fn start_lorawan(
     chain: Arc<Chain>,
     cmd_tx: mpsc::Sender<NetCmd>,
+    bmr_handle: BitcoinRelayHandle,
 ) -> Option<LoraWanHandle> {
     if std::env::var("BTCPC_LORAWAN").as_deref() != Ok("true") {
         return None;
@@ -122,7 +128,7 @@ pub async fn start_lorawan(
     let handle = LoraWanHandle { tx };
 
     tokio::spawn(async move {
-        run(socket, chain, cmd_tx, rx).await;
+        run(socket, chain, cmd_tx, rx, bmr_handle).await;
     });
 
     Some(handle)
@@ -137,6 +143,7 @@ async fn run(
     chain: Arc<Chain>,
     cmd_tx: mpsc::Sender<NetCmd>,
     mut hash_rx: mpsc::Receiver<[u8; 32]>,
+    bmr_handle: BitcoinRelayHandle,
 ) {
     let mut buf = vec![0u8; MAX_DGRAM];
 
@@ -162,6 +169,7 @@ async fn run(
                             &cmd_tx,
                             &mut gateway_addrs,
                             &mut downlink_queue,
+                            &bmr_handle,
                         ).await;
                     }
                     Err(e) => {
@@ -195,6 +203,7 @@ async fn handle_frame(
     cmd_tx: &mpsc::Sender<NetCmd>,
     gateway_addrs: &mut Vec<([u8; 8], SocketAddr)>,
     downlink_queue: &mut VecDeque<[u8; 32]>,
+    bmr_handle: &BitcoinRelayHandle,
 ) {
     // Must have at least: version + token(2) + identifier = 4 bytes.
     if frame.len() < 4 {
@@ -226,7 +235,7 @@ async fn handle_frame(
             // JSON payload starts at byte 12.
             if frame.len() > PUSH_DATA_MIN {
                 let json_bytes = &frame[12..];
-                process_push_data(json_bytes, chain, cmd_tx).await;
+                process_push_data(json_bytes, chain, cmd_tx, bmr_handle).await;
             }
         }
 
@@ -262,6 +271,7 @@ async fn process_push_data(
     json_bytes: &[u8],
     chain: &Arc<Chain>,
     cmd_tx: &mpsc::Sender<NetCmd>,
+    bmr_handle: &BitcoinRelayHandle,
 ) {
     let json: Value = match serde_json::from_slice(json_bytes) {
         Ok(v) => v,
@@ -290,7 +300,7 @@ async fn process_push_data(
             }
         };
 
-        handle_lora_payload(&payload, chain, cmd_tx).await;
+        handle_lora_payload(&payload, chain, cmd_tx, bmr_handle).await;
     }
 }
 
@@ -302,8 +312,16 @@ async fn handle_lora_payload(
     payload: &[u8],
     chain: &Arc<Chain>,
     cmd_tx: &mpsc::Sender<NetCmd>,
+    bmr_handle: &BitcoinRelayHandle,
 ) {
-    if payload.len() == 32 {
+    // BTC1 check MUST be first — before the 32-byte length check.
+    // A single-chunk BMR frame whose transaction fits in 16 bytes would be exactly
+    // 32 bytes total and would be misrouted to the entry-hash path if we checked
+    // length first. Bitcoin payloads NEVER touch chain.apply_entry().
+    if payload.starts_with(b"BTC1") {
+        bmr_handle.queue_payload(payload.to_vec());
+        return; // never calls chain.apply_entry() or broadcasts on btcpc/entries
+    } else if payload.len() == 32 {
         // 32-byte binary = entry hash
         let hex = hex::encode(payload);
         let key = format!("entry_hash:{}", hex);
@@ -493,7 +511,7 @@ mod tests {
         std::env::remove_var("BTCPC_LORAWAN");
 
         let (chain, cmd_tx, _dir) = make_chain_and_cmd_tx();
-        let result = start_lorawan(chain, cmd_tx).await;
+        let result = start_lorawan(chain, cmd_tx, BitcoinRelayHandle::noop()).await;
 
         assert!(
             result.is_none(),
@@ -519,7 +537,7 @@ mod tests {
         std::env::set_var("BTCPC_LORAWAN_PORT", port.to_string());
 
         let (chain, cmd_tx, _dir) = make_chain_and_cmd_tx();
-        let result = start_lorawan(chain, cmd_tx).await;
+        let result = start_lorawan(chain, cmd_tx, BitcoinRelayHandle::noop()).await;
 
         std::env::remove_var("BTCPC_LORAWAN");
         std::env::remove_var("BTCPC_LORAWAN_PORT");
@@ -590,6 +608,42 @@ mod tests {
             &buf[..4],
             &[PROTOCOL_VERSION, token[0], token[1], PULL_ACK],
             "PULL_ACK frame bytes must be [0x02, tok0, tok1, 0x04]"
+        );
+    }
+
+    /// A 32-byte payload that begins with "BTC1" must be routed to the BMR handle
+    /// and NEVER reach chain.apply_entry() (entry_hash lookup).
+    ///
+    /// This guards the dispatch ordering in handle_lora_payload: the BTC1 check MUST
+    /// precede the payload.len() == 32 check. A single-chunk BMR frame whose transaction
+    /// content is exactly 16 bytes produces a 32-byte total frame — length-first dispatch
+    /// would silently misroute it to the BTCPC chain path.
+    #[tokio::test]
+    async fn btc1_payload_routes_to_bmr_not_chain() {
+        let (chain, cmd_tx, _dir) = make_chain_and_cmd_tx();
+
+        // Build a 32-byte payload beginning with "BTC1".
+        // Content beyond the magic is irrelevant for this routing test.
+        let mut payload = [0u8; 32];
+        payload[..4].copy_from_slice(b"BTC1");
+        payload[4..].copy_from_slice(&[0xAB; 28]);
+
+        let (bmr_tx, mut bmr_rx) = tokio::sync::mpsc::channel::<Vec<u8>>(4);
+        let bmr_handle = crate::bitcoin_relay::BitcoinRelayHandle::from_sender(bmr_tx);
+
+        handle_lora_payload(&payload, &chain, &cmd_tx, &bmr_handle).await;
+
+        // The BMR channel must have received the payload.
+        let received = bmr_rx.try_recv()
+            .expect("BMR handle must receive the BTC1 payload");
+        assert_eq!(&received[..4], b"BTC1", "forwarded payload must start with BTC1 magic");
+
+        // Chain must have no entry_hash: entry written for this payload.
+        let hex = hex::encode(&payload);
+        let key = format!("entry_hash:{}", hex);
+        assert!(
+            chain.store.state_get(&key).is_none(),
+            "BTC1 payload must not trigger a chain entry_hash lookup"
         );
     }
 }
