@@ -1,0 +1,241 @@
+## novelproposals.db — Schema and Records
+
+This file is the structured database companion to novelproposals.md.
+Format: TOML-like records, one per proposal. Append new records; do not delete old ones.
+Status values: new | sent | accepted | rejected | paused | stale
+Recommendation values: A-Ignore B-Watch C-Backlog D-Prototype-Later E-Prototype-Now F-Design-Agent G-Firmware-Agent H-P2P-Agent I-Deploy-Agent J-DevOps-Agent K-Mobile-Client L-Codebase-Agent M-Bitcoin-Compliance N-Security-Auditor O-Orchestrator-Now
+
+---
+
+[[proposal]]
+id = "a3f8c1d2-7e4b-4a0f-8b6d-2c9e5f1a0d3b"
+date_found = "2026-05-22"
+title = "Bitcoin Mesh Relay (BMR)"
+source_type = "github+blog+docs+synthesis"
+source_url = "https://github.com/eddieoz/btcmesh"
+repo_url = "https://github.com/eddieoz/btcmesh"
+project_name = "Bitcoin Mesh Relay — synthesized protocol design"
+maintainer = "Multiple (btcmesh: eddieoz; BTCtoolshed bridge; Bitchat: permissionlesstech; Blockstream Satellite: Blockstream)"
+license = "MIT (btcmesh), GPL (BTCtoolshed), MIT (Bitchat)"
+last_commit = "2025-07"
+activity_level = "active"
+tags = "bitcoin,lora,meshtastic,offline,relay,spv,satellite,nostr,i2p,tor,mesh,transport,gateway,hardware-clients,bip157,bip158,blockstream"
+btcpc_area = "hardware clients / gateway / P2P protocol / deployment"
+summary = "A layered relay protocol for routing signed Bitcoin transactions outbound over LoRa/Meshtastic mesh and receiving Bitcoin block headers inbound via Blockstream Satellite or Nostr — enabling Bitcoin use with zero internet access at the originating device. Existing BTCPC transport cascade (Nostr, I2P, Tor) can serve as the gateway exit layer with minimal additional work. BIP158 compact filters enable SPV confirmation without a full node. Precursor projects (btcmesh, BTCtoolshed bridge, Bitchat) validate individual legs of the design; BMR is the first unified protocol framing."
+novelty = 7
+btcpc_fit = 7
+buildability = 8
+hardware_leverage = 9
+software_leverage = 8
+verification_value = 5
+demand_creation = 9
+risk_score = 4
+handoff_clarity = 9
+time_horizon = 3
+recommendation = "F"
+next_agent = "Design Agent"
+orchestrator_summary = "BTCPC's existing LoRa/Nostr/I2P/Tor transport cascade can be extended to relay signed Bitcoin transactions and receive Bitcoin block headers — no new hardware required, no consensus changes. A Bitcoin Mesh Relay (BMR) gateway on each BTCPC node gives the project immediate real-world utility for Bitcoin users in offline/censored regions. Outbound path: tx over LoRa to gateway then Tor to Esplora. Inbound path: block headers via Nostr or Satellite back over LoRa. Design doc produced 2026-05-24 at docs/designs/bitcoin-mesh-relay.md."
+status = "sent"
+reviewed_by = "artistic-engineer-agent-session-2026-05-22"
+date_updated = "2026-05-24"
+notes = "goTenna/TxTenna dead ends. Meshtastic is live LoRa substrate. Bitchat (Dorsey) is BLE-only. Reticulum/LXMF could replace ad-hoc chunking. bitcoin-nostr-relay crate is Rust. BMR does NOT touch BTCPC chain consensus. Hardline (no submission without peers) applies to BTCPC entries only, not Bitcoin relay. Regulatory risk flagged — needs Bitcoin Compliance Agent review before production. Design doc at docs/designs/bitcoin-mesh-relay.md created 2026-05-24. novelproposals.md status updated to in-design."
+
+---
+
+[[proposal]]
+id = "b7d2e4f1-9a3c-4b8e-af12-3d6c8e0f2b7a"
+date_found = "2026-05-24"
+title = "Reticulum Transport Layer (RNS)"
+source_type = "github+crates.io+docs"
+source_url = "https://github.com/markqvist/Reticulum"
+repo_url = "https://github.com/BeechatNetworkSystemsLtd/Reticulum-rs"
+project_name = "Reticulum Network Stack — Rust implementation (BeechatNetworkSystemsLtd)"
+maintainer = "markqvist (Python reference), BeechatNetworkSystemsLtd (Rust crate)"
+license = "MIT (Rust crate), CC-BY-4.0 (Python reference)"
+last_commit = "2025-12"
+activity_level = "active"
+tags = "reticulum,rns,transport,mesh,lora,packet-radio,encrypted,rust,p2p,censorship-resistant,low-bandwidth,gateway,x25519,ed25519"
+btcpc_area = "P2P protocol / gateway / hardware clients / transport"
+summary = "Reticulum is a transport-agnostic encrypted mesh stack (X25519/Ed25519, AES-256-CBC, HMAC-SHA256). Link establishment: 297 bytes, 3 packets. Minimum viable medium: 5 bps. Operates over LoRa (RNode), packet radio, serial, TCP, UDP, I2P. A maintained Rust crate (BeechatNetworkSystemsLtd/Reticulum-rs, MIT, ~150 commits) exists on crates.io, designed for embedded deployments. Could replace BTCPC's ad-hoc LoRa chunking with a unified encrypted transport across all physical media. Transport-only — must never form quorum or influence consensus. Beechat Rust impl feature parity with Python reference unverified; P2P Agent must audit before integration."
+novelty = 8
+btcpc_fit = 8
+buildability = 6
+hardware_leverage = 8
+software_leverage = 8
+verification_value = 5
+demand_creation = 5
+risk_score = 5
+handoff_clarity = 8
+time_horizon = 4
+recommendation = "H"
+next_agent = "P2P Protocol Agent"
+orchestrator_summary = "Maintained Rust crate (BeechatNetworkSystemsLtd/Reticulum-rs, MIT) implements Reticulum — transport-agnostic encrypted mesh with X25519/Ed25519, 297-byte link setup, 5 bps minimum. Could unify LoRa/serial/TCP/I2P under one encrypted transport with no chain logic changes. P2P Agent must audit crate for protocol fidelity vs Python reference before integration. Reticulum is transport-only, never quorum-forming."
+status = "new"
+reviewed_by = "artistic-engineer-agent-session-2026-05-24"
+date_updated = "2026-05-24"
+notes = "Erethon/reticulum-packet-rs is proof-of-concept only (11 commits, 'ugly hacks', HDLC framing only). BeechatNetworkSystemsLtd/Reticulum-rs is the serious Rust candidate. LXMF not needed — BTCPC uses raw transport layer only. RNode hardware is open-source LoRa transceiver designed for Reticulum, alternative to Meshtastic. Key risk: BeechatNetworkSystemsLtd is a commercial entity, crate not security-audited. MTU minimum 500 bytes — verify BTCPC epoch seal entries fit without fragmentation."
+
+[[proposal]]
+id = "c1a5f8d3-2b7e-4c9f-bd34-5e8a1c3f4d9b"
+date_found = "2026-05-24"
+title = "HF Amateur Radio Data Modes (JS8Call / WSPR beacon)"
+source_type = "github+blog+fcc-docs+radio-community"
+source_url = "https://js8call.com/"
+repo_url = "https://github.com/js8call/js8call"
+project_name = "JS8Call — JS8 digital mode for HF messaging"
+maintainer = "Jordan Sherer (KN4CRD) + community"
+license = "GPL-3.0"
+last_commit = "2026-05"
+activity_level = "active"
+tags = "hf-radio,js8call,winlink,wspr,bpsk31,shortwave,amateur-radio,sdr,censorship-resistant,transport,beacon,low-bandwidth,fcc-part97,epoch-hash"
+btcpc_area = "P2P protocol / gateway / future research only"
+summary = "JS8Call (GPL-3.0, v3.0.1 active May 2026) provides HF weak-signal FSK messaging with a TCP API on port 2442. Effective throughput ~3-5 bytes/second. A 40-byte BTCPC epoch payload (epoch number + SHA256 hash + node prefix) fits in one message. Integration: BTCPC relay daemon connects to port 2442, no radio firmware work. Hardware: HF transceiver + computer, or SDR transmitter + license. Legal blocker: FCC §97.113(a)(3) prohibits transmissions where operator has pecuniary interest. Cleartext epoch hashes for experimental purposes may be permissible — requires legal review. WSPR (50 bits/2-min) is not a data channel. Winlink prohibited by commercial-use rules. JS8Call is the only viable HF mode for BTCPC."
+novelty = 9
+btcpc_fit = 5
+buildability = 5
+hardware_leverage = 6
+software_leverage = 4
+verification_value = 6
+demand_creation = 3
+risk_score = 7
+handoff_clarity = 8
+time_horizon = 7
+recommendation = "C"
+next_agent = "Bitcoin Compliance Agent"
+orchestrator_summary = "JS8Call TCP API (port 2442) enables BTCPC epoch seal hash relay over HF shortwave with no radio firmware work. 40-byte payload fits one message. Legal blocker: FCC §97.113 pecuniary interest prohibition. Bitcoin Compliance Agent must assess whether cleartext epoch hashes transmitted for experimental purposes are permissible before any deployment design. Research backlog until legal clearance obtained."
+status = "new"
+reviewed_by = "artistic-engineer-agent-session-2026-05-24"
+date_updated = "2026-05-24"
+notes = "WSPR confirmed dead end: 50 bits per 2-minute slot, payload = callsign+grid+power only, no room for hash data. Winlink dead end: commercial prohibition in Part 97. JS8Call v3.0.1 released May 17 2026 — actively maintained. TCP API confirmed by multiple third-party integrations (js8web, Python lib, Node.js lib, CLI tool). Ham radio license required to transmit (General or Extra class for HF in US). Receive-only (SDR) requires no license. This is last-resort transport only — not primary gossip."
+
+[[proposal]]
+id = "d4e9b2c7-3f1a-4d5e-ce56-7f2b4d6e8c1d"
+date_found = "2026-05-24"
+title = "AM/Shortwave Broadcast Block Header Downlink (Olivia/BPSK31)"
+source_type = "blog+github+radio-community"
+source_url = "https://swradiogram.net/"
+repo_url = "https://github.com/w1hkj/fldigi"
+project_name = "Fldigi + Shortwave Radiogram concept"
+maintainer = "Dave Freese W1HKJ (Fldigi), Dr. Kim Andrew Elliott (Shortwave Radiogram)"
+license = "LGPL-2.1 (Fldigi)"
+last_commit = "2025-12"
+activity_level = "active"
+tags = "am-broadcast,shortwave,olivia,bpsk31,fldigi,rtl-sdr,one-way-downlink,block-header,censorship-resistant,sdr,receive-only,wrmi"
+btcpc_area = "gateway / P2P protocol / future research only"
+summary = "Olivia 8/250 modem tones transmitted over licensed shortwave broadcast stations can deliver 40-byte BTCPC epoch payloads in ~8 seconds per transmission. Receive stack: $25 RTL-SDR + Fldigi (open source, LGPL-2.1). Proven concept: Shortwave Radiogram on WRMI already broadcasts digital text this way every weekend. One-way downlink only. Gating constraint: transmit access requires licensed broadcaster partnership (WRMI model) or licensed amateur HF transmitter (see HF proposal for regulatory constraints). NRSC-5/HD Radio is a separate proprietary system — not viable without broadcaster and Xperi licensing."
+novelty = 8
+btcpc_fit = 4
+buildability = 3
+hardware_leverage = 7
+software_leverage = 5
+verification_value = 6
+demand_creation = 2
+risk_score = 5
+handoff_clarity = 5
+time_horizon = 8
+recommendation = "C"
+next_agent = "none (research backlog)"
+orchestrator_summary = "Shortwave Radiogram proves the stack works: Olivia tones over WRMI, decoded with Fldigi and RTL-SDR. BTCPC 40-byte epoch payload fits in ~8 seconds. Blocker is transmitter access (licensed broadcaster partnership). No agent action needed. Research backlog until BTCPC has credibility to negotiate broadcaster relationship."
+status = "new"
+reviewed_by = "artistic-engineer-agent-session-2026-05-24"
+date_updated = "2026-05-24"
+notes = "NRSC-5 (HD Radio) is proprietary OFDM + Xperi codec. Receive-only open source decoder exists (theori/nrsc5) but inject path requires licensed broadcaster + Xperi licensing. Not viable. Olivia is the correct modem for poor propagation — extremely robust, 8/250 submode is the standard. OpenWebRX has BPSK31 demodulator built in — alternative to Fldigi for browser-based receive. Blockstream Satellite (in BMR proposal) is the live production alternative to AM broadcast downlink."
+
+[[proposal]]
+id = "e8f3c6a9-4d2b-4e7f-df78-9a4c6e8f2b5e"
+date_found = "2026-05-24"
+title = "Othernet / Dreamcatcher Satellite L-Band Downlink"
+source_type = "wikipedia+rtl-sdr-blog+github"
+source_url = "https://en.wikipedia.org/wiki/Othernet"
+repo_url = "https://github.com/Othernet-Project/Dreamcatcher"
+project_name = "Othernet (formerly Outernet) — L-band satellite one-way broadcast"
+maintainer = "Othernet Inc. (out of business November 2025)"
+license = "unknown"
+last_commit = "2024-06"
+activity_level = "abandoned"
+tags = "satellite,l-band,one-way-downlink,dreamcatcher,othernet,defunct,dead-end"
+btcpc_area = "none"
+summary = "Othernet Inc. went out of business November 2025. The Dreamcatcher satellite L-band downlink service is dead. Hardware (Dreamcatcher board) may still be available secondhand but has no live satellite service. Content injection always required a partnership with Othernet Inc. — no open API. Blockstream Satellite is the only live production satellite downlink alternative. Do not design for Othernet."
+novelty = 1
+btcpc_fit = 1
+buildability = 1
+hardware_leverage = 2
+software_leverage = 1
+verification_value = 1
+demand_creation = 1
+risk_score = 2
+handoff_clarity = 2
+time_horizon = 10
+recommendation = "A"
+next_agent = "none"
+orchestrator_summary = "Othernet is dead (November 2025). Ignore. No action."
+status = "stale"
+reviewed_by = "artistic-engineer-agent-session-2026-05-24"
+date_updated = "2026-05-24"
+notes = "Confirmed out of business. Dreamcatcher hardware is secondhand only. No live satellite service. No content injection API was ever public. Blockstream Satellite (addressed in BMR proposal) is the live alternative. Close this item permanently."
+
+[[proposal]]
+id = "f2a7d4b8-5e3c-4f8a-eg89-ab5d7f9a3c6f"
+date_found = "2026-05-24"
+title = "WiFi HaLow (802.11ah) Gateway Transport"
+source_type = "manufacturer-docs+community+hackster"
+source_url = "https://www.morsemicro.com/evaluation-kits/"
+repo_url = "https://github.com/MorseMicro/morse_driver"
+project_name = "WiFi HaLow 802.11ah — Morse Micro MM6108/MM8108 Pi HATs"
+maintainer = "Morse Micro (chip/driver), ALFA Network/AsiaRF/Heltec/Seeed Studio (Pi HATs)"
+license = "GPL-2.0 (driver)"
+last_commit = "2026-01"
+activity_level = "active"
+tags = "wifi-halow,802.11ah,sub-ghz,long-range,raspberry-pi,gateway,transport,low-power,iot,mesh,hardware,nebra,dkms,out-of-tree"
+btcpc_area = "hardware clients / gateway / P2P protocol / Verasens"
+summary = "WiFi HaLow (802.11ah) Pi HATs are purchasable now ($60 ALFA AHPI7292S, AsiaRF, Heltec, Seeed). 1-2 km range, 15-43 Mbps throughput, sub-1 GHz license-exempt band, standard 802.11 networking to Linux. No custom transport protocol — libp2p QUIC runs directly over HaLow interface. Driver (morse_driver) is out-of-tree (not in mainline Linux), requires manual DKMS compilation. Community reports successful builds on kernel 6.6.51 (Bookworm) and Ubuntu 24.04. BTCPC Nebra Pi (192.168.68.75, Debian Trixie, kernel 6.x) is a direct test candidate. Morse Micro MM8108 in mass production Sep 2025, Pi 4 eval kit available on Mouser. HaLow fills the gap between BLE (10m) and LoRa (5km) with full megabit bandwidth and standard WiFi semantics."
+novelty = 6
+btcpc_fit = 7
+buildability = 6
+hardware_leverage = 8
+software_leverage = 7
+verification_value = 4
+demand_creation = 5
+risk_score = 4
+handoff_clarity = 8
+time_horizon = 4
+recommendation = "B"
+next_agent = "Deploy Agent"
+orchestrator_summary = "WiFi HaLow Pi HATs are purchasable now. 1-2 km range, 15+ Mbps, standard Linux networking — libp2p QUIC runs over it unchanged. Nebra Pi (192.168.68.75, Debian Trixie) is a direct test candidate. Blocker: out-of-tree driver requires DKMS packaging. Deploy Agent should assess whether morse_driver packages cleanly on Debian Trixie kernel 6.x. If yes, buy one HAT and run a prototype. Upgrade to D (Prototype Later) after DKMS assessment."
+status = "new"
+reviewed_by = "artistic-engineer-agent-session-2026-05-24"
+date_updated = "2026-05-24"
+notes = "Driver NOT in mainline Linux as of May 2026. Out-of-tree only. Community builds confirmed on kernel 6.6.51. Debian Trixie ships 6.x — should work but untested by BTCPC. ALFA AHPI7292S available from Rokland (~$60). MM8108 eval kit with Pi 4 available on Mouser. HaLow does NOT replace LoRa for long-range (LoRa wins at 5km+) but fills 300m-2km range with full bandwidth. Verasens sensor nodes: HaLow chips (e.g. Quectel FGH100M-H) could give ESP32-class sensors 1km range at full data rates. Nebra Pi test: compile morse_driver, bring up halow0 interface, run btcpc-node with halow0 as a libp2p transport interface."
+
+[[proposal]]
+id = "c4e8f2a1-7b3d-4e9c-a0f5-2d6e1b8c7a4f"
+date_found = "2026-05-24"
+title = "BTCPC Beacon — Belize AM/SW License Research"
+source_type = "regulatory+web"
+source_url = "https://puc.bz/telecommunications/; https://belizebroadcastingauthority.org/; https://www.wrmi.net/; https://www.nexus.org/; https://swradiogram.net/"
+repo_url = "N/A"
+project_name = "BTCPC Shortwave Beacon"
+maintainer = "BTCPC"
+license = "N/A"
+last_commit = "N/A"
+activity_level = "active"
+tags = "beacon,shortwave,HF,AM,radio,broadcast,license,Belize,SDR,MFSK,epoch,verification,WRMI,NEXUS,offline,censorship-resistance"
+btcpc_area = "P2P protocol, hardware clients, verification"
+summary = "Research into using Belize broadcast licensing to operate an AM/shortwave beacon broadcasting sealed BTCPC epoch hashes. Finding: Belize license path is not viable near-term — two-regulator system (PUC spectrum + BBA content), ministerial discretion fees, no shortwave infrastructure, no foreign precedent, 6-12 month minimum process. Alternative path via WRMI airtime lease at $1/min is immediately actionable, technically proven (MFSK32 digital mode, RTL-SDR receive, Fldigi decode), and achieves the identical use case for under $10 test cost. Beacon payload: 32-byte epoch hash + height + timestamp (~120 chars), fits under 3 seconds of MFSK32 airtime. Any RTL-SDR dongle ($25) + antenna + Fldigi = chain-tip verification without internet."
+novelty = 9
+btcpc_fit = 8
+buildability = 7
+hardware_leverage = 8
+software_leverage = 6
+verification_value = 9
+demand_creation = 6
+risk_score = 3
+handoff_clarity = 8
+time_horizon = 2
+recommendation = "E"
+next_agent = "Design Agent"
+orchestrator_summary = "BTCPC can broadcast sealed epoch hashes as a one-way shortwave beacon via WRMI at $1/min — no Belize license needed. Belize path fully assessed and rejected: two regulators, ministerial discretion fees, zero shortwave infrastructure, no foreign precedent. WRMI path: contact to confirm digital mode (MFSK32 tones) is acceptable, specify beacon payload format (Design Agent), run one test broadcast. Test cost under $10. No chain modifications needed. RTL-SDR ($25) becomes a chain-tip verifier with no internet. Design Agent action: produce beacon frame spec, frequency/schedule recommendation, WRMI contact template."
+status = "new"
+reviewed_by = "artistic-engineer-agent-session-2026-05-24"
+date_updated = "2026-05-24"
+notes = "Belize Broadcasting and Television Act (Cap. 227) — fees at ministerial discretion, not codified. PUC SI 76/2024 fee schedule — AM District and AM National categories confirmed in Schedule V, but fee amounts rendered as non-extractable image in PDF (unverified from primary source). WRMI: 14 x 100kW transmitters, 23 antennas, $1/min published block rate, Okeechobee FL, fully FCC licensed. NEXUS-IBA: Milan Italy, 10-300kW, quote-based pricing, audio-first — digital mode content needs explicit negotiation. Shortwave Radiogram uses WRMI today for MFSK32 digital text broadcasts decoded by RTL-SDR + Fldigi — this IS the BTCPC beacon receive stack. Radio Belize ZIK2 (historical shortwave, 5kW Collins) is defunct. No current Belize shortwave infrastructure. Belize IBC formation: $450-1500 USD, 24-48 hours, no residency required — easy but irrelevant to the blocker. Nick Szabo/Elaine Ou HF Bitcoin demo 2017-2018 is prior art confirming feasibility."

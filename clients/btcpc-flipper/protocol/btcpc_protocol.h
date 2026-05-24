@@ -36,6 +36,10 @@ typedef enum {
     BTCPC_MSG_ENTRY_HASH = 0x10,  /* chain entry hash to rebroadcast via Sub-GHz */
     BTCPC_MSG_CLOCK_SYNC = 0x11,  /* unix timestamp in ms */
     BTCPC_MSG_GPS        = 0x12,  /* lat/lon from phone GPS */
+    BTCPC_MSG_SIGN_REQ   = 0x13,  /* phone requests Flipper sign a 32-byte digest */
+
+    /* Flipper → phone (signing delegation responses) */
+    BTCPC_MSG_SIGN_RESP  = 0x07,  /* Flipper returns Ed25519 signature */
 } BtcpcMsgType;
 
 /*
@@ -101,6 +105,22 @@ typedef struct __attribute__((packed)) {
     int32_t  alt_mm;     /* altitude in millimetres */
     uint16_t accuracy_m; /* horizontal accuracy in metres */
 } BtcpcGps;
+
+/* Signing delegation — phone asks Flipper to sign with its identity key.
+ * request_id correlates async BLE responses to their requests.
+ * purpose: 0x01 = Transfer entry, 0x02 = generic digest (future). */
+typedef struct __attribute__((packed)) {
+    uint32_t request_id;  /* caller-assigned correlation ID */
+    uint8_t  purpose;     /* signing purpose code */
+    uint8_t  digest[32];  /* 32-byte payload to sign */
+} BtcpcSignReq;           /* BTCPC_MSG_SIGN_REQ (0x13), 37 bytes */
+
+/* status: 0x00 = ok, 0x01 = busy, 0x02 = rejected by user, 0xFF = error */
+typedef struct __attribute__((packed)) {
+    uint32_t request_id;  /* echoes the request_id from BtcpcSignReq */
+    uint8_t  status;      /* result code */
+    uint8_t  sig[64];     /* Ed25519 signature (valid only when status==0) */
+} BtcpcSignResp;          /* BTCPC_MSG_SIGN_RESP (0x07), 69 bytes */
 
 /* ─── Buffer type for a complete framed message ─────────────────────────── */
 

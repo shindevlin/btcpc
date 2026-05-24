@@ -18,6 +18,8 @@ App(
         "crypto/ed25519.c",
         "crypto/tweetnacl.c",
         "protocol/btcpc_protocol.c",
+        "ble/btcpc_ble_svc.c",
+        "ble/btcpc_ble_profile.c",
         "scenes/btcpc_scene_main.c",
         "scenes/btcpc_scene_identity.c",
         "scenes/btcpc_scene_ble.c",

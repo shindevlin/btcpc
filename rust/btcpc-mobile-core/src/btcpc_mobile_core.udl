@@ -1,0 +1,136 @@
+// btcpc_mobile_core.udl
+//
+// UniFFI interface definition for the BTCPC mobile core library.
+// Processed by build.rs → generates Kotlin/Swift bindings.
+//
+// Surface area is deliberately narrow: derive posting key, sign entries,
+// call node HTTP API, parse BLE frames from the Flipper.
+// Wallet custody and mnemonic storage are NOT in scope here — those belong
+// in the Capacitor Secure Storage layer above this.
+
+namespace btcpc_mobile_core {
+    // ── Key derivation ────────────────────────────────────────────────────────
+
+    /// Derive the BTCPC posting key from a BIP39 mnemonic (UTF-8 string).
+    ///
+    /// Derivation path: SLIP-10 m/44'/6942'/2'/0'  (role 2 = posting)
+    /// This matches wallet.rs exactly — same HMAC-SHA512 chain, same hardened
+    /// path, no passphrase (empty string passed to Mnemonic::to_seed).
+    ///
+    /// Returns the ed25519 public key as a 64-char lowercase hex string.
+    /// The private key is NOT returned — callers pass the mnemonic to sign().
+    ///
+    /// Error: returns an error string if the mnemonic is invalid BIP39.
+    [Throws=MobileCoreError]
+    string derive_posting_pubkey(string mnemonic_words);
+
+    // ── Signing ───────────────────────────────────────────────────────────────
+
+    /// Sign a Transfer entry using the posting key derived from the mnemonic.
+    ///
+    /// NOTE: Transfer is validated against the ACTIVE key on-chain (not posting).
+    /// The posting key is used here for daily-activity signing as documented in
+    /// wallet.rs. If the account uses active-key-only policy, callers must
+    /// supply the active key derivation instead — see sign_with_role().
+    ///
+    /// `chain_id`: "btcpc-satoshi" (testnet) or "btcpc-1" (mainnet).
+    /// Returns a 128-char lowercase hex ed25519 signature.
+    [Throws=MobileCoreError]
+    string sign_transfer(
+        string mnemonic_words,
+        string chain_id,
+        string from_account,
+        string to_account,
+        u64    amount,
+        string token,
+        u64    nonce
+    );
+
+    /// Sign using an explicit role index (0=owner, 1=active, 2=posting, 3=memo).
+    /// Use this when an entry requires the active key (most on-chain ops do).
+    [Throws=MobileCoreError]
+    string sign_with_role(
+        string mnemonic_words,
+        string chain_id,
+        u32    role_index,
+        string canonical_json
+    );
+
+    // ── Node HTTP API ─────────────────────────────────────────────────────────
+
+    /// Fetch /api/node/info from a BTCPC node.
+    /// Returns the raw JSON string. Caller parses it.
+    [Throws=MobileCoreError]
+    string fetch_node_info(string base_url);
+
+    /// POST a Transfer entry to /api/transfer.
+    ///
+    /// Flat body matching TransferBody in rust/btcpc-node/src/api.rs.
+    /// `amount`: in dreams (u64). 1 BTCPC = 100,000,000 dreams.
+    /// `token`: "dreams" for the native token.
+    /// `signed_by`: account name of the signer (usually same as from).
+    /// `sig_hex`: 128-char hex ed25519 signature over the canonical signing message.
+    ///
+    /// Returns the entry hash (64-char hex) on success.
+    /// Returns MobileCoreError::ParseError("not connected to network ...") if the
+    /// node has zero peers — the mobile client MUST surface this to the user and
+    /// not show the transfer as confirmed.
+    [Throws=MobileCoreError]
+    string post_transfer(
+        string   base_url,
+        string   from,
+        string   to,
+        u64      amount,
+        string   token,
+        string?  memo,
+        string   signed_by,
+        u64      nonce,
+        string   sig_hex
+    );
+
+    // ── BLE frame parsing ─────────────────────────────────────────────────────
+
+    /// Parse a raw BLE frame received from the Flipper Zero.
+    ///
+    /// Validates the 4-byte magic ("BTPC"), reads msg_type and payload_len,
+    /// and returns the payload bytes. Signature verification against the
+    /// Flipper's on-chain public key is the caller's responsibility — this
+    /// function only decodes the frame structure.
+    ///
+    /// Returns a BleFrame with the message type code and payload bytes.
+    [Throws=MobileCoreError]
+    BleFrame parse_ble_frame(bytes raw_frame);
+
+    /// Verify the ed25519 signature in a BLE frame header against a known
+    /// Flipper public key. `flipper_pubkey_hex`: 64-char hex ed25519 pubkey.
+    /// The signature covers the payload bytes only (as documented in btcpc_protocol.h).
+    [Throws=MobileCoreError]
+    boolean verify_ble_frame_sig(bytes raw_frame, string flipper_pubkey_hex);
+};
+
+// ── Result types ──────────────────────────────────────────────────────────────
+
+[Error]
+enum MobileCoreError {
+    "InvalidMnemonic",
+    "DerivationError",
+    "SigningError",
+    "NetworkError",
+    "ParseError",
+    "InvalidFrame",
+    "SignatureInvalid",
+};
+
+// ── BLE frame type ────────────────────────────────────────────────────────────
+
+dictionary BleFrame {
+    /// Raw BtcpcMsgType value (see btcpc_protocol.h).
+    /// 0x01=SubGhzObs, 0x02=RfidScan, 0x03=NfcScan, 0x04=IButton,
+    /// 0x05=Heartbeat, 0x06=IrCapture,
+    /// 0x10=EntryHash, 0x11=ClockSync, 0x12=Gps,
+    /// 0x13=SignReq (future), 0x07=SignResp (future)
+    u8 msg_type;
+
+    /// Decoded payload bytes (payload_len bytes after the 71-byte header).
+    bytes payload;
+};

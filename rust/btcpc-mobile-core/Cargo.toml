@@ -1,0 +1,55 @@
+[package]
+name = "btcpc-mobile-core"
+version = "0.1.0"
+edition = "2021"
+authors = ["Shin Devlin <shindevlin@proton.me>"]
+description = "UniFFI-bound mobile core: key derivation, signing, HTTP, BLE frame parsing"
+
+[lib]
+name = "btcpc_mobile_core"
+crate-type = ["cdylib", "staticlib"]
+
+# UniFFI procedural macros — generates Kotlin/Swift bindings from Rust code.
+[dependencies]
+uniffi = { version = "0.28", features = ["tokio"] }
+
+# Chain types (entry definitions, canonical types)
+btcpc-types = { path = "../btcpc-node/crates/btcpc-types" }
+
+# Key derivation: BIP39 mnemonic → seed, SLIP-10 HMAC-SHA512 path derivation
+bip39   = { version = "2", features = ["rand_core"] }
+hmac    = "0.12"
+sha2    = "0.10"
+
+# Ed25519 signing (active key for Transfer, Stake, etc.)
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+
+# Serialization — canonical JSON signing message construction
+serde       = { version = "1", features = ["derive"] }
+serde_json  = "1"
+
+# Hex encoding/decoding
+hex = "0.4"
+
+# HTTP to /api/node/info and /api/entries POST
+# rustls-tls: pure-Rust TLS, no OpenSSL C dependency (critical for Android cross-compile)
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+# Async runtime — slim single-thread executor for UniFFI async callbacks
+tokio = { version = "1", features = ["rt", "macros"] }
+
+# Error handling
+anyhow = "1"
+thiserror = "1"
+
+# Tracing — no-op on Android unless consumer wires a subscriber
+tracing = "0.1"
+
+[build-dependencies]
+uniffi = { version = "0.28", features = ["build"] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true

@@ -1,7 +1,25 @@
 /*
  * btcpc.c — BTCPC Flipper Zero identity node
  *
- * Entry point and application lifecycle. Manages the scene/view stack.
+ * Entry point and application lifecycle. Manages the scene/view stack,
+ * ed25519 identity, and BLE signing service lifecycle.
+ *
+ * Signing flow:
+ *   1. Phone writes 32-byte hash to SIGN_REQUEST characteristic.
+ *   2. btcpc_ble_sign_req_cb() fires on the BLE ISR thread:
+ *        - acquires sign_mutex
+ *        - copies hash into app->sign_pending_hash
+ *        - sets app->sign_pending = true
+ *        - releases sign_mutex
+ *        - posts BtcpcEventSignRequest to the view dispatcher
+ *   3. App thread receives the event in btcpc_scene_ble_on_event():
+ *        - acquires sign_mutex
+ *        - calls btcpc_ed25519_sign(sig, hash, 32, sk)
+ *        - clears sign_pending
+ *        - releases sign_mutex
+ *        - calls btcpc_ble_svc_send_signature() to notify phone
+ *
+ * The private key (sk[]) never appears in any BLE callback or handler.
  *
  * Shin Devlin — btcpc.network
  */
@@ -56,6 +74,9 @@ BtcpcApp* btcpc_app_alloc(void) {
     BtcpcApp* app = malloc(sizeof(BtcpcApp));
     memset(app, 0, sizeof(BtcpcApp));
 
+    /* Mutex protecting sk[] and sign_pending_hash */
+    app->sign_mutex = furi_mutex_alloc(FuriMutexTypeNormal);
+
     app->gui = furi_record_open(RECORD_GUI);
 
     app->view_dispatcher = view_dispatcher_alloc();
@@ -96,6 +117,8 @@ void btcpc_app_free(BtcpcApp* app) {
 
     scene_manager_free(app->scene_manager);
     view_dispatcher_free(app->view_dispatcher);
+
+    furi_mutex_free(app->sign_mutex);
 
     furi_record_close(RECORD_GUI);
     free(app);
@@ -172,6 +195,101 @@ void btcpc_pub_to_hex(const uint8_t pk[BTCPC_PK_LEN], char out[BTCPC_PK_LEN * 2 
     out[BTCPC_PK_LEN * 2] = '\0';
 }
 
+/* ─── BLE sign-request callback (BLE ISR thread) ───────────────────────── */
+
+/*
+ * Called by the GATT event handler when SIGN_REQUEST is written.
+ * Must not block, must not touch sk[], must not call sign().
+ *
+ * Posts BtcpcEventSignRequest so the app thread does the actual signing.
+ */
+void btcpc_ble_sign_req_cb(const uint8_t* hash, void* context) {
+    BtcpcApp* app = context;
+
+    furi_mutex_acquire(app->sign_mutex, FuriWaitForever);
+    if(!app->sign_pending) {
+        memcpy(app->sign_pending_hash, hash, BTCPC_BLE_SIGN_REQ_LEN);
+        app->sign_pending = true;
+    } else {
+        /* A sign request is already queued; drop this one. The phone should
+         * wait for the SIGN_RESPONSE notification before sending another. */
+        FURI_LOG_W(TAG, "sign request dropped — previous not yet processed");
+    }
+    furi_mutex_release(app->sign_mutex);
+
+    /* Wake the app thread — safe to call from ISR context */
+    view_dispatcher_send_custom_event(app->view_dispatcher, BtcpcEventSignRequest);
+}
+
+/* ─── BLE GAP status callback (BT service thread) ──────────────────────── */
+
+static void btcpc_bt_status_cb(BtStatus status, void* context) {
+    BtcpcApp* app = context;
+    switch(status) {
+    case BtStatusConnected:
+        app->ble_connected = true;
+        view_dispatcher_send_custom_event(app->view_dispatcher, BtcpcEventBleConnected);
+        FURI_LOG_I(TAG, "BLE connected");
+        break;
+    case BtStatusAdvertising:
+    case BtStatusOff:
+    case BtStatusUnavailable:
+        if(app->ble_connected) {
+            app->ble_connected = false;
+            view_dispatcher_send_custom_event(app->view_dispatcher, BtcpcEventBleDisconnected);
+            FURI_LOG_I(TAG, "BLE disconnected");
+        }
+        break;
+    }
+}
+
+/* ─── BLE lifecycle (app thread) ────────────────────────────────────────── */
+
+bool btcpc_ble_start(BtcpcApp* app) {
+    app->bt = furi_record_open(RECORD_BT);
+
+    /* Point the BT service at our app-specific key storage file.
+     * This persists bonding keys across app launches without affecting
+     * the Flipper's main BLE key store. */
+    bt_keys_storage_set_storage_path(app->bt, BTCPC_BT_KEYS_PATH);
+
+    /* Register connection-state callback */
+    bt_set_status_changed_callback(app->bt, btcpc_bt_status_cb, app);
+
+    /* Start the BTCPC custom profile — restarts Core2 */
+    app->ble_profile = bt_profile_start(app->bt, ble_profile_btcpc, app);
+    if(!app->ble_profile) {
+        FURI_LOG_E(TAG, "bt_profile_start failed");
+        bt_keys_storage_set_default_path(app->bt);
+        furi_record_close(RECORD_BT);
+        app->bt = NULL;
+        return false;
+    }
+
+    /* Begin advertising — phone can now discover the Flipper */
+    furi_hal_bt_start_advertising();
+    FURI_LOG_I(TAG, "BLE advertising as '%s'", BTCPC_BLE_ADV_NAME);
+    return true;
+}
+
+void btcpc_ble_stop(BtcpcApp* app) {
+    if(!app->bt) return;
+
+    furi_hal_bt_stop_advertising();
+
+    if(app->ble_profile) {
+        bt_profile_restore_default(app->bt);
+        app->ble_profile = NULL;
+    }
+
+    bt_set_status_changed_callback(app->bt, NULL, NULL);
+    bt_keys_storage_set_default_path(app->bt);
+
+    furi_record_close(RECORD_BT);
+    app->bt = NULL;
+    app->ble_connected = false;
+}
+
 /* ─── App entry point ───────────────────────────────────────────────────── */
 
 int32_t btcpc_app(void* p) {
@@ -182,9 +300,16 @@ int32_t btcpc_app(void* p) {
     btcpc_identity_load_or_create(app);
     btcpc_pub_to_hex(app->pk, app->pub_hex);
 
+    /* Start BLE signing service */
+    if(!btcpc_ble_start(app)) {
+        FURI_LOG_E(TAG, "BLE start failed — continuing without BLE");
+    }
+
     scene_manager_next_scene(app->scene_manager, BtcpcSceneMain);
     view_dispatcher_run(app->view_dispatcher);
 
+    /* Teardown */
+    btcpc_ble_stop(app);
     btcpc_app_free(app);
     return 0;
 }
