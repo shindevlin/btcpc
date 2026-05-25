@@ -1,0 +1,8 @@
+anthropic
+requests
+pydantic
+pypdf
+pdf2image
+pytesseract
+sqlite-utils
+tqdm
