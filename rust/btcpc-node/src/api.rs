@@ -90,6 +90,8 @@ pub struct AppState {
     pub i2p_handle: Option<crate::i2p::I2pHandle>,
     /// LoRaWAN transport handle — None if BTCPC_LORAWAN is not enabled.
     pub lorawan_handle: Option<crate::lorawan::LoraWanHandle>,
+    /// Node data directory — used by /api/sync/state to serve a state snapshot.
+    pub data_dir: Arc<std::path::PathBuf>,
 }
 
 /// POST rate limit: max requests per IP per window.
@@ -131,6 +133,8 @@ pub fn router(state: AppState) -> Router {
         .route("/api/account/:account/history", get(get_account_history))
         .route("/api/block/:epoch", get(get_block))
         .route("/api/latest", get(get_latest))
+        .route("/api/sync/info", get(get_sync_info))
+        .route("/api/sync/state", get(get_sync_state))
         .route("/api/sync/snapshot", get(get_sync_snapshot))
         .route("/api/sync/blocks", get(get_sync_blocks))
         .route("/api/stake/:account", get(get_stake))
@@ -1857,6 +1861,67 @@ async fn post_account_api_key_set(
 /// Return `Some(s)` if `s` is non-empty, else `None`.
 fn non_empty(s: &str) -> Option<&str> {
     if s.is_empty() { None } else { Some(s) }
+}
+
+// GET /api/sync/info — lightweight sync status for fast-sync clients to decide whether
+// a snapshot download is worth it.
+async fn get_sync_info(State(s): State<AppState>) -> Json<serde_json::Value> {
+    let epoch           = s.chain.current_epoch();
+    let finalized_epoch = s.chain.store.latest_finality().unwrap_or(0);
+    let state_root      = s.chain.store.read_finality(finalized_epoch)
+        .ok().flatten()
+        .map(|b| hex::encode(&b[..b.len().min(6)]))
+        .unwrap_or_default();
+    let chain_id        = s.chain.chain_id.clone();
+    // Snapshot is always available as long as a state/ dir exists.
+    let snapshot_ready  = s.data_dir.join("state").exists();
+    Json(serde_json::json!({
+        "epoch":           epoch,
+        "finalized_epoch": finalized_epoch,
+        "state_root":      state_root,
+        "chain_id":        chain_id,
+        "snapshot_ready":  snapshot_ready,
+    }))
+}
+
+// GET /api/sync/state — streams a tar.gz of the RocksDB state directory so a lagging
+// node can replace its local state in one shot instead of replaying thousands of epochs.
+async fn get_sync_state(State(s): State<AppState>) -> axum::response::Response {
+    use axum::http::{StatusCode, header};
+    use axum::response::IntoResponse;
+
+    let state_dir = s.data_dir.join("state");
+    if !state_dir.exists() {
+        return (StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({"error": "no state directory"}))).into_response();
+    }
+
+    let data_dir_str  = s.data_dir.to_str().unwrap_or(".").to_owned();
+    let result = tokio::task::spawn_blocking(move || {
+        std::process::Command::new("tar")
+            .args(["-czf", "-", "-C", &data_dir_str,
+                   "--exclude=p2p-key", "--exclude=node.lock",
+                   "state"])
+            .output()
+    }).await;
+
+    match result {
+        Ok(Ok(out)) if out.status.success() => {
+            axum::response::Response::builder()
+                .status(StatusCode::OK)
+                .header(header::CONTENT_TYPE, "application/octet-stream")
+                .header(header::CONTENT_DISPOSITION, "attachment; filename=\"btcpc-state.tar.gz\"")
+                .body(axum::body::Body::from(out.stdout))
+                .unwrap()
+        }
+        Ok(Ok(out)) => {
+            let msg = String::from_utf8_lossy(&out.stderr).to_string();
+            (StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({"error": msg}))).into_response()
+        }
+        _ => (StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({"error": "snapshot failed"}))).into_response(),
+    }
 }
 
 // GET /api/sync/snapshot — full account state export for bootstrapping a diverged node.

@@ -31,6 +31,9 @@ pub struct Config {
     /// If set, node_id is derived from the public key so it is self-authenticating.
     /// Set via BTCPC_POSTING_KEY env var.
     pub posting_key: Option<String>,
+    /// HTTP base URLs of peers to query for fast-sync snapshots.
+    /// Set via BTCPC_SYNC_PEERS (comma-separated). Defaults to the bootstrap HTTP APIs.
+    pub sync_peers: Vec<String>,
 }
 
 impl Config {
@@ -91,6 +94,20 @@ impl Config {
                     .unwrap_or(1777633200000u64)
             ),
             posting_key: std::env::var("BTCPC_POSTING_KEY").ok(),
+            sync_peers: {
+                let raw = std::env::var("BTCPC_SYNC_PEERS").unwrap_or_default();
+                if raw.trim().is_empty() {
+                    vec![
+                        "http://bootstrap1.btcpc.net:4242".to_string(),
+                        "http://bootstrap2.btcpc.net:4242".to_string(),
+                    ]
+                } else {
+                    raw.split(',')
+                        .filter(|s| !s.is_empty())
+                        .map(|s| s.trim().to_string())
+                        .collect()
+                }
+            },
         }
     }
 }

@@ -60,6 +60,7 @@ mod system_contracts;
 mod ens;
 mod linkgit_server;
 mod storage_sync;
+mod state_sync;
 mod secret_store;
 mod model_healer;
 mod monitor;
@@ -197,6 +198,12 @@ async fn main() -> Result<()> {
     wallet::ensure_ton_address(&cfg.data_dir, &mut wallet_keys).await;
     // Keep ~/.btcpc/{account}.wallet.key in sync so TUI/CLI can find keys without knowing data_dir.
     wallet::backup_to_home(&cfg.account, &wallet_keys);
+
+    // Fast-sync: if this node's finalized state is more than SYNC_THRESHOLD epochs
+    // behind a peer, download a full snapshot rather than replaying every epoch.
+    // Must run before Store::open so the state dir can be atomically replaced.
+    state_sync::maybe_sync(&cfg.data_dir, &cfg.chain_id, &cfg.sync_peers).await
+        .unwrap_or_else(|e| { warn!("[fast-sync] skipped: {}", e); false });
 
     // Open state database
     let db_path = cfg.data_dir.join("state");
@@ -1179,6 +1186,7 @@ async fn main() -> Result<()> {
         matrix_handle,
         i2p_handle,
         lorawan_handle,
+        data_dir: Arc::new(cfg.data_dir.clone()),
     };
     api::serve(app_state, cfg.api_port).await?;
 
