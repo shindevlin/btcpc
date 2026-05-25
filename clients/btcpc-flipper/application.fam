@@ -3,7 +3,7 @@ App(
     name="BTCPC",
     apptype=FlipperAppType.EXTERNAL,
     entry_point="btcpc_app",
-    requires=["gui", "storage", "bt"],
+    requires=["gui", "storage", "bt", "lfrfid", "ibutton", "infrared", "nfc"],
     # 8 KB — ed25519 sign via TweetNaCl needs ~2 KB stack for SHA-512 + field math
     stack_size=8 * 1024,
     fap_category="Tools",

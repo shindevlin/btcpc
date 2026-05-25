@@ -29,7 +29,7 @@ jest.mock("child_process", () => ({
 // Now require — module picks up the mocked child_process.
 const childProcess = require("child_process");
 const fs = require("fs");
-const { transcribe, isWhisperAvailable } = require("../src/services/audioTranscriber");
+const { transcribe, isWhisperAvailable, sanitizeTranscript } = require("../src/services/audioTranscriber");
 
 // A valid 64-char lowercase hex CID
 const VALID_CID = "a".repeat(64);
@@ -134,6 +134,8 @@ describe("audioTranscriber — transcribe()", () => {
     const calls = childProcess.execSync.mock.calls.map((c) => c[0]);
     const whisperCall = calls.find((c) => c.includes("whisper") && c.includes(".wav"));
     expect(whisperCall).toBeDefined();
+    expect(whisperCall).toContain("--condition_on_previous_text False");
+    expect(whisperCall).toContain("--no_speech_threshold 0.6");
   });
 
   test("falls back to python3 -m whisper when whisper CLI fails", async () => {
@@ -193,10 +195,38 @@ describe("audioTranscriber — transcribe()", () => {
     expect(unlinkSyncSpy).toHaveBeenCalled();
   });
 
+  test("rejects hallucinated no-speech transcript with special token", async () => {
+    existsSyncSpy.mockImplementation(() => true);
+    childProcess.execSync.mockReturnValue(Buffer.from(""));
+    readFileSyncSpy.mockImplementation((p, enc) => {
+      if (p.endsWith(".txt")) {
+        return '<|endoftext|> the best. Thank you for watching! Welcome to our channel.';
+      }
+      throw new Error("unexpected readFileSync: " + p);
+    });
+
+    await expect(transcribe(VALID_CID)).rejects.toThrow("hallucinated");
+  });
+
   test("throws when both whisper CLI and python3 -m whisper fail", async () => {
     existsSyncSpy.mockImplementation(() => true);
     childProcess.execSync.mockImplementation(() => { throw new Error("not found"); });
 
     await expect(transcribe(VALID_CID)).rejects.toThrow();
+  });
+});
+
+describe("audioTranscriber — sanitizeTranscript()", () => {
+  test("removes known Whisper special tokens", () => {
+    expect(sanitizeTranscript("hello <|endoftext|> there")).toBe("");
+  });
+
+  test("rejects common outro hallucination markers", () => {
+    const text = "Thank you for watching. Welcome to our channel. Visit our website.";
+    expect(sanitizeTranscript(text)).toBe("");
+  });
+
+  test("keeps normal dictated text", () => {
+    expect(sanitizeTranscript("please check the bot status")).toBe("please check the bot status");
   });
 });

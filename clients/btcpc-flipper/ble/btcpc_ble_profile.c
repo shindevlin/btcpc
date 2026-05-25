@@ -23,11 +23,13 @@
 
 #include <furi.h>
 #include <furi_ble/profile_interface.h>
+#include <ble/core/ble_defs.h>
 #include <gap.h>
 #include <furi_hal_version.h>
 
 #include <string.h>
 
+#undef TAG
 #define TAG "BtcpcBleProfile"
 
 /* XOR mask applied to the last two bytes of the BLE MAC address to
@@ -50,8 +52,8 @@ static FuriHalBleProfileBase* btcpc_profile_start(FuriHalBleProfileParams profil
 
     profile->base.config = ble_profile_btcpc;
 
-    /* Start the GATT service — wires sign callback to app thread queue */
-    profile->svc = btcpc_ble_svc_start(app->pk, btcpc_ble_sign_req_cb, app);
+    /* Start the GATT service — wires sign + data_rx callbacks to app thread queue */
+    profile->svc = btcpc_ble_svc_start(app->pk, btcpc_ble_sign_req_cb, btcpc_ble_data_rx_cb, app);
     if(!profile->svc) {
         FURI_LOG_E(TAG, "btcpc_ble_svc_start failed");
         free(profile);

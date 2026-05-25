@@ -1,259 +1,199 @@
-# BTCPC Mining Node — Installation Guide
+# BTCPC Node — Installation Guide
 
-Multi-platform setup for running a BTCPC Proof-of-Compute mining node.
-
-## Prerequisites
-
-| Dependency | Minimum Version | Purpose |
-|------------|----------------|---------|
-| **Node.js** | 18+ | Runtime |
-| **npm** | 9+ | Package manager (ships with Node) |
-| **MongoDB** | 6+ | Block / epoch / wallet storage |
-| **Ollama** | 0.1.0+ | Local LLM inference (the "work" in Proof-of-Compute) |
-| **Git** | 2.30+ | Clone the repo |
-
-A GPU is **strongly recommended** — inference on CPU is possible but very slow.
-The default model (`qwen3.5:27b`) needs ~18 GB VRAM at Q4_K_M quantization.
-Smaller models (e.g. `deepseek-r1:8b`) work on 8 GB cards at lower reward weight.
+Setup guide for running a BTCPC node on Linux, Raspberry Pi, or WSL2 (Windows).
 
 ---
 
-## 1. Install System Dependencies
+## Node roles
 
-### Windows
+| Role | What it does | Requires |
+|------|-------------|----------|
+| **Clock** | Participates in epoch consensus, earns ClockReward | Any machine |
+| **Worker** | Bids on and runs inference jobs, earns job fees | Ollama + a model |
+| **Miner** | Wins MineReward at epoch seal | GPU (CUDA) |
 
-```powershell
-# Node.js — download the LTS installer from https://nodejs.org
-# or via winget:
-winget install OpenJS.NodeJS.LTS
+Set any combination via environment variables. Clock-only is the simplest starting point.
 
-# Git
-winget install Git.Git
+---
 
-# MongoDB — run via Docker (recommended):
-docker run -d --name btcpc-mongo -p 27017:27017 \
-  -e MONGO_INITDB_ROOT_USERNAME=root \
-  -e MONGO_INITDB_ROOT_PASSWORD=example \
-  mongo:7
+## 1. Get the binary
 
-# Ollama — download from https://ollama.com/download/windows
-# After install, pull the mining model:
-ollama pull qwen3.5:27b
-```
-
-> **Note:** On Windows, use Git Bash, WSL2, or PowerShell for the commands below.
-
-### Linux (Ubuntu / Debian)
+### Option A — Build from source (recommended)
 
 ```bash
-# Node.js 20 LTS
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs git
+# x86_64 (standard Linux, WSL2)
+cd rust/btcpc-node
+cargo build --release
+sudo cp ../../target/release/btcpc-node /usr/local/bin/btcpc-node
+sudo chmod +x /usr/local/bin/btcpc-node
 
-# MongoDB via Docker
-sudo apt-get install -y docker.io
-sudo docker run -d --name btcpc-mongo -p 27017:27017 \
-  -e MONGO_INITDB_ROOT_USERNAME=root \
-  -e MONGO_INITDB_ROOT_PASSWORD=example \
-  mongo:7
-
-# Ollama
-curl -fsSL https://ollama.com/install.sh | sh
-ollama pull qwen3.5:27b
+# aarch64 (Raspberry Pi) — run on your build machine
+CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
+  cargo build --release --target aarch64-unknown-linux-gnu
+# then scp the binary to the Pi
+scp target/aarch64-unknown-linux-gnu/release/btcpc-node pi@<pi-ip>:/tmp/btcpc-node-new
+ssh pi@<pi-ip> "sudo cp /tmp/btcpc-node-new /usr/local/bin/btcpc-node && sudo chmod +x /usr/local/bin/btcpc-node"
 ```
 
-### macOS
+### Option B — Check for a pre-built release
+
+Pre-built binaries for x86_64 and aarch64 are published on the GitHub releases page when available. Download, chmod +x, and move to `/usr/local/bin/`.
+
+---
+
+## 2. Get the genesis file
 
 ```bash
-# Homebrew (if not installed)
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+# Copy from the repo to a stable location on the target machine
+cp rust/btcpc-node/genesis.json ~/genesis.json
 
-# Node.js + Git
-brew install node git
-
-# MongoDB via Docker
-brew install --cask docker   # Docker Desktop
-docker run -d --name btcpc-mongo -p 27017:27017 \
-  -e MONGO_INITDB_ROOT_USERNAME=root \
-  -e MONGO_INITDB_ROOT_PASSWORD=example \
-  mongo:7
-
-# Ollama
-brew install ollama
-ollama pull qwen3.5:27b
+# On a remote machine (Pi, WSL, etc.)
+scp rust/btcpc-node/genesis.json user@host:~/genesis.json
 ```
 
 ---
 
-## 2. Clone and Install
+## 3. Create an account and posting key
 
+On first start, the node generates a wallet automatically and saves it to `~/.btcpc/wallet.key`. To use an existing account, set `BTCPC_ACCOUNT` and `BTCPC_POSTING_KEY` before the first start.
+
+If starting fresh:
 ```bash
-git clone https://github.com/shindevlin/btcpc.git
-cd btcpc
-npm install
+mkdir -p ~/.btcpc
+# Start once to generate the wallet, then stop it
+BTCPC_ACCOUNT=yourname BTCPC_GENESIS_FILE=~/genesis.json \
+  BTCPC_GENESIS_TIMESTAMP=1777672500000 btcpc-node &
+sleep 3 && kill %1
+# Read your posting key
+cat ~/.btcpc/wallet.key | python3 -c "import sys,json; d=json.load(sys.stdin); print('private:', d['btcpc_private_key'])"
 ```
 
 ---
 
-## 3. Configure Environment
+## 4. Environment variables
 
-```bash
-cp .env.example .env
-```
-
-Edit `.env` with the values for your setup. The mining-critical variables are:
-
-```ini
-# MongoDB connection (match your Docker credentials)
-MONGODB_URI=mongodb://root:example@localhost:27017/btcpc?authSource=admin
-
-# Ollama endpoint (default: localhost)
-OLLAMA_URL=http://localhost:11434
-
-# Model to mine with (must be pulled in Ollama)
-BTCPC_MODEL=qwen3.5:27b
-
-# Inference tasks per epoch (default: 3)
-BTCPC_WORK_PER_EPOCH=3
-
-# P2P port for node discovery
-P2P_PORT=6942
-```
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `BTCPC_ACCOUNT` | `genesis` | Your username on the chain |
+| `BTCPC_POSTING_KEY` | *(auto)* | Ed25519 private key hex (32 bytes) |
+| `BTCPC_GENESIS_FILE` | *(required)* | Path to genesis.json |
+| `BTCPC_GENESIS_TIMESTAMP` | *(required)* | `1777672500000` |
+| `BTCPC_CLOCK` | `false` | Enable clock consensus participation |
+| `BTCPC_WORKER` | `false` | Enable inference worker mode |
+| `OLLAMA_URL` | `http://localhost:11434` | Ollama endpoint for worker mode |
+| `BTCPC_MODEL` | `qwen2.5:0.5b` | Model name to bid on jobs with |
+| `BTCPC_API_PORT` | `4242` | HTTP API port |
+| `BTCPC_P2P_PORT` | `6942` | libp2p gossipsub P2P port |
+| `RUST_LOG` | `warn` | Log level (`info` recommended) |
 
 ---
 
-## 4. Verify Services
+## 5. Systemd service
 
-Before starting the miner, confirm MongoDB and Ollama are reachable:
-
-```bash
-# MongoDB — should print the version
-docker exec btcpc-mongo mongosh --quiet --eval "db.version()"
-
-# Ollama — should list your pulled models
-curl -s http://localhost:11434/api/tags | head -c 200
-```
-
----
-
-## 5. Start the Mining Daemon
+### User service (regular Linux, WSL2)
 
 ```bash
-node bin/btcpc-mine
-```
-
-You should see output like:
-
-```
-[BTCPC] MongoDB connected
-[BTCPC] ================================================
-[BTCPC]    BTCPC Mining Daemon Starting
-[BTCPC] ================================================
-[BTCPC] Ollama:     http://localhost:11434
-[BTCPC] Model:      qwen3.5:27b
-[BTCPC] Work/epoch: 3
-[BTCPC] Epoch:      30s
-[BTCPC] ================================================
-[BTCPC] Genesis block already exists
-[BTCPC] Epoch 1 mining started
-```
-
-The daemon runs continuously with 30-second epoch cycles. Press `Ctrl+C` to stop gracefully.
-
-### Always-On Mode (Recommended)
-
-The miner should run continuously and auto-restart on crash or reboot.
-An auto-updater checks GitHub every 15 minutes and restarts the miner when new code is pulled.
-
-**All platforms (pm2):**
-
-```bash
-# Install pm2 globally
-npm install -g pm2
-
-# Start miner + auto-updater together
-cd /path/to/btcpc
-pm2 start ecosystem.config.js
-
-# Save for auto-restart on reboot
-pm2 save
-pm2 startup    # follow the printed instructions to install the boot hook
-```
-
-This starts two processes:
-
-| pm2 name | What it does |
-|----------|-------------|
-| `btcpc-mine` | Mining daemon — runs forever, auto-restarts on crash |
-| `btcpc-update` | Checks GitHub every 15 min — pulls new code and restarts the miner if updates are found |
-
-**Useful pm2 commands:**
-
-```bash
-pm2 status            # see running processes
-pm2 logs              # tail all logs
-pm2 logs btcpc-mine   # tail miner logs only
-pm2 monit             # live dashboard
-pm2 stop all          # stop everything (manual override)
-pm2 restart btcpc-mine  # restart miner only
-```
-
-**To stop mining:** `pm2 stop btcpc-mine` — the updater will not restart it unless you `pm2 start btcpc-mine` again.
-
-**Linux alternative (systemd):**
-
-```ini
-# /etc/systemd/system/btcpc-miner.service
+mkdir -p ~/.config/systemd/user
+cat > ~/.config/systemd/user/btcpc-node.service << 'EOF'
 [Unit]
-Description=BTCPC Mining Daemon
-After=network.target docker.service
+Description=BTCPC Node
+After=network.target
 
 [Service]
 Type=simple
-User=your-user
-WorkingDirectory=/home/your-user/btcpc
-ExecStart=/usr/bin/node bin/btcpc-mine
-Restart=on-failure
-RestartSec=10
-Environment=NODE_ENV=production
+Restart=always
+RestartSec=5
+ExecStart=/usr/local/bin/btcpc-node
+Environment="BTCPC_ACCOUNT=yourname"
+Environment="BTCPC_POSTING_KEY=<your-ed25519-private-key-hex>"
+Environment="BTCPC_GENESIS_TIMESTAMP=1777672500000"
+Environment="BTCPC_GENESIS_FILE=/home/yourname/genesis.json"
+Environment="BTCPC_CLOCK=true"
+Environment="BTCPC_WORKER=true"
+Environment="OLLAMA_URL=http://localhost:11434"
+Environment="BTCPC_MODEL=qwen2.5:0.5b"
+Environment="BTCPC_API_PORT=4242"
+Environment="BTCPC_P2P_PORT=6942"
+Environment="RUST_LOG=info"
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
+EOF
+
+systemctl --user daemon-reload
+systemctl --user enable btcpc-node
+systemctl --user start btcpc-node
 ```
+
+### System service (Raspberry Pi, dedicated server)
+
+Same `[Service]` block, saved to `/etc/systemd/system/btcpc-node.service`. Replace `yourname` with the machine user (e.g. `pi`). Update `BTCPC_GENESIS_FILE` path accordingly.
 
 ```bash
-sudo systemctl enable --now btcpc-miner
-sudo journalctl -u btcpc-miner -f   # watch logs
+sudo systemctl daemon-reload
+sudo systemctl enable btcpc-node
+sudo systemctl start btcpc-node
 ```
 
 ---
 
-## 6. Other Commands
+## 6. Verify
 
-| Command | Description |
-|---------|-------------|
-| `npm start` | Start the API server |
-| `npm run mine` | Start the mining daemon |
-| `npm run update` | Check GitHub for updates and restart miner |
-| `npm run cli` | Interactive CLI |
-| `npm run explorer` | Block explorer web UI |
-| `npm run p2p` | P2P network node |
-| `npm test` | Run test suite |
+```bash
+# API health check
+curl http://localhost:4242/api/node/info
 
----
+# Live logs
+journalctl --user -u btcpc-node -f          # user service
+journalctl -u btcpc-node -f                 # system service
+```
 
-## Troubleshooting
-
-| Symptom | Fix |
-|---------|-----|
-| `MongoDB connection failed` | Ensure the `btcpc-mongo` container is running: `docker ps` |
-| `Ollama unreachable after 5 attempts` | Check Ollama is running: `ollama list`. Ensure `OLLAMA_URL` in `.env` is correct. |
-| `Genesis miner account not found` | The genesis block creates the `shindevlin` miner account automatically on first run. If the DB was wiped, drop the database and restart the daemon to re-create genesis. |
-| Slow epoch times | A 27B model on CPU can take 5+ minutes per work item. Use a GPU or switch to a smaller model (`BTCPC_MODEL=deepseek-r1:8b`). |
-| `Duplicate schema index` warning | Harmless Mongoose warning — does not affect operation. |
+A healthy node shows `"peer_count": N` (N ≥ 1) and an `"epoch"` that matches the network.
 
 ---
 
-## Genesis
+## WSL2 notes
 
-The genesis block and miner (`shindevlin`) are created automatically on the first run when the database is empty. **Do not modify `src/mining/genesisBlock.js`** — the genesis parameters are consensus-critical.
+**Enable systemd in WSL2** — add to `/etc/wsl.conf`:
+```ini
+[boot]
+systemd=true
+```
+Restart WSL (`wsl --shutdown` from PowerShell, then reopen).
+
+**Ollama on Windows** — WSL2 cannot reach `localhost:11434` when Ollama runs on Windows. Use the WSL gateway IP instead:
+```bash
+# Find the gateway IP
+ip route | grep default | awk '{print $3}'
+# e.g. 172.26.16.1
+
+# Set in the service
+Environment="OLLAMA_URL=http://172.26.16.1:11434"
+```
+
+**Port already in use** — if `btcpc-node` fails with "Address already in use", a stale process may be holding the port:
+```bash
+sudo ss -tlnp | grep 4242
+# Find the pid, then:
+sudo kill <pid>
+systemctl --user restart btcpc-node
+```
+
+**WSL gateway IP can change** — if `OLLAMA_URL` stops working after a Windows reboot, re-run the `ip route` check and update the service file.
+
+---
+
+## Common mistakes
+
+**Wrong account after changing BTCPC_ACCOUNT** — the hardware fingerprint is stamped on first run. If you change the account, you must wipe the data directory and start fresh:
+```bash
+systemctl --user stop btcpc-node
+rm -rf ~/.btcpc
+systemctl --user start btcpc-node
+```
+
+**Old binary** — if `/api/node/info` returns 404, the installed binary is outdated. Rebuild and reinstall from source.
+
+**No peers** — the node refuses to accept entries when `peer_count == 0`. This is intentional: a disconnected node cannot submit to the network. Wait for at least one peer before submitting transactions. Bootstrap peers are resolved via DNS (`bootstrap1.btcpc.net`, `bootstrap2.btcpc.net`).
+
+**Genesis mismatch** — if you started the node without `BTCPC_GENESIS_FILE`, it may have created a local genesis that doesn't match the network. Wipe `~/.btcpc` and restart with the correct genesis file.

@@ -17,10 +17,8 @@
 //! firmware agent — they are compiled into Flipper firmware):
 //!   Flipper → phone: 0x01=SubGhzObs, 0x02=RfidScan, 0x03=NfcScan,
 //!                    0x04=IButton, 0x05=Heartbeat, 0x06=IrCapture
-//!   Phone → Flipper: 0x10=EntryHash, 0x11=ClockSync, 0x12=Gps
-//!
-//! Planned (see ARCHITECTURE.md for the protocol extension spec):
-//!   Phone → Flipper: 0x13=SignReq
+//!   Phone → Flipper: 0x10=EntryHash, 0x11=ClockSync, 0x12=Gps,
+//!                    0x13=SignReq, 0x14=SensorReq
 //!   Flipper → phone: 0x07=SignResp
 
 use ed25519_dalek::{Signature, VerifyingKey};

@@ -13,6 +13,12 @@
  * No other dependencies. SHA-512 is embedded below.
  */
 
+/* Public-domain C89 code — suppress GCC pedantic warnings */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+#pragma GCC diagnostic ignored "-Wunused-const-variable"
+#pragma GCC diagnostic ignored "-Wmisleading-indentation"
+
 #include "tweetnacl.h"
 #include <string.h>
 
@@ -415,3 +421,5 @@ int crypto_sign_open(u8 *m, u64 *mlen, const u8 *sm, u64 smlen, const u8 *pk) {
     *mlen = smlen;
     return 0;
 }
+
+#pragma GCC diagnostic pop

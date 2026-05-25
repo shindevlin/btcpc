@@ -25,6 +25,7 @@ const { execSync } = require("child_process");
 const BLOB_DIR = process.env.BTCPC_BLOB_DIR || path.resolve(__dirname, "../../data/blobs");
 const WHISPER_MODEL = process.env.BTCPC_WHISPER_MODEL || "tiny";
 const WHISPER_TIMEOUT_MS = parseInt(process.env.BTCPC_WHISPER_TIMEOUT_MS) || 120000;
+const WHISPER_LANGUAGE = process.env.BTCPC_WHISPER_LANGUAGE || "en";
 
 function _tryExec(cmd, opts) {
   try {
@@ -64,6 +65,35 @@ function detectAudioExtension(buf) {
   return ".wav";
 }
 
+function sanitizeTranscript(raw) {
+  const text = String(raw || "")
+    .replace(/<\|[^|]+?\|>/g, " ")
+    .replace(/\[[^\]]*(?:music|applause|silence|inaudible)[^\]]*\]/gi, " ")
+    .replace(/\([^\)]*(?:music|applause|silence|inaudible)[^\)]*\)/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!text) return "";
+
+  const lower = text.toLowerCase();
+  const hallucinationMarkers = [
+    "thank you for watching",
+    "thanks for watching",
+    "don't forget to subscribe",
+    "welcome to our channel",
+    "visit our website",
+    "www dot com",
+    "website.com",
+  ];
+
+  const markerHits = hallucinationMarkers.filter((marker) => lower.includes(marker)).length;
+  const hadSpecialToken = /<\|[^|]+?\|>/.test(String(raw || ""));
+
+  if (hadSpecialToken || markerHits >= 2) return "";
+
+  return text;
+}
+
 /**
  * Transcribe an audio blob (by CID) to text.
  * Returns the transcript string, or throws on failure.
@@ -91,7 +121,17 @@ async function transcribe(audioCid) {
   try {
     fs.copyFileSync(blobPath, tmpAudio);
 
-    const baseArgs = `"${tmpAudio}" --output_format txt --output_dir "${tmpDir}" --model ${WHISPER_MODEL}`;
+    const baseArgs = [
+      `"${tmpAudio}"`,
+      "--output_format txt",
+      `--output_dir "${tmpDir}"`,
+      `--model ${WHISPER_MODEL}`,
+      `--language ${WHISPER_LANGUAGE}`,
+      "--temperature 0",
+      "--condition_on_previous_text False",
+      "--no_speech_threshold 0.6",
+      "--logprob_threshold -1.0",
+    ].join(" ");
 
     let ok = false;
     // Try whisper CLI
@@ -108,8 +148,8 @@ async function transcribe(audioCid) {
       throw new Error("Whisper produced no output file");
     }
 
-    const transcript = fs.readFileSync(expectedTxt, "utf8").trim();
-    if (!transcript) throw new Error("Whisper transcript is empty");
+    const transcript = sanitizeTranscript(fs.readFileSync(expectedTxt, "utf8"));
+    if (!transcript) throw new Error("Whisper transcript is empty or hallucinated");
     return transcript;
   } finally {
     try { fs.unlinkSync(tmpAudio); } catch (_) {}
@@ -117,4 +157,4 @@ async function transcribe(audioCid) {
   }
 }
 
-module.exports = { transcribe, isWhisperAvailable, detectAudioExtension };
+module.exports = { transcribe, isWhisperAvailable, detectAudioExtension, sanitizeTranscript };

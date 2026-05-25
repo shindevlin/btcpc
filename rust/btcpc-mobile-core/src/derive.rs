@@ -13,6 +13,7 @@
 use bip39::Mnemonic;
 use ed25519_dalek::SigningKey;
 use hmac::{Hmac, Mac};
+use serde_json;
 use sha2::Sha512;
 
 use crate::MobileCoreError;
@@ -32,6 +33,24 @@ const BTCPC_COIN: u32 = 6942;
 pub fn derive_posting_pubkey(mnemonic_words: String) -> Result<String, MobileCoreError> {
     let (_, pub_key) = derive_role_key(&mnemonic_words, 2)?;
     Ok(hex::encode(pub_key))
+}
+
+/// Derive all four BTCPC role public keys from a BIP39 mnemonic.
+///
+/// Returns JSON: {"owner":"hex","active":"hex","posting":"hex","memo":"hex"}
+/// Roles: 0=owner, 1=active, 2=posting, 3=memo
+pub fn derive_all_pubkeys(mnemonic_words: String) -> Result<String, MobileCoreError> {
+    let (_, owner)   = derive_role_key(&mnemonic_words, 0)?;
+    let (_, active)  = derive_role_key(&mnemonic_words, 1)?;
+    let (_, posting) = derive_role_key(&mnemonic_words, 2)?;
+    let (_, memo)    = derive_role_key(&mnemonic_words, 3)?;
+    let json = serde_json::json!({
+        "owner":   hex::encode(owner),
+        "active":  hex::encode(active),
+        "posting": hex::encode(posting),
+        "memo":    hex::encode(memo),
+    });
+    Ok(json.to_string())
 }
 
 /// Derive the ed25519 key pair for a given BTCPC role index.

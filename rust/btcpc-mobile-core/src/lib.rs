@@ -22,9 +22,20 @@ mod http;
 mod ble;
 
 // Re-export the public API that UniFFI exposes via the UDL.
-pub use derive::derive_posting_pubkey;
-pub use sign::{sign_transfer, sign_with_role};
-pub use http::{fetch_node_info, post_transfer};
+pub use derive::{derive_posting_pubkey, derive_all_pubkeys};
+pub use sign::{
+    sign_transfer, sign_stake, sign_unstake, sign_account_create,
+    sign_node_capability, sign_inference_bid, sign_inference_complete,
+    sign_coverage_report, sign_sensor_commit,
+    sign_with_role,
+};
+pub use http::{
+    fetch_node_info, fetch_balance, fetch_account,
+    post_transfer, post_stake, post_unstake, post_account_create,
+    post_node_capability, fetch_inference_jobs, post_inference_bid,
+    post_inference_complete,
+    post_coverage_report, post_sensor_register, post_sensor_commit,
+};
 pub use ble::{parse_ble_frame, verify_ble_frame_sig, BleFrame};
 
 // ── Error type ────────────────────────────────────────────────────────────────

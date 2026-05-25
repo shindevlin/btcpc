@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#0a0a0a">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="WALLET"
+            android:textColor="#f59e0b"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="20dp" />
+
+        <!-- ── Import section ──────────────────────────────────────────── -->
+        <LinearLayout
+            android:id="@+id/import_layout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView android:text="ACCOUNT NAME" style="@style/FieldLabel" />
+            <EditText
+                android:id="@+id/account_input"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                style="@style/FieldInput"
+                android:hint="e.g. alice"
+                android:inputType="text|textNoSuggestions" />
+
+            <TextView android:text="12-WORD MNEMONIC" style="@style/FieldLabel" />
+            <EditText
+                android:id="@+id/mnemonic_input"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/input_bg"
+                android:hint="word1 word2 word3 ..."
+                android:inputType="textMultiLine|textNoSuggestions"
+                android:minLines="2"
+                android:padding="12dp"
+                android:textColor="#e5e7eb"
+                android:textColorHint="#4b5563"
+                android:textSize="14sp"
+                android:fontFamily="monospace"
+                android:layout_marginBottom="12dp" />
+
+            <Button
+                android:id="@+id/btn_import"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Import Wallet"
+                android:backgroundTint="#f59e0b"
+                android:textColor="#0a0a0a" />
+
+        </LinearLayout>
+
+        <!-- ── Wallet info (shown once imported) ────────────────────────── -->
+        <LinearLayout
+            android:id="@+id/wallet_info"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView android:text="ACCOUNT" style="@style/FieldLabel" />
+            <TextView
+                android:id="@+id/account_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/card_bg"
+                android:padding="12dp"
+                android:textColor="#f59e0b"
+                android:textSize="14sp"
+                android:fontFamily="monospace"
+                android:layout_marginBottom="8dp" />
+
+            <TextView android:text="BALANCE" style="@style/FieldLabel" />
+            <TextView
+                android:id="@+id/balance_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/card_bg"
+                android:padding="12dp"
+                android:textColor="#d1d5db"
+                android:textSize="14sp"
+                android:fontFamily="monospace"
+                android:text="—"
+                android:layout_marginBottom="8dp" />
+
+            <TextView android:text="POSTING KEY" style="@style/FieldLabel" />
+            <TextView
+                android:id="@+id/pubkey_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/card_bg"
+                android:padding="12dp"
+                android:textColor="#9ca3af"
+                android:textSize="11sp"
+                android:fontFamily="monospace"
+                android:layout_marginBottom="16dp" />
+
+            <Button
+                android:id="@+id/btn_refresh"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Refresh Balance"
+                android:backgroundTint="#1f2937"
+                android:textColor="#f59e0b"
+                android:layout_marginBottom="24dp" />
+
+            <!-- Send -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="SEND"
+                android:textColor="#f59e0b"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="10dp" />
+
+            <TextView android:text="RECIPIENT ACCOUNT" style="@style/FieldLabel" />
+            <EditText
+                android:id="@+id/send_to"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                style="@style/FieldInput"
+                android:hint="account name"
+                android:inputType="text|textNoSuggestions" />
+
+            <TextView android:text="AMOUNT (BTCPC)" style="@style/FieldLabel" />
+            <EditText
+                android:id="@+id/send_amount"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                style="@style/FieldInput"
+                android:hint="0.00"
+                android:inputType="numberDecimal" />
+
+            <TextView android:text="MEMO (OPTIONAL)" style="@style/FieldLabel" />
+            <EditText
+                android:id="@+id/send_memo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                style="@style/FieldInput"
+                android:hint="optional note"
+                android:inputType="text" />
+
+            <Button
+                android:id="@+id/btn_send"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Send"
+                android:backgroundTint="#f59e0b"
+                android:textColor="#0a0a0a"
+                android:layout_marginBottom="24dp" />
+
+            <!-- Stake / Unstake -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="STAKE"
+                android:textColor="#f59e0b"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="10dp" />
+
+            <TextView android:text="AMOUNT (BTCPC)" style="@style/FieldLabel" />
+            <EditText
+                android:id="@+id/stake_amount"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                style="@style/FieldInput"
+                android:hint="0.00"
+                android:inputType="numberDecimal" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="8dp">
+
+                <Button
+                    android:id="@+id/btn_stake"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:text="Stake"
+                    android:backgroundTint="#1f2937"
+                    android:textColor="#f59e0b"
+                    android:layout_marginEnd="8dp" />
+
+                <Button
+                    android:id="@+id/btn_unstake"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:text="Unstake"
+                    android:backgroundTint="#1f2937"
+                    android:textColor="#9ca3af" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tx_result"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/card_bg"
+                android:padding="12dp"
+                android:textColor="#d1d5db"
+                android:textSize="12sp"
+                android:fontFamily="monospace"
+                android:text=""
+                android:visibility="gone"
+                android:layout_marginBottom="24dp" />
+
+            <Button
+                android:id="@+id/btn_clear"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Remove Wallet"
+                android:backgroundTint="#1f2937"
+                android:textColor="#ef4444" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>

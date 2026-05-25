@@ -37,23 +37,29 @@
 
 /* ─── Scene handlers table ─────────────────────────────────────────────── */
 
+static const AppSceneOnEnterCallback btcpc_on_enter_handlers[] = {
+    [BtcpcSceneMain]     = btcpc_scene_main_on_enter,
+    [BtcpcSceneIdentity] = btcpc_scene_identity_on_enter,
+    [BtcpcSceneBle]      = btcpc_scene_ble_on_enter,
+};
+
+static const AppSceneOnEventCallback btcpc_on_event_handlers[] = {
+    [BtcpcSceneMain]     = btcpc_scene_main_on_event,
+    [BtcpcSceneIdentity] = btcpc_scene_identity_on_event,
+    [BtcpcSceneBle]      = btcpc_scene_ble_on_event,
+};
+
+static const AppSceneOnExitCallback btcpc_on_exit_handlers[] = {
+    [BtcpcSceneMain]     = btcpc_scene_main_on_exit,
+    [BtcpcSceneIdentity] = btcpc_scene_identity_on_exit,
+    [BtcpcSceneBle]      = btcpc_scene_ble_on_exit,
+};
+
 static const SceneManagerHandlers btcpc_scene_handlers = {
-    .on_enter_handlers = {
-        [BtcpcSceneMain]     = btcpc_scene_main_on_enter,
-        [BtcpcSceneIdentity] = btcpc_scene_identity_on_enter,
-        [BtcpcSceneBle]      = btcpc_scene_ble_on_enter,
-    },
-    .on_event_handlers = {
-        [BtcpcSceneMain]     = btcpc_scene_main_on_event,
-        [BtcpcSceneIdentity] = btcpc_scene_identity_on_event,
-        [BtcpcSceneBle]      = btcpc_scene_ble_on_event,
-    },
-    .on_exit_handlers = {
-        [BtcpcSceneMain]     = btcpc_scene_main_on_exit,
-        [BtcpcSceneIdentity] = btcpc_scene_identity_on_exit,
-        [BtcpcSceneBle]      = btcpc_scene_ble_on_exit,
-    },
-    .scene_num = BtcpcSceneCount,
+    .on_enter_handlers = btcpc_on_enter_handlers,
+    .on_event_handlers = btcpc_on_event_handlers,
+    .on_exit_handlers  = btcpc_on_exit_handlers,
+    .scene_num         = BtcpcSceneCount,
 };
 
 /* ─── Custom event dispatcher ───────────────────────────────────────────── */
@@ -74,13 +80,13 @@ BtcpcApp* btcpc_app_alloc(void) {
     BtcpcApp* app = malloc(sizeof(BtcpcApp));
     memset(app, 0, sizeof(BtcpcApp));
 
-    /* Mutex protecting sk[] and sign_pending_hash */
-    app->sign_mutex = furi_mutex_alloc(FuriMutexTypeNormal);
+    app->sign_mutex     = furi_mutex_alloc(FuriMutexTypeNormal);
+    app->data_rx_mutex  = furi_mutex_alloc(FuriMutexTypeNormal);
+    app->heartbeat_timer = furi_timer_alloc(btcpc_heartbeat_timer_cb, FuriTimerTypePeriodic, app);
 
     app->gui = furi_record_open(RECORD_GUI);
 
     app->view_dispatcher = view_dispatcher_alloc();
-    view_dispatcher_enable_queue(app->view_dispatcher);
     view_dispatcher_set_event_callback_context(app->view_dispatcher, app);
     view_dispatcher_set_custom_event_callback(app->view_dispatcher, btcpc_custom_event_callback);
     view_dispatcher_set_navigation_event_callback(app->view_dispatcher, btcpc_back_event_callback);
@@ -118,6 +124,8 @@ void btcpc_app_free(BtcpcApp* app) {
     scene_manager_free(app->scene_manager);
     view_dispatcher_free(app->view_dispatcher);
 
+    furi_timer_free(app->heartbeat_timer);
+    furi_mutex_free(app->data_rx_mutex);
     furi_mutex_free(app->sign_mutex);
 
     furi_record_close(RECORD_GUI);
@@ -195,6 +203,15 @@ void btcpc_pub_to_hex(const uint8_t pk[BTCPC_PK_LEN], char out[BTCPC_PK_LEN * 2 
     out[BTCPC_PK_LEN * 2] = '\0';
 }
 
+/* ─── Heartbeat timer callback (timer thread) ──────────────────────────── */
+
+static void btcpc_heartbeat_timer_cb(void* context) {
+    BtcpcApp* app = context;
+    if(app->ble_connected) {
+        view_dispatcher_send_custom_event(app->view_dispatcher, BtcpcEventHeartbeatTimer);
+    }
+}
+
 /* ─── BLE sign-request callback (BLE ISR thread) ───────────────────────── */
 
 /*
@@ -219,6 +236,18 @@ void btcpc_ble_sign_req_cb(const uint8_t* hash, void* context) {
 
     /* Wake the app thread — safe to call from ISR context */
     view_dispatcher_send_custom_event(app->view_dispatcher, BtcpcEventSignRequest);
+}
+
+/* ─── DATA_CHANNEL receive callback (BLE ISR thread) ──────────────────── */
+
+void btcpc_ble_data_rx_cb(const uint8_t* frame, uint16_t len, void* context) {
+    BtcpcApp* app = context;
+    furi_mutex_acquire(app->data_rx_mutex, FuriWaitForever);
+    if(len > BTCPC_BLE_DATA_CH_MAX_LEN) len = BTCPC_BLE_DATA_CH_MAX_LEN;
+    memcpy(app->data_rx_buf, frame, len);
+    app->data_rx_len = len;
+    furi_mutex_release(app->data_rx_mutex);
+    view_dispatcher_send_custom_event(app->view_dispatcher, BtcpcEventDataRx);
 }
 
 /* ─── BLE GAP status callback (BT service thread) ──────────────────────── */
@@ -266,16 +295,17 @@ bool btcpc_ble_start(BtcpcApp* app) {
         return false;
     }
 
-    /* Begin advertising — phone can now discover the Flipper */
-    furi_hal_bt_start_advertising();
+    /* bt_profile_start() starts advertising automatically in SDK 1.4+ */
     FURI_LOG_I(TAG, "BLE advertising as '%s'", BTCPC_BLE_ADV_NAME);
+
+    furi_timer_start(app->heartbeat_timer, furi_ms_to_ticks(30000));
     return true;
 }
 
 void btcpc_ble_stop(BtcpcApp* app) {
     if(!app->bt) return;
 
-    furi_hal_bt_stop_advertising();
+    furi_timer_stop(app->heartbeat_timer);
 
     if(app->ble_profile) {
         bt_profile_restore_default(app->bt);

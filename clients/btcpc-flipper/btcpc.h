@@ -56,9 +56,11 @@ typedef enum {
  * and the BT status callback to the app (GUI) thread.
  */
 typedef enum {
-    BtcpcEventSignRequest   = 100, /* BLE: sign request arrived, hash in sign_pending_hash */
-    BtcpcEventBleConnected  = 101, /* GAP: central connected */
+    BtcpcEventSignRequest     = 100, /* BLE: sign request arrived, hash in sign_pending_hash */
+    BtcpcEventBleConnected    = 101, /* GAP: central connected */
     BtcpcEventBleDisconnected = 102, /* GAP: central disconnected */
+    BtcpcEventDataRx          = 103, /* DATA_CHANNEL: framed message received from phone */
+    BtcpcEventHeartbeatTimer  = 104, /* periodic: push heartbeat (and maybe SubGhz) */
 } BtcpcCustomEvent;
 
 typedef struct {
@@ -88,10 +90,35 @@ typedef struct {
     bool    sign_pending;
     uint8_t sign_pending_hash[BTCPC_BLE_SIGN_REQ_LEN];
 
+    /* Incoming DATA_CHANNEL frame — written by BLE ISR, consumed by app thread.
+     * Protected by data_rx_mutex. */
+    FuriMutex* data_rx_mutex;
+    uint8_t    data_rx_buf[BTCPC_BLE_DATA_CH_MAX_LEN];
+    uint16_t   data_rx_len;
+
     /* BLE */
     Bt*                    bt;
     FuriHalBleProfileBase* ble_profile;
     bool                   ble_connected;
+
+    /* Periodic heartbeat timer — fires BtcpcEventHeartbeatTimer while BLE is up */
+    FuriTimer* heartbeat_timer;
+    uint32_t   heartbeat_count;
+
+    /* Last GPS received from phone via DATA_CHANNEL */
+    bool    has_gps;
+    int32_t last_lat_1e7;
+    int32_t last_lon_1e7;
+
+    /* True once a ClockSync has been received from the phone */
+    bool    clock_synced;
+    /* Clock sync anchor — used to derive epoch_minute for obs_id generation.
+     * last_clock_unix_ms: unix time in ms from the most recent CLOCK_SYNC frame.
+     * last_clock_tick:    furi_get_tick() value at the moment that frame arrived.
+     * Together they let us estimate the current unix time as:
+     *   now_ms = last_clock_unix_ms + (furi_get_tick() - last_clock_tick) * 1000 / tick_freq */
+    uint64_t last_clock_unix_ms;
+    uint32_t last_clock_tick;
 
     /* Scratch buffer for hex-encoding public key (64 hex chars + NUL) */
     char     pub_hex[BTCPC_PK_LEN * 2 + 1];
@@ -113,3 +140,10 @@ void btcpc_ble_stop(BtcpcApp* app);
  * BtcpcEventSignRequest to the view dispatcher so the app thread handles it.
  */
 void btcpc_ble_sign_req_cb(const uint8_t* hash, void* context);
+
+/*
+ * DATA_CHANNEL receive callback — fired from the BLE ISR thread.
+ * Copies frame bytes into app->data_rx_buf under data_rx_mutex, then posts
+ * BtcpcEventDataRx to the view dispatcher so the app thread handles it.
+ */
+void btcpc_ble_data_rx_cb(const uint8_t* frame, uint16_t len, void* context);

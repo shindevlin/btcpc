@@ -98,6 +98,16 @@ size_t btcpc_build_ibutton(BtcpcFrame*        frame,
     return BTCPC_FRAME_HEADER_SIZE + plen;
 }
 
+size_t btcpc_build_ir(BtcpcFrame*             frame,
+                       const BtcpcIrCapture*   ir,
+                       const uint8_t           sk[BTCPC_ED25519_SK_LEN]) {
+    uint16_t plen = (uint16_t)sizeof(BtcpcIrCapture);
+    frame_init(&frame->hdr, BTCPC_MSG_IR_CAPTURE, plen);
+    memcpy(frame->payload, ir, plen);
+    frame_sign(&frame->hdr, frame->payload, sk);
+    return BTCPC_FRAME_HEADER_SIZE + plen;
+}
+
 size_t btcpc_build_heartbeat(BtcpcFrame*            frame,
                                const BtcpcHeartbeat*  hb,
                                const uint8_t          sk[BTCPC_ED25519_SK_LEN]) {

@@ -9,9 +9,13 @@ description = "UniFFI-bound mobile core: key derivation, signing, HTTP, BLE fram
 name = "btcpc_mobile_core"
 crate-type = ["cdylib", "staticlib"]
 
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+
 # UniFFI procedural macros — generates Kotlin/Swift bindings from Rust code.
 [dependencies]
-uniffi = { version = "0.28", features = ["tokio"] }
+uniffi = { version = "0.28", features = ["tokio", "cli"] }
 
 # Chain types (entry definitions, canonical types)
 btcpc-types = { path = "../btcpc-node/crates/btcpc-types" }

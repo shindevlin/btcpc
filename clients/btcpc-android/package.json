@@ -10,10 +10,16 @@
     "open": "npx cap open android",
     "run": "npx cap run android"
   },
-  "keywords": ["btcpc", "android", "capacitor", "pwa"],
+  "keywords": [
+    "btcpc",
+    "android",
+    "capacitor",
+    "pwa"
+  ],
   "author": "Shin Devlin <shin@btcpc.network>",
   "license": "MIT",
   "dependencies": {
+    "@capacitor-community/bluetooth-le": "^8.2.0",
     "@capacitor/android": "^8.3.0",
     "@capacitor/cli": "^8.3.0",
     "@capacitor/core": "^8.3.0",

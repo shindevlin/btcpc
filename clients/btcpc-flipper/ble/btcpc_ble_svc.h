@@ -50,39 +50,63 @@
 #define BTCPC_CHAR_PUBKEY_UUID \
     { 0x6f, 0x83, 0xec, 0xa7, 0x1a, 0x2f, 0x93, 0x84, 0xb1, 0x41, 0xbf, 0x2c, 0x55, 0xf3, 0xab, 0xf0 }
 
+/*
+ * DATA_CHANNEL: a4c8e1b7-5f2d-4380-9e16-d70c1f4a2e85
+ *
+ * Bidirectional framed data channel. Phone writes BtcpcFrame messages
+ * (ClockSync, GPS, SensorReq); Flipper notifies BtcpcFrame responses
+ * (Heartbeat, SubGhzObs, RfidScan, etc.). Wire format: btcpc_protocol.h.
+ */
+#define BTCPC_CHAR_DATA_CHANNEL_UUID \
+    { 0x85, 0x2e, 0x4a, 0x1f, 0x0c, 0xd7, 0x16, 0x9e, 0x80, 0x43, 0x2d, 0x5f, 0xb7, 0xe1, 0xc8, 0xa4 }
+
 /* Fixed payload sizes */
 #define BTCPC_BLE_SIGN_REQ_LEN   32  /* SHA-256 hash of entry to sign */
 #define BTCPC_BLE_SIGN_RESP_LEN  64  /* ed25519 signature */
 #define BTCPC_BLE_PUBKEY_LEN     32  /* ed25519 public key */
 
+/* Maximum DATA_CHANNEL frame that fits in a single BLE notification at ATT MTU 244.
+ * 244 (ATT data length) - 3 (ATT notification overhead) = 241 usable bytes. */
+#define BTCPC_BLE_DATA_CH_MAX_LEN  241
+
 /* Max GATT attribute records for this service:
- *   1 (service decl) + 3 chars × 2 (decl + value) + 1 (SIGN_RESP CCCD) = 8
- *   Add 2 spare = 10 */
-#define BTCPC_SVC_MAX_ATTR_RECORDS  10
+ *   1 (service decl)
+ *   + 4 chars × 2 (decl + value) = 8
+ *   + 2 CCCDs (SIGN_RESP, DATA_CHANNEL) = 2
+ *   + 3 spare = 13 → round to 15 */
+#define BTCPC_SVC_MAX_ATTR_RECORDS  15
 
 /*
  * Callback type: fired when the phone writes a sign request.
  * `hash` points to exactly BTCPC_BLE_SIGN_REQ_LEN bytes.
  * `context` is whatever was passed to btcpc_ble_svc_start().
  */
+/* Called from BLE ISR when phone writes a sign request (32-byte hash). */
 typedef void (*BtcpcBleSvcSignRequestCb)(const uint8_t* hash, void* context);
+
+/* Called from BLE ISR when phone writes a DATA_CHANNEL frame.
+ * `frame` points to the raw bytes; `len` is the byte count.
+ * Must not block, must not call sign().  */
+typedef void (*BtcpcBleSvcDataRxCb)(const uint8_t* frame, uint16_t len, void* context);
 
 typedef struct BtcpcBleSvc BtcpcBleSvc;
 
 /*
  * btcpc_ble_svc_start()
  *
- * Register the BTCPC GATT service, add characteristics, and register the
+ * Register the BTCPC GATT service, add all characteristics, and register the
  * BLE event handler. Returns an opaque service handle, or NULL on failure.
  *
- * `pk`  — 32-byte ed25519 public key (copied internally; caller retains ownership)
- * `cb`  — called from the BLE ISR context when a sign request arrives
- * `ctx` — passed through to `cb`
+ * `pk`       — 32-byte ed25519 public key (copied; caller retains ownership)
+ * `sign_cb`  — called from BLE ISR when phone writes a sign request
+ * `data_cb`  — called from BLE ISR when phone writes a DATA_CHANNEL frame
+ * `ctx`      — passed through to both callbacks
  */
 BtcpcBleSvc* btcpc_ble_svc_start(
-    const uint8_t pk[BTCPC_BLE_PUBKEY_LEN],
-    BtcpcBleSvcSignRequestCb cb,
-    void* ctx);
+    const uint8_t           pk[BTCPC_BLE_PUBKEY_LEN],
+    BtcpcBleSvcSignRequestCb sign_cb,
+    BtcpcBleSvcDataRxCb      data_cb,
+    void*                    ctx);
 
 /*
  * btcpc_ble_svc_stop()
@@ -107,3 +131,13 @@ bool btcpc_ble_svc_send_signature(BtcpcBleSvc* svc, const uint8_t sig[BTCPC_BLE_
  * Update the PUBKEY characteristic value (e.g. after identity regeneration).
  */
 void btcpc_ble_svc_update_pubkey(BtcpcBleSvc* svc, const uint8_t pk[BTCPC_BLE_PUBKEY_LEN]);
+
+/*
+ * btcpc_ble_svc_push_frame()
+ *
+ * Notify the connected central with a BtcpcFrame (sensor data, heartbeat, etc.).
+ * `data` points to the raw frame bytes; `len` must be ≤ BTCPC_BLE_DATA_CH_MAX_LEN.
+ * Must be called from the app (non-ISR) thread.
+ * Returns false if not connected, CCCD not enabled, or `len` exceeds maximum.
+ */
+bool btcpc_ble_svc_push_frame(BtcpcBleSvc* svc, const uint8_t* data, uint16_t len);

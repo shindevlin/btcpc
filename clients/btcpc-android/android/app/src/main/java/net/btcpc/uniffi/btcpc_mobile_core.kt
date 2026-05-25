@@ -374,7 +374,7 @@ private fun findLibraryName(componentName: String): String {
     if (libOverride != null) {
         return libOverride
     }
-    return "btcpc_mobile_core"
+    return "uniffi_btcpc_mobile_core"
 }
 
 private inline fun <reified Lib : Library> loadIndirect(
@@ -725,6 +725,48 @@ internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
 
@@ -740,15 +782,57 @@ internal interface UniffiLib : Library {
         
     }
 
+    fun uniffi_btcpc_mobile_core_fn_func_derive_all_pubkeys(`mnemonicWords`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_btcpc_mobile_core_fn_func_derive_posting_pubkey(`mnemonicWords`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_btcpc_mobile_core_fn_func_fetch_account(`baseUrl`: RustBuffer.ByValue,`account`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_btcpc_mobile_core_fn_func_fetch_balance(`baseUrl`: RustBuffer.ByValue,`account`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_btcpc_mobile_core_fn_func_fetch_inference_jobs(`baseUrl`: RustBuffer.ByValue,`statusFilter`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_btcpc_mobile_core_fn_func_fetch_node_info(`baseUrl`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_btcpc_mobile_core_fn_func_parse_ble_frame(`rawFrame`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_btcpc_mobile_core_fn_func_post_account_create(`baseUrl`: RustBuffer.ByValue,`account`: RustBuffer.ByValue,`keysJson`: RustBuffer.ByValue,`fundedBy`: RustBuffer.ByValue,`sigHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_btcpc_mobile_core_fn_func_post_coverage_report(`baseUrl`: RustBuffer.ByValue,`reporter`: RustBuffer.ByValue,`lat`: Double,`lon`: Double,`signalDbm`: RustBuffer.ByValue,`carrierMccMnc`: RustBuffer.ByValue,`technology`: RustBuffer.ByValue,`dataHash`: RustBuffer.ByValue,`sigHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_btcpc_mobile_core_fn_func_post_inference_bid(`baseUrl`: RustBuffer.ByValue,`jobId`: RustBuffer.ByValue,`bidder`: RustBuffer.ByValue,`fee`: Long,`role`: RustBuffer.ByValue,`nonce`: Long,`sigHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_btcpc_mobile_core_fn_func_post_inference_complete(`baseUrl`: RustBuffer.ByValue,`jobId`: RustBuffer.ByValue,`worker`: RustBuffer.ByValue,`resultHash`: RustBuffer.ByValue,`latencyMs`: Long,`outputText`: RustBuffer.ByValue,`sigHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_btcpc_mobile_core_fn_func_post_node_capability(`baseUrl`: RustBuffer.ByValue,`account`: RustBuffer.ByValue,`sigHex`: RustBuffer.ByValue,`epoch`: Long,`vision`: Byte,`audio`: Byte,`codeExec`: Byte,`tier`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_btcpc_mobile_core_fn_func_post_sensor_commit(`baseUrl`: RustBuffer.ByValue,`sensorId`: RustBuffer.ByValue,`owner`: RustBuffer.ByValue,`batchHash`: RustBuffer.ByValue,`readingCount`: Long,`sensorType`: RustBuffer.ByValue,`value`: RustBuffer.ByValue,`sigHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_btcpc_mobile_core_fn_func_post_sensor_register(`baseUrl`: RustBuffer.ByValue,`sensorId`: RustBuffer.ByValue,`owner`: RustBuffer.ByValue,`sensorType`: RustBuffer.ByValue,`location`: RustBuffer.ByValue,`sigHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_btcpc_mobile_core_fn_func_post_stake(`baseUrl`: RustBuffer.ByValue,`account`: RustBuffer.ByValue,`amount`: Long,`nonce`: Long,`signedBy`: RustBuffer.ByValue,`sigHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_btcpc_mobile_core_fn_func_post_transfer(`baseUrl`: RustBuffer.ByValue,`from`: RustBuffer.ByValue,`to`: RustBuffer.ByValue,`amount`: Long,`token`: RustBuffer.ByValue,`memo`: RustBuffer.ByValue,`signedBy`: RustBuffer.ByValue,`nonce`: Long,`sigHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    fun uniffi_btcpc_mobile_core_fn_func_post_unstake(`baseUrl`: RustBuffer.ByValue,`account`: RustBuffer.ByValue,`amount`: Long,`nonce`: Long,`signedBy`: RustBuffer.ByValue,`sigHex`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_btcpc_mobile_core_fn_func_sign_account_create(`mnemonicWords`: RustBuffer.ByValue,`chainId`: RustBuffer.ByValue,`account`: RustBuffer.ByValue,`keysJson`: RustBuffer.ByValue,`fundedBy`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_btcpc_mobile_core_fn_func_sign_coverage_report(`mnemonicWords`: RustBuffer.ByValue,`chainId`: RustBuffer.ByValue,`reporter`: RustBuffer.ByValue,`lat`: Double,`lon`: Double,`carrierMccMnc`: RustBuffer.ByValue,`dataHash`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_btcpc_mobile_core_fn_func_sign_inference_bid(`mnemonicWords`: RustBuffer.ByValue,`chainId`: RustBuffer.ByValue,`bidder`: RustBuffer.ByValue,`jobId`: RustBuffer.ByValue,`fee`: Long,`role`: RustBuffer.ByValue,`nonce`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_btcpc_mobile_core_fn_func_sign_inference_complete(`mnemonicWords`: RustBuffer.ByValue,`chainId`: RustBuffer.ByValue,`worker`: RustBuffer.ByValue,`jobId`: RustBuffer.ByValue,`resultHash`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_btcpc_mobile_core_fn_func_sign_node_capability(`mnemonicWords`: RustBuffer.ByValue,`account`: RustBuffer.ByValue,`epoch`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_btcpc_mobile_core_fn_func_sign_sensor_commit(`mnemonicWords`: RustBuffer.ByValue,`chainId`: RustBuffer.ByValue,`sensorId`: RustBuffer.ByValue,`owner`: RustBuffer.ByValue,`batchHash`: RustBuffer.ByValue,`readingCount`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_btcpc_mobile_core_fn_func_sign_stake(`mnemonicWords`: RustBuffer.ByValue,`chainId`: RustBuffer.ByValue,`account`: RustBuffer.ByValue,`amount`: Long,`nonce`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     fun uniffi_btcpc_mobile_core_fn_func_sign_transfer(`mnemonicWords`: RustBuffer.ByValue,`chainId`: RustBuffer.ByValue,`fromAccount`: RustBuffer.ByValue,`toAccount`: RustBuffer.ByValue,`amount`: Long,`token`: RustBuffer.ByValue,`nonce`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    fun uniffi_btcpc_mobile_core_fn_func_sign_unstake(`mnemonicWords`: RustBuffer.ByValue,`chainId`: RustBuffer.ByValue,`account`: RustBuffer.ByValue,`amount`: Long,`nonce`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     fun uniffi_btcpc_mobile_core_fn_func_sign_with_role(`mnemonicWords`: RustBuffer.ByValue,`chainId`: RustBuffer.ByValue,`roleIndex`: Int,`canonicalJson`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -866,15 +950,57 @@ internal interface UniffiLib : Library {
     ): Unit
     fun ffi_btcpc_mobile_core_rust_future_complete_void(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    fun uniffi_btcpc_mobile_core_checksum_func_derive_all_pubkeys(
+    ): Short
     fun uniffi_btcpc_mobile_core_checksum_func_derive_posting_pubkey(
+    ): Short
+    fun uniffi_btcpc_mobile_core_checksum_func_fetch_account(
+    ): Short
+    fun uniffi_btcpc_mobile_core_checksum_func_fetch_balance(
+    ): Short
+    fun uniffi_btcpc_mobile_core_checksum_func_fetch_inference_jobs(
     ): Short
     fun uniffi_btcpc_mobile_core_checksum_func_fetch_node_info(
     ): Short
     fun uniffi_btcpc_mobile_core_checksum_func_parse_ble_frame(
     ): Short
+    fun uniffi_btcpc_mobile_core_checksum_func_post_account_create(
+    ): Short
+    fun uniffi_btcpc_mobile_core_checksum_func_post_coverage_report(
+    ): Short
+    fun uniffi_btcpc_mobile_core_checksum_func_post_inference_bid(
+    ): Short
+    fun uniffi_btcpc_mobile_core_checksum_func_post_inference_complete(
+    ): Short
+    fun uniffi_btcpc_mobile_core_checksum_func_post_node_capability(
+    ): Short
+    fun uniffi_btcpc_mobile_core_checksum_func_post_sensor_commit(
+    ): Short
+    fun uniffi_btcpc_mobile_core_checksum_func_post_sensor_register(
+    ): Short
+    fun uniffi_btcpc_mobile_core_checksum_func_post_stake(
+    ): Short
     fun uniffi_btcpc_mobile_core_checksum_func_post_transfer(
     ): Short
+    fun uniffi_btcpc_mobile_core_checksum_func_post_unstake(
+    ): Short
+    fun uniffi_btcpc_mobile_core_checksum_func_sign_account_create(
+    ): Short
+    fun uniffi_btcpc_mobile_core_checksum_func_sign_coverage_report(
+    ): Short
+    fun uniffi_btcpc_mobile_core_checksum_func_sign_inference_bid(
+    ): Short
+    fun uniffi_btcpc_mobile_core_checksum_func_sign_inference_complete(
+    ): Short
+    fun uniffi_btcpc_mobile_core_checksum_func_sign_node_capability(
+    ): Short
+    fun uniffi_btcpc_mobile_core_checksum_func_sign_sensor_commit(
+    ): Short
+    fun uniffi_btcpc_mobile_core_checksum_func_sign_stake(
+    ): Short
     fun uniffi_btcpc_mobile_core_checksum_func_sign_transfer(
+    ): Short
+    fun uniffi_btcpc_mobile_core_checksum_func_sign_unstake(
     ): Short
     fun uniffi_btcpc_mobile_core_checksum_func_sign_with_role(
     ): Short
@@ -897,7 +1023,19 @@ private fun uniffiCheckContractApiVersion(lib: UniffiLib) {
 
 @Suppress("UNUSED_PARAMETER")
 private fun uniffiCheckApiChecksums(lib: UniffiLib) {
+    if (lib.uniffi_btcpc_mobile_core_checksum_func_derive_all_pubkeys() != 12869.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_btcpc_mobile_core_checksum_func_derive_posting_pubkey() != 53129.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_btcpc_mobile_core_checksum_func_fetch_account() != 6784.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_btcpc_mobile_core_checksum_func_fetch_balance() != 52139.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_btcpc_mobile_core_checksum_func_fetch_inference_jobs() != 52282.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_btcpc_mobile_core_checksum_func_fetch_node_info() != 51723.toShort()) {
@@ -906,10 +1044,61 @@ private fun uniffiCheckApiChecksums(lib: UniffiLib) {
     if (lib.uniffi_btcpc_mobile_core_checksum_func_parse_ble_frame() != 28386.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_btcpc_mobile_core_checksum_func_post_account_create() != 30884.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_btcpc_mobile_core_checksum_func_post_coverage_report() != 41164.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_btcpc_mobile_core_checksum_func_post_inference_bid() != 23459.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_btcpc_mobile_core_checksum_func_post_inference_complete() != 61606.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_btcpc_mobile_core_checksum_func_post_node_capability() != 46841.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_btcpc_mobile_core_checksum_func_post_sensor_commit() != 27450.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_btcpc_mobile_core_checksum_func_post_sensor_register() != 50914.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_btcpc_mobile_core_checksum_func_post_stake() != 21435.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_btcpc_mobile_core_checksum_func_post_transfer() != 58055.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_btcpc_mobile_core_checksum_func_post_unstake() != 4220.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_btcpc_mobile_core_checksum_func_sign_account_create() != 774.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_btcpc_mobile_core_checksum_func_sign_coverage_report() != 50029.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_btcpc_mobile_core_checksum_func_sign_inference_bid() != 389.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_btcpc_mobile_core_checksum_func_sign_inference_complete() != 23638.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_btcpc_mobile_core_checksum_func_sign_node_capability() != 59125.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_btcpc_mobile_core_checksum_func_sign_sensor_commit() != 63549.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_btcpc_mobile_core_checksum_func_sign_stake() != 21655.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_btcpc_mobile_core_checksum_func_sign_transfer() != 51183.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_btcpc_mobile_core_checksum_func_sign_unstake() != 42942.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_btcpc_mobile_core_checksum_func_sign_with_role() != 15612.toShort()) {
@@ -1014,6 +1203,29 @@ public object FfiConverterUInt: FfiConverter<UInt, Int> {
 /**
  * @suppress
  */
+public object FfiConverterInt: FfiConverter<Int, Int> {
+    override fun lift(value: Int): Int {
+        return value
+    }
+
+    override fun read(buf: ByteBuffer): Int {
+        return buf.getInt()
+    }
+
+    override fun lower(value: Int): Int {
+        return value
+    }
+
+    override fun allocationSize(value: Int) = 4UL
+
+    override fun write(value: Int, buf: ByteBuffer) {
+        buf.putInt(value)
+    }
+}
+
+/**
+ * @suppress
+ */
 public object FfiConverterULong: FfiConverter<ULong, Long> {
     override fun lift(value: Long): ULong {
         return value.toULong()
@@ -1031,6 +1243,29 @@ public object FfiConverterULong: FfiConverter<ULong, Long> {
 
     override fun write(value: ULong, buf: ByteBuffer) {
         buf.putLong(value.toLong())
+    }
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterDouble: FfiConverter<Double, Double> {
+    override fun lift(value: Double): Double {
+        return value
+    }
+
+    override fun read(buf: ByteBuffer): Double {
+        return buf.getDouble()
+    }
+
+    override fun lower(value: Double): Double {
+        return value
+    }
+
+    override fun allocationSize(value: Double) = 8UL
+
+    override fun write(value: Double, buf: ByteBuffer) {
+        buf.putDouble(value)
     }
 }
 
@@ -1136,17 +1371,7 @@ public object FfiConverterByteArray: FfiConverterRustBuffer<ByteArray> {
 
 
 data class BleFrame (
-    /**
-     * Raw BtcpcMsgType value (see btcpc_protocol.h).
-     * 0x01=SubGhzObs, 0x02=RfidScan, 0x03=NfcScan, 0x04=IButton,
-     * 0x05=Heartbeat, 0x06=IrCapture,
-     * 0x10=EntryHash, 0x11=ClockSync, 0x12=Gps,
-     * 0x13=SignReq (future), 0x07=SignResp (future)
-     */
     var `msgType`: kotlin.UByte, 
-    /**
-     * Decoded payload bytes (payload_len bytes after the 71-byte header).
-     */
     var `payload`: kotlin.ByteArray
 ) {
     
@@ -1265,6 +1490,70 @@ public object FfiConverterTypeMobileCoreError : FfiConverterRustBuffer<MobileCor
 /**
  * @suppress
  */
+public object FfiConverterOptionalInt: FfiConverterRustBuffer<kotlin.Int?> {
+    override fun read(buf: ByteBuffer): kotlin.Int? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterInt.read(buf)
+    }
+
+    override fun allocationSize(value: kotlin.Int?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterInt.allocationSize(value)
+        }
+    }
+
+    override fun write(value: kotlin.Int?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterInt.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalDouble: FfiConverterRustBuffer<kotlin.Double?> {
+    override fun read(buf: ByteBuffer): kotlin.Double? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterDouble.read(buf)
+    }
+
+    override fun allocationSize(value: kotlin.Double?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterDouble.allocationSize(value)
+        }
+    }
+
+    override fun write(value: kotlin.Double?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterDouble.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?> {
     override fun read(buf: ByteBuffer): kotlin.String? {
         if (buf.get().toInt() == 0) {
@@ -1290,18 +1579,16 @@ public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?>
         }
     }
 }
-        /**
-         * Derive the BTCPC posting key from a BIP39 mnemonic (UTF-8 string).
-         *
-         * Derivation path: SLIP-10 m/44'/6942'/2'/0'  (role 2 = posting)
-         * This matches wallet.rs exactly — same HMAC-SHA512 chain, same hardened
-         * path, no passphrase (empty string passed to Mnemonic::to_seed).
-         *
-         * Returns the ed25519 public key as a 64-char lowercase hex string.
-         * The private key is NOT returned — callers pass the mnemonic to sign().
-         *
-         * Error: returns an error string if the mnemonic is invalid BIP39.
-         */
+    @Throws(MobileCoreException::class) fun `deriveAllPubkeys`(`mnemonicWords`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(MobileCoreException) { _status ->
+    UniffiLib.INSTANCE.uniffi_btcpc_mobile_core_fn_func_derive_all_pubkeys(
+        FfiConverterString.lower(`mnemonicWords`),_status)
+}
+    )
+    }
+    
+
     @Throws(MobileCoreException::class) fun `derivePostingPubkey`(`mnemonicWords`: kotlin.String): kotlin.String {
             return FfiConverterString.lift(
     uniffiRustCallWithError(MobileCoreException) { _status ->
@@ -1312,10 +1599,36 @@ public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?>
     }
     
 
-        /**
-         * Fetch /api/node/info from a BTCPC node.
-         * Returns the raw JSON string. Caller parses it.
-         */
+    @Throws(MobileCoreException::class) fun `fetchAccount`(`baseUrl`: kotlin.String, `account`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(MobileCoreException) { _status ->
+    UniffiLib.INSTANCE.uniffi_btcpc_mobile_core_fn_func_fetch_account(
+        FfiConverterString.lower(`baseUrl`),FfiConverterString.lower(`account`),_status)
+}
+    )
+    }
+    
+
+    @Throws(MobileCoreException::class) fun `fetchBalance`(`baseUrl`: kotlin.String, `account`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(MobileCoreException) { _status ->
+    UniffiLib.INSTANCE.uniffi_btcpc_mobile_core_fn_func_fetch_balance(
+        FfiConverterString.lower(`baseUrl`),FfiConverterString.lower(`account`),_status)
+}
+    )
+    }
+    
+
+    @Throws(MobileCoreException::class) fun `fetchInferenceJobs`(`baseUrl`: kotlin.String, `statusFilter`: kotlin.String?): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(MobileCoreException) { _status ->
+    UniffiLib.INSTANCE.uniffi_btcpc_mobile_core_fn_func_fetch_inference_jobs(
+        FfiConverterString.lower(`baseUrl`),FfiConverterOptionalString.lower(`statusFilter`),_status)
+}
+    )
+    }
+    
+
     @Throws(MobileCoreException::class) fun `fetchNodeInfo`(`baseUrl`: kotlin.String): kotlin.String {
             return FfiConverterString.lift(
     uniffiRustCallWithError(MobileCoreException) { _status ->
@@ -1326,16 +1639,6 @@ public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?>
     }
     
 
-        /**
-         * Parse a raw BLE frame received from the Flipper Zero.
-         *
-         * Validates the 4-byte magic ("BTPC"), reads msg_type and payload_len,
-         * and returns the payload bytes. Signature verification against the
-         * Flipper's on-chain public key is the caller's responsibility — this
-         * function only decodes the frame structure.
-         *
-         * Returns a BleFrame with the message type code and payload bytes.
-         */
     @Throws(MobileCoreException::class) fun `parseBleFrame`(`rawFrame`: kotlin.ByteArray): BleFrame {
             return FfiConverterTypeBleFrame.lift(
     uniffiRustCallWithError(MobileCoreException) { _status ->
@@ -1346,20 +1649,86 @@ public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?>
     }
     
 
-        /**
-         * POST a Transfer entry to /api/transfer.
-         *
-         * Flat body matching TransferBody in rust/btcpc-node/src/api.rs.
-         * `amount`: in dreams (u64). 1 BTCPC = 100,000,000 dreams.
-         * `token`: "dreams" for the native token.
-         * `signed_by`: account name of the signer (usually same as from).
-         * `sig_hex`: 128-char hex ed25519 signature over the canonical signing message.
-         *
-         * Returns the entry hash (64-char hex) on success.
-         * Returns MobileCoreError::ParseError("not connected to network ...") if the
-         * node has zero peers — the mobile client MUST surface this to the user and
-         * not show the transfer as confirmed.
-         */
+    @Throws(MobileCoreException::class) fun `postAccountCreate`(`baseUrl`: kotlin.String, `account`: kotlin.String, `keysJson`: kotlin.String, `fundedBy`: kotlin.String?, `sigHex`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(MobileCoreException) { _status ->
+    UniffiLib.INSTANCE.uniffi_btcpc_mobile_core_fn_func_post_account_create(
+        FfiConverterString.lower(`baseUrl`),FfiConverterString.lower(`account`),FfiConverterString.lower(`keysJson`),FfiConverterOptionalString.lower(`fundedBy`),FfiConverterString.lower(`sigHex`),_status)
+}
+    )
+    }
+    
+
+    @Throws(MobileCoreException::class) fun `postCoverageReport`(`baseUrl`: kotlin.String, `reporter`: kotlin.String, `lat`: kotlin.Double, `lon`: kotlin.Double, `signalDbm`: kotlin.Int?, `carrierMccMnc`: kotlin.String, `technology`: kotlin.String, `dataHash`: kotlin.String, `sigHex`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(MobileCoreException) { _status ->
+    UniffiLib.INSTANCE.uniffi_btcpc_mobile_core_fn_func_post_coverage_report(
+        FfiConverterString.lower(`baseUrl`),FfiConverterString.lower(`reporter`),FfiConverterDouble.lower(`lat`),FfiConverterDouble.lower(`lon`),FfiConverterOptionalInt.lower(`signalDbm`),FfiConverterString.lower(`carrierMccMnc`),FfiConverterString.lower(`technology`),FfiConverterString.lower(`dataHash`),FfiConverterString.lower(`sigHex`),_status)
+}
+    )
+    }
+    
+
+    @Throws(MobileCoreException::class) fun `postInferenceBid`(`baseUrl`: kotlin.String, `jobId`: kotlin.String, `bidder`: kotlin.String, `fee`: kotlin.ULong, `role`: kotlin.String, `nonce`: kotlin.ULong, `sigHex`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(MobileCoreException) { _status ->
+    UniffiLib.INSTANCE.uniffi_btcpc_mobile_core_fn_func_post_inference_bid(
+        FfiConverterString.lower(`baseUrl`),FfiConverterString.lower(`jobId`),FfiConverterString.lower(`bidder`),FfiConverterULong.lower(`fee`),FfiConverterString.lower(`role`),FfiConverterULong.lower(`nonce`),FfiConverterString.lower(`sigHex`),_status)
+}
+    )
+    }
+    
+
+    @Throws(MobileCoreException::class) fun `postInferenceComplete`(`baseUrl`: kotlin.String, `jobId`: kotlin.String, `worker`: kotlin.String, `resultHash`: kotlin.String, `latencyMs`: kotlin.ULong, `outputText`: kotlin.String, `sigHex`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(MobileCoreException) { _status ->
+    UniffiLib.INSTANCE.uniffi_btcpc_mobile_core_fn_func_post_inference_complete(
+        FfiConverterString.lower(`baseUrl`),FfiConverterString.lower(`jobId`),FfiConverterString.lower(`worker`),FfiConverterString.lower(`resultHash`),FfiConverterULong.lower(`latencyMs`),FfiConverterString.lower(`outputText`),FfiConverterString.lower(`sigHex`),_status)
+}
+    )
+    }
+    
+
+    @Throws(MobileCoreException::class) fun `postNodeCapability`(`baseUrl`: kotlin.String, `account`: kotlin.String, `sigHex`: kotlin.String, `epoch`: kotlin.ULong, `vision`: kotlin.Boolean, `audio`: kotlin.Boolean, `codeExec`: kotlin.Boolean, `tier`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(MobileCoreException) { _status ->
+    UniffiLib.INSTANCE.uniffi_btcpc_mobile_core_fn_func_post_node_capability(
+        FfiConverterString.lower(`baseUrl`),FfiConverterString.lower(`account`),FfiConverterString.lower(`sigHex`),FfiConverterULong.lower(`epoch`),FfiConverterBoolean.lower(`vision`),FfiConverterBoolean.lower(`audio`),FfiConverterBoolean.lower(`codeExec`),FfiConverterString.lower(`tier`),_status)
+}
+    )
+    }
+    
+
+    @Throws(MobileCoreException::class) fun `postSensorCommit`(`baseUrl`: kotlin.String, `sensorId`: kotlin.String, `owner`: kotlin.String, `batchHash`: kotlin.String, `readingCount`: kotlin.ULong, `sensorType`: kotlin.String, `value`: kotlin.Double?, `sigHex`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(MobileCoreException) { _status ->
+    UniffiLib.INSTANCE.uniffi_btcpc_mobile_core_fn_func_post_sensor_commit(
+        FfiConverterString.lower(`baseUrl`),FfiConverterString.lower(`sensorId`),FfiConverterString.lower(`owner`),FfiConverterString.lower(`batchHash`),FfiConverterULong.lower(`readingCount`),FfiConverterString.lower(`sensorType`),FfiConverterOptionalDouble.lower(`value`),FfiConverterString.lower(`sigHex`),_status)
+}
+    )
+    }
+    
+
+    @Throws(MobileCoreException::class) fun `postSensorRegister`(`baseUrl`: kotlin.String, `sensorId`: kotlin.String, `owner`: kotlin.String, `sensorType`: kotlin.String, `location`: kotlin.String?, `sigHex`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(MobileCoreException) { _status ->
+    UniffiLib.INSTANCE.uniffi_btcpc_mobile_core_fn_func_post_sensor_register(
+        FfiConverterString.lower(`baseUrl`),FfiConverterString.lower(`sensorId`),FfiConverterString.lower(`owner`),FfiConverterString.lower(`sensorType`),FfiConverterOptionalString.lower(`location`),FfiConverterString.lower(`sigHex`),_status)
+}
+    )
+    }
+    
+
+    @Throws(MobileCoreException::class) fun `postStake`(`baseUrl`: kotlin.String, `account`: kotlin.String, `amount`: kotlin.ULong, `nonce`: kotlin.ULong, `signedBy`: kotlin.String, `sigHex`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(MobileCoreException) { _status ->
+    UniffiLib.INSTANCE.uniffi_btcpc_mobile_core_fn_func_post_stake(
+        FfiConverterString.lower(`baseUrl`),FfiConverterString.lower(`account`),FfiConverterULong.lower(`amount`),FfiConverterULong.lower(`nonce`),FfiConverterString.lower(`signedBy`),FfiConverterString.lower(`sigHex`),_status)
+}
+    )
+    }
+    
+
     @Throws(MobileCoreException::class) fun `postTransfer`(`baseUrl`: kotlin.String, `from`: kotlin.String, `to`: kotlin.String, `amount`: kotlin.ULong, `token`: kotlin.String, `memo`: kotlin.String?, `signedBy`: kotlin.String, `nonce`: kotlin.ULong, `sigHex`: kotlin.String): kotlin.String {
             return FfiConverterString.lift(
     uniffiRustCallWithError(MobileCoreException) { _status ->
@@ -1370,17 +1739,86 @@ public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?>
     }
     
 
-        /**
-         * Sign a Transfer entry using the posting key derived from the mnemonic.
-         *
-         * NOTE: Transfer is validated against the ACTIVE key on-chain (not posting).
-         * The posting key is used here for daily-activity signing as documented in
-         * wallet.rs. If the account uses active-key-only policy, callers must
-         * supply the active key derivation instead — see sign_with_role().
-         *
-         * `chain_id`: "btcpc-satoshi" (testnet) or "btcpc-1" (mainnet).
-         * Returns a 128-char lowercase hex ed25519 signature.
-         */
+    @Throws(MobileCoreException::class) fun `postUnstake`(`baseUrl`: kotlin.String, `account`: kotlin.String, `amount`: kotlin.ULong, `nonce`: kotlin.ULong, `signedBy`: kotlin.String, `sigHex`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(MobileCoreException) { _status ->
+    UniffiLib.INSTANCE.uniffi_btcpc_mobile_core_fn_func_post_unstake(
+        FfiConverterString.lower(`baseUrl`),FfiConverterString.lower(`account`),FfiConverterULong.lower(`amount`),FfiConverterULong.lower(`nonce`),FfiConverterString.lower(`signedBy`),FfiConverterString.lower(`sigHex`),_status)
+}
+    )
+    }
+    
+
+    @Throws(MobileCoreException::class) fun `signAccountCreate`(`mnemonicWords`: kotlin.String, `chainId`: kotlin.String, `account`: kotlin.String, `keysJson`: kotlin.String, `fundedBy`: kotlin.String?): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(MobileCoreException) { _status ->
+    UniffiLib.INSTANCE.uniffi_btcpc_mobile_core_fn_func_sign_account_create(
+        FfiConverterString.lower(`mnemonicWords`),FfiConverterString.lower(`chainId`),FfiConverterString.lower(`account`),FfiConverterString.lower(`keysJson`),FfiConverterOptionalString.lower(`fundedBy`),_status)
+}
+    )
+    }
+    
+
+    @Throws(MobileCoreException::class) fun `signCoverageReport`(`mnemonicWords`: kotlin.String, `chainId`: kotlin.String, `reporter`: kotlin.String, `lat`: kotlin.Double, `lon`: kotlin.Double, `carrierMccMnc`: kotlin.String, `dataHash`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(MobileCoreException) { _status ->
+    UniffiLib.INSTANCE.uniffi_btcpc_mobile_core_fn_func_sign_coverage_report(
+        FfiConverterString.lower(`mnemonicWords`),FfiConverterString.lower(`chainId`),FfiConverterString.lower(`reporter`),FfiConverterDouble.lower(`lat`),FfiConverterDouble.lower(`lon`),FfiConverterString.lower(`carrierMccMnc`),FfiConverterString.lower(`dataHash`),_status)
+}
+    )
+    }
+    
+
+    @Throws(MobileCoreException::class) fun `signInferenceBid`(`mnemonicWords`: kotlin.String, `chainId`: kotlin.String, `bidder`: kotlin.String, `jobId`: kotlin.String, `fee`: kotlin.ULong, `role`: kotlin.String, `nonce`: kotlin.ULong): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(MobileCoreException) { _status ->
+    UniffiLib.INSTANCE.uniffi_btcpc_mobile_core_fn_func_sign_inference_bid(
+        FfiConverterString.lower(`mnemonicWords`),FfiConverterString.lower(`chainId`),FfiConverterString.lower(`bidder`),FfiConverterString.lower(`jobId`),FfiConverterULong.lower(`fee`),FfiConverterString.lower(`role`),FfiConverterULong.lower(`nonce`),_status)
+}
+    )
+    }
+    
+
+    @Throws(MobileCoreException::class) fun `signInferenceComplete`(`mnemonicWords`: kotlin.String, `chainId`: kotlin.String, `worker`: kotlin.String, `jobId`: kotlin.String, `resultHash`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(MobileCoreException) { _status ->
+    UniffiLib.INSTANCE.uniffi_btcpc_mobile_core_fn_func_sign_inference_complete(
+        FfiConverterString.lower(`mnemonicWords`),FfiConverterString.lower(`chainId`),FfiConverterString.lower(`worker`),FfiConverterString.lower(`jobId`),FfiConverterString.lower(`resultHash`),_status)
+}
+    )
+    }
+    
+
+    @Throws(MobileCoreException::class) fun `signNodeCapability`(`mnemonicWords`: kotlin.String, `account`: kotlin.String, `epoch`: kotlin.ULong): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(MobileCoreException) { _status ->
+    UniffiLib.INSTANCE.uniffi_btcpc_mobile_core_fn_func_sign_node_capability(
+        FfiConverterString.lower(`mnemonicWords`),FfiConverterString.lower(`account`),FfiConverterULong.lower(`epoch`),_status)
+}
+    )
+    }
+    
+
+    @Throws(MobileCoreException::class) fun `signSensorCommit`(`mnemonicWords`: kotlin.String, `chainId`: kotlin.String, `sensorId`: kotlin.String, `owner`: kotlin.String, `batchHash`: kotlin.String, `readingCount`: kotlin.ULong): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(MobileCoreException) { _status ->
+    UniffiLib.INSTANCE.uniffi_btcpc_mobile_core_fn_func_sign_sensor_commit(
+        FfiConverterString.lower(`mnemonicWords`),FfiConverterString.lower(`chainId`),FfiConverterString.lower(`sensorId`),FfiConverterString.lower(`owner`),FfiConverterString.lower(`batchHash`),FfiConverterULong.lower(`readingCount`),_status)
+}
+    )
+    }
+    
+
+    @Throws(MobileCoreException::class) fun `signStake`(`mnemonicWords`: kotlin.String, `chainId`: kotlin.String, `account`: kotlin.String, `amount`: kotlin.ULong, `nonce`: kotlin.ULong): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(MobileCoreException) { _status ->
+    UniffiLib.INSTANCE.uniffi_btcpc_mobile_core_fn_func_sign_stake(
+        FfiConverterString.lower(`mnemonicWords`),FfiConverterString.lower(`chainId`),FfiConverterString.lower(`account`),FfiConverterULong.lower(`amount`),FfiConverterULong.lower(`nonce`),_status)
+}
+    )
+    }
+    
+
     @Throws(MobileCoreException::class) fun `signTransfer`(`mnemonicWords`: kotlin.String, `chainId`: kotlin.String, `fromAccount`: kotlin.String, `toAccount`: kotlin.String, `amount`: kotlin.ULong, `token`: kotlin.String, `nonce`: kotlin.ULong): kotlin.String {
             return FfiConverterString.lift(
     uniffiRustCallWithError(MobileCoreException) { _status ->
@@ -1391,10 +1829,16 @@ public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?>
     }
     
 
-        /**
-         * Sign using an explicit role index (0=owner, 1=active, 2=posting, 3=memo).
-         * Use this when an entry requires the active key (most on-chain ops do).
-         */
+    @Throws(MobileCoreException::class) fun `signUnstake`(`mnemonicWords`: kotlin.String, `chainId`: kotlin.String, `account`: kotlin.String, `amount`: kotlin.ULong, `nonce`: kotlin.ULong): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(MobileCoreException) { _status ->
+    UniffiLib.INSTANCE.uniffi_btcpc_mobile_core_fn_func_sign_unstake(
+        FfiConverterString.lower(`mnemonicWords`),FfiConverterString.lower(`chainId`),FfiConverterString.lower(`account`),FfiConverterULong.lower(`amount`),FfiConverterULong.lower(`nonce`),_status)
+}
+    )
+    }
+    
+
     @Throws(MobileCoreException::class) fun `signWithRole`(`mnemonicWords`: kotlin.String, `chainId`: kotlin.String, `roleIndex`: kotlin.UInt, `canonicalJson`: kotlin.String): kotlin.String {
             return FfiConverterString.lift(
     uniffiRustCallWithError(MobileCoreException) { _status ->
@@ -1405,11 +1849,6 @@ public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?>
     }
     
 
-        /**
-         * Verify the ed25519 signature in a BLE frame header against a known
-         * Flipper public key. `flipper_pubkey_hex`: 64-char hex ed25519 pubkey.
-         * The signature covers the payload bytes only (as documented in btcpc_protocol.h).
-         */
     @Throws(MobileCoreException::class) fun `verifyBleFrameSig`(`rawFrame`: kotlin.ByteArray, `flipperPubkeyHex`: kotlin.String): kotlin.Boolean {
             return FfiConverterBoolean.lift(
     uniffiRustCallWithError(MobileCoreException) { _status ->

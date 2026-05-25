@@ -196,6 +196,13 @@ def _extract_with_btcpc(text: str, doc_id: str) -> Optional[dict]:
         if resp.status_code == 401:
             logger.warning("BTCPC account %s is not valid — check BTCPC_ACCOUNT env var", BTCPC_ACCOUNT)
             return None
+        if resp.status_code == 503:
+            # Node's Ollama connection timed out — model may still be loading or GPU not available
+            logger.warning(
+                "BTCPC node inference unavailable (503) — Ollama may need GPU or more warmup time. "
+                "Set BTCPC_OLLAMA_MODEL to a smaller model or wait for the model to load."
+            )
+            return None
         resp.raise_for_status()
         content = resp.json()["choices"][0]["message"]["content"]
         # Strip markdown fences if the model added them
