@@ -1,5 +1,6 @@
 mod chain;
 mod clock;
+mod flipper_rx;
 mod llm;
 mod miner;
 mod net;
@@ -263,6 +264,49 @@ pub extern "C" fn Java_network_btcpc_app_NativeSensorService_nativeSubmitReading
     // Dispatch sensor submission onto the runtime.
     running.runtime.spawn(async move {
         sensors::submit(reading, chain, cmd_tx, posting_key).await;
+    });
+
+    JNI_TRUE
+}
+
+/// Ingest a raw BLE frame received from a paired Flipper Zero.
+///
+/// `frame` is the raw bytes off the BLE serial characteristic; `flipper_pubkey`
+/// is the Flipper's registered device public key (64 hex chars). The frame is
+/// parsed, its device signature verified, mapped to a SensorReading owned by
+/// this phone's account, re-signed with the owner posting key, and broadcast to
+/// the network (see flipper_rx::handle_ble_frame and
+/// clients/btcpc-flipper/docs/SIGNING_INTEGRATION.md, Option B).
+///
+/// Returns true if the frame was accepted and dispatched; false if there is no
+/// running node (the parse/verify result is intentionally not surfaced — an
+/// invalid frame is dropped silently as an anti-spoof measure and logged).
+#[no_mangle]
+pub extern "C" fn Java_network_btcpc_app_NativeFlipperService_nativeIngestFrame(
+    mut env:         JNIEnv,
+    _class:          JClass,
+    frame:           jni::objects::JByteArray,
+    flipper_pubkey:  JString,
+) -> jboolean {
+    let guard = node_cell().lock().unwrap();
+    let Some(running) = guard.as_ref() else { return JNI_FALSE; };
+
+    let bytes = match env.convert_byte_array(&frame) {
+        Ok(b) => b,
+        Err(_) => return JNI_FALSE,
+    };
+    let flipper_pk = env.get_string(&flipper_pubkey).map(String::from).unwrap_or_default();
+    if flipper_pk.is_empty() {
+        return JNI_FALSE;
+    }
+
+    let owner       = running.handle.chain.node_id.clone();
+    let posting_key = running.handle.posting_key.clone();
+    let chain       = running.handle.chain.clone();
+    let cmd_tx      = running.handle.cmd_tx.clone();
+
+    running.runtime.spawn(async move {
+        flipper_rx::handle_ble_frame(&bytes, &flipper_pk, &owner, posting_key, chain, cmd_tx).await;
     });
 
     JNI_TRUE
