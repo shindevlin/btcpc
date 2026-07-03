@@ -103,6 +103,21 @@
                 android:textColor="#ef4444"
                 android:layout_marginBottom="20dp" />
 
+            <!-- RF census (BTCPC_MSG_SUBGHZ_CENSUS 0x08) -->
+            <TextView android:text="RF CENSUS" style="@style/FieldLabel" />
+
+            <TextView
+                android:id="@+id/census_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/card_bg"
+                android:padding="12dp"
+                android:textColor="#9ca3af"
+                android:textSize="11sp"
+                android:fontFamily="monospace"
+                android:text="Listening for RF..."
+                android:layout_marginBottom="16dp" />
+
             <!-- Sensor data channel -->
             <TextView android:text="FLIPPER SENSORS" style="@style/FieldLabel" />
 
@@ -196,6 +211,48 @@
                     android:text="IR Capture"
                     android:backgroundTint="#1f2937"
                     android:textColor="#9ca3af" />
+
+            </LinearLayout>
+
+            <!-- OTA firmware update -->
+            <TextView android:text="FIRMWARE UPDATE" style="@style/FieldLabel" />
+
+            <TextView
+                android:id="@+id/ota_status_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/card_bg"
+                android:padding="12dp"
+                android:textColor="#9ca3af"
+                android:textSize="11sp"
+                android:fontFamily="monospace"
+                android:text="No file selected."
+                android:layout_marginBottom="8dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="8dp">
+
+                <Button
+                    android:id="@+id/btn_select_fap"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:text="Select .fap"
+                    android:backgroundTint="#1f2937"
+                    android:textColor="#9ca3af"
+                    android:layout_marginEnd="8dp" />
+
+                <Button
+                    android:id="@+id/btn_update_flipper"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
+                    android:text="Update Flipper"
+                    android:backgroundTint="#1f2937"
+                    android:textColor="#f59e0b" />
 
             </LinearLayout>
 

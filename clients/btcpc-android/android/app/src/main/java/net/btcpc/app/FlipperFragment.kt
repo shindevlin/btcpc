@@ -8,10 +8,12 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
@@ -30,6 +32,8 @@ class FlipperFragment : Fragment() {
         val SIGN_RESP_UUID    = UUID.fromString("f40ee8ee-b7a6-4034-8d22-a44357cc4a45")
         val PUBKEY_UUID       = UUID.fromString("f0abf355-2cbf-41b1-8493-2f1aa7ec836f")
         val DATA_CHANNEL_UUID = UUID.fromString("a4c8e1b7-5f2d-4380-9e16-d70c1f4a2e85")
+        val OTA_WRITE_UUID    = UUID.fromString("3c7f1b2a-4d5e-6f80-9a0b-c1d2e3f40516")
+        val OTA_STATUS_UUID   = UUID.fromString("5e8d2c3b-6f7a-8b90-0c1d-2e3f4a5b6071")
         val CCCD_UUID         = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
 
         // ── BtcpcMsgType values (must match btcpc_protocol.h) ─────────────────
@@ -43,8 +47,50 @@ class FlipperFragment : Fragment() {
         const val MSG_GPS         = 0x12.toByte()
         const val MSG_SENSOR_REQ  = 0x14.toByte()
 
+        const val MSG_SUBGHZ_CENSUS  = 0x08.toByte()
+        const val MSG_BLE_ENV        = 0x09.toByte()
+        const val MSG_READER_DETECT  = 0x0A.toByte()
+
         // BtcpcFrameHeader size: magic(4) + type(1) + payload_len(2) + sig(64) = 71
         const val FRAME_HEADER_SIZE = 71
+
+        // SubGHz census: 13 bands × 8 bytes + 2 bytes listen_window_ms = 106 bytes
+        const val CENSUS_BAND_COUNT      = 13
+        const val CENSUS_BAND_BYTES      = 8
+        const val CENSUS_PAYLOAD_BYTES   = CENSUS_BAND_COUNT * CENSUS_BAND_BYTES + 2
+
+        // Band labels indexed 0–12, matching the Flipper btcpc_protocol.h band order
+        val CENSUS_BAND_LABELS = arrayOf(
+            "315.0",   // 0: US remotes/garage
+            "418.1",   // 1: UK legacy alarms/keyfobs
+            "433.4",   // 2: Somfy blinds
+            "433.9",   // 3: Primary ISM (garage, TPMS, weather, alarms)
+            "446.1",   // 4: PMR446 walkie-talkies
+            "780.0",   // 5: LTE 700/800 MHz RSSI
+            "868.1",   // 6: LoRaWAN EU ch1
+            "868.3",   // 7: LoRaWAN EU ch2 / Z-Wave / EnOcean
+            "868.4",   // 8: Z-Wave EU
+            "868.5",   // 9: LoRaWAN EU ch3
+            "868.95",  // 10: wM-Bus smart meters
+            "869.85",  // 11: EU alarms / panic buttons
+            "916.5"    // 12: US ERT smart meters
+        )
+
+        // Band annotation: null = no annotation for long events
+        val CENSUS_BAND_ANNOTATIONS = arrayOf(
+            null, null, null, null,
+            " ← Radio",  // 4: PMR446
+            null,
+            " ← LoRa",   // 6: LoRaWAN EU ch1
+            " ← LoRa",   // 7: LoRaWAN EU ch2
+            null,
+            " ← LoRa",   // 9: LoRaWAN EU ch3
+            " ← Meter",  // 10: wM-Bus
+            null, null
+        )
+
+        // Max file data per OTA chunk: 1 cmd byte + 240 payload = 241 ≤ MTU 244-3
+        const val OTA_CHUNK_SIZE = 240
     }
 
     private var _binding: FragmentFlipperBinding? = null
@@ -57,6 +103,30 @@ class FlipperFragment : Fragment() {
 
     // Whether the DATA_CHANNEL CCCD subscription is complete
     private var dataChannelReady = false
+    // Whether OTA_STATUS CCCD subscription is complete
+    private var otaStatusReady = false
+
+    // OTA state machine
+    private enum class OtaState { IDLE, OPENING, SENDING, COMMITTING }
+    private var otaState    = OtaState.IDLE
+    private var otaBytes:  ByteArray? = null
+    private var otaOffset   = 0
+    private var otaChecksum = 0  // u32 wrapping sum — matches Flipper uint32_t
+
+    private val otaFilePicker = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri ?: return@registerForActivityResult
+        try {
+            val bytes = requireContext().contentResolver.openInputStream(uri)?.readBytes()
+            if (bytes == null) { log("OTA: could not read file"); return@registerForActivityResult }
+            otaBytes = bytes
+            updateOtaStatus("Ready: ${bytes.size} bytes — tap Update Flipper")
+            log("OTA: loaded ${bytes.size} bytes")
+        } catch (e: Exception) {
+            log("OTA: file read error: ${e.message}")
+        }
+    }
 
     private val permLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -80,6 +150,8 @@ class FlipperFragment : Fragment() {
         binding.btnRequestNfc.setOnClickListener      { onRequestSensor(MSG_NFC_SCAN,   "NFC") }
         binding.btnRequestIbutton.setOnClickListener  { onRequestSensor(MSG_IBUTTON,    "iButton") }
         binding.btnRequestIr.setOnClickListener       { onRequestSensor(MSG_IR_CAPTURE, "IR") }
+        binding.btnSelectFap.setOnClickListener       { otaFilePicker.launch(arrayOf("*/*")) }
+        binding.btnUpdateFlipper.setOnClickListener   { onUpdateFlipperClicked() }
         showConnected(false)
     }
 
@@ -104,6 +176,19 @@ class FlipperFragment : Fragment() {
         foundDevices.clear()
         binding.deviceList.removeAllViews()
 
+        // Show bonded Flipper/BTCPC devices immediately — bonded BLE devices don't
+        // reliably surface in generic LE scans due to Resolvable Private Addresses.
+        try {
+            adapter.bondedDevices
+                .filter { dev -> isBtcpcDevice(dev, dev.name ?: "") }
+                .forEach { dev ->
+                    val name = dev.name ?: dev.address
+                    foundDevices[dev.address] = dev
+                    addDeviceRow(dev, name, 0)
+                    log("Found paired: $name (${dev.address})")
+                }
+        } catch (_: SecurityException) {}
+
         // No UUID filter — Flipper puts 128-bit UUID in scan response, not primary advert.
         val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build()
         scanner?.startScan(null, settings, scanCallback)
@@ -124,19 +209,35 @@ class FlipperFragment : Fragment() {
         @SuppressLint("MissingPermission")
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             val dev = result.device ?: return
+            val name = try { dev.name ?: "" } catch (_: SecurityException) { "" }
+            Log.d("FlipperFrag", "scan: addr=${dev.address} name='$name' rssi=${result.rssi}")
             if (foundDevices.containsKey(dev.address)) return
             foundDevices[dev.address] = dev
-            val name = try { dev.name ?: "" } catch (_: SecurityException) { "" }
             addDeviceRow(dev, name, result.rssi)
         }
-        override fun onScanFailed(err: Int) { log("Scan failed (code $err). Try toggling Bluetooth.") }
+        override fun onScanFailed(err: Int) {
+            Log.e("FlipperFrag", "scan failed: $err")
+            log("Scan failed (code $err). Try toggling Bluetooth.")
+        }
+    }
+
+    private fun isBtcpcDevice(dev: BluetoothDevice, name: String): Boolean {
+        if (name.contains("BTCPC", ignoreCase = true)) return true
+        if (name.contains("Flipper", ignoreCase = true)) return true
+        // Flipper BTCPC profile XOR's the last 2 bytes of the factory MAC.
+        // Flipper OUI prefix 80:E1:27:71 remains unchanged — use it as a fingerprint.
+        val addr = dev.address.uppercase()
+        return addr.startsWith("80:E1:27:71")
     }
 
     private fun addDeviceRow(dev: BluetoothDevice, name: String, rssi: Int) {
         requireActivity().runOnUiThread {
-            val isBtcpc = name.contains("BTCPC", ignoreCase = true) ||
-                          name.contains("Flipper", ignoreCase = true)
-            val label = if (name.isNotEmpty()) name else dev.address
+            val isBtcpc = isBtcpcDevice(dev, name)
+            val label = when {
+                name.isNotEmpty() -> name
+                isBtcpc           -> "BTCPC-Flipper"
+                else              -> dev.address
+            }
             val btn = Button(requireContext()).apply {
                 text = if (isBtcpc) "★ $label  ·  ${dev.address}  ($rssi dBm)"
                        else "$label  ·  ${dev.address}  ($rssi dBm)"
@@ -154,7 +255,14 @@ class FlipperFragment : Fragment() {
     @SuppressLint("MissingPermission")
     private fun connectTo(dev: BluetoothDevice, name: String) {
         stopScan()
+        // Close any previous GATT handle before creating a new one.
+        gatt?.close()
+        gatt = null
         log("Connecting to $name...")
+        // Always use autoConnect=false — the Flipper is actively advertising when the BLE scene
+        // is open, so background connection mode just causes an indefinite "Connecting" hang.
+        // If we get status 0x93 (stale bond), the error handler below tells the user to forget
+        // the device in BT settings.
         gatt = try {
             dev.connectGatt(requireContext(), false, gattCallback, BluetoothDevice.TRANSPORT_LE)
         } catch (e: SecurityException) {
@@ -173,8 +281,20 @@ class FlipperFragment : Fragment() {
                     g.requestMtu(244)
                 }
                 BluetoothProfile.STATE_DISCONNECTED -> {
-                    log("Disconnected.")
+                    if (status != BluetoothGatt.GATT_SUCCESS) {
+                        val hint = when (status) {
+                            0x93 -> " (bonding mismatch — forget device in BT settings and retry)"
+                            133  -> " (device not found — make sure Flipper BLE scene is open)"
+                            else -> " (status=0x%02x)".format(status)
+                        }
+                        log("Connection failed.$hint")
+                    } else {
+                        log("Disconnected.")
+                    }
                     dataChannelReady = false
+                    otaStatusReady   = false
+                    otaState         = OtaState.IDLE
+                    g.close()
                     requireActivity().runOnUiThread { showConnected(false) }
                     gatt = null
                 }
@@ -227,7 +347,6 @@ class FlipperFragment : Fragment() {
             }
         }
 
-        // DATA_CHANNEL notifications come here alongside SIGN_RESPONSE notifications
         override fun onCharacteristicChanged(
             g: BluetoothGatt,
             ch: BluetoothGattCharacteristic,
@@ -236,6 +355,7 @@ class FlipperFragment : Fragment() {
             when (ch.uuid) {
                 SIGN_RESP_UUID    -> displaySignature(value)
                 DATA_CHANNEL_UUID -> handleDataFrame(value)
+                OTA_STATUS_UUID   -> handleOtaStatus(value)
             }
         }
 
@@ -246,6 +366,7 @@ class FlipperFragment : Fragment() {
                 when (ch.uuid) {
                     SIGN_RESP_UUID    -> displaySignature(ch.value ?: byteArrayOf())
                     DATA_CHANNEL_UUID -> handleDataFrame(ch.value ?: byteArrayOf())
+                    OTA_STATUS_UUID   -> handleOtaStatus(ch.value ?: byteArrayOf())
                 }
             }
         }
@@ -256,13 +377,17 @@ class FlipperFragment : Fragment() {
             when (charUuid) {
                 SIGN_RESP_UUID -> {
                     log("Notifications enabled (signing).")
-                    // Chain: subscribe DATA_CHANNEL next
                     enableDataChannelNotifications(g)
                 }
                 DATA_CHANNEL_UUID -> {
                     log("Notifications enabled (data channel).")
                     dataChannelReady = true
-                    // Send clock sync as first frame so Flipper knows phone time
+                    // Chain: subscribe OTA_STATUS before sending clock sync
+                    enableOtaStatusNotifications(g)
+                }
+                OTA_STATUS_UUID -> {
+                    log("Notifications enabled (OTA status).")
+                    otaStatusReady = true
                     sendClockSync(g)
                 }
             }
@@ -284,6 +409,15 @@ class FlipperFragment : Fragment() {
     private fun enableDataChannelNotifications(g: BluetoothGatt) {
         val svc  = g.getService(SVC_UUID) ?: return
         val ch   = svc.getCharacteristic(DATA_CHANNEL_UUID) ?: return
+        g.setCharacteristicNotification(ch, true)
+        val desc = ch.getDescriptor(CCCD_UUID) ?: return
+        writeDescriptorCompat(g, desc, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun enableOtaStatusNotifications(g: BluetoothGatt) {
+        val svc  = g.getService(SVC_UUID) ?: return
+        val ch   = svc.getCharacteristic(OTA_STATUS_UUID) ?: return
         g.setCharacteristicNotification(ch, true)
         val desc = ch.getDescriptor(CCCD_UUID) ?: return
         writeDescriptorCompat(g, desc, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
@@ -389,12 +523,15 @@ class FlipperFragment : Fragment() {
         val payload = raw.copyOfRange(FRAME_HEADER_SIZE, FRAME_HEADER_SIZE + payloadLen)
 
         when (msgType) {
-            MSG_HEARTBEAT  -> handleHeartbeat(payload)
-            MSG_SUBGHZ_OBS -> handleSubGhzObs(payload)
-            MSG_RFID_SCAN  -> handleRfidScan(payload)
-            MSG_NFC_SCAN   -> handleNfcScan(payload)
-            MSG_IBUTTON    -> handleIButton(payload)
-            MSG_IR_CAPTURE -> handleIrCapture(payload)
+            MSG_HEARTBEAT     -> handleHeartbeat(payload)
+            MSG_SUBGHZ_OBS    -> handleSubGhzObs(payload)
+            MSG_RFID_SCAN     -> handleRfidScan(payload)
+            MSG_NFC_SCAN      -> handleNfcScan(payload)
+            MSG_IBUTTON       -> handleIButton(payload)
+            MSG_IR_CAPTURE    -> handleIrCapture(payload)
+            MSG_SUBGHZ_CENSUS -> handleSubGhzCensus(payload)
+            MSG_BLE_ENV       -> handleBleEnv(payload)
+            MSG_READER_DETECT -> handleReaderDetect(payload)
             else -> log("Flipper data: type=0x%02x len=%d".format(msgType, payloadLen))
         }
 
@@ -515,6 +652,132 @@ class FlipperFragment : Fragment() {
         log("IR: $protoName  obs=$obsHex…")
     }
 
+    // ── SubGHz Census (0x08) ──────────────────────────────────────────────────
+
+    private data class CensusBand(
+        val label: String,
+        val freqHz: Long,
+        val eventCount: Int,
+        val longCount: Int,
+        val peakRssiDbm: Int,
+        val noiseFloorDbm: Int
+    )
+
+    private fun handleSubGhzCensus(payload: ByteArray) {
+        if (payload.size < CENSUS_PAYLOAD_BYTES) {
+            log("SubGHz census: short payload (${payload.size} < $CENSUS_PAYLOAD_BYTES)")
+            return
+        }
+
+        val buf = ByteBuffer.wrap(payload).order(ByteOrder.LITTLE_ENDIAN)
+        val bands = ArrayList<CensusBand>(CENSUS_BAND_COUNT)
+
+        for (i in 0 until CENSUS_BAND_COUNT) {
+            val freqHz     = buf.int.toLong() and 0xFFFFFFFFL
+            val eventCount = buf.get().toInt() and 0xFF
+            val longCount  = buf.get().toInt() and 0xFF
+            val peakRssi   = buf.get().toInt()  // int8_t
+            val noiseFloor = buf.get().toInt()  // int8_t
+            bands.add(CensusBand(CENSUS_BAND_LABELS[i], freqHz, eventCount, longCount, peakRssi, noiseFloor))
+        }
+        val listenWindowMs = buf.short.toInt() and 0xFFFF
+
+        // Build display text — only show bands with event_count > 0
+        val activeBands = bands.filter { it.eventCount > 0 }
+        val displayText = if (activeBands.isEmpty()) {
+            "No RF activity detected"
+        } else {
+            activeBands.joinToString("\n") { band ->
+                val idx = bands.indexOf(band)
+                val annotation = if (band.longCount > 0) (CENSUS_BAND_ANNOTATIONS[idx] ?: "") else ""
+                "%s  %dev %dL %ddBm%s".format(
+                    band.label, band.eventCount, band.longCount, band.peakRssiDbm, annotation
+                )
+            }
+        }
+
+        log("RF census: ${activeBands.size}/${CENSUS_BAND_COUNT} bands active  listen=${listenWindowMs}ms")
+
+        // Determine highest-priority toast — evaluate in order, fire at most one
+        val toastMsg = when {
+            bands[6].longCount > 0 || bands[7].longCount > 0 || bands[9].longCount > 0 ->
+                "LoRa node detected nearby"
+            bands[10].longCount > 0 ->
+                "Smart meter detected"
+            bands[4].eventCount > 0 ->
+                "Radio activity detected"
+            bands[3].eventCount > 3 ->
+                "Active RF area — garage/sensors/remotes"
+            bands[5].eventCount > 0 ->
+                "Cellular coverage detected"
+            else -> null
+        }
+
+        requireActivity().runOnUiThread {
+            _binding?.censusText?.text = displayText
+            if (toastMsg != null) {
+                Toast.makeText(requireContext(), toastMsg, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    // ── BLE Environment (0x09) ────────────────────────────────────────────────
+
+    private fun handleBleEnv(payload: ByteArray) {
+        if (payload.size < 6) return
+        val adCount        = payload[0].toInt() and 0xFF
+        val scanWindowS    = payload[1].toInt() and 0xFF
+        val rssiMin        = payload[2].toInt()  // int8_t
+        val rssiMax        = payload[3].toInt()  // int8_t
+        val rssiAvg        = payload[4].toInt()  // int8_t
+        val connectableCount = payload[5].toInt() and 0xFF
+
+        // scan_window_s == 0 means stub not yet implemented on Flipper — ignore silently
+        if (scanWindowS == 0) return
+
+        if (adCount == 0) {
+            updateSensorText("BLE Environment\nNo devices in range")
+        } else {
+            val text = buildString {
+                append("BLE Environment\n")
+                append("Nearby: $adCount device${if (adCount == 1) "" else "s"}")
+                if (connectableCount > 0) append("  ($connectableCount connectable)")
+                append("\nRSSI min/avg/max: ${rssiMin}/${rssiAvg}/${rssiMax} dBm")
+            }
+            updateSensorText(text)
+        }
+        log("BLE env: $adCount devices  RSSI $rssiMin/$rssiAvg/$rssiMax dBm  scan=${scanWindowS}s")
+    }
+
+    // ── Reader Detect (0x0A) ──────────────────────────────────────────────────
+
+    private fun handleReaderDetect(payload: ByteArray) {
+        if (payload.size < 2) return
+        val readerType = payload[0].toInt() and 0xFF
+        val fieldRssi  = payload[1].toInt()  // int8_t
+
+        val toastMsg = when (readerType) {
+            0x01 -> "RFID reader detected — access control infrastructure"
+            0x02 -> "NFC reader detected — payment or access terminal"
+            0x03 -> "iButton reader detected — access control system"
+            else -> null
+        }
+        val typeName = when (readerType) {
+            0x01 -> "RFID reader"
+            0x02 -> "NFC reader"
+            0x03 -> "iButton reader"
+            else -> "reader type=0x%02x".format(readerType)
+        }
+        log("Reader detect: $typeName  field RSSI ${fieldRssi} dBm")
+        if (toastMsg != null) {
+            requireActivity().runOnUiThread {
+                if (_binding != null) {
+                    Toast.makeText(requireContext(), toastMsg, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
     private fun updateSensorText(text: String) {
         requireActivity().runOnUiThread {
             _binding?.flipperSensorText?.text = text
@@ -555,6 +818,110 @@ class FlipperFragment : Fragment() {
         }
     }
 
+    // ── OTA firmware update ───────────────────────────────────────────────────
+
+    private fun onUpdateFlipperClicked() {
+        val g = gatt ?: run { log("Not connected."); return }
+        val bytes = otaBytes ?: run { log("No .fap file selected."); return }
+        if (!otaStatusReady) { log("OTA channel not ready."); return }
+        if (otaState != OtaState.IDLE) { log("OTA already in progress."); return }
+
+        otaOffset   = 0
+        otaChecksum = 0
+        otaState    = OtaState.OPENING
+
+        val cmd = ByteBuffer.allocate(5).order(ByteOrder.LITTLE_ENDIAN)
+            .put('O'.code.toByte())
+            .putInt(bytes.size)
+            .array()
+        writeOtaChar(g, cmd)
+        updateOtaStatus("OTA: opening (${bytes.size} bytes)…")
+        log("OTA: sent open (${bytes.size} bytes)")
+    }
+
+    private fun handleOtaStatus(value: ByteArray) {
+        if (value.isEmpty()) return
+        val g = gatt ?: return
+        when {
+            value[0] == 'K'.code.toByte() -> when (otaState) {
+                OtaState.OPENING -> { otaState = OtaState.SENDING; sendNextChunk(g) }
+                OtaState.SENDING -> sendNextChunk(g)
+                else -> {}
+            }
+            value[0] == 'Z'.code.toByte() -> {
+                otaState = OtaState.IDLE
+                updateOtaStatus("OTA complete!")
+                log("OTA: firmware update complete")
+            }
+            value[0] == 'E'.code.toByte() -> {
+                val code = if (value.size >= 2) value[1].toInt() and 0xFF else 0
+                val reason = when (code) {
+                    0x01 -> "open failed"
+                    0x02 -> "write error"
+                    0x03 -> "size mismatch"
+                    0x04 -> "checksum mismatch"
+                    0x05 -> "rename failed"
+                    else -> "error 0x%02x".format(code)
+                }
+                otaState = OtaState.IDLE
+                updateOtaStatus("OTA failed: $reason")
+                log("OTA: failed — $reason")
+            }
+        }
+    }
+
+    private fun sendNextChunk(g: BluetoothGatt) {
+        val bytes = otaBytes ?: return
+        if (otaOffset >= bytes.size) {
+            // All chunks sent — commit
+            otaState = OtaState.COMMITTING
+            val cmd = ByteBuffer.allocate(5).order(ByteOrder.LITTLE_ENDIAN)
+                .put('C'.code.toByte())
+                .putInt(otaChecksum)
+                .array()
+            writeOtaChar(g, cmd)
+            updateOtaStatus("OTA: committing…")
+            log("OTA: sent commit (checksum=0x%08x)".format(otaChecksum))
+            return
+        }
+
+        val chunkLen = minOf(OTA_CHUNK_SIZE, bytes.size - otaOffset)
+        val payload  = bytes.copyOfRange(otaOffset, otaOffset + chunkLen)
+
+        for (b in payload) otaChecksum += b.toInt() and 0xFF
+
+        val cmd = ByteArray(1 + chunkLen)
+        cmd[0] = 'D'.code.toByte()
+        payload.copyInto(cmd, 1)
+        writeOtaChar(g, cmd)
+
+        otaOffset += chunkLen
+        val pct = (otaOffset.toLong() * 100 / bytes.size).toInt()
+        updateOtaStatus("OTA: $otaOffset / ${bytes.size} bytes ($pct%)")
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun writeOtaChar(g: BluetoothGatt, data: ByteArray) {
+        val svc = g.getService(SVC_UUID) ?: return
+        val ch  = svc.getCharacteristic(OTA_WRITE_UUID) ?: return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            g.writeCharacteristic(ch, data, BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE)
+        } else {
+            @Suppress("DEPRECATION")
+            ch.value = data
+            @Suppress("DEPRECATION")
+            ch.writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+            @Suppress("DEPRECATION")
+            g.writeCharacteristic(ch)
+        }
+    }
+
+    private fun updateOtaStatus(text: String) {
+        requireActivity().runOnUiThread {
+            _binding?.otaStatusText?.text = text
+        }
+    }
+
     // ── Disconnect ────────────────────────────────────────────────────────────
 
     @SuppressLint("MissingPermission")
@@ -563,6 +930,8 @@ class FlipperFragment : Fragment() {
         gatt?.close()
         gatt = null
         dataChannelReady = false
+        otaStatusReady   = false
+        otaState         = OtaState.IDLE
         showConnected(false)
         log("Disconnected.")
     }
