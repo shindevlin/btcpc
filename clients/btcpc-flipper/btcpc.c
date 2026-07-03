@@ -12,6 +12,10 @@
 #include "scenes/btcpc_scene_identity.h"
 #include "scenes/btcpc_scene_ble.h"
 #include "scenes/btcpc_scene_subghz.h"
+#include "scenes/btcpc_scene_nfc.h"
+#include "scenes/btcpc_scene_rfid.h"
+#include "scenes/btcpc_scene_ibutton.h"
+#include "scenes/btcpc_scene_ir.h"
 #include "scenes/btcpc_scene_rotate.h"
 
 #include <furi.h>
@@ -28,6 +32,10 @@ static const SceneManagerHandlers btcpc_scene_handlers = {
         [BtcpcSceneIdentity] = btcpc_scene_identity_on_enter,
         [BtcpcSceneBle]      = btcpc_scene_ble_on_enter,
         [BtcpcSceneSubGhz]   = btcpc_scene_subghz_on_enter,
+        [BtcpcSceneNfc]      = btcpc_scene_nfc_on_enter,
+        [BtcpcSceneRfid]     = btcpc_scene_rfid_on_enter,
+        [BtcpcSceneIButton]  = btcpc_scene_ibutton_on_enter,
+        [BtcpcSceneIr]       = btcpc_scene_ir_on_enter,
         [BtcpcSceneRotate]   = btcpc_scene_rotate_on_enter,
     },
     .on_event_handlers = {
@@ -35,6 +43,10 @@ static const SceneManagerHandlers btcpc_scene_handlers = {
         [BtcpcSceneIdentity] = btcpc_scene_identity_on_event,
         [BtcpcSceneBle]      = btcpc_scene_ble_on_event,
         [BtcpcSceneSubGhz]   = btcpc_scene_subghz_on_event,
+        [BtcpcSceneNfc]      = btcpc_scene_nfc_on_event,
+        [BtcpcSceneRfid]     = btcpc_scene_rfid_on_event,
+        [BtcpcSceneIButton]  = btcpc_scene_ibutton_on_event,
+        [BtcpcSceneIr]       = btcpc_scene_ir_on_event,
         [BtcpcSceneRotate]   = btcpc_scene_rotate_on_event,
     },
     .on_exit_handlers = {
@@ -42,6 +54,10 @@ static const SceneManagerHandlers btcpc_scene_handlers = {
         [BtcpcSceneIdentity] = btcpc_scene_identity_on_exit,
         [BtcpcSceneBle]      = btcpc_scene_ble_on_exit,
         [BtcpcSceneSubGhz]   = btcpc_scene_subghz_on_exit,
+        [BtcpcSceneNfc]      = btcpc_scene_nfc_on_exit,
+        [BtcpcSceneRfid]     = btcpc_scene_rfid_on_exit,
+        [BtcpcSceneIButton]  = btcpc_scene_ibutton_on_exit,
+        [BtcpcSceneIr]       = btcpc_scene_ir_on_exit,
         [BtcpcSceneRotate]   = btcpc_scene_rotate_on_exit,
     },
     .scene_num = BtcpcSceneCount,

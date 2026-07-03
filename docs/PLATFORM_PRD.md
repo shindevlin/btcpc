@@ -880,10 +880,39 @@ every future sensor type without a code change per sensor.
   (capturing and submitting these `SensorReading` entries per class) and the
   real-hardware verification remain as the two downstream 1.3 items below.
 
-- [ ] **Extend/replace `clients/btcpc-flipper`** (currently ~240 lines, C,
+- [x] **Extend/replace `clients/btcpc-flipper`** (currently ~240 lines, C,
   prototype only) to capture and submit `SensorReading` entries for each
   supported sensor, signed by the device key already described in
-  `DeviceKeyRegister`/`DeviceClaimStake`.
+  `DeviceKeyRegister`/`DeviceClaimStake`. **Done — capture scenes wired for
+  all five supported classes (subghz, nfc, rfid125, ibutton, ir):
+  `scenes/btcpc_scene_{subghz,nfc,rfid,ibutton,ir}.c`, each captures ->
+  packs the class's payload struct -> computes `data_hash =
+  SHA-256(msg_type||payload)` (new `btcpc_data_hash.c` + standalone
+  `crypto/sha256.c`) -> signs with the on-device ed25519 key -> sends over
+  the existing BLE frame protocol. The `Auto Rotate` scene
+  (`scenes/btcpc_scene_rotate.c`) now drives all five (was previously
+  sub-GHz + heartbeat only, with NFC/RFID/iButton stubbed as always-barren).
+  Protocol change: added `BtcpcIrCapture` payload struct + `btcpc_build_ir()`
+  for the previously-reserved-but-unimplemented `IR_CAPTURE` (0x06) message
+  type — additive only, no existing frame type/layout changed, fully
+  backward-compatible (documented in `protocol/btcpc_protocol.h`). Adversarial
+  review while adding signing tests found and fixed THREE compounding bugs in
+  the vendored `crypto/tweetnacl.c` ed25519 implementation (broken
+  `pack25519` modular reduction, a garbled point-addition formula duplicated
+  and re-broken in two places, and an under-reduced field multiplication)
+  that made every keypair/signature the firmware could have produced
+  cryptographically invalid — fixed and now cross-verified byte-for-byte
+  against Node.js's OpenSSL-backed Ed25519 for an external test vector (see
+  `test/test_ed25519.c` and the FIX comments in `crypto/tweetnacl.c`). Host
+  test suites (`test/test_sha256.c`, `test/test_ed25519.c`,
+  `test/test_sensor_payloads.c`, pre-existing `test/test_scheduler.c`) build
+  and pass cleanly with MSVC (`cl.exe`) — no Flipper SDK/ufbt toolchain was
+  available in this environment, so the NFC/LFRFID/iButton/Infrared
+  hardware-trigger calls are written against the documented worker-API shape
+  but are UNVERIFIED against a real SDK; each is isolated to one function per
+  class specifically so real-hardware reconciliation is narrowly scoped (see
+  README.md "On-device hardware verification"). Sub-GHz capture reuses only
+  the low-level `furi_hal_subghz_*` calls already present before this change.**
 - [ ] **Test on real hardware** — no faked emulator success. A submitted
   reading must be independently verifiable on-chain and correctly ingested
   by the Phase 1.2 aggregation service.

@@ -108,6 +108,24 @@ size_t btcpc_build_heartbeat(BtcpcFrame*            frame,
     return BTCPC_FRAME_HEADER_SIZE + plen;
 }
 
+/*
+ * btcpc_build_ir()
+ *
+ * Serialise a captured infrared signal into `frame`, signing with `sk`.
+ * New in this revision — see the wire-change note at the top of
+ * btcpc_protocol.h. Same pattern as every other btcpc_build_*(): pack the
+ * struct verbatim into the payload, sign the packed bytes, done.
+ */
+size_t btcpc_build_ir(BtcpcFrame*            frame,
+                       const BtcpcIrCapture* ir,
+                       const uint8_t          sk[BTCPC_ED25519_SK_LEN]) {
+    uint16_t plen = (uint16_t)sizeof(BtcpcIrCapture);
+    frame_init(&frame->hdr, BTCPC_MSG_IR_CAPTURE, plen);
+    memcpy(frame->payload, ir, plen);
+    frame_sign(&frame->hdr, frame->payload, sk);
+    return BTCPC_FRAME_HEADER_SIZE + plen;
+}
+
 /* ─── Parser (phone → Flipper) ─────────────────────────────────────────── */
 
 /*

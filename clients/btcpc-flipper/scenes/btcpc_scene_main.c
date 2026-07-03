@@ -9,6 +9,10 @@
 #include "btcpc_scene_identity.h"
 #include "btcpc_scene_ble.h"
 #include "btcpc_scene_subghz.h"
+#include "btcpc_scene_nfc.h"
+#include "btcpc_scene_rfid.h"
+#include "btcpc_scene_ibutton.h"
+#include "btcpc_scene_ir.h"
 #include "btcpc_scene_rotate.h"
 
 #include <gui/modules/submenu.h>
@@ -28,6 +32,14 @@ void btcpc_scene_main_on_enter(void* context) {
     submenu_add_item(app->submenu, "BLE Status", BtcpcMenuBle,
                      btcpc_scene_main_submenu_callback, app);
     submenu_add_item(app->submenu, "Sub-GHz Observe", BtcpcMenuSubGhz,
+                     btcpc_scene_main_submenu_callback, app);
+    submenu_add_item(app->submenu, "NFC Scan", BtcpcMenuNfc,
+                     btcpc_scene_main_submenu_callback, app);
+    submenu_add_item(app->submenu, "125kHz RFID Scan", BtcpcMenuRfid,
+                     btcpc_scene_main_submenu_callback, app);
+    submenu_add_item(app->submenu, "iButton Read", BtcpcMenuIButton,
+                     btcpc_scene_main_submenu_callback, app);
+    submenu_add_item(app->submenu, "IR Capture", BtcpcMenuIr,
                      btcpc_scene_main_submenu_callback, app);
     submenu_add_item(app->submenu, "Auto Rotate", BtcpcMenuRotate,
                      btcpc_scene_main_submenu_callback, app);
@@ -51,6 +63,22 @@ bool btcpc_scene_main_on_event(void* context, SceneManagerEvent event) {
             break;
         case BtcpcMenuSubGhz:
             scene_manager_next_scene(app->scene_manager, BtcpcSceneSubGhz);
+            consumed = true;
+            break;
+        case BtcpcMenuNfc:
+            scene_manager_next_scene(app->scene_manager, BtcpcSceneNfc);
+            consumed = true;
+            break;
+        case BtcpcMenuRfid:
+            scene_manager_next_scene(app->scene_manager, BtcpcSceneRfid);
+            consumed = true;
+            break;
+        case BtcpcMenuIButton:
+            scene_manager_next_scene(app->scene_manager, BtcpcSceneIButton);
+            consumed = true;
+            break;
+        case BtcpcMenuIr:
+            scene_manager_next_scene(app->scene_manager, BtcpcSceneIr);
             consumed = true;
             break;
         case BtcpcMenuRotate:

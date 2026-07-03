@@ -7,19 +7,26 @@
  * event sensors stop once they hit the chain's per-epoch reward cap), then
  * transmits any signed frame to the phone over BLE.
  *
- * Only sub-GHz and heartbeat have real capture implementations today; the other
- * event sensors (NFC/RFID/iButton) report "not found" until their capture is
- * wired, which the scheduler correctly treats as barren and backs off. Adding
- * one is a single capture function — the rotation logic does not change.
+ * Every rotatable sensor class (sub-GHz, NFC, 125kHz RFID, iButton, IR,
+ * heartbeat) now has a real capture implementation, each reusing the same
+ * standalone poll/read function the sensor's own manual capture scene uses
+ * (btcpc_subghz_sample_once / btcpc_nfc_poll_once / btcpc_rfid_read_once /
+ * btcpc_ibutton_read_once / btcpc_ir_capture_once) — adding one is a single
+ * capture function; the rotation logic itself does not change.
  *
  * Shin Devlin — btcpc.network
  */
 
 #include "../btcpc.h"
 #include "../btcpc_ble.h"
+#include "../btcpc_data_hash.h"
 #include "../btcpc_scheduler.h"
 #include "btcpc_scene_rotate.h"
-#include "btcpc_scene_subghz.h" /* reuses the sub-GHz sampling helper */
+#include "btcpc_scene_subghz.h"  /* reuses the sub-GHz sampling helper */
+#include "btcpc_scene_nfc.h"     /* reuses the NFC poll helper */
+#include "btcpc_scene_rfid.h"    /* reuses the RFID read helper */
+#include "btcpc_scene_ibutton.h" /* reuses the iButton read helper */
+#include "btcpc_scene_ir.h"      /* reuses the IR capture helper */
 
 #include <furi_hal_subghz.h>
 #include <furi_hal_region.h>
@@ -46,6 +53,7 @@ static const char* sensor_name(BtcpcSensorKind k) {
     case BtcpcSensorNfc:       return "NFC";
     case BtcpcSensorRfid:      return "RFID";
     case BtcpcSensorIButton:   return "iButton";
+    case BtcpcSensorIr:        return "IR";
     case BtcpcSensorHeartbeat: return "Heartbeat";
     default:                   return "?";
     }
@@ -54,7 +62,10 @@ static const char* sensor_name(BtcpcSensorKind k) {
 /*
  * Perform one capture for `kind`. Returns true if a real reading was produced.
  * On a real reading, builds+signs a frame and (best-effort) sends it over BLE;
- * sets *value for display where meaningful.
+ * sets *value for display where meaningful. Presence-only classes (NFC/RFID/
+ * iButton/IR) set *value = 1 on a hit, matching the chain-side convention
+ * that those classes report `value: f64 = 1.0` ("a read occurred") rather
+ * than a magnitude.
  */
 static bool capture(BtcpcApp* app, BtcpcSensorKind kind, int* value, bool* sent) {
     *value = 0;
@@ -76,6 +87,34 @@ static bool capture(BtcpcApp* app, BtcpcSensorKind kind, int* value, bool* sent)
          * enough to be worthless); productive class = continuous. */
         break;
     }
+    case BtcpcSensorNfc: {
+        BtcpcNfcScan scan;
+        if(!btcpc_nfc_poll_once(&scan)) return false;
+        *value = 1;
+        frame_len = btcpc_build_nfc(&frame, &scan, app->sk);
+        break;
+    }
+    case BtcpcSensorRfid: {
+        BtcpcRfidScan scan;
+        if(!btcpc_rfid_read_once(&scan)) return false;
+        *value = 1;
+        frame_len = btcpc_build_rfid(&frame, &scan, app->sk);
+        break;
+    }
+    case BtcpcSensorIButton: {
+        BtcpcIButton btn;
+        if(!btcpc_ibutton_read_once(&btn)) return false;
+        *value = 1;
+        frame_len = btcpc_build_ibutton(&frame, &btn, app->sk);
+        break;
+    }
+    case BtcpcSensorIr: {
+        BtcpcIrCapture ir;
+        if(!btcpc_ir_capture_once(&ir)) return false;
+        *value = 1;
+        frame_len = btcpc_build_ir(&frame, &ir, app->sk);
+        break;
+    }
     case BtcpcSensorHeartbeat: {
         uint8_t batt = 0;
         (void)furi_hal_power_get_battery_charge_voltage; /* keep include used */
@@ -85,11 +124,7 @@ static bool capture(BtcpcApp* app, BtcpcSensorKind kind, int* value, bool* sent)
         *value = (int)batt;
         break;
     }
-    case BtcpcSensorNfc:
-    case BtcpcSensorRfid:
-    case BtcpcSensorIButton:
     default:
-        /* Capture not wired yet — report barren so the scheduler backs off. */
         return false;
     }
 
@@ -108,7 +143,7 @@ static void rotate_render(BtcpcApp* app) {
         "Value: %d\n"
         "BLE: %s\n\n"
         "Sub-GHz y:%lu  NFC y:%lu\n"
-        "RFID y:%lu  iBtn y:%lu",
+        "RFID y:%lu  iBtn y:%lu  IR y:%lu",
         (unsigned long)g_sched.cycle,
         g_last_sensor, g_last_found ? "(hit)" : "(none)",
         g_last_value,
@@ -116,7 +151,8 @@ static void rotate_render(BtcpcApp* app) {
         (unsigned long)g_sched.sensors[BtcpcSensorSubGhz].total_yield,
         (unsigned long)g_sched.sensors[BtcpcSensorNfc].total_yield,
         (unsigned long)g_sched.sensors[BtcpcSensorRfid].total_yield,
-        (unsigned long)g_sched.sensors[BtcpcSensorIButton].total_yield);
+        (unsigned long)g_sched.sensors[BtcpcSensorIButton].total_yield,
+        (unsigned long)g_sched.sensors[BtcpcSensorIr].total_yield);
     text_box_set_text(app->text_box, g_status);
 }
 

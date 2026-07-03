@@ -101,8 +101,21 @@ Flipper sensors → sign with ed25519 sk → BLE frame → phone app → chain e
 | `RFID_SCAN`       | Protocol, card ID bytes                    |
 | `NFC_SCAN`        | Tech, UID, ATQA, SAK                       |
 | `IBUTTON`         | 64-bit ROM code, family byte               |
+| `IR_CAPTURE`      | Decoded protocol/address/command (or raw)  |
 | `HEARTBEAT`       | Battery %, uptime (s), firmware version    |
-| `IR_CAPTURE`      | (TODO) raw IR pulse data                   |
+
+Every one of the above is captured, packed into its wire struct, signed with
+the device key, and sent to the phone by a dedicated capture scene
+(`scenes/btcpc_scene_subghz.c` / `_nfc.c` / `_rfid.c` / `_ibutton.c` / `_ir.c`)
+or via the **Auto Rotate** scene, which cycles through all of them adaptively
+(`btcpc_scheduler.c`). `data_hash` for the resulting `SensorReading` /
+`SensorDataCommit` chain entry is `SHA-256(msg_type_byte || raw payload
+bytes)` — computed independently on the Flipper (`btcpc_data_hash.c`, for
+on-device display/logging) and on the phone (`payload_data_hash()` in
+`android/rust/btcpc-miner/src/flipper_rx.rs`) from the same signed bytes, so
+the hash is reproducible end-to-end. See `docs/SIGNING_INTEGRATION.md` for
+the full two-hop trust model (device key signs the BLE frame; phone re-signs
+the chain entry with the owner's posting key).
 
 ### Messages phone sends (no signature required)
 
@@ -129,9 +142,13 @@ clients/btcpc-flipper/
   application.fam           — ufbt app manifest
   btcpc.c                   — app entry point, identity management
   btcpc.h                   — types, constants, shared state
+  btcpc_ble.c/.h            — Serial BLE profile transport
+  btcpc_data_hash.c/.h      — data_hash = SHA-256(msg_type || payload) helper
+  btcpc_scheduler.c/.h      — adaptive sensor rotation (Auto Rotate scene)
   crypto/
     ed25519.c/.h             — TweetNaCl wrapper + randombytes() glue
     tweetnacl.c/.h           — TweetNaCl (public domain, ed25519 subset)
+    sha256.c/.h              — standalone SHA-256 for data_hash
   protocol/
     btcpc_protocol.h         — BLE wire format definitions
     btcpc_protocol.c         — serialise / sign / parse messages
@@ -139,16 +156,36 @@ clients/btcpc-flipper/
     btcpc_scene_main.c       — main menu
     btcpc_scene_identity.c   — public key display
     btcpc_scene_ble.c        — BLE pairing status
+    btcpc_scene_subghz.c     — Sub-GHz RSSI capture
+    btcpc_scene_nfc.c        — NFC (ISO14443) presence-scan capture
+    btcpc_scene_rfid.c       — 125kHz RFID presence-scan capture
+    btcpc_scene_ibutton.c    — iButton (1-Wire) presence-read capture
+    btcpc_scene_ir.c         — infrared signal capture
+    btcpc_scene_rotate.c     — adaptive auto-rotation across all sensors
   legacy/
     btcpc_wallet.c           — archived hardware wallet prototype (v0.2)
+  test/
+    test_scheduler.c         — host-buildable scheduler unit tests
+    test_sha256.c             — host-buildable SHA-256 vector tests
+    test_ed25519.c            — host-buildable ed25519 correctness tests
+    test_sensor_payloads.c    — host-buildable capture->sign->hash tests
+    test_host_ed25519.c       — host build of btcpc_ed25519_* (no furi_hal)
+    test_host_crypto_shim.c   — host randombytes() for TweetNaCl in tests
 ```
 
-## Phase 9 TODOs
+## On-device hardware verification (open item)
 
-- Wire BLE NUS peripheral (see `scenes/btcpc_scene_ble.c` TODOs)
-- Sub-GHz scan loop posting `SUBGHZ_OBS` frames
-- RFID/NFC scan callbacks
-- iButton scan callbacks
-- IR capture and rebroadcast
-- Sub-GHz rebroadcast of `ENTRY_HASH` frames received from phone
-- Auto-reconnect on boot using stored paired address
+The capture functions for NFC (`btcpc_nfc_poll_once`), 125kHz RFID
+(`btcpc_rfid_read_once`), iButton (`btcpc_ibutton_read_once`), and IR
+(`btcpc_ir_capture_once`) are written against the documented shape of the
+Flipper SDK's `nfc`/`lfrfid`/`ibutton`/`infrared` worker APIs, but have not
+been compiled against a real Flipper firmware SDK (no `ufbt`/ARM toolchain
+was available in the environment that wrote them). Each is isolated to a
+single function per sensor class specifically so that reconciling against
+the real SDK on real hardware — build errors, exact worker call sequences,
+API drift across firmware versions — only touches that one function; the
+payload struct layout, signing, and `data_hash` computation around it are
+hardware-independent and already verified by the host test suite in `test/`.
+Sub-GHz (`btcpc_scene_subghz.c`) is the one capture path that reuses only
+low-level, stable `furi_hal_subghz_*` calls already present before this
+change and needs no further reconciliation.

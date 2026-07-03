@@ -35,6 +35,7 @@ typedef enum {
     BtcpcSensorNfc,        /* event: ISO14443 card in field             */
     BtcpcSensorRfid,       /* event: 125kHz card in field               */
     BtcpcSensorIButton,    /* event: 1-Wire iButton contact             */
+    BtcpcSensorIr,         /* event: infrared remote signal captured    */
     BtcpcSensorHeartbeat,  /* housekeeping: battery/uptime              */
     BtcpcSensorCount,
 } BtcpcSensorKind;

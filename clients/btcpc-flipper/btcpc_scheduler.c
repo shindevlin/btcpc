@@ -20,6 +20,7 @@ static BtcpcSensorClass class_of(BtcpcSensorKind k) {
     case BtcpcSensorNfc:       return BtcpcClassEvent;
     case BtcpcSensorRfid:      return BtcpcClassEvent;
     case BtcpcSensorIButton:   return BtcpcClassEvent;
+    case BtcpcSensorIr:        return BtcpcClassEvent;
     case BtcpcSensorHeartbeat: return BtcpcClassHousekeeping;
     default:                   return BtcpcClassContinuous;
     }

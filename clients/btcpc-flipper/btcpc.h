@@ -31,6 +31,10 @@ typedef enum {
     BtcpcSceneIdentity,
     BtcpcSceneBle,
     BtcpcSceneSubGhz,
+    BtcpcSceneNfc,
+    BtcpcSceneRfid,
+    BtcpcSceneIButton,
+    BtcpcSceneIr,
     BtcpcSceneRotate,
     BtcpcSceneCount,
 } BtcpcScene;
@@ -48,7 +52,11 @@ typedef enum {
     BtcpcMenuIdentity = 0,
     BtcpcMenuBle      = 1,
     BtcpcMenuSubGhz   = 2,
-    BtcpcMenuRotate   = 3,
+    BtcpcMenuNfc      = 3,
+    BtcpcMenuRfid     = 4,
+    BtcpcMenuIButton  = 5,
+    BtcpcMenuIr       = 6,
+    BtcpcMenuRotate   = 7,
 } BtcpcMenuItem;
 
 typedef struct BtcpcApp {
