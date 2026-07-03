@@ -309,6 +309,9 @@ pub fn router(state: AppState) -> Router {
         .route("/api/node/list", get(get_node_list))
         .route("/api/node/info", get(get_node_info))
         .route("/api/node/models", get(get_node_models))
+        // Integration manifest — self-updating consumer contract (btcpc sync --node)
+        .route("/api/integration/manifest", get(get_integration_manifest))
+        .route("/api/integration/manifest.md", get(get_integration_manifest_md))
         .route("/api/node/config", axum::routing::patch(patch_node_config))
         .route("/app", get(get_app_dashboard))
         .route("/app.html", get(get_app_dashboard))
@@ -1340,6 +1343,92 @@ async fn get_node_info(State(s): State<AppState>) -> Json<serde_json::Value> {
         "model_healer":   model_healer,
         "onion_address":  onion,
     }))
+}
+
+// ── Integration manifest ────────────────────────────────────────────────────
+// The manifest is the ecosystem's machine-readable understanding of this node's
+// surface (routes + ledger-entry signing shapes). It is generated from source by
+// `btcpc manifest generate` (rust/btcpc-sdk) and committed at the repo root as
+// btcpc-manifest.json; CI (.github/workflows/manifest-check.yml) fails if it
+// drifts from source. We embed that CI-verified artifact at compile time and
+// serve it verbatim, so `btcpc sync --node <url>` always gets exactly the
+// manifest that shipped with this binary — no runtime file dependency, no drift.
+static INTEGRATION_MANIFEST_JSON: &str = include_str!("../../../btcpc-manifest.json");
+
+// GET /api/integration/manifest — the machine-readable capability manifest.
+// Consumed by `btcpc sync --node <url>`.
+async fn get_integration_manifest() -> impl IntoResponse {
+    use axum::http::header;
+    (
+        [
+            (header::CONTENT_TYPE, "application/json"),
+            (header::CACHE_CONTROL, "public, max-age=300"),
+        ],
+        INTEGRATION_MANIFEST_JSON,
+    )
+}
+
+// GET /api/integration/manifest.md — a human/agent-readable rendering of the
+// same manifest (surface summary + invariants). For quick inspection; the JSON
+// endpoint is the authoritative one that tooling consumes.
+async fn get_integration_manifest_md() -> impl IntoResponse {
+    use axum::http::header;
+    let md = render_manifest_markdown(INTEGRATION_MANIFEST_JSON);
+    (
+        [
+            (header::CONTENT_TYPE, "text/markdown; charset=utf-8"),
+            (header::CACHE_CONTROL, "public, max-age=300"),
+        ],
+        md,
+    )
+}
+
+/// Render a compact Markdown summary of the embedded manifest JSON. Best-effort:
+/// on any parse issue it returns a minimal note rather than failing the route.
+fn render_manifest_markdown(json: &str) -> String {
+    let v: serde_json::Value = match serde_json::from_str(json) {
+        Ok(v) => v,
+        Err(e) => return format!("# BTCPC Integration Manifest\n\n_manifest unavailable: {e}_\n"),
+    };
+    let ver = v["btcpc_version"].as_str().unwrap_or("unknown");
+    let chain = v["chain_id"].as_str().unwrap_or("unknown");
+    let hash = v["surface_hash"].as_str().unwrap_or("");
+    let entries = v["entries"].as_object().map(|m| m.len()).unwrap_or(0);
+    let routes = v["routes"].as_object().map(|m| m.len()).unwrap_or(0);
+
+    let mut submittable: Vec<(&str, &str)> = Vec::new();
+    if let Some(map) = v["entries"].as_object() {
+        for (name, e) in map {
+            if let Some(t) = e["signing_type"].as_str() {
+                submittable.push((name.as_str(), t));
+            }
+        }
+    }
+    submittable.sort();
+
+    let mut s = String::new();
+    s.push_str("# BTCPC Integration Manifest\n\n");
+    s.push_str(&format!(
+        "- **BTCPC version:** {ver}\n- **Chain:** {chain}\n- **Surface hash:** `{hash}`\n\
+         - **Surface size:** {entries} entries, {routes} routes\n- **Submittable entries:** {}\n\n\
+         Machine-readable: `GET /api/integration/manifest`. \
+         Sync a consumer repo: `btcpc sync --node <this node>`.\n\n",
+        submittable.len()
+    ));
+    s.push_str("## Submittable ledger entries (signing type)\n\n");
+    for (name, ty) in &submittable {
+        s.push_str(&format!("- `{name}` → signs `{ty}`\n"));
+    }
+    s.push('\n');
+    if let Some(invs) = v["invariants"].as_array() {
+        s.push_str("## Invariants (consumers must respect)\n\n");
+        for inv in invs {
+            if let Some(t) = inv.as_str() {
+                s.push_str(&format!("- {t}\n"));
+            }
+        }
+    }
+    s
 }
 
 // GET /api/node/models — list models available in the local Ollama instance
