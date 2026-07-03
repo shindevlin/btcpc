@@ -33,7 +33,7 @@
  * or 0 and sets *ok = false if the frequency is not permitted in this region.
  * Leaves the radio in idle/sleep on exit.
  */
-static int8_t btcpc_subghz_sample_rssi(uint32_t freq_hz, bool* ok) {
+int8_t btcpc_subghz_sample_rssi(uint32_t freq_hz, bool* ok) {
     *ok = false;
 
     if(!furi_hal_region_is_frequency_allowed(freq_hz)) {
@@ -69,6 +69,12 @@ static int8_t btcpc_subghz_sample_rssi(uint32_t freq_hz, bool* ok) {
     if(avg < -128.0f) avg = -128.0f;
     *ok = true;
     return (int8_t)(avg - 0.5f); /* round toward the (negative) reading */
+}
+
+/* Convenience wrapper: sample at the default observation frequency. Used by
+ * both the manual sub-GHz scene and the auto-rotation scene. */
+int8_t btcpc_subghz_sample_once(bool* ok) {
+    return btcpc_subghz_sample_rssi(BTCPC_SUBGHZ_FREQ_HZ, ok);
 }
 
 void btcpc_scene_subghz_on_enter(void* context) {

@@ -16,6 +16,7 @@ App(
     sources=[
         "btcpc.c",
         "btcpc_ble.c",
+        "btcpc_scheduler.c",
         "crypto/ed25519.c",
         "crypto/tweetnacl.c",
         "protocol/btcpc_protocol.c",
@@ -23,5 +24,6 @@ App(
         "scenes/btcpc_scene_identity.c",
         "scenes/btcpc_scene_ble.c",
         "scenes/btcpc_scene_subghz.c",
+        "scenes/btcpc_scene_rotate.c",
     ],
 )
