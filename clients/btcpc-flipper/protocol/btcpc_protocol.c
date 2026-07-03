@@ -68,6 +68,16 @@ size_t btcpc_build_subghz(BtcpcFrame*           frame,
     return BTCPC_FRAME_HEADER_SIZE + plen;
 }
 
+size_t btcpc_build_subghz_census(BtcpcFrame*              frame,
+                                  const BtcpcSubGhzCensus* census,
+                                  const uint8_t            sk[BTCPC_ED25519_SK_LEN]) {
+    uint16_t plen = (uint16_t)sizeof(BtcpcSubGhzCensus);
+    frame_init(&frame->hdr, BTCPC_MSG_SUBGHZ_CENSUS, plen);
+    memcpy(frame->payload, census, plen);
+    frame_sign(&frame->hdr, frame->payload, sk);
+    return BTCPC_FRAME_HEADER_SIZE + plen;
+}
+
 size_t btcpc_build_rfid(BtcpcFrame*          frame,
                          const BtcpcRfidScan* scan,
                          const uint8_t        sk[BTCPC_ED25519_SK_LEN]) {
@@ -114,6 +124,36 @@ size_t btcpc_build_heartbeat(BtcpcFrame*            frame,
     uint16_t plen = (uint16_t)sizeof(BtcpcHeartbeat);
     frame_init(&frame->hdr, BTCPC_MSG_HEARTBEAT, plen);
     memcpy(frame->payload, hb, plen);
+    frame_sign(&frame->hdr, frame->payload, sk);
+    return BTCPC_FRAME_HEADER_SIZE + plen;
+}
+
+size_t btcpc_build_ble_env(BtcpcFrame*         frame,
+                            const BtcpcBleEnv*  env,
+                            const uint8_t       sk[BTCPC_ED25519_SK_LEN]) {
+    uint16_t plen = (uint16_t)sizeof(BtcpcBleEnv);
+    frame_init(&frame->hdr, BTCPC_MSG_BLE_ENV, plen);
+    memcpy(frame->payload, env, plen);
+    frame_sign(&frame->hdr, frame->payload, sk);
+    return BTCPC_FRAME_HEADER_SIZE + plen;
+}
+
+size_t btcpc_build_reader_detect(BtcpcFrame*              frame,
+                                  const BtcpcReaderDetect* rd,
+                                  const uint8_t            sk[BTCPC_ED25519_SK_LEN]) {
+    uint16_t plen = (uint16_t)sizeof(BtcpcReaderDetect);
+    frame_init(&frame->hdr, BTCPC_MSG_READER_DETECT, plen);
+    memcpy(frame->payload, rd, plen);
+    frame_sign(&frame->hdr, frame->payload, sk);
+    return BTCPC_FRAME_HEADER_SIZE + plen;
+}
+
+size_t btcpc_build_usb_safety(BtcpcFrame*                 frame,
+                               const BtcpcUsbSafetyResult* res,
+                               const uint8_t               sk[BTCPC_ED25519_SK_LEN]) {
+    uint16_t plen = (uint16_t)sizeof(BtcpcUsbSafetyResult);
+    frame_init(&frame->hdr, BTCPC_MSG_USB_SAFETY, plen);
+    memcpy(frame->payload, res, plen);
     frame_sign(&frame->hdr, frame->payload, sk);
     return BTCPC_FRAME_HEADER_SIZE + plen;
 }

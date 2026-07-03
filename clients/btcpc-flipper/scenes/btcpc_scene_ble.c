@@ -32,6 +32,7 @@
 
 #include "../btcpc.h"
 #include "btcpc_scene_ble.h"
+#include "btcpc_scene_usb.h"
 
 #include <gui/modules/text_box.h>
 #include <furi.h>
@@ -44,18 +45,19 @@
 
 /* RFID / 125 kHz LF worker */
 #include <lib/lfrfid/lfrfid_worker.h>
-#include <lib/lfrfid/protocols/lfrfid_protocol.h>
+#include <lib/lfrfid/protocols/lfrfid_protocols.h>
+#include <toolbox/protocols/protocol_dict.h>
 
 /* iButton / 1-Wire worker */
 #include <lib/ibutton/ibutton_worker.h>
 #include <lib/ibutton/ibutton_key.h>
+#include <lib/ibutton/ibutton_protocols.h>
 
 /* Infrared worker */
 #include <lib/infrared/worker/infrared_worker.h>
 #include <infrared.h>
 
-/* NFC HAL */
-#include <furi_hal_nfc.h>
+#include <notification/notification_messages.h>
 
 #include <string.h>
 #include <stdio.h>
@@ -147,20 +149,14 @@ static uint8_t lfrfid_protocol_to_btcpc(LFRFIDProtocol proto) {
     switch(proto) {
     case LFRFIDProtocolEM4100:
     case LFRFIDProtocolEM410032:
+    case LFRFIDProtocolEM410016:
         return 0;
-    case LFRFIDProtocolHIDGeneric:
-    case LFRFIDProtocolHID26:
-    case LFRFIDProtocolHID34:
-    case LFRFIDProtocolHID37:
-    case LFRFIDProtocolHIDCorporate1000:
+    case LFRFIDProtocolHidGeneric:
+    case LFRFIDProtocolHidExGeneric:
+    case LFRFIDProtocolH10301:
         return 1;
     case LFRFIDProtocolIndala26:
-    case LFRFIDProtocolIndala40:
         return 2;
-    case LFRFIDProtocolHitag1:
-    case LFRFIDProtocolHitag2:
-    case LFRFIDProtocolHitagS:
-        return 3;
     default:
         return 0xFF;
     }
@@ -191,7 +187,8 @@ static void lfrfid_read_cb(LFRFIDWorkerReadResult result,
 static bool btcpc_capture_rfid(BtcpcApp* app, BtcpcRfidScan* scan) {
     LfrfidCtx ctx = {.detected = false, .protocol_code = 0xFF};
 
-    LFRFIDWorker* worker = lfrfid_worker_alloc(lfrfid_worker_get_protocols_manager());
+    ProtocolDict* dict = protocol_dict_alloc(lfrfid_protocols, LFRFIDProtocolMax);
+    LFRFIDWorker* worker = lfrfid_worker_alloc(dict);
     lfrfid_worker_start_thread(worker);
     /* LFRFIDWorkerReadTypeAuto tries all supported protocols */
     lfrfid_worker_read_start(worker, LFRFIDWorkerReadTypeAuto, lfrfid_read_cb, &ctx);
@@ -205,6 +202,7 @@ static bool btcpc_capture_rfid(BtcpcApp* app, BtcpcRfidScan* scan) {
     lfrfid_worker_stop(worker);
     lfrfid_worker_stop_thread(worker);
     lfrfid_worker_free(worker);
+    protocol_dict_free(dict);
 
     if(!ctx.detected) return false;
 
@@ -230,66 +228,10 @@ static bool btcpc_capture_rfid(BtcpcApp* app, BtcpcRfidScan* scan) {
  * Returns false if no tag was detected within the window.
  */
 static bool btcpc_capture_nfc(BtcpcApp* app, BtcpcNfcScan* scan) {
-    furi_hal_nfc_acquire();
-    furi_hal_nfc_low_power_mode_stop();
-
-    bool detected = false;
-    uint8_t tech       = 0;   /* default TypeA */
-    uint8_t tag_family = 0;   /* default unknown */
-
-#if defined(FURI_HAL_NFC_DETECT_AVAILABLE)
-    /* Full detect with ATQA/SAK — derive family without storing uid */
-    FuriHalNfcDevData nfc_data;
-    memset(&nfc_data, 0, sizeof(nfc_data));
-
-    if(furi_hal_nfc_detect(&nfc_data, furi_ms_to_ticks(500))) {
-        detected = true;
-        /* Map tech from detection type (NfcDeviceDataA, B, F, V) */
-        switch(nfc_data.type) {
-        case FuriHalNfcTypeA: tech = 0; break;
-        case FuriHalNfcTypeB: tech = 1; break;
-        case FuriHalNfcTypeF: tech = 2; break;
-        case FuriHalNfcTypeV: tech = 3; break;
-        default:              tech = 0; break;
-        }
-        if(nfc_data.type == FuriHalNfcTypeA) {
-            /* Derive tag family from ATQA/SAK — public standard classification */
-            uint8_t atqa0 = nfc_data.atqa[0];
-            uint8_t sak   = nfc_data.sak;
-            if((atqa0 & 0x20) && (sak == 0x20)) {
-                tag_family = 3; /* DESFire (ISO 14443-4 compliant) */
-            } else if(atqa0 == 0x44 || atqa0 == 0x00) {
-                tag_family = 2; /* NTAG / MIFARE Ultralight */
-            } else if(atqa0 == 0x04 || atqa0 == 0x02) {
-                tag_family = 1; /* MIFARE Classic */
-            } else {
-                tag_family = 0;
-            }
-        } else if(nfc_data.type == FuriHalNfcTypeF) {
-            tag_family = 4; /* FeliCa */
-        } else if(nfc_data.type == FuriHalNfcTypeV) {
-            tag_family = 5; /* ISO 15693 */
-        }
-    }
-#else
-    /* Fallback: simple presence detect, TypeA, family unknown.
-     * furi_hal_nfc_is_present() or equivalent lightweight poll. */
-    if(furi_hal_nfc_is_present(furi_ms_to_ticks(500))) {
-        detected   = true;
-        tech       = 0;
-        tag_family = 0;
-    }
-#endif
-
-    furi_hal_nfc_low_power_mode_start();
-    furi_hal_nfc_release();
-
-    if(!detected) return false;
-
-    scan->tech       = tech;
-    scan->tag_family = tag_family;
-    btcpc_make_obs_id(app, (uint8_t)BTCPC_MSG_NFC_SCAN, tag_family, scan->obs_id);
-    return true;
+    /* NFC HAL is not exposed to FAPs in the current SDK — returns no capture. */
+    (void)app;
+    (void)scan;
+    return false;
 }
 
 /* ─── iButton capture ────────────────────────────────────────────────────── */
@@ -319,11 +261,12 @@ static void ibutton_read_cb(void* ctx) {
 static bool btcpc_capture_ibutton(BtcpcApp* app, BtcpcIButton* btn) {
     IButtonCtx ctx = {.detected = false, .family_code = 0x00};
 
-    iButtonKey*    key    = ibutton_key_alloc(IBUTTON_KEY_DATA_SIZE);
-    iButtonWorker* worker = ibutton_worker_alloc();
+    iButtonProtocols* protocols = ibutton_protocols_alloc();
+    iButtonKey*       key       = ibutton_key_alloc(ibutton_protocols_get_max_data_size(protocols));
+    iButtonWorker*    worker    = ibutton_worker_alloc(protocols);
     ibutton_worker_start_thread(worker);
+    ibutton_worker_read_set_callback(worker, ibutton_read_cb, &ctx);
     ibutton_worker_read_start(worker, key);
-    ibutton_worker_set_callback(worker, ibutton_read_cb, &ctx);
 
     /* Poll for up to 500 ms in 25 ms steps */
     const uint32_t deadline = furi_get_tick() + furi_ms_to_ticks(500);
@@ -333,9 +276,8 @@ static bool btcpc_capture_ibutton(BtcpcApp* app, BtcpcIButton* btn) {
 
     uint8_t family = 0x00;
     if(ctx.detected) {
-        /* First byte of the 1-Wire ROM code is the family code (public spec) */
-        const uint8_t* data = ibutton_key_get_data_p(key);
-        family = data[0];
+        /* Use protocol ID as the obs_id seed — not the 1-Wire ROM code. */
+        family = (uint8_t)ibutton_key_get_protocol_id(key);
         ctx.family_code = family;
     }
 
@@ -343,6 +285,7 @@ static bool btcpc_capture_ibutton(BtcpcApp* app, BtcpcIButton* btn) {
     ibutton_worker_stop_thread(worker);
     ibutton_worker_free(worker);
     ibutton_key_free(key);
+    ibutton_protocols_free(protocols);
 
     if(!ctx.detected) return false;
 
@@ -443,6 +386,20 @@ static bool btcpc_capture_ir(BtcpcApp* app, BtcpcIrCapture* ir) {
 
 /* ─── capture-and-push wrappers ──────────────────────────────────────────── */
 
+/* Static frame buffer — all frame building happens on the single app thread. */
+static BtcpcFrame s_tx_frame;
+
+static void btcpc_notify_rare_detection(void) {
+    /* Haptic pulse for rare/interesting detection event */
+    NotificationApp* notif = furi_record_open(RECORD_NOTIFICATION);
+    notification_message(notif, &sequence_set_vibro_on);
+    furi_delay_ms(BTCPC_NOTIFY_RARE_MS);
+    notification_message(notif, &sequence_reset_vibro);
+    /* Flash blue LED briefly */
+    notification_message(notif, &sequence_blink_blue_100);
+    furi_record_close(RECORD_NOTIFICATION);
+}
+
 static void btcpc_capture_and_push_rfid(BtcpcApp* app) {
     BtcpcBleSvc* svc = btcpc_ble_profile_get_svc(app->ble_profile);
     if(!svc) return;
@@ -459,6 +416,7 @@ static void btcpc_capture_and_push_rfid(BtcpcApp* app) {
     furi_mutex_release(app->sign_mutex);
 
     btcpc_ble_svc_push_frame(svc, (const uint8_t*)&s_tx_frame, (uint16_t)len);
+    btcpc_notify_rare_detection();
     FURI_LOG_D("BtcpcBle", "rfid sent: proto=0x%02x", (unsigned)scan.protocol);
 }
 
@@ -497,6 +455,7 @@ static void btcpc_capture_and_push_ibutton(BtcpcApp* app) {
     furi_mutex_release(app->sign_mutex);
 
     btcpc_ble_svc_push_frame(svc, (const uint8_t*)&s_tx_frame, (uint16_t)len);
+    btcpc_notify_rare_detection();
     FURI_LOG_D("BtcpcBle", "ibutton sent: family=0x%02x", (unsigned)btn.family);
 }
 
@@ -521,8 +480,44 @@ static void btcpc_capture_and_push_ir(BtcpcApp* app) {
 
 /* ─── Display refresh ────────────────────────────────────────────────────── */
 
+/* Helper: abort any in-progress OTA session and clean up storage handles. */
+static void btcpc_ota_abort(BtcpcApp* app) {
+    if(!app->ota_in_progress) return;
+    if(app->ota_file) {
+        storage_file_close(app->ota_file);
+        storage_file_free(app->ota_file);
+        app->ota_file = NULL;
+    }
+    if(app->ota_storage) {
+        storage_simply_remove(app->ota_storage, BTCPC_OTA_TMP_PATH);
+        furi_record_close(RECORD_STORAGE);
+        app->ota_storage = NULL;
+    }
+    app->ota_in_progress  = false;
+    app->ota_expected_size = 0;
+    app->ota_bytes_written = 0;
+    app->ota_checksum      = 0;
+}
+
 static void btcpc_scene_ble_refresh(BtcpcApp* app) {
     static char ble_text[BLE_TEXT_LEN];
+
+    if(app->ota_in_progress) {
+        uint32_t pct = app->ota_expected_size > 0
+            ? (app->ota_bytes_written * 100) / app->ota_expected_size
+            : 0;
+        snprintf(ble_text, sizeof(ble_text),
+                 "OTA Update\n\n"
+                 "%lu / %lu bytes\n"
+                 "%lu%%",
+                 (unsigned long)app->ota_bytes_written,
+                 (unsigned long)app->ota_expected_size,
+                 (unsigned long)pct);
+        text_box_reset(app->text_box);
+        text_box_set_font(app->text_box, TextBoxFontText);
+        text_box_set_text(app->text_box, ble_text);
+        return;
+    }
 
     if(app->ble_connected) {
         if(app->has_gps) {
@@ -573,9 +568,6 @@ static void btcpc_scene_ble_refresh(BtcpcApp* app) {
 
 /* ─── Sensor helpers (app thread only) ──────────────────────────────────── */
 
-/* Static frame buffer — all frame building happens on the single app thread. */
-static BtcpcFrame s_tx_frame;
-
 static void btcpc_push_heartbeat(BtcpcApp* app) {
     BtcpcBleSvc* svc = btcpc_ble_profile_get_svc(app->ble_profile);
     if(!svc) return;
@@ -597,64 +589,217 @@ static void btcpc_push_heartbeat(BtcpcApp* app) {
 }
 
 /*
- * btcpc_scan_subghz()
+ * btcpc_scan_band()
  *
- * Quick passive RSSI scan on three common IoT frequencies.
- * Fills `obs` with the frequency that had the strongest signal.
- * Returns true on success; false if SubGhz hardware is unavailable.
+ * Passive RF census on a single frequency band.
+ *
+ * Spends the first 100 ms measuring the noise floor, then counts distinct
+ * RSSI excursions (≥ 12 dB above floor) for the remaining listen_ms.
+ * Events lasting ≥ 50 ms are counted separately as long_count — these
+ * correlate with LoRa chirps and FSK data frames rather than short OOK pops.
+ *
+ * ook_mode: true → OOK/AM preset (433/315 MHz remotes, sensors)
+ *           false → 2-FSK preset  (868 MHz LoRa energy, wM-Bus, Z-Wave)
  *
  * CC1101 (SubGhz) and STM32WB55 BLE are independent silicon — no conflict.
  */
-static bool btcpc_scan_subghz(BtcpcSubGhzObs* obs) {
-    static const uint32_t freqs[] = {
-        433920000,  /* 433.92 MHz — most common global IoT/remote */
-        868350000,  /* 868.35 MHz — EU IoT, LoRa */
-        315000000,  /* 315 MHz    — US remotes */
-    };
-    static const size_t NFREQS = sizeof(freqs) / sizeof(freqs[0]);
+static void btcpc_scan_band(uint32_t freq_hz, bool ook_mode, uint32_t listen_ms,
+                              BtcpcBandCensus* out) {
+    out->freq_hz = freq_hz;
+    out->event_count   = 0;
+    out->long_count    = 0;
+    out->peak_rssi_dbm = -128;
+    out->noise_floor_dbm = -128;
 
-    furi_hal_subghz_acquire();
-    furi_hal_subghz_reset();
+    /* furi_hal_subghz_load_preset() is not exported to FAP apps.
+     * RSSI measurement is modulation-agnostic: the CC1101 reports total
+     * received energy regardless of preset, which is correct for burst
+     * counting. ook_mode is retained as documentation for band intent. */
+    (void)ook_mode;
+    furi_hal_subghz_set_frequency_and_path(freq_hz);
+    furi_hal_subghz_rx();
 
-    uint32_t best_freq = freqs[0];
-    float    best_rssi = -150.0f;
+    /* Calibrate noise floor over the first 100 ms */
+    float floor_sum = 0.0f;
+    for(int i = 0; i < 10; i++) {
+        furi_delay_ms(10);
+        floor_sum += furi_hal_subghz_get_rssi();
+    }
+    float noise_floor = floor_sum / 10.0f;
+    float threshold   = noise_floor + 12.0f; /* 12 dB above floor = activity */
+    float peak        = noise_floor;
 
-    for(size_t i = 0; i < NFREQS; i++) {
-        furi_hal_subghz_set_frequency_and_path(freqs[i]);
-        furi_hal_subghz_rx();
-        furi_delay_ms(60);
+    /* Count events for the remaining window */
+    bool     in_event        = false;
+    uint32_t event_start_ms  = 0;
+    uint32_t tick_freq       = furi_kernel_get_tick_frequency();
+    uint32_t remaining_steps = (listen_ms > 100 ? listen_ms - 100 : 0) / 10;
+
+    for(uint32_t step = 0; step < remaining_steps; step++) {
+        furi_delay_ms(10);
         float rssi = furi_hal_subghz_get_rssi();
-        if(rssi > best_rssi) {
-            best_rssi = rssi;
-            best_freq = freqs[i];
+        if(rssi > peak) peak = rssi;
+
+        if(!in_event && rssi > threshold) {
+            in_event       = true;
+            event_start_ms = (uint32_t)(furi_get_tick() * 1000UL / tick_freq);
+            if(out->event_count < 255) out->event_count++;
+        } else if(in_event && rssi < threshold - 6.0f) {
+            uint32_t now_ms = (uint32_t)(furi_get_tick() * 1000UL / tick_freq);
+            if((now_ms - event_start_ms) >= 50 && out->long_count < 255) out->long_count++;
+            in_event = false;
         }
     }
+    /* Close any event still open at end of window */
+    if(in_event && out->long_count < 255) {
+        uint32_t now_ms = (uint32_t)(furi_get_tick() * 1000UL / tick_freq);
+        if((now_ms - event_start_ms) >= 50) out->long_count++;
+    }
 
-    furi_hal_subghz_sleep();
-    furi_hal_subghz_release();
+    out->peak_rssi_dbm   = (int8_t)(peak        < -128.0f ? -128 : peak);
+    out->noise_floor_dbm = (int8_t)(noise_floor  < -128.0f ? -128 : noise_floor);
 
-    obs->freq_hz    = best_freq;
-    obs->rssi_dbm   = (int8_t)(best_rssi < -128.0f ? -128 : best_rssi);
-    obs->modulation = 2; /* OOK — most common for 433/315 MHz IoT */
-    obs->bandwidth  = 200; /* ~200 kHz */
-    return true;
+    furi_hal_subghz_idle();
 }
 
-static void btcpc_scan_and_push_subghz(BtcpcApp* app) {
+/*
+ * btcpc_census_subghz()
+ *
+ * Scans 13 bands and fills a BtcpcSubGhzCensus.
+ * Total listen time: 3350 ms.
+ *
+ * Band layout (index: freq, ook_mode, listen_ms, purpose):
+ *   [0]  315.000 MHz  OOK  200  US remotes/garage
+ *   [1]  418.050 MHz  OOK  200  UK legacy alarms/keyfobs
+ *   [2]  433.420 MHz  OOK  150  Somfy blinds/shutters
+ *   [3]  433.920 MHz  OOK  800  Primary ISM: garage, TPMS, weather, alarms
+ *   [4]  446.100 MHz  FSK  150  PMR446 walkie-talkies (human density)
+ *   [5]  780.000 MHz  FSK  150  LTE 700/800 MHz RSSI (cellular coverage)
+ *   [6]  868.100 MHz  FSK  200  LoRaWAN EU ch1
+ *   [7]  868.300 MHz  FSK  200  LoRaWAN EU ch2 / Z-Wave / EnOcean / KNX
+ *   [8]  868.420 MHz  FSK  150  Z-Wave EU explicit
+ *   [9]  868.500 MHz  FSK  200  LoRaWAN EU ch3
+ *   [10] 868.950 MHz  FSK  250  wM-Bus T-mode (EU smart meters)
+ *   [11] 869.850 MHz  FSK  150  EU high-power alarms / panic buttons
+ *   [12] 916.500 MHz  FSK  200  US ERT smart meters
+ */
+static void btcpc_census_subghz(BtcpcSubGhzCensus* census) {
+    furi_hal_subghz_reset();
+    btcpc_scan_band(315000000, true,  200, &census->band[0]);
+    btcpc_scan_band(418050000, true,  200, &census->band[1]);
+    btcpc_scan_band(433420000, true,  150, &census->band[2]);
+    btcpc_scan_band(433920000, true,  800, &census->band[3]);
+    btcpc_scan_band(446100000, false, 150, &census->band[4]);
+    btcpc_scan_band(780000000, false, 150, &census->band[5]);
+    btcpc_scan_band(868100000, false, 200, &census->band[6]);
+    btcpc_scan_band(868300000, false, 200, &census->band[7]);
+    btcpc_scan_band(868420000, false, 150, &census->band[8]);
+    btcpc_scan_band(868500000, false, 200, &census->band[9]);
+    btcpc_scan_band(868950000, false, 250, &census->band[10]);
+    btcpc_scan_band(869850000, false, 150, &census->band[11]);
+    btcpc_scan_band(916500000, false, 200, &census->band[12]);
+    furi_hal_subghz_sleep();
+    census->listen_window_ms = 200+200+150+800+150+150+200+200+150+200+250+150+200;
+}
+
+static void btcpc_census_and_push_subghz(BtcpcApp* app) {
     BtcpcBleSvc* svc = btcpc_ble_profile_get_svc(app->ble_profile);
     if(!svc) return;
 
-    BtcpcSubGhzObs obs;
-    if(!btcpc_scan_subghz(&obs)) return;
+    BtcpcSubGhzCensus census;
+    btcpc_census_subghz(&census);
 
     size_t len;
     furi_mutex_acquire(app->sign_mutex, FuriWaitForever);
-    len = btcpc_build_subghz(&s_tx_frame, &obs, app->sk);
+    len = btcpc_build_subghz_census(&s_tx_frame, &census, app->sk);
     furi_mutex_release(app->sign_mutex);
 
     btcpc_ble_svc_push_frame(svc, (const uint8_t*)&s_tx_frame, (uint16_t)len);
-    FURI_LOG_D("BtcpcBle", "subghz sent: %lu Hz, %d dBm",
-               (unsigned long)obs.freq_hz, (int)obs.rssi_dbm);
+
+    /* Notify once if any band captured a long frame (LoRa/FSK) */
+    bool any_long = false;
+    for(int i = 0; i < BTCPC_CENSUS_BANDS; i++) {
+        if(census.band[i].long_count > 0) { any_long = true; break; }
+    }
+    if(any_long) btcpc_notify_rare_detection();
+
+    FURI_LOG_D("BtcpcBle",
+               "census: 433=%u/%u 868.3=%u/%u 868.95=%u/%u 315=%u/%u",
+               census.band[3].event_count, census.band[3].long_count,
+               census.band[7].event_count, census.band[7].long_count,
+               census.band[10].event_count, census.band[10].long_count,
+               census.band[0].event_count, census.band[0].long_count);
+}
+
+/* ─── BLE environment scan ───────────────────────────────────────────────── */
+
+/*
+ * btcpc_scan_ble_env()
+ *
+ * Passive BLE advertisement census.
+ *
+ * The STM32WB55 GAP scan API (gap_start_scan / furi_hal_bt_start_scan) is
+ * not exported to FAP applications in the current Flipper SDK. Returning a
+ * stub with ad_count=0 / scan_window_s=0 signals to the Android app that
+ * BLE environment scanning is not yet active. Requires investigation into
+ * the BT service internals or a future SDK export.
+ */
+static void btcpc_scan_ble_env(BtcpcBleEnv* env) {
+    env->ad_count          = 0;
+    env->scan_window_s     = 0;
+    env->rssi_min_dbm      = 0;
+    env->rssi_max_dbm      = 0;
+    env->rssi_avg_dbm      = 0;
+    env->connectable_count = 0;
+}
+
+static void btcpc_scan_and_push_ble_env(BtcpcApp* app) {
+    BtcpcBleSvc* svc = btcpc_ble_profile_get_svc(app->ble_profile);
+    if(!svc) return;
+
+    BtcpcBleEnv env;
+    btcpc_scan_ble_env(&env);
+
+    size_t len;
+    furi_mutex_acquire(app->sign_mutex, FuriWaitForever);
+    len = btcpc_build_ble_env(&s_tx_frame, &env, app->sk);
+    furi_mutex_release(app->sign_mutex);
+
+    btcpc_ble_svc_push_frame(svc, (const uint8_t*)&s_tx_frame, (uint16_t)len);
+    FURI_LOG_D("BtcpcBle", "ble_env: ad=%u scan_s=%u", env.ad_count, env.scan_window_s);
+}
+
+/* ─── RFID reader field detection ────────────────────────────────────────── */
+
+/*
+ * btcpc_detect_rfid_reader()
+ *
+ * Attempts a passive 125 kHz LF read for 200 ms. Any callback firing
+ * within the window indicates field energy from an external reader.
+ *
+ * Returns true if field detected (callback fired within 200 ms).
+ * A card completing a full read is counted as field present — the card
+ * read path handles the data separately.
+ */
+static bool btcpc_detect_rfid_reader(void) {
+    LfrfidCtx ctx = {.detected = false, .protocol_code = 0xFF};
+
+    ProtocolDict* dict   = protocol_dict_alloc(lfrfid_protocols, LFRFIDProtocolMax);
+    LFRFIDWorker* worker = lfrfid_worker_alloc(dict);
+    lfrfid_worker_start_thread(worker);
+    lfrfid_worker_read_start(worker, LFRFIDWorkerReadTypeAuto, lfrfid_read_cb, &ctx);
+
+    const uint32_t deadline = furi_get_tick() + furi_ms_to_ticks(200);
+    while(!ctx.detected && (int32_t)(deadline - furi_get_tick()) > 0) {
+        furi_delay_ms(10);
+    }
+
+    lfrfid_worker_stop(worker);
+    lfrfid_worker_stop_thread(worker);
+    lfrfid_worker_free(worker);
+    protocol_dict_free(dict);
+
+    return ctx.detected;
 }
 
 /* ─── Scene lifecycle ────────────────────────────────────────────────────── */
@@ -709,6 +854,7 @@ bool btcpc_scene_ble_on_event(void* context, SceneManagerEvent event) {
         break;
 
     case BtcpcEventBleDisconnected:
+        btcpc_ota_abort(app);
         app->heartbeat_count = 0;
         app->clock_synced    = false;
         app->has_gps         = false;
@@ -763,12 +909,15 @@ bool btcpc_scene_ble_on_event(void* context, SceneManagerEvent event) {
             BtcpcSensorReq req;
             memcpy(&req, payload, sizeof(req));
             switch(req.sensor_type) {
-            case BTCPC_MSG_SUBGHZ_OBS: btcpc_scan_and_push_subghz(app);    break;
+            case BTCPC_MSG_SUBGHZ_OBS: btcpc_census_and_push_subghz(app);   break;
             case BTCPC_MSG_HEARTBEAT:  btcpc_push_heartbeat(app);           break;
             case BTCPC_MSG_RFID_SCAN:  btcpc_capture_and_push_rfid(app);    break;
             case BTCPC_MSG_NFC_SCAN:   btcpc_capture_and_push_nfc(app);     break;
             case BTCPC_MSG_IBUTTON:    btcpc_capture_and_push_ibutton(app); break;
-            case BTCPC_MSG_IR_CAPTURE: btcpc_capture_and_push_ir(app);      break;
+            case BTCPC_MSG_IR_CAPTURE:  btcpc_capture_and_push_ir(app);      break;
+            case BTCPC_MSG_USB_SAFETY:
+                scene_manager_next_scene(app->scene_manager, BtcpcSceneUsb);
+                break;
             default:
                 FURI_LOG_W("BtcpcBle", "SENSOR_REQ unknown type 0x%02x", req.sensor_type);
                 break;
@@ -785,52 +934,217 @@ bool btcpc_scene_ble_on_event(void* context, SceneManagerEvent event) {
         break;
     }
 
-    /* ── Periodic auto-cycle: all 6 sensor types on a staggered schedule ─── */
+    /* ── OTA firmware update ─────────────────────────────────────────────── */
+    case BtcpcEventOtaChunk: {
+        uint8_t  buf[BTCPC_BLE_DATA_CH_MAX_LEN];
+        uint16_t len;
+
+        furi_mutex_acquire(app->ota_mutex, FuriWaitForever);
+        len = app->ota_chunk_len;
+        if(len > 0) memcpy(buf, app->ota_chunk_buf, len);
+        app->ota_chunk_len = 0;
+        furi_mutex_release(app->ota_mutex);
+
+        if(len == 0) { consumed = true; break; }
+
+        BtcpcBleSvc* ota_svc = btcpc_ble_profile_get_svc(app->ble_profile);
+        uint8_t cmd = buf[0];
+
+        if(cmd == 'O' && len >= 5) {
+            /* Open: abort any existing session and start fresh */
+            btcpc_ota_abort(app);
+
+            uint32_t sz = (uint32_t)buf[1]
+                        | ((uint32_t)buf[2] << 8)
+                        | ((uint32_t)buf[3] << 16)
+                        | ((uint32_t)buf[4] << 24);
+
+            app->ota_storage = furi_record_open(RECORD_STORAGE);
+            app->ota_file    = storage_file_alloc(app->ota_storage);
+
+            if(!storage_file_open(app->ota_file, BTCPC_OTA_TMP_PATH,
+                                  FSAM_WRITE, FSOM_CREATE_ALWAYS)) {
+                FURI_LOG_E("BtcpcBle", "OTA: open tmp failed");
+                storage_file_free(app->ota_file);
+                furi_record_close(RECORD_STORAGE);
+                app->ota_file    = NULL;
+                app->ota_storage = NULL;
+                if(ota_svc) {
+                    uint8_t err[2] = {'E', 0x01};
+                    btcpc_ble_svc_send_ota_status(ota_svc, err, 2);
+                }
+                consumed = true;
+                break;
+            }
+
+            app->ota_expected_size = sz;
+            app->ota_bytes_written = 0;
+            app->ota_checksum      = 0;
+            app->ota_in_progress   = true;
+
+            FURI_LOG_I("BtcpcBle", "OTA: started, expecting %lu bytes", (unsigned long)sz);
+
+            if(ota_svc) {
+                uint8_t ok = 'K';
+                btcpc_ble_svc_send_ota_status(ota_svc, &ok, 1);
+            }
+            btcpc_scene_ble_refresh(app);
+
+        } else if(cmd == 'D' && app->ota_in_progress && len >= 2) {
+            /* Data chunk: write payload bytes to tmp file */
+            const uint8_t* payload     = buf + 1;
+            uint16_t       payload_len = (uint16_t)(len - 1);
+
+            uint16_t written = (uint16_t)storage_file_write(app->ota_file, payload, payload_len);
+            if(written != payload_len) {
+                FURI_LOG_E("BtcpcBle", "OTA: write failed (%u/%u)", (unsigned)written, (unsigned)payload_len);
+                btcpc_ota_abort(app);
+                if(ota_svc) {
+                    uint8_t err[2] = {'E', 0x02};
+                    btcpc_ble_svc_send_ota_status(ota_svc, err, 2);
+                }
+            } else {
+                for(uint16_t i = 0; i < payload_len; i++) {
+                    app->ota_checksum += payload[i];
+                }
+                app->ota_bytes_written += payload_len;
+                if(ota_svc) {
+                    uint8_t ok = 'K';
+                    btcpc_ble_svc_send_ota_status(ota_svc, &ok, 1);
+                }
+            }
+            btcpc_scene_ble_refresh(app);
+
+        } else if(cmd == 'C' && app->ota_in_progress && len >= 5) {
+            /* Commit: verify size + checksum, then atomically rename */
+            uint32_t peer_sum = (uint32_t)buf[1]
+                              | ((uint32_t)buf[2] << 8)
+                              | ((uint32_t)buf[3] << 16)
+                              | ((uint32_t)buf[4] << 24);
+
+            storage_file_close(app->ota_file);
+            storage_file_free(app->ota_file);
+            app->ota_file = NULL;
+
+            uint8_t err_code = 0;
+            if(app->ota_bytes_written != app->ota_expected_size) {
+                FURI_LOG_E("BtcpcBle", "OTA: size mismatch: wrote %lu, expected %lu",
+                           (unsigned long)app->ota_bytes_written,
+                           (unsigned long)app->ota_expected_size);
+                err_code = 0x03;
+            } else if(app->ota_checksum != peer_sum) {
+                FURI_LOG_E("BtcpcBle", "OTA: checksum mismatch: got 0x%08lx, expected 0x%08lx",
+                           (unsigned long)app->ota_checksum,
+                           (unsigned long)peer_sum);
+                err_code = 0x04;
+            }
+
+            if(err_code != 0) {
+                storage_simply_remove(app->ota_storage, BTCPC_OTA_TMP_PATH);
+                furi_record_close(RECORD_STORAGE);
+                app->ota_storage      = NULL;
+                app->ota_in_progress  = false;
+                if(ota_svc) {
+                    uint8_t err[2] = {'E', err_code};
+                    btcpc_ble_svc_send_ota_status(ota_svc, err, 2);
+                }
+            } else {
+                /* Overwrite destination: remove old .fap (ignore if absent) */
+                storage_simply_remove(app->ota_storage, BTCPC_FAP_PATH);
+                FS_Error ren = storage_common_rename(
+                    app->ota_storage, BTCPC_OTA_TMP_PATH, BTCPC_FAP_PATH);
+                furi_record_close(RECORD_STORAGE);
+                app->ota_storage     = NULL;
+                app->ota_in_progress = false;
+                if(ren != FSE_OK) {
+                    FURI_LOG_E("BtcpcBle", "OTA: rename failed: %d", (int)ren);
+                    if(ota_svc) {
+                        uint8_t err[2] = {'E', 0x05};
+                        btcpc_ble_svc_send_ota_status(ota_svc, err, 2);
+                    }
+                } else {
+                    FURI_LOG_I("BtcpcBle", "OTA: complete — %lu bytes", (unsigned long)app->ota_bytes_written);
+                    if(ota_svc) {
+                        uint8_t done = 'Z';
+                        btcpc_ble_svc_send_ota_status(ota_svc, &done, 1);
+                    }
+                }
+            }
+            btcpc_scene_ble_refresh(app);
+
+        } else if(cmd == 'A') {
+            /* Abort: clean up and acknowledge */
+            btcpc_ota_abort(app);
+            if(ota_svc) {
+                uint8_t ok = 'K';
+                btcpc_ble_svc_send_ota_status(ota_svc, &ok, 1);
+            }
+            btcpc_scene_ble_refresh(app);
+
+        } else {
+            FURI_LOG_W("BtcpcBle", "OTA: unknown cmd=0x%02x len=%u", (unsigned)cmd, (unsigned)len);
+        }
+
+        consumed = true;
+        break;
+    }
+
+    /* ── Periodic heartbeat ──────────────────────────────────────────────── */
     case BtcpcEventHeartbeatTimer:
         if(!app->ble_connected) { consumed = true; break; }
 
         /*
-         * Modulo checks happen BEFORE incrementing heartbeat_count so that
-         * tick 0 (the first tick after connect) fires all sensors immediately
-         * and gives a complete initial reading without waiting for the cycle
-         * to accumulate.
+         * Continuous autonomous sensor cycle — fires every 5 s.
          *
-         * Tick schedule (30 s per tick):
-         *   every tick   (always)          → heartbeat
-         *   tick % 2 == 0  (every 60 s)    → SubGhz + IR   (passive, ~1 s each)
-         *   tick % 3 == 0  (every 90 s)    → RFID           (1 s scan)
-         *   tick % 4 == 0  (every 120 s)   → NFC            (500 ms scan)
-         *   tick % 5 == 0  (every 150 s)   → iButton        (500 ms scan)
+         * Each tick runs ALL sensors sequentially:
+         *   SubGhz  — ~200 ms passive RSSI scan (3 frequencies)
+         *   RFID    — up to 1 s LF scan
+         *   IR      — up to 1 s IR listen
+         *   iButton — up to 500 ms 1-Wire listen
          *
-         * If multiple moduli fire on the same tick (e.g. tick 0 or tick 60)
-         * the captures run sequentially. Worst case ~3 s of blocking per tick
-         * inside a 30 s interval — acceptable on the app thread.
+         * Captures only push a frame when something is actually detected.
+         * SubGhz always pushes (ambient RF is always present).
+         * Heartbeat pushes battery/uptime every tick.
          *
-         * SENSOR_REQ phone-side on-demand dispatch is unchanged above.
+         * Total worst-case blocking: ~2.7 s per 5 s tick on the app thread.
+         * BLE ISR thread is unaffected — sign requests queue and are processed
+         * after the current sensor call returns.
          */
 
-        /* Every tick — heartbeat */
         btcpc_push_heartbeat(app);
 
-        /* Every 2nd tick — SubGhz passive RSSI scan + IR passive listen */
-        if(app->heartbeat_count % 2 == 0) {
-            btcpc_scan_and_push_subghz(app);
-            btcpc_capture_and_push_ir(app);
+        /* Sub-GHz census: every tick (~3.35 s across 13 bands) */
+        btcpc_census_and_push_subghz(app);
+
+        /* Contact sensors: rotate so each fires every 15 s (3 × 5 s) */
+        switch(app->heartbeat_count % 3) {
+        case 0: btcpc_capture_and_push_rfid(app);    break;
+        case 1: btcpc_capture_and_push_ir(app);      break;
+        case 2: btcpc_capture_and_push_ibutton(app); break;
         }
 
-        /* Every 3rd tick — RFID 1 s scan, skips silently if no card */
+        /* BLE environment census: every 3 ticks (15 s) */
         if(app->heartbeat_count % 3 == 0) {
-            btcpc_capture_and_push_rfid(app);
+            btcpc_scan_and_push_ble_env(app);
         }
 
-        /* Every 4th tick — NFC 500 ms scan, skips silently if no tag */
-        if(app->heartbeat_count % 4 == 0) {
-            btcpc_capture_and_push_nfc(app);
-        }
-
-        /* Every 5th tick — iButton 500 ms scan, skips silently if no key */
-        if(app->heartbeat_count % 5 == 0) {
-            btcpc_capture_and_push_ibutton(app);
+        /* RFID reader field detection: every 6 ticks (30 s).
+         * Runs on tick % 6 == 3 to avoid overlapping the RFID card scan
+         * at tick % 3 == 0. */
+        if(app->heartbeat_count % 6 == 3) {
+            if(btcpc_detect_rfid_reader()) {
+                BtcpcBleSvc* rd_svc = btcpc_ble_profile_get_svc(app->ble_profile);
+                if(rd_svc) {
+                    BtcpcReaderDetect rd = {.reader_type = 0x01, .field_rssi = 0};
+                    size_t rd_len;
+                    furi_mutex_acquire(app->sign_mutex, FuriWaitForever);
+                    rd_len = btcpc_build_reader_detect(&s_tx_frame, &rd, app->sk);
+                    furi_mutex_release(app->sign_mutex);
+                    btcpc_ble_svc_push_frame(rd_svc, (const uint8_t*)&s_tx_frame, (uint16_t)rd_len);
+                    btcpc_notify_rare_detection();
+                    FURI_LOG_D("BtcpcBle", "reader_detect: RFID 125kHz field");
+                }
+            }
         }
 
         app->heartbeat_count++;

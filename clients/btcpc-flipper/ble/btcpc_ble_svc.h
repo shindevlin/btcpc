@@ -1,7 +1,7 @@
 /*
  * btcpc_ble_svc.h — BTCPC signing GATT service
  *
- * Exposes three characteristics over BLE:
+ * Exposes five characteristics over BLE:
  *
  *   SIGN_REQUEST  (write-without-response)
  *     Phone writes exactly 32 bytes (entry hash). Flipper signs with ed25519
@@ -14,8 +14,16 @@
  *   PUBKEY  (read)
  *     Phone reads the 32-byte ed25519 public key. Read-only, no write.
  *
+ *   OTA_WRITE  (write-without-response, authen)
+ *     Phone sends OTA update commands. Only bonded device can write.
+ *     Protocol: 'O'+u32_LE(size) open, 'D'+bytes chunk, 'C'+u32_LE(sum) commit, 'A' abort.
+ *
+ *   OTA_STATUS  (notify)
+ *     Flipper notifies OTA progress: 'K' ready, 'Z' done, 'E'+u8_code error.
+ *
  * Security properties: the private key never leaves this service. Only
- * signatures and the public key are transmitted over BLE.
+ * signatures and the public key are transmitted over BLE. OTA_WRITE requires
+ * authentication — only bonded peers can push firmware.
  *
  * Shin Devlin — btcpc.network
  */
@@ -60,6 +68,34 @@
 #define BTCPC_CHAR_DATA_CHANNEL_UUID \
     { 0x85, 0x2e, 0x4a, 0x1f, 0x0c, 0xd7, 0x16, 0x9e, 0x80, 0x43, 0x2d, 0x5f, 0xb7, 0xe1, 0xc8, 0xa4 }
 
+/*
+ * OTA_WRITE: 3c7f1b2a-4d5e-6f80-9a0b-c1d2e3f40516
+ *
+ * OTA firmware update write channel. Phone sends command frames:
+ *   'O' + u32_LE(size)  — open:   start OTA, declare file size
+ *   'D' + bytes         — data:   write up to 240 bytes of file data
+ *   'C' + u32_LE(sum)   — commit: verify size+checksum, rename .tmp→.fap
+ *   'A'                 — abort:  delete tmp file, reset state
+ *
+ * ATTR_PERMISSION_AUTHEN_WRITE — only bonded peers may write.
+ * Destination path is hardcoded on Flipper; not supplied by phone.
+ */
+#define BTCPC_CHAR_OTA_WRITE_UUID \
+    { 0x16, 0x05, 0xf4, 0xe3, 0xd2, 0xc1, 0x0b, 0x9a, 0x80, 0x6f, 0x5e, 0x4d, 0x2a, 0x1b, 0x7f, 0x3c }
+
+/*
+ * OTA_STATUS: 5e8d2c3b-6f7a-8b90-0c1d-2e3f4a5b6071
+ *
+ * Flipper notifies OTA progress to phone:
+ *   'K'       — ready / acknowledged (1 byte)
+ *   'Z'       — OTA complete (1 byte)
+ *   'E' + u8  — error: 0x01=open failed, 0x02=write error,
+ *                       0x03=size mismatch, 0x04=checksum mismatch,
+ *                       0x05=rename failed (2 bytes)
+ */
+#define BTCPC_CHAR_OTA_STATUS_UUID \
+    { 0x71, 0x60, 0x5b, 0x4a, 0x3f, 0x2e, 0x1d, 0x0c, 0x90, 0x8b, 0x7a, 0x6f, 0x3b, 0x2c, 0x8d, 0x5e }
+
 /* Fixed payload sizes */
 #define BTCPC_BLE_SIGN_REQ_LEN   32  /* SHA-256 hash of entry to sign */
 #define BTCPC_BLE_SIGN_RESP_LEN  64  /* ed25519 signature */
@@ -71,23 +107,27 @@
 
 /* Max GATT attribute records for this service:
  *   1 (service decl)
- *   + 4 chars × 2 (decl + value) = 8
- *   + 2 CCCDs (SIGN_RESP, DATA_CHANNEL) = 2
- *   + 3 spare = 13 → round to 15 */
-#define BTCPC_SVC_MAX_ATTR_RECORDS  15
+ *   + SIGN_REQ:    2 (decl + value)
+ *   + SIGN_RESP:   3 (decl + value + CCCD)
+ *   + PUBKEY:      2 (decl + value)
+ *   + DATA_CHANNEL: 3 (decl + value + CCCD)
+ *   + OTA_WRITE:   2 (decl + value)
+ *   + OTA_STATUS:  3 (decl + value + CCCD)
+ *   = 16 + 4 spare = 20 */
+#define BTCPC_SVC_MAX_ATTR_RECORDS  20
 
-/*
- * Callback type: fired when the phone writes a sign request.
- * `hash` points to exactly BTCPC_BLE_SIGN_REQ_LEN bytes.
- * `context` is whatever was passed to btcpc_ble_svc_start().
- */
 /* Called from BLE ISR when phone writes a sign request (32-byte hash). */
 typedef void (*BtcpcBleSvcSignRequestCb)(const uint8_t* hash, void* context);
 
 /* Called from BLE ISR when phone writes a DATA_CHANNEL frame.
  * `frame` points to the raw bytes; `len` is the byte count.
- * Must not block, must not call sign().  */
+ * Must not block, must not call sign(). */
 typedef void (*BtcpcBleSvcDataRxCb)(const uint8_t* frame, uint16_t len, void* context);
+
+/* Called from BLE ISR when phone writes to OTA_WRITE characteristic.
+ * `data` is the raw write; first byte is the command ('O','D','C','A').
+ * Must not block. Only called for authenticated (bonded) peers. */
+typedef void (*BtcpcBleSvcOtaCb)(const uint8_t* data, uint16_t len, void* context);
 
 typedef struct BtcpcBleSvc BtcpcBleSvc;
 
@@ -106,6 +146,7 @@ BtcpcBleSvc* btcpc_ble_svc_start(
     const uint8_t           pk[BTCPC_BLE_PUBKEY_LEN],
     BtcpcBleSvcSignRequestCb sign_cb,
     BtcpcBleSvcDataRxCb      data_cb,
+    BtcpcBleSvcOtaCb         ota_cb,
     void*                    ctx);
 
 /*
@@ -141,3 +182,13 @@ void btcpc_ble_svc_update_pubkey(BtcpcBleSvc* svc, const uint8_t pk[BTCPC_BLE_PU
  * Returns false if not connected, CCCD not enabled, or `len` exceeds maximum.
  */
 bool btcpc_ble_svc_push_frame(BtcpcBleSvc* svc, const uint8_t* data, uint16_t len);
+
+/*
+ * btcpc_ble_svc_send_ota_status()
+ *
+ * Notify the connected central with an OTA status byte sequence.
+ * `status` must be 1 or 2 bytes: 'K', 'Z', or {'E', error_code}.
+ * Must be called from the app (non-ISR) thread.
+ * Returns false if not connected or CCCD not enabled.
+ */
+bool btcpc_ble_svc_send_ota_status(BtcpcBleSvc* svc, const uint8_t* status, uint8_t len);

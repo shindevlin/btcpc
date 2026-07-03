@@ -52,8 +52,13 @@ static FuriHalBleProfileBase* btcpc_profile_start(FuriHalBleProfileParams profil
 
     profile->base.config = ble_profile_btcpc;
 
-    /* Start the GATT service — wires sign + data_rx callbacks to app thread queue */
-    profile->svc = btcpc_ble_svc_start(app->pk, btcpc_ble_sign_req_cb, btcpc_ble_data_rx_cb, app);
+    /* Start the GATT service — wires sign + data_rx + ota callbacks to app thread queue */
+    profile->svc = btcpc_ble_svc_start(
+        app->pk,
+        btcpc_ble_sign_req_cb,
+        btcpc_ble_data_rx_cb,
+        btcpc_ble_ota_cb,
+        app);
     if(!profile->svc) {
         FURI_LOG_E(TAG, "btcpc_ble_svc_start failed");
         free(profile);
@@ -98,9 +103,9 @@ static void btcpc_profile_get_gap_config(
     cfg->mac_address[0] ^= BTCPC_MAC_XOR_0;
     cfg->mac_address[1] ^= BTCPC_MAC_XOR_1;
 
-    /* Bonding enabled — store long-term keys for auto-reconnect */
+    /* Bonding enabled — Just Works (no PIN ceremony, auto-bonds on first connect) */
     cfg->bonding_mode    = true;
-    cfg->pairing_method  = GapPairingPinCodeShow;
+    cfg->pairing_method  = GapPairingNone;
 
     /* Connection parameters: 60 ms interval, 0 latency, 4 s supervision */
     cfg->conn_param.conn_int_min      = 0x0030; /* 37.5 ms */

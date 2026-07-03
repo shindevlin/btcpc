@@ -25,12 +25,17 @@
 /* Message types */
 typedef enum {
     /* Flipper → phone */
-    BTCPC_MSG_SUBGHZ_OBS = 0x01,  /* Sub-GHz radio observation */
-    BTCPC_MSG_RFID_SCAN  = 0x02,  /* RFID/125kHz card scan */
-    BTCPC_MSG_NFC_SCAN   = 0x03,  /* NFC/ISO14443 scan */
-    BTCPC_MSG_IBUTTON    = 0x04,  /* iButton/1-Wire read */
-    BTCPC_MSG_HEARTBEAT  = 0x05,  /* battery, uptime, version */
-    BTCPC_MSG_IR_CAPTURE = 0x06,  /* captured IR signal */
+    BTCPC_MSG_SUBGHZ_OBS    = 0x01,  /* Sub-GHz radio observation (legacy, single-band RSSI) */
+    BTCPC_MSG_RFID_SCAN     = 0x02,  /* RFID/125kHz card scan */
+    BTCPC_MSG_NFC_SCAN      = 0x03,  /* NFC/ISO14443 scan */
+    BTCPC_MSG_IBUTTON       = 0x04,  /* iButton/1-Wire read */
+    BTCPC_MSG_HEARTBEAT     = 0x05,  /* battery, uptime, version */
+    BTCPC_MSG_IR_CAPTURE    = 0x06,  /* captured IR signal */
+    BTCPC_MSG_SIGN_RESP     = 0x07,  /* Flipper returns Ed25519 signature */
+    BTCPC_MSG_SUBGHZ_CENSUS = 0x08,  /* multi-band RF census: event counts + RSSI per band */
+    BTCPC_MSG_BLE_ENV       = 0x09,  /* BLE environment scan: nearby advertisement census */
+    BTCPC_MSG_READER_DETECT = 0x0A,  /* external reader field detected */
+    BTCPC_MSG_USB_SAFETY    = 0x0B,  /* USB juice jacking scan result */
 
     /* Phone → Flipper */
     BTCPC_MSG_ENTRY_HASH = 0x10,  /* chain entry hash to rebroadcast via Sub-GHz */
@@ -38,9 +43,6 @@ typedef enum {
     BTCPC_MSG_GPS        = 0x12,  /* lat/lon from phone GPS */
     BTCPC_MSG_SIGN_REQ   = 0x13,  /* phone requests Flipper sign a 32-byte digest */
     BTCPC_MSG_SENSOR_REQ = 0x14,  /* phone requests specific sensor capture */
-
-    /* Flipper → phone (signing delegation responses) */
-    BTCPC_MSG_SIGN_RESP  = 0x07,  /* Flipper returns Ed25519 signature */
 } BtcpcMsgType;
 
 /*
@@ -66,6 +68,83 @@ typedef struct __attribute__((packed)) {
     uint8_t  modulation; /* 0=AM, 1=FM, 2=OOK */
     uint8_t  bandwidth;  /* kHz, approximate */
 } BtcpcSubGhzObs;
+
+/*
+ * BtcpcBandCensus — RF activity census for one frequency band.
+ *
+ * event_count: distinct RSSI excursions ≥ 12 dB above local noise floor.
+ *              Each event is one or more devices transmitting.
+ *              On 433 MHz OOK this maps to remotes / sensors.
+ *              On 868 MHz FSK this includes LoRa, wM-Bus, Z-Wave, Sigfox.
+ *
+ * long_count:  subset of events lasting ≥ 50 ms.
+ *              Short OOK bursts (remotes, sensors) are typically 5–30 ms.
+ *              LoRa chirps and FSK data frames run 50–500 ms.
+ *              This is the best proxy for LoRa / meter traffic without
+ *              decoding the modulation.
+ *
+ * peak_rssi_dbm:   strongest signal seen during the listen window.
+ * noise_floor_dbm: average RSSI during the first 100 ms (quiet calibration).
+ */
+typedef struct __attribute__((packed)) {
+    uint32_t freq_hz;
+    uint8_t  event_count;     /* distinct RF events above noise threshold */
+    uint8_t  long_count;      /* events ≥ 50 ms (LoRa chirps / FSK frames) */
+    int8_t   peak_rssi_dbm;
+    int8_t   noise_floor_dbm;
+} BtcpcBandCensus;  /* 8 bytes */
+
+#define BTCPC_CENSUS_BANDS 13
+
+/*
+ * BtcpcSubGhzCensus — complete multi-band census pushed every scan cycle.
+ *
+ * Bands (in order): see btcpc_scene_ble.c btcpc_census_subghz() for the
+ * full table of frequencies, modulation hints, and listen windows.
+ *
+ * listen_window_ms: total time spent scanning across all bands.
+ *
+ * Privacy: no device addresses, no rolling codes, no meter readings.
+ * Event counts + signal strength only — describes RF environment density,
+ * not individual device identity.
+ */
+typedef struct __attribute__((packed)) {
+    BtcpcBandCensus band[BTCPC_CENSUS_BANDS];
+    uint16_t        listen_window_ms;
+} BtcpcSubGhzCensus;  /* 13×8 + 2 = 106 bytes */
+
+typedef struct __attribute__((packed)) {
+    uint8_t  ad_count;          /* unique advertisement sources in scan window */
+    uint8_t  scan_window_s;     /* scan duration in seconds */
+    int8_t   rssi_min_dbm;      /* weakest signal seen */
+    int8_t   rssi_max_dbm;      /* strongest signal seen */
+    int8_t   rssi_avg_dbm;      /* average RSSI (integer) */
+    uint8_t  connectable_count; /* advertisements with connectable flag set */
+} BtcpcBleEnv;  /* 6 bytes */
+
+typedef struct __attribute__((packed)) {
+    uint8_t  reader_type;  /* 0x01=RFID 125kHz, 0x02=NFC 13.56MHz, 0x03=iButton 1-Wire master */
+    int8_t   field_rssi;   /* signal strength or 0 if not measurable */
+} BtcpcReaderDetect;  /* 2 bytes */
+
+/*
+ * BtcpcUsbSafetyResult — BTCPC_MSG_USB_SAFETY (0x0B)
+ *
+ * verdict:
+ *   0 = SAFE        — no USB enumeration in monitoring window
+ *   1 = WARNING     — USB enumerated into a data-capable class
+ *   2 = ATTACK      — unknown/unexpected USB class detected
+ *
+ * usb_class: 0x00=none, 0x02=CDC/serial, 0x0B=CCID smart card, 0xFF=unknown
+ * enumeration_count: how many times a non-HID config was observed
+ * monitor_ms: total monitoring window in milliseconds
+ */
+typedef struct __attribute__((packed)) {
+    uint8_t  verdict;
+    uint8_t  usb_class;
+    uint8_t  enumeration_count;
+    uint16_t monitor_ms;
+} BtcpcUsbSafetyResult;  /* BTCPC_MSG_USB_SAFETY (0x0B), 5 bytes */
 
 /*
  * Privacy design — "what, not which":
@@ -167,11 +246,15 @@ typedef struct {
 /* All return total bytes (header + payload) ready for BLE TX. */
 
 size_t btcpc_build_subghz(BtcpcFrame* frame, const BtcpcSubGhzObs* obs, const uint8_t sk[64]);
+size_t btcpc_build_subghz_census(BtcpcFrame* frame, const BtcpcSubGhzCensus* census, const uint8_t sk[64]);
 size_t btcpc_build_rfid(BtcpcFrame* frame, const BtcpcRfidScan* scan, const uint8_t sk[64]);
 size_t btcpc_build_nfc(BtcpcFrame* frame, const BtcpcNfcScan* scan, const uint8_t sk[64]);
 size_t btcpc_build_ibutton(BtcpcFrame* frame, const BtcpcIButton* btn, const uint8_t sk[64]);
 size_t btcpc_build_heartbeat(BtcpcFrame* frame, const BtcpcHeartbeat* hb, const uint8_t sk[64]);
 size_t btcpc_build_ir(BtcpcFrame* frame, const BtcpcIrCapture* ir, const uint8_t sk[64]);
+size_t btcpc_build_ble_env(BtcpcFrame* frame, const BtcpcBleEnv* env, const uint8_t sk[64]);
+size_t btcpc_build_reader_detect(BtcpcFrame* frame, const BtcpcReaderDetect* rd, const uint8_t sk[64]);
+size_t btcpc_build_usb_safety(BtcpcFrame* frame, const BtcpcUsbSafetyResult* res, const uint8_t sk[64]);
 
 /* ─── Frame parsers ──────────────────────────────────────────────────────── */
 

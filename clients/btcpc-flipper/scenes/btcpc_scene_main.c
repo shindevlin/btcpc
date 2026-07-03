@@ -8,6 +8,7 @@
 #include "btcpc_scene_main.h"
 #include "btcpc_scene_identity.h"
 #include "btcpc_scene_ble.h"
+#include "btcpc_scene_usb.h"
 
 #include <gui/modules/submenu.h>
 
@@ -21,9 +22,11 @@ void btcpc_scene_main_on_enter(void* context) {
 
     submenu_reset(app->submenu);
     submenu_set_header(app->submenu, "BTCPC " BTCPC_VERSION);
-    submenu_add_item(app->submenu, "Identity / Key", BtcpcMenuIdentity,
+    submenu_add_item(app->submenu, "Connect", BtcpcMenuBle,
                      btcpc_scene_main_submenu_callback, app);
-    submenu_add_item(app->submenu, "BLE Status", BtcpcMenuBle,
+    submenu_add_item(app->submenu, "Identity", BtcpcMenuIdentity,
+                     btcpc_scene_main_submenu_callback, app);
+    submenu_add_item(app->submenu, "USB Safety", BtcpcMenuUsb,
                      btcpc_scene_main_submenu_callback, app);
 
     view_dispatcher_switch_to_view(app->view_dispatcher, BtcpcViewSubmenu);
@@ -41,6 +44,10 @@ bool btcpc_scene_main_on_event(void* context, SceneManagerEvent event) {
             break;
         case BtcpcMenuBle:
             scene_manager_next_scene(app->scene_manager, BtcpcSceneBle);
+            consumed = true;
+            break;
+        case BtcpcMenuUsb:
+            scene_manager_next_scene(app->scene_manager, BtcpcSceneUsb);
             consumed = true;
             break;
         default:

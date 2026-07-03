@@ -18,11 +18,17 @@
 #define TAG               "BTCPC"
 #define BTCPC_VERSION     "0.1.0"
 
+#define BTCPC_NOTIFY_RARE_MS  200  /* vibration duration for rare detection */
+
 #define BTCPC_DATA_DIR    EXT_PATH("apps_data/btcpc")
 #define BTCPC_KEY_PATH    EXT_PATH("apps_data/btcpc/identity.key")
 #define BTCPC_PUB_PATH    EXT_PATH("apps_data/btcpc/identity.pub")
 /* BLE bonding keys — stored here so they survive app restarts */
 #define BTCPC_BT_KEYS_PATH EXT_PATH("apps_data/btcpc/bt.keys")
+
+/* OTA firmware update paths */
+#define BTCPC_FAP_PATH     EXT_PATH("apps/Tools/btcpc.fap")
+#define BTCPC_OTA_TMP_PATH EXT_PATH("apps/Tools/btcpc.fap.tmp")
 
 /* Secret key: 64 bytes (seed || public in TweetNaCl expanded form) */
 #define BTCPC_SK_LEN      64
@@ -34,6 +40,7 @@ typedef enum {
     BtcpcSceneMain,
     BtcpcSceneIdentity,
     BtcpcSceneBle,
+    BtcpcSceneUsb,
     BtcpcSceneCount,
 } BtcpcScene;
 
@@ -49,6 +56,7 @@ typedef enum {
 typedef enum {
     BtcpcMenuIdentity = 0,
     BtcpcMenuBle      = 1,
+    BtcpcMenuUsb      = 2,
 } BtcpcMenuItem;
 
 /*
@@ -60,7 +68,9 @@ typedef enum {
     BtcpcEventBleConnected    = 101, /* GAP: central connected */
     BtcpcEventBleDisconnected = 102, /* GAP: central disconnected */
     BtcpcEventDataRx          = 103, /* DATA_CHANNEL: framed message received from phone */
-    BtcpcEventHeartbeatTimer  = 104, /* periodic: push heartbeat (and maybe SubGhz) */
+    BtcpcEventHeartbeatTimer  = 104, /* periodic: push heartbeat */
+    BtcpcEventOtaChunk        = 105, /* OTA_WRITE: command/data from phone, chunk in ota_chunk_buf */
+    BtcpcEventUsbSafetyTick   = 110, /* USB safety scene: 1-second poll tick */
 } BtcpcCustomEvent;
 
 typedef struct {
@@ -95,6 +105,20 @@ typedef struct {
     FuriMutex* data_rx_mutex;
     uint8_t    data_rx_buf[BTCPC_BLE_DATA_CH_MAX_LEN];
     uint16_t   data_rx_len;
+
+    /* OTA chunk — written by BLE ISR (ota_cb), consumed by app thread.
+     * Protected by ota_mutex. State fields below are app-thread-only. */
+    FuriMutex* ota_mutex;
+    uint8_t    ota_chunk_buf[BTCPC_BLE_DATA_CH_MAX_LEN];
+    uint16_t   ota_chunk_len;
+
+    /* OTA session state (app thread only — no mutex needed) */
+    bool       ota_in_progress;
+    uint32_t   ota_expected_size;
+    uint32_t   ota_bytes_written;
+    uint32_t   ota_checksum;
+    Storage*   ota_storage;
+    File*      ota_file;
 
     /* BLE */
     Bt*                    bt;
@@ -147,3 +171,10 @@ void btcpc_ble_sign_req_cb(const uint8_t* hash, void* context);
  * BtcpcEventDataRx to the view dispatcher so the app thread handles it.
  */
 void btcpc_ble_data_rx_cb(const uint8_t* frame, uint16_t len, void* context);
+
+/*
+ * OTA_WRITE receive callback — fired from the BLE ISR thread.
+ * Copies command/data into app->ota_chunk_buf under ota_mutex, then posts
+ * BtcpcEventOtaChunk to the view dispatcher so the app thread handles it.
+ */
+void btcpc_ble_ota_cb(const uint8_t* data, uint16_t len, void* context);

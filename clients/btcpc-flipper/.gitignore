@@ -1,0 +1,7 @@
+dist/
+.vscode/
+*.fap
+tests/test_protocol
+tests/test_expansion
+tests/tweetnacl.o
+tests/ed25519.o

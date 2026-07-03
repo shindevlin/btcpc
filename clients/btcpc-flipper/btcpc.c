@@ -28,6 +28,7 @@
 #include "scenes/btcpc_scene_main.h"
 #include "scenes/btcpc_scene_identity.h"
 #include "scenes/btcpc_scene_ble.h"
+#include "scenes/btcpc_scene_usb.h"
 
 #include <furi.h>
 #include <furi_hal_random.h>
@@ -41,18 +42,21 @@ static const AppSceneOnEnterCallback btcpc_on_enter_handlers[] = {
     [BtcpcSceneMain]     = btcpc_scene_main_on_enter,
     [BtcpcSceneIdentity] = btcpc_scene_identity_on_enter,
     [BtcpcSceneBle]      = btcpc_scene_ble_on_enter,
+    [BtcpcSceneUsb]      = btcpc_scene_usb_on_enter,
 };
 
 static const AppSceneOnEventCallback btcpc_on_event_handlers[] = {
     [BtcpcSceneMain]     = btcpc_scene_main_on_event,
     [BtcpcSceneIdentity] = btcpc_scene_identity_on_event,
     [BtcpcSceneBle]      = btcpc_scene_ble_on_event,
+    [BtcpcSceneUsb]      = btcpc_scene_usb_on_event,
 };
 
 static const AppSceneOnExitCallback btcpc_on_exit_handlers[] = {
     [BtcpcSceneMain]     = btcpc_scene_main_on_exit,
     [BtcpcSceneIdentity] = btcpc_scene_identity_on_exit,
     [BtcpcSceneBle]      = btcpc_scene_ble_on_exit,
+    [BtcpcSceneUsb]      = btcpc_scene_usb_on_exit,
 };
 
 static const SceneManagerHandlers btcpc_scene_handlers = {
@@ -74,14 +78,19 @@ static bool btcpc_back_event_callback(void* context) {
     return scene_manager_handle_back_event(app->scene_manager);
 }
 
+/* ─── Forward declarations ──────────────────────────────────────────────── */
+
+static void btcpc_heartbeat_timer_cb(void* context);
+
 /* ─── App alloc / free ──────────────────────────────────────────────────── */
 
 BtcpcApp* btcpc_app_alloc(void) {
     BtcpcApp* app = malloc(sizeof(BtcpcApp));
     memset(app, 0, sizeof(BtcpcApp));
 
-    app->sign_mutex     = furi_mutex_alloc(FuriMutexTypeNormal);
-    app->data_rx_mutex  = furi_mutex_alloc(FuriMutexTypeNormal);
+    app->sign_mutex      = furi_mutex_alloc(FuriMutexTypeNormal);
+    app->data_rx_mutex   = furi_mutex_alloc(FuriMutexTypeNormal);
+    app->ota_mutex       = furi_mutex_alloc(FuriMutexTypeNormal);
     app->heartbeat_timer = furi_timer_alloc(btcpc_heartbeat_timer_cb, FuriTimerTypePeriodic, app);
 
     app->gui = furi_record_open(RECORD_GUI);
@@ -125,6 +134,7 @@ void btcpc_app_free(BtcpcApp* app) {
     view_dispatcher_free(app->view_dispatcher);
 
     furi_timer_free(app->heartbeat_timer);
+    furi_mutex_free(app->ota_mutex);
     furi_mutex_free(app->data_rx_mutex);
     furi_mutex_free(app->sign_mutex);
 
@@ -250,6 +260,18 @@ void btcpc_ble_data_rx_cb(const uint8_t* frame, uint16_t len, void* context) {
     view_dispatcher_send_custom_event(app->view_dispatcher, BtcpcEventDataRx);
 }
 
+/* ─── OTA_WRITE receive callback (BLE ISR thread) ──────────────────────── */
+
+void btcpc_ble_ota_cb(const uint8_t* data, uint16_t len, void* context) {
+    BtcpcApp* app = context;
+    furi_mutex_acquire(app->ota_mutex, FuriWaitForever);
+    if(len > BTCPC_BLE_DATA_CH_MAX_LEN) len = BTCPC_BLE_DATA_CH_MAX_LEN;
+    memcpy(app->ota_chunk_buf, data, len);
+    app->ota_chunk_len = len;
+    furi_mutex_release(app->ota_mutex);
+    view_dispatcher_send_custom_event(app->view_dispatcher, BtcpcEventOtaChunk);
+}
+
 /* ─── BLE GAP status callback (BT service thread) ──────────────────────── */
 
 static void btcpc_bt_status_cb(BtStatus status, void* context) {
@@ -298,7 +320,7 @@ bool btcpc_ble_start(BtcpcApp* app) {
     /* bt_profile_start() starts advertising automatically in SDK 1.4+ */
     FURI_LOG_I(TAG, "BLE advertising as '%s'", BTCPC_BLE_ADV_NAME);
 
-    furi_timer_start(app->heartbeat_timer, furi_ms_to_ticks(30000));
+    furi_timer_start(app->heartbeat_timer, furi_ms_to_ticks(5000));
     return true;
 }
 
@@ -335,7 +357,7 @@ int32_t btcpc_app(void* p) {
         FURI_LOG_E(TAG, "BLE start failed — continuing without BLE");
     }
 
-    scene_manager_next_scene(app->scene_manager, BtcpcSceneMain);
+    scene_manager_next_scene(app->scene_manager, BtcpcSceneBle);
     view_dispatcher_run(app->view_dispatcher);
 
     /* Teardown */

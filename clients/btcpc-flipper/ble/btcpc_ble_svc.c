@@ -41,6 +41,8 @@ struct BtcpcBleSvc {
     BleGattCharacteristicInstance sign_resp_char;
     BleGattCharacteristicInstance pubkey_char;
     BleGattCharacteristicInstance data_channel_char;
+    BleGattCharacteristicInstance ota_write_char;
+    BleGattCharacteristicInstance ota_status_char;
 
     /* Cached public key for PUBKEY read callbacks */
     uint8_t pk[BTCPC_BLE_PUBKEY_LEN];
@@ -51,11 +53,18 @@ struct BtcpcBleSvc {
     /* DATA_CHANNEL receive callback (called from BLE ISR) */
     BtcpcBleSvcDataRxCb data_rx_cb;
 
-    void* ctx; /* shared context passed to both callbacks */
+    /* OTA_WRITE receive callback (called from BLE ISR) */
+    BtcpcBleSvcOtaCb ota_cb;
+
+    void* ctx; /* shared context passed to all callbacks */
 
     /* Outgoing DATA_CHANNEL frame — written on app thread before push_frame() */
     uint8_t  tx_buf[BTCPC_BLE_DATA_CH_MAX_LEN];
     uint16_t tx_len;
+
+    /* Outgoing OTA_STATUS — written on app thread before send_ota_status() */
+    uint8_t ota_status_buf[2];
+    uint8_t ota_status_len;
 
     GapSvcEventHandler* evt_handler;
 };
@@ -83,6 +92,22 @@ static bool btcpc_data_ch_tx_cb(const void* context, const uint8_t** data, uint1
     const BtcpcBleSvc* svc = context;
     *data_len = svc->tx_len > 0 ? svc->tx_len : BTCPC_BLE_DATA_CH_MAX_LEN;
     if(data != NULL) *data = svc->tx_buf;
+    return false;
+}
+
+/* OTA_WRITE size callback — only used at init to declare max write length. */
+static bool btcpc_ota_write_size_cb(const void* context, const uint8_t** data, uint16_t* data_len) {
+    UNUSED(context);
+    *data_len = BTCPC_BLE_DATA_CH_MAX_LEN;
+    if(data != NULL) *data = NULL;
+    return false;
+}
+
+/* OTA_STATUS TX callback — returns current status bytes for notification. */
+static bool btcpc_ota_status_tx_cb(const void* context, const uint8_t** data, uint16_t* data_len) {
+    const BtcpcBleSvc* svc = context;
+    *data_len = svc->ota_status_len > 0 ? svc->ota_status_len : 1;
+    if(data != NULL) *data = svc->ota_status_buf;
     return false;
 }
 
@@ -142,6 +167,35 @@ static const BleGattCharacteristicParams btcpc_data_ch_char_desc = {
     .gatt_evt_mask     = GATT_NOTIFY_ATTRIBUTE_WRITE,
 };
 
+/* OTA_WRITE: write-without-response, authenticated.
+ * Only bonded peers may write. Path hardcoded on Flipper side. */
+static const BleGattCharacteristicParams btcpc_ota_write_char_desc = {
+    .name              = "BTCPC_OTA_WRITE",
+    .descriptor_params = NULL,
+    .data              = { .callback = { .fn = btcpc_ota_write_size_cb, .context = NULL } },
+    .uuid              = { .Char_UUID_128 = BTCPC_CHAR_OTA_WRITE_UUID },
+    .data_prop_type    = FlipperGattCharacteristicDataCallback,
+    .is_variable       = 1,
+    .uuid_type         = UUID_TYPE_128,
+    .char_properties   = CHAR_PROP_WRITE_WITHOUT_RESP,
+    .security_permissions = ATTR_PERMISSION_AUTHEN_WRITE,
+    .gatt_evt_mask     = GATT_NOTIFY_ATTRIBUTE_WRITE,
+};
+
+/* OTA_STATUS: notify only (Flipper→phone). Variable 1–2 bytes. */
+static const BleGattCharacteristicParams btcpc_ota_status_char_desc = {
+    .name              = "BTCPC_OTA_STATUS",
+    .descriptor_params = NULL,
+    .data              = { .callback = { .fn = btcpc_ota_status_tx_cb, .context = NULL } },
+    .uuid              = { .Char_UUID_128 = BTCPC_CHAR_OTA_STATUS_UUID },
+    .data_prop_type    = FlipperGattCharacteristicDataCallback,
+    .is_variable       = 1,
+    .uuid_type         = UUID_TYPE_128,
+    .char_properties   = CHAR_PROP_NOTIFY,
+    .security_permissions = ATTR_PERMISSION_NONE,
+    .gatt_evt_mask     = GATT_NOTIFY_ATTRIBUTE_WRITE,
+};
+
 /* ─── BLE event handler ──────────────────────────────────────────────────── */
 
 #define EVT_BLUE_GATT_ATTRIBUTE_MODIFIED  0x0C01U
@@ -178,6 +232,14 @@ static BleEventAckStatus btcpc_ble_svc_event_handler(void* event, void* context)
             }
         }
         return BleEventAckFlowEnable;
+
+    } else if(ev->Attr_Handle == svc->ota_write_char.handle) {
+        /* OTA_WRITE: authenticated write — stack already enforced auth.
+         * Must have at least a command byte. */
+        if(ev->Attr_Data_Length >= 1 && svc->ota_cb != NULL) {
+            svc->ota_cb(ev->Attr_Data, ev->Attr_Data_Length, svc->ctx);
+        }
+        return BleEventAckFlowEnable;
     }
 
     /* CCCD writes and everything else: pass through to the BLE stack */
@@ -190,6 +252,7 @@ BtcpcBleSvc* btcpc_ble_svc_start(
     const uint8_t           pk[BTCPC_BLE_PUBKEY_LEN],
     BtcpcBleSvcSignRequestCb sign_cb,
     BtcpcBleSvcDataRxCb      data_cb,
+    BtcpcBleSvcOtaCb         ota_cb,
     void*                    ctx) {
 
     BtcpcBleSvc* svc = malloc(sizeof(BtcpcBleSvc));
@@ -198,6 +261,7 @@ BtcpcBleSvc* btcpc_ble_svc_start(
 
     svc->sign_cb    = sign_cb;
     svc->data_rx_cb = data_cb;
+    svc->ota_cb     = ota_cb;
     svc->ctx        = ctx;
     memcpy(svc->pk, pk, BTCPC_BLE_PUBKEY_LEN);
 
@@ -236,6 +300,14 @@ BtcpcBleSvc* btcpc_ble_svc_start(
     data_ch_desc.data.callback.context = svc;
     ble_gatt_characteristic_init(svc->svc_handle, &data_ch_desc, &svc->data_channel_char);
 
+    /* OTA_WRITE — authenticated write, variable length */
+    ble_gatt_characteristic_init(svc->svc_handle, &btcpc_ota_write_char_desc, &svc->ota_write_char);
+
+    /* OTA_STATUS — notify, patch context for tx callback */
+    BleGattCharacteristicParams ota_status_desc = btcpc_ota_status_char_desc;
+    ota_status_desc.data.callback.context = svc;
+    ble_gatt_characteristic_init(svc->svc_handle, &ota_status_desc, &svc->ota_status_char);
+
     /* Register BLE event handler */
     svc->evt_handler = ble_event_dispatcher_register_svc_handler(
         btcpc_ble_svc_event_handler, svc);
@@ -252,6 +324,8 @@ void btcpc_ble_svc_stop(BtcpcBleSvc* svc) {
         svc->evt_handler = NULL;
     }
 
+    ble_gatt_characteristic_delete(svc->svc_handle, &svc->ota_status_char);
+    ble_gatt_characteristic_delete(svc->svc_handle, &svc->ota_write_char);
     ble_gatt_characteristic_delete(svc->svc_handle, &svc->data_channel_char);
     ble_gatt_characteristic_delete(svc->svc_handle, &svc->pubkey_char);
     ble_gatt_characteristic_delete(svc->svc_handle, &svc->sign_resp_char);
@@ -279,4 +353,11 @@ bool btcpc_ble_svc_push_frame(BtcpcBleSvc* svc, const uint8_t* data, uint16_t le
     memcpy(svc->tx_buf, data, len);
     svc->tx_len = len;
     return ble_gatt_characteristic_update(svc->svc_handle, &svc->data_channel_char, svc);
+}
+
+bool btcpc_ble_svc_send_ota_status(BtcpcBleSvc* svc, const uint8_t* status, uint8_t len) {
+    if(!svc || !status || len == 0 || len > 2) return false;
+    memcpy(svc->ota_status_buf, status, len);
+    svc->ota_status_len = len;
+    return ble_gatt_characteristic_update(svc->svc_handle, &svc->ota_status_char, svc);
 }

@@ -23,5 +23,6 @@ App(
         "scenes/btcpc_scene_main.c",
         "scenes/btcpc_scene_identity.c",
         "scenes/btcpc_scene_ble.c",
+        "scenes/btcpc_scene_usb.c",
     ],
 )
