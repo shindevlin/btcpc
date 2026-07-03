@@ -2,7 +2,7 @@
 title: BTCPC Integration Manifest — Self-Updating Consumer Understanding
 description: How any repo that uses BTCPC keeps a current, machine-readable understanding of how to consume the chain
 author: Shin Devlin
-status: draft
+status: implemented
 ---
 
 # BTCPC Integration Manifest
@@ -11,6 +11,11 @@ status: draft
 > **self-updating understanding** of how to make use of BTCPC. Not a hand-written
 > README that rots the moment the API changes, but a generated manifest the repo
 > (and the repo's coding agent) can *refresh on demand* and trust to be current.
+
+> **Status: built.** The generator, differ, CI gate, and consumer `sync` are
+> implemented in `rust/btcpc-sdk` (`src/manifest/`, binary `btcpc`). The
+> canonical manifest is committed at the repo root as `btcpc-manifest.json`
+> (188 entries, 307 routes as of BTCPC 1.2.2). See **§4. Using it today**.
 
 The chain's surface changes: new ledger entries, new routes, new deploy
 capabilities (see `SERVICE_HOST_V2_14.md`). A consumer that hard-codes today's
@@ -159,5 +164,63 @@ they also *document* the hosting surface as it arrives, closing the loop between
 
 ---
 
+## 4. Using it today
+
+The system is implemented in `rust/btcpc-sdk` (module `src/manifest/`, binary
+`btcpc`). Build it once: `cd rust/btcpc-sdk && cargo build --release --bin btcpc`.
+
+### For BTCPC maintainers (in this repo)
+
+```bash
+# Regenerate the canonical manifest after changing routes/entries/signing:
+btcpc manifest generate --repo .          # writes btcpc-manifest.json
+
+# CI runs this — fails if the committed manifest drifted from source:
+btcpc manifest check --repo .             # exit 0 = current, 2 = stale
+```
+
+The `.github/workflows/manifest-check.yml` gate enforces that any change to
+`api.rs`, `tx.rs`, or `entry.rs` regenerates the manifest in the same commit.
+So "what changed in BTCPC's surface" is always a real `git diff` of
+`btcpc-manifest.json`.
+
+### For consumer repos (Bullship, bots, services)
+
+```bash
+# One-time: initialize BTCPC.md + BTCPC.lock in your repo.
+btcpc sync --manifest path/to/btcpc-manifest.json   # or --node https://node.btcpc.net
+
+# In CI, after pulling BTCPC updates — prints the changelog, exits 2 on breaking:
+btcpc sync --node https://node.btcpc.net
+```
+
+`btcpc sync` regenerates `BTCPC.md` (human/agent-readable contract + changelog)
+and `BTCPC.lock` (machine baseline). It reports every change as **ADDED /
+REMOVED / DEPRECATED / CHANGED** and **exits non-zero on breaking changes** — so
+a consumer's CI blocks a deploy that would break against the new surface. List
+the entries/routes you use under `uses_entries` / `uses_routes` in `BTCPC.lock`
+to get change alerts scoped to only the surface you depend on.
+
+### The deprecation convention (source-annotated)
+
+To deprecate an entry or route without breaking consumers, annotate the
+**source** — the generator lifts it into the manifest, and consumers see a
+WARNING (still works, migrate), distinct from a REMOVED (hard break):
+
+```rust
+/// @deprecated since=1.3.0 use=SensorDataCommit remove=2.0.0 reason="folded into commit"
+/// Legacy single-reading submit. Still accepted; removed in 2.0.
+SensorReadingLegacy { .. }
+```
+
+All fields optional: `since=`, `use=` (replacement), `remove=` (removal
+version), `reason="..."`. The same marker works on a `//` comment above a
+`.route(...)` line. This is the whole lifecycle: **added → deprecated (still
+works, migrate) → removed** — and every consumer repo learns which stage each
+piece of the surface is at, per BTCPC commit, automatically.
+
+---
+
 *Cross-refs:* `docs/SERVICE_HOST_V2_14.md` (the hosting surface this manifest
 exposes), `docs/AGENT_INTEGRATION.md`, `docs/API_CATALOG_LIBRARY.md`.
+Implementation: `rust/btcpc-sdk/src/manifest/`, `.github/workflows/manifest-check.yml`.

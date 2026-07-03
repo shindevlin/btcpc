@@ -5,8 +5,16 @@ edition = "2021"
 authors = ["Shin Devlin <shindevlin@proton.me>"]
 description = "BTCPC chain client SDK"
 
+# Standalone crate — deliberately NOT a member of rust/Cargo.toml's workspace, so
+# it can be published / vendored into consumer CI independently of the node build.
+[workspace]
+
+[[bin]]
+name = "btcpc"
+path = "src/bin/btcpc.rs"
+
 [dependencies]
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", features = ["json", "blocking"] }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

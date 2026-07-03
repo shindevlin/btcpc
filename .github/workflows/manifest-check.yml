@@ -1,0 +1,58 @@
+name: Integration Manifest Check
+
+# The btcpc-manifest.json committed at the repo root is the ecosystem's source
+# of truth for the chain's surface (routes + ledger-entry signing shapes). It is
+# generated from the node source by `btcpc manifest generate`. This gate fails
+# the build if the surface changed but the manifest wasn't regenerated in the
+# same commit — so consumer repos can always trust the committed manifest to
+# match what the node actually serves.
+#
+# If this fails: run `cargo run -p btcpc-sdk --bin btcpc -- manifest generate`
+# (from rust/btcpc-sdk) and commit the updated btcpc-manifest.json.
+
+on:
+  push:
+    paths:
+      - 'rust/btcpc-node/src/api.rs'
+      - 'rust/btcpc-node/src/tx.rs'
+      - 'rust/btcpc-node/crates/btcpc-types/src/entry.rs'
+      - 'rust/btcpc-sdk/**'
+      - 'btcpc-manifest.json'
+  pull_request:
+    paths:
+      - 'rust/btcpc-node/src/api.rs'
+      - 'rust/btcpc-node/src/tx.rs'
+      - 'rust/btcpc-node/crates/btcpc-types/src/entry.rs'
+      - 'rust/btcpc-sdk/**'
+      - 'btcpc-manifest.json'
+
+jobs:
+  manifest-check:
+    name: Verify committed manifest matches source
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust/btcpc-sdk/target
+          key: manifest-check-${{ runner.os }}-${{ hashFiles('rust/btcpc-sdk/Cargo.lock') }}
+
+      - name: Build btcpc CLI
+        working-directory: rust/btcpc-sdk
+        run: cargo build --bin btcpc --release
+
+      - name: Run manifest unit tests
+        working-directory: rust/btcpc-sdk
+        run: cargo test --release manifest
+
+      - name: Check committed manifest is current
+        run: |
+          ./rust/btcpc-sdk/target/release/btcpc manifest check --repo .

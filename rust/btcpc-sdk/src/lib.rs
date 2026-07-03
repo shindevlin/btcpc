@@ -20,6 +20,11 @@ use ed25519_dalek::{Signer, SigningKey};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs, path::Path};
 
+/// The self-updating integration manifest: how any repo in the BTCPC ecosystem
+/// keeps a current, diffable understanding of the chain's surface. See
+/// [`manifest`] for the full design.
+pub mod manifest;
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 /// Number of dreams in one BTCPC (10^10).
