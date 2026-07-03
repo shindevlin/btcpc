@@ -8,7 +8,8 @@
 #include "btcpc_scene_main.h"
 #include "btcpc_scene_identity.h"
 #include "btcpc_scene_ble.h"
-#include "btcpc_scene_usb.h"
+#include "btcpc_scene_subghz.h"
+#include "btcpc_scene_rotate.h"
 
 #include <gui/modules/submenu.h>
 
@@ -22,11 +23,13 @@ void btcpc_scene_main_on_enter(void* context) {
 
     submenu_reset(app->submenu);
     submenu_set_header(app->submenu, "BTCPC " BTCPC_VERSION);
-    submenu_add_item(app->submenu, "Connect", BtcpcMenuBle,
+    submenu_add_item(app->submenu, "Identity / Key", BtcpcMenuIdentity,
                      btcpc_scene_main_submenu_callback, app);
-    submenu_add_item(app->submenu, "Identity", BtcpcMenuIdentity,
+    submenu_add_item(app->submenu, "BLE Status", BtcpcMenuBle,
                      btcpc_scene_main_submenu_callback, app);
-    submenu_add_item(app->submenu, "USB Safety", BtcpcMenuUsb,
+    submenu_add_item(app->submenu, "Sub-GHz Observe", BtcpcMenuSubGhz,
+                     btcpc_scene_main_submenu_callback, app);
+    submenu_add_item(app->submenu, "Auto Rotate", BtcpcMenuRotate,
                      btcpc_scene_main_submenu_callback, app);
 
     view_dispatcher_switch_to_view(app->view_dispatcher, BtcpcViewSubmenu);
@@ -46,8 +49,12 @@ bool btcpc_scene_main_on_event(void* context, SceneManagerEvent event) {
             scene_manager_next_scene(app->scene_manager, BtcpcSceneBle);
             consumed = true;
             break;
-        case BtcpcMenuUsb:
-            scene_manager_next_scene(app->scene_manager, BtcpcSceneUsb);
+        case BtcpcMenuSubGhz:
+            scene_manager_next_scene(app->scene_manager, BtcpcSceneSubGhz);
+            consumed = true;
+            break;
+        case BtcpcMenuRotate:
+            scene_manager_next_scene(app->scene_manager, BtcpcSceneRotate);
             consumed = true;
             break;
         default:
