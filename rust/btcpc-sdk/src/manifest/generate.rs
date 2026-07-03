@@ -73,6 +73,11 @@ fn read(root: &Path, rel: &str) -> Result<String> {
     std::fs::read_to_string(&p).with_context(|| format!("reading {}", p.display()))
 }
 
+/// True for characters used to draw section-divider comment rules.
+fn is_divider_char(ch: char) -> bool {
+    matches!(ch, '─' | '━' | '-' | '=' | '·' | '•' | ' ')
+}
+
 /// Largest index <= `idx` that is a char boundary of `s` (std's `floor_char_boundary`
 /// is still unstable). Source files contain multi-byte box-drawing chars, so any
 /// fixed-length byte slice must be snapped to a boundary or it panics.
@@ -177,13 +182,15 @@ fn context_above(lines: &[&str], i: usize) -> (Stability, Option<Deprecation>, S
         }
         if let Some(c) = prev.strip_prefix("//") {
             let c = c.trim_start_matches('/').trim();
-            // Skip section dividers (mostly box-drawing / dashes).
-            let is_divider = !c.is_empty()
-                && c.chars().all(|ch| {
-                    ch == '─' || ch == '-' || ch == '=' || ch == '━' || ch.is_whitespace()
-                });
-            if !c.is_empty() && !is_divider && summary.is_empty() {
-                summary = c.to_string();
+            // Section-divider comments in this codebase come in two styles:
+            //   "── Some Label ─────"  and  "───────────".
+            // Strip leading/trailing runs of divider chars; if nothing readable
+            // remains it was a pure rule (skip), otherwise keep the inner label.
+            let cleaned = c
+                .trim_matches(|ch| is_divider_char(ch))
+                .trim();
+            if !cleaned.is_empty() && summary.is_empty() {
+                summary = cleaned.to_string();
             }
         } else if !prev.starts_with(".route(") {
             // Hit a non-comment, non-route line — stop scanning.

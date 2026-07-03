@@ -2,7 +2,7 @@
   "schema_version": 1,
   "btcpc_version": "1.2.2",
   "chain_id": "btcpc-1",
-  "surface_hash": "4eabf3fe52e78e4ecbaee4c14bce2723e23aa115ee87576dbd37d0174e5d6586",
+  "surface_hash": "387ecc004f10d8f17a1c162eecd96a1958d0778376d1899e20bc79811418af43",
   "entries": {
     "AccountApiKeySet": {
       "name": "AccountApiKeySet",
@@ -7198,7 +7198,7 @@
       "method": "GET",
       "path": "/agent/:account",
       "handler": "get_agent_instructions",
-      "summary": "── Node install (personalized one-liner) ─────────────────────────",
+      "summary": "Node install (personalized one-liner)",
       "stability": "stable"
     },
     "GET /api/account/:account": {
@@ -7224,35 +7224,35 @@
       "method": "GET",
       "path": "/api/account/:name/alive-epoch",
       "handler": "get_alive_epoch",
-      "summary": "── Chain Entropy Protocol ────────────────────────────────────────",
+      "summary": "Chain Entropy Protocol",
       "stability": "stable"
     },
     "GET /api/accounts": {
       "method": "GET",
       "path": "/api/accounts",
       "handler": "get_all_accounts",
-      "summary": "── GET endpoints ────────────────────────────────────────────────",
+      "summary": "GET endpoints",
       "stability": "stable"
     },
     "GET /api/agent-session/:id": {
       "method": "GET",
       "path": "/api/agent-session/:id",
       "handler": "get_agent_session",
-      "summary": "── Agent sessions ────────────────────────────────────────────────",
+      "summary": "Agent sessions",
       "stability": "stable"
     },
     "GET /api/agent/credit/:account": {
       "method": "GET",
       "path": "/api/agent/credit/:account",
       "handler": "get_agent_credit",
-      "summary": "── Agentic task marketplace ───────────────────────────────────────",
+      "summary": "Agentic task marketplace",
       "stability": "stable"
     },
     "GET /api/agent/registry": {
       "method": "GET",
       "path": "/api/agent/registry",
       "handler": "get_agent_registry",
-      "summary": "── Agent registry ─────────────────────────────────────────────────",
+      "summary": "Agent registry",
       "stability": "stable"
     },
     "GET /api/agent/registry/:account": {
@@ -7277,7 +7277,7 @@
       "method": "GET",
       "path": "/api/amber-pill/:account",
       "handler": "get_amber_pill",
-      "summary": "── Amber Pill ────────────────────────────────────────────────────────",
+      "summary": "Amber Pill",
       "stability": "stable"
     },
     "GET /api/auction/freeport/:id": {
@@ -7302,21 +7302,21 @@
       "method": "GET",
       "path": "/api/balance/:account",
       "handler": "get_balance",
-      "summary": "── GET endpoints ────────────────────────────────────────────────",
+      "summary": "GET endpoints",
       "stability": "stable"
     },
     "GET /api/balances/:account": {
       "method": "GET",
       "path": "/api/balances/:account",
       "handler": "get_all_balances",
-      "summary": "── GET endpoints ────────────────────────────────────────────────",
+      "summary": "GET endpoints",
       "stability": "stable"
     },
     "GET /api/blob/bandwidth/:cid": {
       "method": "GET",
       "path": "/api/blob/bandwidth/:cid",
       "handler": "get_blob_bandwidth",
-      "summary": "── Blob serve proof + bandwidth ──────────────────────────────────────",
+      "summary": "Blob serve proof + bandwidth",
       "stability": "stable"
     },
     "GET /api/block/:epoch": {
@@ -7341,56 +7341,56 @@
       "method": "GET",
       "path": "/api/chain/approved_models",
       "handler": "get_approved_models",
-      "summary": "── Model + version governance ────────────────────────────────────",
+      "summary": "Model + version governance",
       "stability": "stable"
     },
     "GET /api/chain/approved_software": {
       "method": "GET",
       "path": "/api/chain/approved_software",
       "handler": "get_approved_software",
-      "summary": "── Model + version governance ────────────────────────────────────",
+      "summary": "Model + version governance",
       "stability": "stable"
     },
     "GET /api/chain/fee-estimate": {
       "method": "GET",
       "path": "/api/chain/fee-estimate",
       "handler": "get_fee_estimate",
-      "summary": "── Fee market ────────────────────────────────────────────────────",
+      "summary": "Fee market",
       "stability": "stable"
     },
     "GET /api/chain/fork/:epoch": {
       "method": "GET",
       "path": "/api/chain/fork/:epoch",
       "handler": "get_fork_evidence",
-      "summary": "── Consensus / fork choice (T1-7, T1-8) ─────────────────────────",
+      "summary": "Consensus / fork choice (T1-7, T1-8)",
       "stability": "stable"
     },
     "GET /api/chain/min_node_version": {
       "method": "GET",
       "path": "/api/chain/min_node_version",
       "handler": "get_min_node_version",
-      "summary": "── Model + version governance ────────────────────────────────────",
+      "summary": "Model + version governance",
       "stability": "stable"
     },
     "GET /api/chain/param/:key": {
       "method": "GET",
       "path": "/api/chain/param/:key",
       "handler": "get_chain_param",
-      "summary": "── Governance: chain parameters ──────────────────────────────────",
+      "summary": "Governance: chain parameters",
       "stability": "stable"
     },
     "GET /api/chain/state_root": {
       "method": "GET",
       "path": "/api/chain/state_root",
       "handler": "get_state_root",
-      "summary": "── State Proofs (Phase 7) ────────────────────────────────────────",
+      "summary": "State Proofs (Phase 7)",
       "stability": "stable"
     },
     "GET /api/chain/validators/:epoch": {
       "method": "GET",
       "path": "/api/chain/validators/:epoch",
       "handler": "get_epoch_validators",
-      "summary": "── Consensus / fork choice (T1-7, T1-8) ─────────────────────────",
+      "summary": "Consensus / fork choice (T1-7, T1-8)",
       "stability": "stable"
     },
     "GET /api/clock/:node_id/uptime": {
@@ -7403,7 +7403,7 @@
       "method": "GET",
       "path": "/api/clock/registered",
       "handler": "get_clock_registered",
-      "summary": "── Clock node reputation (Phase 8) ───────────────────────────────",
+      "summary": "Clock node reputation (Phase 8)",
       "stability": "stable"
     },
     "GET /api/clock/status": {
@@ -7416,21 +7416,21 @@
       "method": "GET",
       "path": "/api/commerce/storefront/:account",
       "handler": "get_storefront",
-      "summary": "── Peer commerce ─────────────────────────────────────────────────────",
+      "summary": "Peer commerce",
       "stability": "stable"
     },
     "GET /api/commerce/storefronts": {
       "method": "GET",
       "path": "/api/commerce/storefronts",
       "handler": "get_storefronts",
-      "summary": "── Peer commerce ─────────────────────────────────────────────────────",
+      "summary": "Peer commerce",
       "stability": "stable"
     },
     "GET /api/computer-use/:id": {
       "method": "GET",
       "path": "/api/computer-use/:id",
       "handler": "get_computer_use_job",
-      "summary": "── Computer-use jobs ─────────────────────────────────────────────────",
+      "summary": "Computer-use jobs",
       "stability": "stable"
     },
     "GET /api/computer-use/open": {
@@ -7443,35 +7443,35 @@
       "method": "GET",
       "path": "/api/contracts/system",
       "handler": "get_system_contracts",
-      "summary": "── System contracts ──────────────────────────────────────────────",
+      "summary": "System contracts",
       "stability": "stable"
     },
     "GET /api/cross-chain/finality/:chain_id": {
       "method": "GET",
       "path": "/api/cross-chain/finality/:chain_id",
       "handler": "get_cross_chain_finality",
-      "summary": "── Cross-chain finality ──────────────────────────────────────────",
+      "summary": "Cross-chain finality",
       "stability": "stable"
     },
     "GET /api/ens/repos/:name": {
       "method": "GET",
       "path": "/api/ens/repos/:name",
       "handler": "get_ens_repos",
-      "summary": "── ENS identity ──────────────────────────────────────────────────",
+      "summary": "ENS identity",
       "stability": "stable"
     },
     "GET /api/ens/resolve/:name": {
       "method": "GET",
       "path": "/api/ens/resolve/:name",
       "handler": "get_ens_resolve",
-      "summary": "── ENS identity ──────────────────────────────────────────────────",
+      "summary": "ENS identity",
       "stability": "stable"
     },
     "GET /api/ensemble/job/:id": {
       "method": "GET",
       "path": "/api/ensemble/job/:id",
       "handler": "get_ensemble_job",
-      "summary": "── Ensemble inference ────────────────────────────────────────────",
+      "summary": "Ensemble inference",
       "stability": "stable"
     },
     "GET /api/ensemble/jobs": {
@@ -7502,7 +7502,7 @@
       "method": "GET",
       "path": "/api/explorer/blocks",
       "handler": "get_explorer_blocks",
-      "summary": "── Explorer ──────────────────────────────────────────────────────",
+      "summary": "Explorer",
       "stability": "stable"
     },
     "GET /api/explorer/miners": {
@@ -7515,14 +7515,14 @@
       "method": "GET",
       "path": "/api/explorer/status",
       "handler": "get_explorer_status",
-      "summary": "── Explorer ──────────────────────────────────────────────────────",
+      "summary": "Explorer",
       "stability": "stable"
     },
     "GET /api/explorer/supply": {
       "method": "GET",
       "path": "/api/explorer/supply",
       "handler": "get_explorer_supply",
-      "summary": "── Explorer ──────────────────────────────────────────────────────",
+      "summary": "Explorer",
       "stability": "stable"
     },
     "GET /api/explorer/transactions": {
@@ -7535,14 +7535,14 @@
       "method": "GET",
       "path": "/api/faucet/status",
       "handler": "get_faucet_status",
-      "summary": "── Faucet (testnet only) ─────────────────────────────────────────",
+      "summary": "Faucet (testnet only)",
       "stability": "stable"
     },
     "GET /api/finetune/:id": {
       "method": "GET",
       "path": "/api/finetune/:id",
       "handler": "get_finetune_job",
-      "summary": "── Fine-tune jobs ────────────────────────────────────────────────────",
+      "summary": "Fine-tune jobs",
       "stability": "stable"
     },
     "GET /api/finetune/open": {
@@ -7561,14 +7561,28 @@
       "method": "GET",
       "path": "/api/governance/proposals",
       "handler": "get_governance_proposals",
-      "summary": "── Governance: proposals and voting ─────────────────────────────",
+      "summary": "Governance: proposals and voting",
       "stability": "stable"
     },
     "GET /api/governance/proposals/:id": {
       "method": "GET",
       "path": "/api/governance/proposals/:id",
       "handler": "get_governance_proposal",
-      "summary": "── Governance: proposals and voting ─────────────────────────────",
+      "summary": "Governance: proposals and voting",
+      "stability": "stable"
+    },
+    "GET /api/integration/manifest": {
+      "method": "GET",
+      "path": "/api/integration/manifest",
+      "handler": "get_integration_manifest",
+      "summary": "Integration manifest — self-updating consumer contract (btcpc sync --node)",
+      "stability": "stable"
+    },
+    "GET /api/integration/manifest.md": {
+      "method": "GET",
+      "path": "/api/integration/manifest.md",
+      "handler": "get_integration_manifest_md",
+      "summary": "Integration manifest — self-updating consumer contract (btcpc sync --node)",
       "stability": "stable"
     },
     "GET /api/latest": {
@@ -7581,42 +7595,42 @@
       "method": "GET",
       "path": "/api/linkgit/repo/:owner/:repo",
       "handler": "get_linkgit_repo",
-      "summary": "── LinkGit ───────────────────────────────────────────────────────",
+      "summary": "LinkGit",
       "stability": "stable"
     },
     "GET /api/linkgit/repo/:owner/:repo/issues": {
       "method": "GET",
       "path": "/api/linkgit/repo/:owner/:repo/issues",
       "handler": "get_issues",
-      "summary": "── LinkGit: Issues (COBs) ────────────────────────────────────────",
+      "summary": "LinkGit: Issues (COBs)",
       "stability": "stable"
     },
     "GET /api/linkgit/repo/:owner/:repo/issues/:id": {
       "method": "GET",
       "path": "/api/linkgit/repo/:owner/:repo/issues/:id",
       "handler": "get_issue",
-      "summary": "── LinkGit: Issues (COBs) ────────────────────────────────────────",
+      "summary": "LinkGit: Issues (COBs)",
       "stability": "stable"
     },
     "GET /api/linkgit/repo/:owner/:repo/pulls": {
       "method": "GET",
       "path": "/api/linkgit/repo/:owner/:repo/pulls",
       "handler": "get_pulls",
-      "summary": "── LinkGit: Pull Requests (COBs) ─────────────────────────────────",
+      "summary": "LinkGit: Pull Requests (COBs)",
       "stability": "stable"
     },
     "GET /api/linkgit/repo/:owner/:repo/pulls/:id": {
       "method": "GET",
       "path": "/api/linkgit/repo/:owner/:repo/pulls/:id",
       "handler": "get_pull",
-      "summary": "── LinkGit: Pull Requests (COBs) ─────────────────────────────────",
+      "summary": "LinkGit: Pull Requests (COBs)",
       "stability": "stable"
     },
     "GET /api/linkgit/repos/:owner": {
       "method": "GET",
       "path": "/api/linkgit/repos/:owner",
       "handler": "get_linkgit_repos",
-      "summary": "── LinkGit ───────────────────────────────────────────────────────",
+      "summary": "LinkGit",
       "stability": "stable"
     },
     "GET /api/memory/:account": {
@@ -7629,42 +7643,42 @@
       "method": "GET",
       "path": "/api/memory/:account/:key",
       "handler": "get_memory_value",
-      "summary": "── Memory service ────────────────────────────────────────────────────",
+      "summary": "Memory service",
       "stability": "stable"
     },
     "GET /api/mempool/status": {
       "method": "GET",
       "path": "/api/mempool/status",
       "handler": "get_mempool_status",
-      "summary": "── Fee market ────────────────────────────────────────────────────",
+      "summary": "Fee market",
       "stability": "stable"
     },
     "GET /api/mining/phone/status": {
       "method": "GET",
       "path": "/api/mining/phone/status",
       "handler": "get_phone_mine_status",
-      "summary": "── Phone mining ──────────────────────────────────────────────────",
+      "summary": "Phone mining",
       "stability": "stable"
     },
     "GET /api/node/health/detailed": {
       "method": "GET",
       "path": "/api/node/health/detailed",
       "handler": "get_node_health_detailed",
-      "summary": "── Node health (detailed) ────────────────────────────────────────",
+      "summary": "Node health (detailed)",
       "stability": "stable"
     },
     "GET /api/node/info": {
       "method": "GET",
       "path": "/api/node/info",
       "handler": "get_node_info",
-      "summary": "── Node dashboard ────────────────────────────────────────────────",
+      "summary": "Node dashboard",
       "stability": "stable"
     },
     "GET /api/node/list": {
       "method": "GET",
       "path": "/api/node/list",
       "handler": "get_node_list",
-      "summary": "── Node dashboard ────────────────────────────────────────────────",
+      "summary": "Node dashboard",
       "stability": "stable"
     },
     "GET /api/node/miners/:name": {
@@ -7677,21 +7691,21 @@
       "method": "GET",
       "path": "/api/node/miners/all",
       "handler": "get_node_miners_all",
-      "summary": "── Node capability marketplace ───────────────────────────────────",
+      "summary": "Node capability marketplace",
       "stability": "stable"
     },
     "GET /api/node/miners/capable": {
       "method": "GET",
       "path": "/api/node/miners/capable",
       "handler": "get_node_miners_capable",
-      "summary": "── Node capability marketplace ───────────────────────────────────",
+      "summary": "Node capability marketplace",
       "stability": "stable"
     },
     "GET /api/node/models": {
       "method": "GET",
       "path": "/api/node/models",
       "handler": "get_node_models",
-      "summary": "── Node dashboard ────────────────────────────────────────────────",
+      "summary": "Node dashboard",
       "stability": "stable"
     },
     "GET /api/node/network/capabilities": {
@@ -7752,49 +7766,49 @@
       "method": "GET",
       "path": "/api/peers/bootstrap",
       "handler": "get_bootstrap_peers",
-      "summary": "── Peer bootstrap registry ───────────────────────────────────────",
+      "summary": "Peer bootstrap registry",
       "stability": "stable"
     },
     "GET /api/private-auth/status/:tx_hash": {
       "method": "GET",
       "path": "/api/private-auth/status/:tx_hash",
       "handler": "get_private_auth_status",
-      "summary": "── Private authorization ─────────────────────────────────────────────",
+      "summary": "Private authorization",
       "stability": "stable"
     },
     "GET /api/projects": {
       "method": "GET",
       "path": "/api/projects",
       "handler": "get_projects",
-      "summary": "── Project collaboration ─────────────────────────────────────────",
+      "summary": "Project collaboration",
       "stability": "stable"
     },
     "GET /api/projects/:id": {
       "method": "GET",
       "path": "/api/projects/:id",
       "handler": "get_project",
-      "summary": "── Project collaboration ─────────────────────────────────────────",
+      "summary": "Project collaboration",
       "stability": "stable"
     },
     "GET /api/projects/:id/tasks": {
       "method": "GET",
       "path": "/api/projects/:id/tasks",
       "handler": "get_project_tasks",
-      "summary": "── Project collaboration ─────────────────────────────────────────",
+      "summary": "Project collaboration",
       "stability": "stable"
     },
     "GET /api/proof/balance/:account/:token": {
       "method": "GET",
       "path": "/api/proof/balance/:account/:token",
       "handler": "get_balance_proof",
-      "summary": "── State Proofs (Phase 7) ────────────────────────────────────────",
+      "summary": "State Proofs (Phase 7)",
       "stability": "stable"
     },
     "GET /api/purchase/config": {
       "method": "GET",
       "path": "/api/purchase/config",
       "handler": "get_purchase_config",
-      "summary": "── OTC liquidity desk ────────────────────────────────────────────",
+      "summary": "OTC liquidity desk",
       "stability": "stable"
     },
     "GET /api/purchase/list": {
@@ -7807,7 +7821,7 @@
       "method": "GET",
       "path": "/api/purchase/quote",
       "handler": "get_purchase_quote",
-      "summary": "── OTC liquidity desk ────────────────────────────────────────────",
+      "summary": "OTC liquidity desk",
       "stability": "stable"
     },
     "GET /api/purchase/status/:id": {
@@ -7820,14 +7834,14 @@
       "method": "GET",
       "path": "/api/resolve",
       "handler": "get_resolve",
-      "summary": "── Gateway resolver ──────────────────────────────────────────────────",
+      "summary": "Gateway resolver",
       "stability": "stable"
     },
     "GET /api/resolve/name/:name": {
       "method": "GET",
       "path": "/api/resolve/name/:name",
       "handler": "get_resolve_name",
-      "summary": "── Gateway resolver ──────────────────────────────────────────────────",
+      "summary": "Gateway resolver",
       "stability": "stable"
     },
     "GET /api/runtime/:id": {
@@ -7852,21 +7866,21 @@
       "method": "GET",
       "path": "/api/science/jobs",
       "handler": "get_science_jobs",
-      "summary": "── Scientific compute jobs ───────────────────────────────────────",
+      "summary": "Scientific compute jobs",
       "stability": "stable"
     },
     "GET /api/science/jobs/:id": {
       "method": "GET",
       "path": "/api/science/jobs/:id",
       "handler": "get_science_job",
-      "summary": "── Scientific compute jobs ───────────────────────────────────────",
+      "summary": "Scientific compute jobs",
       "stability": "stable"
     },
     "GET /api/science/jobs/type/:job_type": {
       "method": "GET",
       "path": "/api/science/jobs/type/:job_type",
       "handler": "get_science_jobs_by_type",
-      "summary": "── Scientific compute jobs ───────────────────────────────────────",
+      "summary": "Scientific compute jobs",
       "stability": "stable"
     },
     "GET /api/sensor/:id": {
@@ -7891,14 +7905,14 @@
       "method": "GET",
       "path": "/api/service/node-hosting",
       "handler": "get_node_hosting_listings",
-      "summary": "── Node hosting (BTCPC-native cloud deploy) ─────────────────────",
+      "summary": "Node hosting (BTCPC-native cloud deploy)",
       "stability": "stable"
     },
     "GET /api/service/node-hosting/my-nodes": {
       "method": "GET",
       "path": "/api/service/node-hosting/my-nodes",
       "handler": "get_my_hosted_nodes",
-      "summary": "── Node hosting (BTCPC-native cloud deploy) ─────────────────────",
+      "summary": "Node hosting (BTCPC-native cloud deploy)",
       "stability": "stable"
     },
     "GET /api/sessions/listing/:id": {
@@ -7923,7 +7937,7 @@
       "method": "GET",
       "path": "/api/slash/appeal/:id",
       "handler": "get_slash_appeal",
-      "summary": "── Slashing ─────────────────────────────────────────────────────",
+      "summary": "Slashing",
       "stability": "stable"
     },
     "GET /api/slash/list": {
@@ -7936,14 +7950,14 @@
       "method": "GET",
       "path": "/api/snapshot/:account/:slug",
       "handler": "get_snapshot",
-      "summary": "── Snapshot replication ──────────────────────────────────────────────",
+      "summary": "Snapshot replication",
       "stability": "stable"
     },
     "GET /api/snapshots/:account": {
       "method": "GET",
       "path": "/api/snapshots/:account",
       "handler": "get_snapshots",
-      "summary": "── Snapshot replication ──────────────────────────────────────────────",
+      "summary": "Snapshot replication",
       "stability": "stable"
     },
     "GET /api/stake/:account": {
@@ -7962,21 +7976,21 @@
       "method": "GET",
       "path": "/api/staking/network",
       "handler": "get_staking_network",
-      "summary": "── Staking extras ────────────────────────────────────────────────",
+      "summary": "Staking extras",
       "stability": "stable"
     },
     "GET /api/staking/node/:node/:role": {
       "method": "GET",
       "path": "/api/staking/node/:node/:role",
       "handler": "get_role_backers",
-      "summary": "── Staking extras ────────────────────────────────────────────────",
+      "summary": "Staking extras",
       "stability": "stable"
     },
     "GET /api/staking/requirements": {
       "method": "GET",
       "path": "/api/staking/requirements",
       "handler": "get_staking_requirements",
-      "summary": "── Staking extras ────────────────────────────────────────────────",
+      "summary": "Staking extras",
       "stability": "stable"
     },
     "GET /api/sync/blocks": {
@@ -8007,7 +8021,7 @@
       "method": "GET",
       "path": "/api/task/job/:id/stream",
       "handler": "get_task_job_stream",
-      "summary": "── Streaming inference ───────────────────────────────────────────",
+      "summary": "Streaming inference",
       "stability": "stable"
     },
     "GET /api/task/jobs": {
@@ -8026,7 +8040,7 @@
       "method": "GET",
       "path": "/api/ton/activation/:account",
       "handler": "get_ton_activation_status",
-      "summary": "── TON wallet activation ─────────────────────────────────────────────",
+      "summary": "TON wallet activation",
       "stability": "stable"
     },
     "GET /api/tracker/claims": {
@@ -8051,7 +8065,7 @@
       "method": "GET",
       "path": "/api/vrf/beacon",
       "handler": "get_vrf_beacon",
-      "summary": "── VRF beacon ────────────────────────────────────────────────────",
+      "summary": "VRF beacon",
       "stability": "stable"
     },
     "GET /api/vrf/round/:epoch": {
@@ -8088,7 +8102,7 @@
       "method": "GET",
       "path": "/download/:filename",
       "handler": "get_download_file",
-      "summary": "── Binary download server ────────────────────────────────────────",
+      "summary": "Binary download server",
       "stability": "stable"
     },
     "GET /git/:owner/:repo/info/refs": {
@@ -8108,7 +8122,7 @@
       "method": "GET",
       "path": "/install/:account",
       "handler": "get_install_script",
-      "summary": "── Node install (personalized one-liner) ─────────────────────────",
+      "summary": "Node install (personalized one-liner)",
       "stability": "stable"
     },
     "GET /integrate": {
@@ -8139,28 +8153,28 @@
       "method": "GET",
       "path": "/public/leaderboard",
       "handler": "get_public_leaderboard",
-      "summary": "── Public status (no auth, no rate-limit on GETs) ───────────────",
+      "summary": "Public status (no auth, no rate-limit on GETs)",
       "stability": "stable"
     },
     "GET /public/machine-status": {
       "method": "GET",
       "path": "/public/machine-status",
       "handler": "get_public_machine_status",
-      "summary": "── Public status (no auth, no rate-limit on GETs) ───────────────",
+      "summary": "Public status (no auth, no rate-limit on GETs)",
       "stability": "stable"
     },
     "GET /public/network": {
       "method": "GET",
       "path": "/public/network",
       "handler": "get_public_network",
-      "summary": "── Public status (no auth, no rate-limit on GETs) ───────────────",
+      "summary": "Public status (no auth, no rate-limit on GETs)",
       "stability": "stable"
     },
     "GET /setup": {
       "method": "GET",
       "path": "/setup",
       "handler": "get_setup_page",
-      "summary": "── Node install (personalized one-liner) ─────────────────────────",
+      "summary": "Node install (personalized one-liner)",
       "stability": "stable"
     },
     "GET /tracker/map": {
@@ -8173,14 +8187,14 @@
       "method": "GET",
       "path": "/v1/models",
       "handler": "get_v1_models",
-      "summary": "── OpenAI-compatible inference gateway ───────────────────────────",
+      "summary": "OpenAI-compatible inference gateway",
       "stability": "stable"
     },
     "GET /v1/pricing": {
       "method": "GET",
       "path": "/v1/pricing",
       "handler": "get_v1_pricing",
-      "summary": "── OpenAI-compatible inference gateway ───────────────────────────",
+      "summary": "OpenAI-compatible inference gateway",
       "stability": "stable"
     },
     "POST /:owner/:repo/git-receive-pack": {
@@ -8213,7 +8227,7 @@
       "method": "POST",
       "path": "/api/account/prove-alive",
       "handler": "post_liveness_proof",
-      "summary": "── Chain Entropy Protocol ────────────────────────────────────────",
+      "summary": "Chain Entropy Protocol",
       "stability": "stable"
     },
     "POST /api/account/set-key-policy": {
@@ -8258,42 +8272,42 @@
       "method": "POST",
       "path": "/api/agent-session/close",
       "handler": "post_agent_session_close",
-      "summary": "── Agent sessions ────────────────────────────────────────────────",
+      "summary": "Agent sessions",
       "stability": "stable"
     },
     "POST /api/agent-session/open": {
       "method": "POST",
       "path": "/api/agent-session/open",
       "handler": "post_agent_session_open",
-      "summary": "── Agent sessions ────────────────────────────────────────────────",
+      "summary": "Agent sessions",
       "stability": "stable"
     },
     "POST /api/agent/credit/deposit": {
       "method": "POST",
       "path": "/api/agent/credit/deposit",
       "handler": "post_agent_credit_deposit",
-      "summary": "── Agentic task marketplace ───────────────────────────────────────",
+      "summary": "Agentic task marketplace",
       "stability": "stable"
     },
     "POST /api/agent/credit/withdraw": {
       "method": "POST",
       "path": "/api/agent/credit/withdraw",
       "handler": "post_agent_credit_withdraw",
-      "summary": "── Agentic task marketplace ───────────────────────────────────────",
+      "summary": "Agentic task marketplace",
       "stability": "stable"
     },
     "POST /api/agent/deregister": {
       "method": "POST",
       "path": "/api/agent/deregister",
       "handler": "post_agent_deregister",
-      "summary": "── Agent registry ─────────────────────────────────────────────────",
+      "summary": "Agent registry",
       "stability": "stable"
     },
     "POST /api/agent/register": {
       "method": "POST",
       "path": "/api/agent/register",
       "handler": "post_agent_register",
-      "summary": "── Agent registry ─────────────────────────────────────────────────",
+      "summary": "Agent registry",
       "stability": "stable"
     },
     "POST /api/agent/task/:id/assign": {
@@ -8336,35 +8350,35 @@
       "method": "POST",
       "path": "/api/amber-pill/mint",
       "handler": "post_amber_pill_mint",
-      "summary": "── Amber Pill ────────────────────────────────────────────────────────",
+      "summary": "Amber Pill",
       "stability": "stable"
     },
     "POST /api/auction/freeport/:id/bid": {
       "method": "POST",
       "path": "/api/auction/freeport/:id/bid",
       "handler": "post_freeport_auction_bid",
-      "summary": "── Freeport auctions ─────────────────────────────────────────────────",
+      "summary": "Freeport auctions",
       "stability": "stable"
     },
     "POST /api/auction/freeport/:id/settle": {
       "method": "POST",
       "path": "/api/auction/freeport/:id/settle",
       "handler": "post_freeport_auction_settle",
-      "summary": "── Freeport auctions ─────────────────────────────────────────────────",
+      "summary": "Freeport auctions",
       "stability": "stable"
     },
     "POST /api/auction/freeport/open": {
       "method": "POST",
       "path": "/api/auction/freeport/open",
       "handler": "post_freeport_auction_open",
-      "summary": "── Freeport auctions ─────────────────────────────────────────────────",
+      "summary": "Freeport auctions",
       "stability": "stable"
     },
     "POST /api/auction/name/:id/bid": {
       "method": "POST",
       "path": "/api/auction/name/:id/bid",
       "handler": "post_name_auction_bid",
-      "summary": "── Name auctions ─────────────────────────────────────────────────────",
+      "summary": "Name auctions",
       "stability": "stable"
     },
     "POST /api/auction/name/:id/cancel": {
@@ -8377,21 +8391,21 @@
       "method": "POST",
       "path": "/api/auction/name/:id/settle",
       "handler": "post_name_auction_settle",
-      "summary": "── Name auctions ─────────────────────────────────────────────────────",
+      "summary": "Name auctions",
       "stability": "stable"
     },
     "POST /api/auction/name/open": {
       "method": "POST",
       "path": "/api/auction/name/open",
       "handler": "post_name_auction_open",
-      "summary": "── Name auctions ─────────────────────────────────────────────────────",
+      "summary": "Name auctions",
       "stability": "stable"
     },
     "POST /api/blob/serve-proof": {
       "method": "POST",
       "path": "/api/blob/serve-proof",
       "handler": "post_blob_serve_proof",
-      "summary": "── Blob serve proof + bandwidth ──────────────────────────────────────",
+      "summary": "Blob serve proof + bandwidth",
       "stability": "stable"
     },
     "POST /api/bridge/claim-proof": {
@@ -8404,7 +8418,7 @@
       "method": "POST",
       "path": "/api/bridge/fund",
       "handler": "post_bridge_fund",
-      "summary": "── Bridge ───────────────────────────────────────────────────────",
+      "summary": "Bridge",
       "stability": "stable"
     },
     "POST /api/bridge/unlock": {
@@ -8417,98 +8431,98 @@
       "method": "POST",
       "path": "/api/bridge/unwrap",
       "handler": "post_bridge_unwrap",
-      "summary": "── Bridge ───────────────────────────────────────────────────────",
+      "summary": "Bridge",
       "stability": "stable"
     },
     "POST /api/bridge/wrap": {
       "method": "POST",
       "path": "/api/bridge/wrap",
       "handler": "post_bridge_wrap",
-      "summary": "── Bridge ───────────────────────────────────────────────────────",
+      "summary": "Bridge",
       "stability": "stable"
     },
     "POST /api/chain/approved_models": {
       "method": "POST",
       "path": "/api/chain/approved_models",
       "handler": "post_approved_models",
-      "summary": "── Model + version governance ────────────────────────────────────",
+      "summary": "Model + version governance",
       "stability": "stable"
     },
     "POST /api/chain/approved_software": {
       "method": "POST",
       "path": "/api/chain/approved_software",
       "handler": "post_approved_software",
-      "summary": "── Model + version governance ────────────────────────────────────",
+      "summary": "Model + version governance",
       "stability": "stable"
     },
     "POST /api/chain/min_node_version": {
       "method": "POST",
       "path": "/api/chain/min_node_version",
       "handler": "post_min_node_version",
-      "summary": "── Model + version governance ────────────────────────────────────",
+      "summary": "Model + version governance",
       "stability": "stable"
     },
     "POST /api/chain/set-param": {
       "method": "POST",
       "path": "/api/chain/set-param",
       "handler": "post_chain_set_param",
-      "summary": "── Governance: chain parameters ──────────────────────────────────",
+      "summary": "Governance: chain parameters",
       "stability": "stable"
     },
     "POST /api/clock/register": {
       "method": "POST",
       "path": "/api/clock/register",
       "handler": "post_clock_register",
-      "summary": "── Clock node reputation (Phase 8) ───────────────────────────────",
+      "summary": "Clock node reputation (Phase 8)",
       "stability": "stable"
     },
     "POST /api/clock/self-register": {
       "method": "POST",
       "path": "/api/clock/self-register",
       "handler": "post_clock_self_register",
-      "summary": "── Clock node reputation (Phase 8) ───────────────────────────────",
+      "summary": "Clock node reputation (Phase 8)",
       "stability": "stable"
     },
     "POST /api/commerce/storefront": {
       "method": "POST",
       "path": "/api/commerce/storefront",
       "handler": "post_storefront_register",
-      "summary": "── Peer commerce ─────────────────────────────────────────────────────",
+      "summary": "Peer commerce",
       "stability": "stable"
     },
     "POST /api/computer-use/:id/complete": {
       "method": "POST",
       "path": "/api/computer-use/:id/complete",
       "handler": "post_computer_use_complete",
-      "summary": "── Computer-use jobs ─────────────────────────────────────────────────",
+      "summary": "Computer-use jobs",
       "stability": "stable"
     },
     "POST /api/computer-use/post": {
       "method": "POST",
       "path": "/api/computer-use/post",
       "handler": "post_computer_use_job",
-      "summary": "── Computer-use jobs ─────────────────────────────────────────────────",
+      "summary": "Computer-use jobs",
       "stability": "stable"
     },
     "POST /api/contract/call": {
       "method": "POST",
       "path": "/api/contract/call",
       "handler": "post_contract_call",
-      "summary": "── Contract endpoints ────────────────────────────────────────────",
+      "summary": "Contract endpoints",
       "stability": "stable"
     },
     "POST /api/contract/deploy": {
       "method": "POST",
       "path": "/api/contract/deploy",
       "handler": "post_contract_deploy",
-      "summary": "── Contract endpoints ────────────────────────────────────────────",
+      "summary": "Contract endpoints",
       "stability": "stable"
     },
     "POST /api/contract/view": {
       "method": "POST",
       "path": "/api/contract/view",
       "handler": "post_contract_view",
-      "summary": "── Contract endpoints ────────────────────────────────────────────",
+      "summary": "Contract endpoints",
       "stability": "stable"
     },
     "POST /api/coverage/report": {
@@ -8521,35 +8535,35 @@
       "method": "POST",
       "path": "/api/ensemble/post",
       "handler": "post_ensemble_job",
-      "summary": "── Ensemble inference ────────────────────────────────────────────",
+      "summary": "Ensemble inference",
       "stability": "stable"
     },
     "POST /api/ensemble/vote": {
       "method": "POST",
       "path": "/api/ensemble/vote",
       "handler": "post_ensemble_vote",
-      "summary": "── Ensemble inference ────────────────────────────────────────────",
+      "summary": "Ensemble inference",
       "stability": "stable"
     },
     "POST /api/faucet/claim": {
       "method": "POST",
       "path": "/api/faucet/claim",
       "handler": "post_faucet_claim",
-      "summary": "── Faucet (testnet only) ─────────────────────────────────────────",
+      "summary": "Faucet (testnet only)",
       "stability": "stable"
     },
     "POST /api/finetune/:id/complete": {
       "method": "POST",
       "path": "/api/finetune/:id/complete",
       "handler": "post_finetune_complete",
-      "summary": "── Fine-tune jobs ────────────────────────────────────────────────────",
+      "summary": "Fine-tune jobs",
       "stability": "stable"
     },
     "POST /api/finetune/post": {
       "method": "POST",
       "path": "/api/finetune/post",
       "handler": "post_finetune_job",
-      "summary": "── Fine-tune jobs ────────────────────────────────────────────────────",
+      "summary": "Fine-tune jobs",
       "stability": "stable"
     },
     "POST /api/gateway/heartbeat": {
@@ -8562,35 +8576,35 @@
       "method": "POST",
       "path": "/api/github/webhook",
       "handler": "post_github_webhook",
-      "summary": "── GitHub App ────────────────────────────────────────────────────",
+      "summary": "GitHub App",
       "stability": "stable"
     },
     "POST /api/governance/proposals": {
       "method": "POST",
       "path": "/api/governance/proposals",
       "handler": "post_governance_propose",
-      "summary": "── Governance: proposals and voting ─────────────────────────────",
+      "summary": "Governance: proposals and voting",
       "stability": "stable"
     },
     "POST /api/governance/vote": {
       "method": "POST",
       "path": "/api/governance/vote",
       "handler": "post_governance_vote",
-      "summary": "── Governance: proposals and voting ─────────────────────────────",
+      "summary": "Governance: proposals and voting",
       "stability": "stable"
     },
     "POST /api/inference/stream": {
       "method": "POST",
       "path": "/api/inference/stream",
       "handler": "post_inference_stream",
-      "summary": "── Streaming inference ───────────────────────────────────────────",
+      "summary": "Streaming inference",
       "stability": "stable"
     },
     "POST /api/linkgit/repo/:owner/:repo/issues": {
       "method": "POST",
       "path": "/api/linkgit/repo/:owner/:repo/issues",
       "handler": "post_issue_create",
-      "summary": "── LinkGit: Issues (COBs) ────────────────────────────────────────",
+      "summary": "LinkGit: Issues (COBs)",
       "stability": "stable"
     },
     "POST /api/linkgit/repo/:owner/:repo/issues/:id/close": {
@@ -8603,7 +8617,7 @@
       "method": "POST",
       "path": "/api/linkgit/repo/:owner/:repo/issues/:id/comment",
       "handler": "post_issue_comment",
-      "summary": "── LinkGit: Issues (COBs) ────────────────────────────────────────",
+      "summary": "LinkGit: Issues (COBs)",
       "stability": "stable"
     },
     "POST /api/linkgit/repo/:owner/:repo/issues/:id/reopen": {
@@ -8616,7 +8630,7 @@
       "method": "POST",
       "path": "/api/linkgit/repo/:owner/:repo/pulls",
       "handler": "post_pr_create",
-      "summary": "── LinkGit: Pull Requests (COBs) ─────────────────────────────────",
+      "summary": "LinkGit: Pull Requests (COBs)",
       "stability": "stable"
     },
     "POST /api/linkgit/repo/:owner/:repo/pulls/:id/close": {
@@ -8629,7 +8643,7 @@
       "method": "POST",
       "path": "/api/linkgit/repo/:owner/:repo/pulls/:id/comment",
       "handler": "post_pr_comment",
-      "summary": "── LinkGit: Pull Requests (COBs) ─────────────────────────────────",
+      "summary": "LinkGit: Pull Requests (COBs)",
       "stability": "stable"
     },
     "POST /api/linkgit/repo/:owner/:repo/pulls/:id/merge": {
@@ -8660,7 +8674,7 @@
       "method": "POST",
       "path": "/api/linkgit/repo/create",
       "handler": "post_linkgit_repo_create",
-      "summary": "── LinkGit ───────────────────────────────────────────────────────",
+      "summary": "LinkGit",
       "stability": "stable"
     },
     "POST /api/linkgit/repo/ref/update": {
@@ -8673,28 +8687,28 @@
       "method": "POST",
       "path": "/api/memory/:account/:key",
       "handler": "post_memory_set",
-      "summary": "── Memory service ────────────────────────────────────────────────────",
+      "summary": "Memory service",
       "stability": "stable"
     },
     "POST /api/mining/phone/claim": {
       "method": "POST",
       "path": "/api/mining/phone/claim",
       "handler": "post_phone_mine_claim",
-      "summary": "── Phone mining ──────────────────────────────────────────────────",
+      "summary": "Phone mining",
       "stability": "stable"
     },
     "POST /api/mining/phone/submit": {
       "method": "POST",
       "path": "/api/mining/phone/submit",
       "handler": "post_phone_mine_submit",
-      "summary": "── Phone mining ──────────────────────────────────────────────────",
+      "summary": "Phone mining",
       "stability": "stable"
     },
     "POST /api/node/capability": {
       "method": "POST",
       "path": "/api/node/capability",
       "handler": "post_node_capability",
-      "summary": "── Node capability marketplace ───────────────────────────────────",
+      "summary": "Node capability marketplace",
       "stability": "stable"
     },
     "POST /api/node/role/opt-in": {
@@ -8743,49 +8757,49 @@
       "method": "POST",
       "path": "/api/oracle/feed/:id/finalize",
       "handler": "post_oracle_finalize",
-      "summary": "── Oracle feeds ──────────────────────────────────────────────────",
+      "summary": "Oracle feeds",
       "stability": "stable"
     },
     "POST /api/oracle/feed/:id/report": {
       "method": "POST",
       "path": "/api/oracle/feed/:id/report",
       "handler": "post_oracle_report",
-      "summary": "── Oracle feeds ──────────────────────────────────────────────────",
+      "summary": "Oracle feeds",
       "stability": "stable"
     },
     "POST /api/oracle/feed/create": {
       "method": "POST",
       "path": "/api/oracle/feed/create",
       "handler": "post_oracle_create",
-      "summary": "── Oracle feeds ──────────────────────────────────────────────────",
+      "summary": "Oracle feeds",
       "stability": "stable"
     },
     "POST /api/peers/bootstrap": {
       "method": "POST",
       "path": "/api/peers/bootstrap",
       "handler": "post_bootstrap_peer",
-      "summary": "── Peer bootstrap registry ───────────────────────────────────────",
+      "summary": "Peer bootstrap registry",
       "stability": "stable"
     },
     "POST /api/phone-storage/proof": {
       "method": "POST",
       "path": "/api/phone-storage/proof",
       "handler": "post_phone_storage_proof",
-      "summary": "── Phone storage ─────────────────────────────────────────────────────",
+      "summary": "Phone storage",
       "stability": "stable"
     },
     "POST /api/private-auth/approve": {
       "method": "POST",
       "path": "/api/private-auth/approve",
       "handler": "post_private_auth_approve",
-      "summary": "── Private authorization ─────────────────────────────────────────────",
+      "summary": "Private authorization",
       "stability": "stable"
     },
     "POST /api/private-auth/enroll": {
       "method": "POST",
       "path": "/api/private-auth/enroll",
       "handler": "post_private_auth_enroll",
-      "summary": "── Private authorization ─────────────────────────────────────────────",
+      "summary": "Private authorization",
       "stability": "stable"
     },
     "POST /api/project/create": {
@@ -8822,7 +8836,7 @@
       "method": "POST",
       "path": "/api/purchase/config",
       "handler": "post_purchase_config",
-      "summary": "── OTC liquidity desk ────────────────────────────────────────────",
+      "summary": "OTC liquidity desk",
       "stability": "stable"
     },
     "POST /api/purchase/fulfill/:id": {
@@ -8835,21 +8849,21 @@
       "method": "POST",
       "path": "/api/purchase/submit",
       "handler": "post_purchase_submit",
-      "summary": "── OTC liquidity desk ────────────────────────────────────────────",
+      "summary": "OTC liquidity desk",
       "stability": "stable"
     },
     "POST /api/rag/:account/index": {
       "method": "POST",
       "path": "/api/rag/:account/index",
       "handler": "post_rag_index",
-      "summary": "── RAG service ───────────────────────────────────────────────────────",
+      "summary": "RAG service",
       "stability": "stable"
     },
     "POST /api/rag/:account/query": {
       "method": "POST",
       "path": "/api/rag/:account/query",
       "handler": "post_rag_query",
-      "summary": "── RAG service ───────────────────────────────────────────────────────",
+      "summary": "RAG service",
       "stability": "stable"
     },
     "POST /api/runtime/challenge": {
@@ -8862,7 +8876,7 @@
       "method": "POST",
       "path": "/api/runtime/deploy",
       "handler": "post_runtime_deploy",
-      "summary": "── Decentralized runtime (BTCPC as AWS) ─────────────────────────",
+      "summary": "Decentralized runtime (BTCPC as AWS)",
       "stability": "stable"
     },
     "POST /api/runtime/job/attest": {
@@ -8887,21 +8901,21 @@
       "method": "POST",
       "path": "/api/runtime/register",
       "handler": "post_runtime_register",
-      "summary": "── Decentralized runtime (BTCPC as AWS) ─────────────────────────",
+      "summary": "Decentralized runtime (BTCPC as AWS)",
       "stability": "stable"
     },
     "POST /api/runtime/undeploy": {
       "method": "POST",
       "path": "/api/runtime/undeploy",
       "handler": "post_runtime_undeploy",
-      "summary": "── Decentralized runtime (BTCPC as AWS) ─────────────────────────",
+      "summary": "Decentralized runtime (BTCPC as AWS)",
       "stability": "stable"
     },
     "POST /api/science/jobs": {
       "method": "POST",
       "path": "/api/science/jobs",
       "handler": "post_science_create",
-      "summary": "── Scientific compute jobs ───────────────────────────────────────",
+      "summary": "Scientific compute jobs",
       "stability": "stable"
     },
     "POST /api/science/jobs/:id/complete": {
@@ -8920,98 +8934,98 @@
       "method": "POST",
       "path": "/api/sensor/commit",
       "handler": "post_sensor_commit",
-      "summary": "── Verasens: Sensors / IoT ───────────────────────────────────────",
+      "summary": "Verasens: Sensors / IoT",
       "stability": "stable"
     },
     "POST /api/sensor/register": {
       "method": "POST",
       "path": "/api/sensor/register",
       "handler": "post_sensor_register",
-      "summary": "── Verasens: Sensors / IoT ───────────────────────────────────────",
+      "summary": "Verasens: Sensors / IoT",
       "stability": "stable"
     },
     "POST /api/sensor/vouch": {
       "method": "POST",
       "path": "/api/sensor/vouch",
       "handler": "post_sensor_vouch",
-      "summary": "── Verasens: Sensors / IoT ───────────────────────────────────────",
+      "summary": "Verasens: Sensors / IoT",
       "stability": "stable"
     },
     "POST /api/service/node-hosting/buy": {
       "method": "POST",
       "path": "/api/service/node-hosting/buy",
       "handler": "post_node_hosting_buy",
-      "summary": "── Node hosting (BTCPC-native cloud deploy) ─────────────────────",
+      "summary": "Node hosting (BTCPC-native cloud deploy)",
       "stability": "stable"
     },
     "POST /api/sessions/buy": {
       "method": "POST",
       "path": "/api/sessions/buy",
       "handler": "post_session_buy",
-      "summary": "── Session marketplace ───────────────────────────────────────────",
+      "summary": "Session marketplace",
       "stability": "stable"
     },
     "POST /api/sessions/cancel": {
       "method": "POST",
       "path": "/api/sessions/cancel",
       "handler": "post_session_cancel",
-      "summary": "── Session marketplace ───────────────────────────────────────────",
+      "summary": "Session marketplace",
       "stability": "stable"
     },
     "POST /api/sessions/list": {
       "method": "POST",
       "path": "/api/sessions/list",
       "handler": "post_session_list",
-      "summary": "── Session marketplace ───────────────────────────────────────────",
+      "summary": "Session marketplace",
       "stability": "stable"
     },
     "POST /api/slash/appeal": {
       "method": "POST",
       "path": "/api/slash/appeal",
       "handler": "post_slash_appeal",
-      "summary": "── Slashing ─────────────────────────────────────────────────────",
+      "summary": "Slashing",
       "stability": "stable"
     },
     "POST /api/slash/submit": {
       "method": "POST",
       "path": "/api/slash/submit",
       "handler": "post_slash_validator",
-      "summary": "── Slashing ─────────────────────────────────────────────────────",
+      "summary": "Slashing",
       "stability": "stable"
     },
     "POST /api/snapshot/:account": {
       "method": "POST",
       "path": "/api/snapshot/:account",
       "handler": "post_snapshot_save",
-      "summary": "── Snapshot replication ──────────────────────────────────────────────",
+      "summary": "Snapshot replication",
       "stability": "stable"
     },
     "POST /api/stake": {
       "method": "POST",
       "path": "/api/stake",
       "handler": "post_stake",
-      "summary": "── POST endpoints ────────────────────────────────────────────────",
+      "summary": "POST endpoints",
       "stability": "stable"
     },
     "POST /api/storage/hive-replica/commit": {
       "method": "POST",
       "path": "/api/storage/hive-replica/commit",
       "handler": "post_hive_replica_commit",
-      "summary": "── BTCPC-FS Hive external replicas ──────────────────────────────────",
+      "summary": "BTCPC-FS Hive external replicas",
       "stability": "stable"
     },
     "POST /api/storage/hive-replica/verify": {
       "method": "POST",
       "path": "/api/storage/hive-replica/verify",
       "handler": "post_hive_replica_verify",
-      "summary": "── BTCPC-FS Hive external replicas ──────────────────────────────────",
+      "summary": "BTCPC-FS Hive external replicas",
       "stability": "stable"
     },
     "POST /api/task/bid": {
       "method": "POST",
       "path": "/api/task/bid",
       "handler": "post_inference_bid",
-      "summary": "── AI task marketplace ───────────────────────────────────────────",
+      "summary": "AI task marketplace",
       "stability": "stable"
     },
     "POST /api/task/cancel": {
@@ -9036,14 +9050,14 @@
       "method": "POST",
       "path": "/api/task/complete",
       "handler": "post_inference_complete",
-      "summary": "── AI task marketplace ───────────────────────────────────────────",
+      "summary": "AI task marketplace",
       "stability": "stable"
     },
     "POST /api/task/post": {
       "method": "POST",
       "path": "/api/task/post",
       "handler": "post_inference_job",
-      "summary": "── AI task marketplace ───────────────────────────────────────────",
+      "summary": "AI task marketplace",
       "stability": "stable"
     },
     "POST /api/task/review": {
@@ -9062,7 +9076,7 @@
       "method": "POST",
       "path": "/api/ton/activate",
       "handler": "post_ton_activate",
-      "summary": "── TON wallet activation ─────────────────────────────────────────────",
+      "summary": "TON wallet activation",
       "stability": "stable"
     },
     "POST /api/totp/backup-codes": {
@@ -9081,21 +9095,21 @@
       "method": "POST",
       "path": "/api/totp/enable",
       "handler": "post_totp_enable",
-      "summary": "── TOTP 2FA ──────────────────────────────────────────────────────",
+      "summary": "TOTP 2FA",
       "stability": "stable"
     },
     "POST /api/totp/setup": {
       "method": "POST",
       "path": "/api/totp/setup",
       "handler": "post_totp_setup",
-      "summary": "── TOTP 2FA ──────────────────────────────────────────────────────",
+      "summary": "TOTP 2FA",
       "stability": "stable"
     },
     "POST /api/totp/verify": {
       "method": "POST",
       "path": "/api/totp/verify",
       "handler": "post_totp_verify",
-      "summary": "── TOTP 2FA ──────────────────────────────────────────────────────",
+      "summary": "TOTP 2FA",
       "stability": "stable"
     },
     "POST /api/tracker/acoustic-proof": {
@@ -9108,7 +9122,7 @@
       "method": "POST",
       "path": "/api/tracker/claim",
       "handler": "post_tracker_claim",
-      "summary": "── BLE Tracker Claims ────────────────────────────────────────────",
+      "summary": "BLE Tracker Claims",
       "stability": "stable"
     },
     "POST /api/tracker/claim/release": {
@@ -9121,14 +9135,14 @@
       "method": "POST",
       "path": "/api/tracker/sighting",
       "handler": "post_tracker_sighting",
-      "summary": "── BLE Tracker Claims ────────────────────────────────────────────",
+      "summary": "BLE Tracker Claims",
       "stability": "stable"
     },
     "POST /api/tracker/sighting-data": {
       "method": "POST",
       "path": "/api/tracker/sighting-data",
       "handler": "post_tracker_sighting_data",
-      "summary": "── BLE Tracker Claims ────────────────────────────────────────────",
+      "summary": "BLE Tracker Claims",
       "stability": "stable"
     },
     "POST /api/tracker/subscription": {
@@ -9141,28 +9155,28 @@
       "method": "POST",
       "path": "/api/transfer",
       "handler": "post_transfer",
-      "summary": "── POST endpoints ────────────────────────────────────────────────",
+      "summary": "POST endpoints",
       "stability": "stable"
     },
     "POST /api/unstake": {
       "method": "POST",
       "path": "/api/unstake",
       "handler": "post_unstake",
-      "summary": "── POST endpoints ────────────────────────────────────────────────",
+      "summary": "POST endpoints",
       "stability": "stable"
     },
     "POST /api/vrf/commit": {
       "method": "POST",
       "path": "/api/vrf/commit",
       "handler": "post_vrf_commit",
-      "summary": "── VRF beacon ────────────────────────────────────────────────────",
+      "summary": "VRF beacon",
       "stability": "stable"
     },
     "POST /api/vrf/reveal": {
       "method": "POST",
       "path": "/api/vrf/reveal",
       "handler": "post_vrf_reveal",
-      "summary": "── VRF beacon ────────────────────────────────────────────────────",
+      "summary": "VRF beacon",
       "stability": "stable"
     },
     "POST /api/wallet/family/add": {
@@ -9195,14 +9209,14 @@
       "method": "POST",
       "path": "/public/agent-chat",
       "handler": "post_agent_chat",
-      "summary": "── Public onboarding agent (no auth, rate-limited) ──────────────",
+      "summary": "Public onboarding agent (no auth, rate-limited)",
       "stability": "stable"
     },
     "POST /v1/chat/completions": {
       "method": "POST",
       "path": "/v1/chat/completions",
       "handler": "post_v1_chat_completions",
-      "summary": "── OpenAI-compatible inference gateway ───────────────────────────",
+      "summary": "OpenAI-compatible inference gateway",
       "stability": "stable"
     }
   },
