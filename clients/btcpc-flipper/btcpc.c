@@ -10,6 +10,7 @@
 #include "scenes/btcpc_scene_main.h"
 #include "scenes/btcpc_scene_identity.h"
 #include "scenes/btcpc_scene_ble.h"
+#include "scenes/btcpc_scene_subghz.h"
 
 #include <furi.h>
 #include <furi_hal_random.h>
@@ -24,16 +25,19 @@ static const SceneManagerHandlers btcpc_scene_handlers = {
         [BtcpcSceneMain]     = btcpc_scene_main_on_enter,
         [BtcpcSceneIdentity] = btcpc_scene_identity_on_enter,
         [BtcpcSceneBle]      = btcpc_scene_ble_on_enter,
+        [BtcpcSceneSubGhz]   = btcpc_scene_subghz_on_enter,
     },
     .on_event_handlers = {
         [BtcpcSceneMain]     = btcpc_scene_main_on_event,
         [BtcpcSceneIdentity] = btcpc_scene_identity_on_event,
         [BtcpcSceneBle]      = btcpc_scene_ble_on_event,
+        [BtcpcSceneSubGhz]   = btcpc_scene_subghz_on_event,
     },
     .on_exit_handlers = {
         [BtcpcSceneMain]     = btcpc_scene_main_on_exit,
         [BtcpcSceneIdentity] = btcpc_scene_identity_on_exit,
         [BtcpcSceneBle]      = btcpc_scene_ble_on_exit,
+        [BtcpcSceneSubGhz]   = btcpc_scene_subghz_on_exit,
     },
     .scene_num = BtcpcSceneCount,
 };

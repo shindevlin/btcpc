@@ -8,6 +8,7 @@
 #include "btcpc_scene_main.h"
 #include "btcpc_scene_identity.h"
 #include "btcpc_scene_ble.h"
+#include "btcpc_scene_subghz.h"
 
 #include <gui/modules/submenu.h>
 
@@ -25,6 +26,8 @@ void btcpc_scene_main_on_enter(void* context) {
                      btcpc_scene_main_submenu_callback, app);
     submenu_add_item(app->submenu, "BLE Status", BtcpcMenuBle,
                      btcpc_scene_main_submenu_callback, app);
+    submenu_add_item(app->submenu, "Sub-GHz Observe", BtcpcMenuSubGhz,
+                     btcpc_scene_main_submenu_callback, app);
 
     view_dispatcher_switch_to_view(app->view_dispatcher, BtcpcViewSubmenu);
 }
@@ -41,6 +44,10 @@ bool btcpc_scene_main_on_event(void* context, SceneManagerEvent event) {
             break;
         case BtcpcMenuBle:
             scene_manager_next_scene(app->scene_manager, BtcpcSceneBle);
+            consumed = true;
+            break;
+        case BtcpcMenuSubGhz:
+            scene_manager_next_scene(app->scene_manager, BtcpcSceneSubGhz);
             consumed = true;
             break;
         default:
