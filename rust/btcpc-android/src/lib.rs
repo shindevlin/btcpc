@@ -256,12 +256,13 @@ pub extern "C" fn Java_network_btcpc_app_NativeSensorService_nativeSubmitReading
         epoch:   running.handle.chain.current_epoch(),
     };
 
-    let chain   = running.handle.chain.clone();
-    let cmd_tx  = running.handle.cmd_tx.clone();
+    let chain       = running.handle.chain.clone();
+    let cmd_tx      = running.handle.cmd_tx.clone();
+    let posting_key = running.handle.posting_key.clone();
 
     // Dispatch sensor submission onto the runtime.
     running.runtime.spawn(async move {
-        sensors::submit(reading, chain, cmd_tx).await;
+        sensors::submit(reading, chain, cmd_tx, posting_key).await;
     });
 
     JNI_TRUE

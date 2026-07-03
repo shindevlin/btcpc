@@ -369,7 +369,7 @@ dependencies = [
 
 [[package]]
 name = "btcpc-types"
-version = "0.8.0"
+version = "1.2.2"
 dependencies = [
  "borsh",
  "hex",

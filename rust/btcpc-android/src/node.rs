@@ -36,6 +36,10 @@ pub struct NodeHandle {
     pub status:      Arc<PLMutex<String>>,
     pub cmd_tx:      mpsc::Sender<NetCmd>,
     pub shutdown_tx: broadcast::Sender<()>,
+    /// Hex-encoded ed25519 posting-key seed for this account, so sensor
+    /// readings (and any other client-signed entries) can be signed on
+    /// device. Empty if the JNI caller passed no posting key.
+    pub posting_key: String,
 }
 
 pub async fn start(cfg: NodeConfig, status: Arc<PLMutex<String>>) -> anyhow::Result<NodeHandle> {
@@ -175,6 +179,7 @@ pub async fn start(cfg: NodeConfig, status: Arc<PLMutex<String>>) -> anyhow::Res
         status,
         cmd_tx,
         shutdown_tx,
+        posting_key: cfg.posting_key.clone(),
     })
 }
 
