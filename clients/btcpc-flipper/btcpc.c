@@ -7,6 +7,7 @@
  */
 
 #include "btcpc.h"
+#include "btcpc_ble.h"
 #include "scenes/btcpc_scene_main.h"
 #include "scenes/btcpc_scene_identity.h"
 #include "scenes/btcpc_scene_ble.h"
@@ -101,6 +102,12 @@ void btcpc_app_free(BtcpcApp* app) {
     scene_manager_free(app->scene_manager);
     view_dispatcher_free(app->view_dispatcher);
 
+    /* Close the BT record if btcpc_ble_start opened it. */
+    if(app->bt) {
+        furi_record_close(RECORD_BT);
+        app->bt = NULL;
+    }
+
     furi_record_close(RECORD_GUI);
     free(app);
 }
@@ -186,9 +193,15 @@ int32_t btcpc_app(void* p) {
     btcpc_identity_load_or_create(app);
     btcpc_pub_to_hex(app->pk, app->pub_hex);
 
+    /* Start the Serial BLE profile so capture scenes can relay signed frames
+     * to the paired phone. Non-fatal if it fails — the app still runs and the
+     * frames still build/sign; they just won't transmit. */
+    btcpc_ble_start(app);
+
     scene_manager_next_scene(app->scene_manager, BtcpcSceneMain);
     view_dispatcher_run(app->view_dispatcher);
 
+    btcpc_ble_stop(app);
     btcpc_app_free(app);
     return 0;
 }

@@ -11,6 +11,7 @@
  */
 
 #include "../btcpc.h"
+#include "../btcpc_ble.h"
 #include "btcpc_scene_subghz.h"
 
 #include <furi_hal_subghz.h>
@@ -39,9 +40,15 @@ static int8_t btcpc_subghz_sample_rssi(uint32_t freq_hz, bool* ok) {
         return 0;
     }
 
+    /* Take ownership of the radio (releases any other subghz user). */
     furi_hal_subghz_reset();
+    furi_hal_subghz_idle();
     furi_hal_subghz_load_preset(FuriHalSubGhzPresetOok650Async);
+
+    /* set_frequency_and_path returns the actually-tuned frequency; ignore it,
+     * we only need RSSI at (approximately) freq_hz. Must be in idle first. */
     furi_hal_subghz_set_frequency_and_path(freq_hz);
+
     furi_hal_subghz_flush_rx();
     furi_hal_subghz_rx();
     furi_delay_us(BTCPC_SUBGHZ_SETTLE_US);
@@ -52,6 +59,7 @@ static int8_t btcpc_subghz_sample_rssi(uint32_t freq_hz, bool* ok) {
         furi_delay_ms(BTCPC_SUBGHZ_SAMPLE_GAP_MS);
     }
 
+    /* Return the radio to a safe idle/sleep state and release it. */
     furi_hal_subghz_idle();
     furi_hal_subghz_sleep();
 
@@ -99,16 +107,12 @@ void btcpc_scene_subghz_on_enter(void* context) {
     static BtcpcFrame frame;
     size_t frame_len = btcpc_build_subghz(&frame, &obs, app->sk);
 
-    /*
-     * BLE transmit is intentionally not wired here. The BLE serial TX path is
-     * shared infrastructure that all capture scenes need and is not yet built
-     * in this app (app->bt / app->ble_profile are declared but the serial
-     * profile is not initialised in btcpc.c). Once a `btcpc_ble_send()` helper
-     * exists, send `frame` (frame_len bytes) here when app->ble_connected.
-     * The observation, the BtcpcSubGhzObs struct, and the ed25519 device
-     * signature over it are all fully produced and testable on-device now.
-     */
+    /* Self-check: verify our own signature so the capture->sign path is
+     * provable on-device even without a phone connected. */
     bool sig_ok = btcpc_frame_verify(&frame.hdr, frame.payload, app->pk);
+
+    /* Send the signed frame to the paired phone over BLE serial. */
+    bool sent = btcpc_ble_send(app, (const uint8_t*)&frame, frame_len);
 
     snprintf(text, sizeof(text),
         "Sub-GHz observe\n\n"
@@ -116,13 +120,14 @@ void btcpc_scene_subghz_on_enter(void* context) {
         "RSSI: %d dBm\n"
         "Frame: %u bytes\n"
         "Signature: %s\n"
-        "BLE TX: pending\n\n"
+        "BLE TX: %s\n\n"
         "Signed with device key.",
         (unsigned long)(BTCPC_SUBGHZ_FREQ_HZ / 1000000UL),
         (unsigned long)((BTCPC_SUBGHZ_FREQ_HZ % 1000000UL) / 10000UL),
         (int)rssi,
         (unsigned)frame_len,
-        sig_ok ? "valid" : "FAILED");
+        sig_ok ? "valid" : "FAILED",
+        sent ? "sent" : (app->ble_connected ? "tx failed" : "no phone"));
 
     text_box_reset(app->text_box);
     text_box_set_text(app->text_box, text);

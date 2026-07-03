@@ -15,6 +15,7 @@ App(
     fap_icon_assets="images",
     sources=[
         "btcpc.c",
+        "btcpc_ble.c",
         "crypto/ed25519.c",
         "crypto/tweetnacl.c",
         "protocol/btcpc_protocol.c",

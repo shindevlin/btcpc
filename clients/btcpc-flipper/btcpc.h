@@ -49,7 +49,7 @@ typedef enum {
     BtcpcMenuSubGhz   = 2,
 } BtcpcMenuItem;
 
-typedef struct {
+typedef struct BtcpcApp {
     /* GUI */
     Gui*              gui;
     ViewDispatcher*   view_dispatcher;
