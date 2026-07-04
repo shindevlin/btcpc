@@ -219,6 +219,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/linkgit/repo/:owner/:repo", get(get_linkgit_repo))
         .route("/api/linkgit/repo/create", post(post_linkgit_repo_create))
         .route("/api/linkgit/repo/ref/update", post(post_linkgit_ref_update))
+        .route("/api/linkgit/repo/:owner/:repo/read", post(post_linkgit_repo_read))
         .route("/api/linkgit/repo/access/grant", post(post_linkgit_access_grant))
         .route("/api/linkgit/repo/access/revoke", post(post_linkgit_access_revoke))
         .route("/api/linkgit/repo/:owner/:repo/wallet", post(post_linkgit_repo_wallet_init))
@@ -3281,10 +3282,41 @@ async fn get_linkgit_repos(
 
 /// True if a stored repo record is public (visibility != "private"). Private
 /// repos are hidden from public discovery — only their owner / granted users see
-/// them (via authenticated endpoints). Default-deny: anything not explicitly
+/// them (via the authenticated read below). Default-deny: anything not explicitly
 /// "public" that is marked "private" is treated as private.
 fn repo_is_public(repo: &serde_json::Value) -> bool {
     repo.get("visibility").and_then(|v| v.as_str()) != Some("private")
+}
+
+/// Verify that `signature_hex` is a valid ed25519 signature over `message` by the
+/// account `caller`'s `role` public key (e.g. "hide" for private-repo access).
+/// This is how we PROVE a caller is the keyholder before serving private data.
+fn verify_account_key_sig(
+    s: &AppState,
+    caller: &str,
+    role: &str,
+    message: &str,
+    signature_hex: &str,
+) -> bool {
+    use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+    let Some(acct) = s.chain.store.get_account(caller).ok().flatten() else { return false };
+    let Some(pk_hex) = acct["keys"][role].as_str() else { return false };
+    let Ok(pk_bytes) = hex::decode(pk_hex) else { return false };
+    let Ok(pk_arr) = <[u8; 32]>::try_from(pk_bytes.as_slice()) else { return false };
+    let Ok(vk) = VerifyingKey::from_bytes(&pk_arr) else { return false };
+    let Ok(sig_bytes) = hex::decode(signature_hex) else { return false };
+    let Ok(sig_arr) = <[u8; 64]>::try_from(sig_bytes.as_slice()) else { return false };
+    let sig = Signature::from_bytes(&sig_arr);
+    vk.verify(message.as_bytes(), &sig).is_ok()
+}
+
+/// Does `caller` hold access to `repo` (`repo_id`)? Delegates to the canonical
+/// `linkgit_server::can_read`: public → yes; else caller must be the owner or
+/// have a live LinkGitAccessGrant (revoke deletes the grant key). This is the
+/// same access predicate the git-serve layer enforces, so the read API and the
+/// object-serving layer agree on who can see a private repo.
+fn has_repo_access(s: &AppState, repo: &serde_json::Value, repo_id: &str, caller: &str) -> bool {
+    crate::linkgit_server::can_read(&s.chain.store, repo, repo_id, Some(caller))
 }
 
 /// GET /api/linkgit/repos
@@ -3332,13 +3364,14 @@ async fn get_linkgit_repo(
                 if repo_is_public(&data) {
                     Ok(Json(data))
                 } else {
-                    // Private: return a minimal stub only.
+                    // Private: return a minimal stub only. Full data requires the
+                    // keyholder-authenticated POST .../read endpoint below.
                     Ok(Json(serde_json::json!({
                         "repo_id": repo_id,
                         "owner": data.get("owner").cloned().unwrap_or(serde_json::json!(owner)),
                         "name": data.get("name").cloned().unwrap_or_default(),
                         "visibility": "private",
-                        "note": "private repo — full data requires owner/grantee access",
+                        "note": "private repo — POST /read with a hide-key signature to view (owner/grantee only)",
                     })))
                 }
             }
@@ -3346,6 +3379,58 @@ async fn get_linkgit_repo(
         },
         None => Err(StatusCode::NOT_FOUND),
     }
+}
+
+#[derive(Debug, Deserialize)]
+struct LinkGitReadBody {
+    /// The account requesting access — must be the owner or a grantee.
+    caller: String,
+    /// ed25519 signature (hex) by `caller`'s HIDE key over the challenge:
+    /// "btcpc:linkgit:read:{repo_id}:{caller}".
+    signature: String,
+}
+
+/// POST /api/linkgit/repo/:owner/:repo/read
+/// KEYHOLDER-ONLY read of a private repo. The caller proves they hold their key
+/// by signing the challenge with their HIDE key (the key private repo objects are
+/// encrypted to). We then check on-chain access (owner or granted). Only then is
+/// the full repo returned. Public repos are returned to anyone (no proof needed).
+///
+/// This is what makes "private = only the keyholder can see it" ENFORCED, not
+/// just hidden from discovery.
+async fn post_linkgit_repo_read(
+    Path((owner, repo)): Path<(String, String)>,
+    State(s): State<AppState>,
+    Json(body): Json<LinkGitReadBody>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let repo_id = format!("{}/{}", owner, repo);
+    let data = match s.chain.store.get_meta(&format!("linkgit:repo:{}", repo_id)) {
+        Some(bytes) => serde_json::from_slice::<serde_json::Value>(&bytes)
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "corrupt repo record".into()))?,
+        None => return Err((StatusCode::NOT_FOUND, "repo not found".into())),
+    };
+
+    // Public repos: no keyholder proof required.
+    if repo_is_public(&data) {
+        return Ok(Json(data));
+    }
+
+    // Private: caller MUST prove they hold their key (sign the challenge with the
+    // HIDE key), and MUST be authorized (owner or grantee). Default-deny.
+    let challenge = format!("btcpc:linkgit:read:{}:{}", repo_id, body.caller);
+    if !verify_account_key_sig(&s, &body.caller, "hide", &challenge, &body.signature) {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            "signature does not verify against caller's hide key — not the keyholder".into(),
+        ));
+    }
+    if !has_repo_access(&s, &data, &repo_id, &body.caller) {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "keyholder verified, but no access grant for this private repo".into(),
+        ));
+    }
+    Ok(Json(data))
 }
 
 /// POST /api/linkgit/repo/create
