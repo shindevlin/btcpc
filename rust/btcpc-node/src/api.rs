@@ -3261,7 +3261,11 @@ struct LinkGitAccessRevokeBody {
 // ── LinkGit handlers ──────────────────────────────────────────────────────────
 
 /// GET /api/linkgit/repos/:owner
-/// Returns all repos owned by the given account.
+/// Returns the owner's PUBLIC repos. This is an unauthenticated GET, so it must
+/// NOT expose private repos — a private repo is only visible to its owner or a
+/// granted user through an access-checked read (LinkGitAccessGrant). Listing
+/// private repos to anyone who names the owner would defeat privacy.
+/// (Follow-up: an authenticated variant returns the caller's own private repos.)
 async fn get_linkgit_repos(
     Path(owner): Path<String>,
     State(s): State<AppState>,
@@ -3270,20 +3274,31 @@ async fn get_linkgit_repos(
         .into_iter()
         .filter_map(|(_, v)| serde_json::from_slice::<serde_json::Value>(&v).ok())
         .filter(|r| r.get("owner").and_then(|o| o.as_str()) == Some(owner.as_str()))
+        .filter(repo_is_public)
         .collect();
-    Json(serde_json::json!({ "owner": owner, "repos": repos }))
+    Json(serde_json::json!({ "owner": owner, "repos": repos, "note": "public repos only" }))
+}
+
+/// True if a stored repo record is public (visibility != "private"). Private
+/// repos are hidden from public discovery — only their owner / granted users see
+/// them (via authenticated endpoints). Default-deny: anything not explicitly
+/// "public" that is marked "private" is treated as private.
+fn repo_is_public(repo: &serde_json::Value) -> bool {
+    repo.get("visibility").and_then(|v| v.as_str()) != Some("private")
 }
 
 /// GET /api/linkgit/repos
-/// Discovery: list ALL repos on the chain (no owner filter). Makes LinkGit
-/// browsable — previously you could only fetch by owner. Flagged as a build gap
-/// by the daily health-check.
+/// Public discovery: list only PUBLIC repos on the chain. Private repos are NOT
+/// listed here (they'd leak otherwise). The owner sees their own private repos
+/// via /api/linkgit/repos/:owner. Fixes the visibility-leak in the discovery
+/// endpoint flagged when public/private support was audited.
 async fn get_all_linkgit_repos(State(s): State<AppState>) -> Json<serde_json::Value> {
     let repos: Vec<serde_json::Value> = s.chain.store.state_scan_prefix("linkgit:repo:")
         .into_iter()
         .filter_map(|(_, v)| serde_json::from_slice::<serde_json::Value>(&v).ok())
+        .filter(repo_is_public)
         .collect();
-    Json(serde_json::json!({ "count": repos.len(), "repos": repos }))
+    Json(serde_json::json!({ "count": repos.len(), "repos": repos, "note": "public repos only" }))
 }
 
 /// GET /api/sensors
@@ -3300,6 +3315,11 @@ async fn get_all_sensors(State(s): State<AppState>) -> Json<serde_json::Value> {
 
 /// GET /api/linkgit/repo/:owner/:repo
 /// Returns repo info and refs. repo_id is stored as "{owner}/{repo}".
+/// For a PRIVATE repo, an unauthenticated caller gets only a minimal stub
+/// (name/owner/visibility) — NOT the ref list, which reveals commit structure.
+/// The git objects themselves are encrypted to the owner's hide_key, so content
+/// is protected regardless; this hides the metadata too. (Follow-up: an
+/// access-checked read returns full private repo data to the owner / grantees.)
 async fn get_linkgit_repo(
     Path((owner, repo)): Path<(String, String)>,
     State(s): State<AppState>,
@@ -3308,7 +3328,20 @@ async fn get_linkgit_repo(
     let key = format!("linkgit:repo:{}", repo_id);
     match s.chain.store.get_meta(&key) {
         Some(bytes) => match serde_json::from_slice::<serde_json::Value>(&bytes) {
-            Ok(data) => Ok(Json(data)),
+            Ok(data) => {
+                if repo_is_public(&data) {
+                    Ok(Json(data))
+                } else {
+                    // Private: return a minimal stub only.
+                    Ok(Json(serde_json::json!({
+                        "repo_id": repo_id,
+                        "owner": data.get("owner").cloned().unwrap_or(serde_json::json!(owner)),
+                        "name": data.get("name").cloned().unwrap_or_default(),
+                        "visibility": "private",
+                        "note": "private repo — full data requires owner/grantee access",
+                    })))
+                }
+            }
             Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
         },
         None => Err(StatusCode::NOT_FOUND),
