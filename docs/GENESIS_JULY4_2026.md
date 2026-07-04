@@ -44,13 +44,12 @@ America's **250th anniversary** (Semiquincentennial). BTCPC is freedom tech for 
 freedom-based country — a sovereign chain, self-custody, no gatekeepers. Anchoring
 genesis to July 4 2026 makes the mission the launch.
 
-- **New genesis timestamp: `1783180800000`** = 2026-07-04 12:00:00 EDT
-  (16:00 UTC). Noon Eastern on Independence Day.
+- **New genesis timestamp: `1783191600000`** = 2026-07-04 12:00:00 PDT (noon Los Angeles)
+  (19:00 UTC). Noon Pacific (Los Angeles) on Independence Day.
 - Retires the "Mayday" / May 1 anchor (`1777633200000`).
 - 64 days after the old genesis — a real, deliberate relaunch, not a slip.
 
-*(Alternative if you prefer midnight: `1783137600000` = 2026-07-04 00:00 EDT.
-Noon is recommended — it mirrors the old noon anchor and gives a daytime launch.)*
+*(Locked to noon Pacific / Los Angeles — Shin's call.)*
 
 ## 3. The core fix — recoverable keystore (best-of-all design)
 
@@ -138,7 +137,7 @@ to git (the vault is gitignored).
    `unlock` commands.
 3. **Local wallet vault** — recreate the operated accounts (§4), write their
    keystores into a gitignored `wallets/`, produce `wallets/INDEX.md`.
-4. **Genesis rebuild** — new `genesis.json` with ts `1783180800000`, the new
+4. **Genesis rebuild** — new `genesis.json` with ts `1783191600000`, the new
    account set, system funds, and the constant updated in `config.rs` +
    `CHAIN_CONSTANTS.md` (+ the CI constant-drift gate).
 5. **Whitepaper + docs** — §5 updates; retire "Mayday" references or reframe.
