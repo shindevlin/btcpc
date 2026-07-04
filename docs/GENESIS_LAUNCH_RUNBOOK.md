@@ -59,11 +59,17 @@ Update the timestamp constant in ALL THREE (CI gate check-constants.yml enforces
 
 ### 4. ★ THE GATE — verify-vault ★
 ```
-btcpc wallet verify-vault --vault wallets --genesis rust/btcpc-node/genesis.json
+btcpc wallet verify-vault --vault wallets --genesis rust/btcpc-node/genesis.json \
+    --require-accounts rust/btcpc-node/genesis-required-accounts.txt
 ```
 - **Exit 0 / "Safe to launch"** → proceed.
-- **Exit 2 / FAIL** → a genesis account has no keystore or a mismatched key. FIX IT.
-  Launching now would relaunch the exact bug. Do not proceed.
+- **Exit 2 / FAIL** → one of three things is wrong, all launch-blocking:
+    - a genesis account has NO recoverable keystore,
+    - a genesis account's key does NOT match its vault key,
+    - a REQUIRED account is MISSING from genesis entirely (`--require-accounts`
+      enforces the canonical list — this catches an account left off by mistake,
+      the exact gap that was previously caught only by human eye).
+  Fix and re-run. Launching now would relaunch the exact bug. Do not proceed.
 
 ### 5. ★ BACK UP THE VAULT OFF THIS MACHINE ★
 Recoverability is worthless if it lives on one disk that can die.

@@ -1,0 +1,31 @@
+# Canonical required accounts for BTCPC Genesis v2 (July 4 2026, btcpc-2).
+#
+# This is the authoritative list of accounts that genesis.json MUST contain.
+# `btcpc wallet verify-vault --genesis genesis.json --require-accounts <this file>`
+# fails if ANY account listed here is missing from genesis — closing the gap
+# where an operated account is simply left off the list entirely (the failure
+# that was caught by human review, not by tooling).
+#
+# One account name per line. Blank lines and #-comments are ignored.
+# System funds (__treasury__ etc.) are NOT listed here — they are created by
+# genesis directly and have no recoverable keystore by design.
+#
+# Keep this in sync with docs/GENESIS_JULY4_2026.md §4.
+
+# Founder / root owner — owns freeport, verasens, linkgit (highest value to recover).
+shindevlin
+
+# Node / founder operating account.
+natoshisakamoto
+
+# Bullship inference billing.
+bullship
+
+# Vertical service accounts (owned by shindevlin).
+freeport
+linkgit
+verasens
+
+# Service accounts.
+btcpc-market
+btcpc-relay

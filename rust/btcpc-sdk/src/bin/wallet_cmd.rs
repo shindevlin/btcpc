@@ -43,7 +43,7 @@ pub fn run(args: &[String]) -> Result<i32> {
                  btcpc wallet index  --vault DIR                 (writes INDEX.md, public only)\n  \
                  btcpc wallet backup  --keystore FILE --node URL (Layer 3: upload ciphertext only)\n  \
                  btcpc wallet restore --account NAME --node URL --vault DIR (fetch ciphertext)\n  \
-                 btcpc wallet verify-vault --vault DIR --genesis genesis.json  (PRE-LAUNCH check)\n\n\
+                 btcpc wallet verify-vault --vault DIR --genesis genesis.json [--require-accounts FILE]\n\n\
                  Password comes from BTCPC_WALLET_PASSWORD (never a CLI arg)."
             );
             Ok(1)
@@ -303,6 +303,27 @@ fn cmd_verify_vault(args: &[String]) -> Result<i32> {
     let mut problems: Vec<String> = Vec::new();
     let mut checked = 0usize;
     let mut system = 0usize;
+    let mut required_count = 0usize;
+
+    // Optional: every account in the required-accounts manifest MUST be present
+    // in genesis.json. This closes the gap where an operated account is simply
+    // left off the genesis list entirely (caught previously only by human eye).
+    if let Some(req_file) = flag(args, "--require-accounts") {
+        let req_raw = std::fs::read_to_string(req_file)
+            .with_context(|| format!("reading required-accounts file {req_file}"))?;
+        for line in req_raw.lines() {
+            let name = line.trim();
+            if name.is_empty() || name.starts_with('#') {
+                continue;
+            }
+            required_count += 1;
+            if !accounts.contains_key(name) {
+                problems.push(format!(
+                    "'{name}': REQUIRED account is MISSING from genesis.json entirely"
+                ));
+            }
+        }
+    }
 
     for (account, entry) in accounts {
         // System funds have no keystore by design.
@@ -351,10 +372,14 @@ fn cmd_verify_vault(args: &[String]) -> Result<i32> {
     }
 
     println!(
-        "verify-vault: {checked} operated accounts checked, {system} system funds skipped."
+        "verify-vault: {checked} operated accounts checked, {system} system funds skipped{}.",
+        if required_count > 0 { format!(", {required_count} required accounts enforced") } else { String::new() }
     );
     if problems.is_empty() {
         println!("OK ✓ — every operated genesis account has a recoverable keystore with a matching key.");
+        if required_count > 0 {
+            println!("OK ✓ — every required account is present in genesis.");
+        }
         println!("Safe to launch.");
         Ok(0)
     } else {
