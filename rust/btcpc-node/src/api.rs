@@ -3288,6 +3288,20 @@ fn repo_is_public(repo: &serde_json::Value) -> bool {
     repo.get("visibility").and_then(|v| v.as_str()) != Some("private")
 }
 
+/// Verify `signature_hex` is a valid ed25519 signature over `message` by the
+/// given raw `pubkey_hex` (32-byte ed25519, hex). Used where the pubkey is known
+/// directly (e.g. an agent session's stored client_pubkey), not looked up by
+/// account.
+fn verify_pubkey_sig(pubkey_hex: &str, message: &str, signature_hex: &str) -> bool {
+    use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+    let Ok(pk_bytes) = hex::decode(pubkey_hex) else { return false };
+    let Ok(pk_arr) = <[u8; 32]>::try_from(pk_bytes.as_slice()) else { return false };
+    let Ok(vk) = VerifyingKey::from_bytes(&pk_arr) else { return false };
+    let Ok(sig_bytes) = hex::decode(signature_hex) else { return false };
+    let Ok(sig_arr) = <[u8; 64]>::try_from(sig_bytes.as_slice()) else { return false };
+    vk.verify(message.as_bytes(), &Signature::from_bytes(&sig_arr)).is_ok()
+}
+
 /// Verify that `signature_hex` is a valid ed25519 signature over `message` by the
 /// account `caller`'s `role` public key (e.g. "hide" for private-repo access).
 /// This is how we PROVE a caller is the keyholder before serving private data.
@@ -9989,14 +10003,45 @@ async fn post_agent_session_close(
     Ok(Json(serde_json::json!({ "accepted": true, "epoch": epoch })))
 }
 
+/// GET /api/agent-session/:id  [?sig=<hex>]
+/// Agent sessions are the CLIENT's private, E2E-encrypted AI conversation. The
+/// full record (client identity, model, fee, and the encrypted turns) is returned
+/// ONLY to the session's own client, who proves ownership by signing the
+/// session_id with their session ed25519 key (`client_pubkey`) and passing it as
+/// ?sig=<hex>. Everyone else gets a minimal existence/status stub — not the
+/// client identity and not the turns. (Turn CONTENT is ciphertext regardless, but
+/// this also stops leaking metadata + who is talking to the agent.)
 async fn get_agent_session(
     State(s): State<AppState>,
     Path(session_id): Path<String>,
+    axum::extract::Query(q): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> Json<serde_json::Value> {
     let key = format!("agent_session:{}", session_id);
     let session: serde_json::Value = s.chain.store.state_get(&key)
         .and_then(|b| serde_json::from_slice(&b).ok())
         .unwrap_or(serde_json::Value::Null);
+
+    if session.is_null() {
+        return Json(serde_json::json!({ "session_id": session_id, "exists": false }));
+    }
+
+    // Owner check: sig (hex) over the session_id, verified against the session's
+    // client_pubkey. Only the client who opened the session passes this.
+    let client_pubkey = session["client_pubkey"].as_str().unwrap_or("");
+    let is_owner = q.get("sig").map(|sig| {
+        verify_pubkey_sig(client_pubkey, &session_id, sig)
+    }).unwrap_or(false);
+
+    if !is_owner {
+        // Redacted stub — no client identity, no turns.
+        return Json(serde_json::json!({
+            "session_id": session_id,
+            "exists": true,
+            "status": session["status"].clone(),
+            "note": "private session — pass ?sig=<client-key signature over session_id> to read it",
+        }));
+    }
+
     let turns_key = format!("agent_session_turns:{}", session_id);
     let turns: serde_json::Value = s.chain.store.state_get(&turns_key)
         .and_then(|b| serde_json::from_slice(&b).ok())
