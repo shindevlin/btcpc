@@ -32,6 +32,7 @@ pub fn run(args: &[String]) -> Result<i32> {
         Some("index") => cmd_index(&args[1..]),
         Some("backup") => cmd_backup(&args[1..]),
         Some("restore") => cmd_restore(&args[1..]),
+        Some("verify-vault") => cmd_verify_vault(&args[1..]),
         _ => {
             eprintln!(
                 "usage:\n  \
@@ -41,7 +42,8 @@ pub fn run(args: &[String]) -> Result<i32> {
                  btcpc wallet pubkeys --keystore FILE\n  \
                  btcpc wallet index  --vault DIR                 (writes INDEX.md, public only)\n  \
                  btcpc wallet backup  --keystore FILE --node URL (Layer 3: upload ciphertext only)\n  \
-                 btcpc wallet restore --account NAME --node URL --vault DIR (fetch ciphertext)\n\n\
+                 btcpc wallet restore --account NAME --node URL --vault DIR (fetch ciphertext)\n  \
+                 btcpc wallet verify-vault --vault DIR --genesis genesis.json  (PRE-LAUNCH check)\n\n\
                  Password comes from BTCPC_WALLET_PASSWORD (never a CLI arg)."
             );
             Ok(1)
@@ -276,6 +278,93 @@ fn cmd_backup(args: &[String]) -> Result<i32> {
         ks.account, node
     );
     Ok(0)
+}
+
+/// PRE-LAUNCH SAFETY CHECK. Cross-check the drafted genesis.json against the
+/// local wallet vault: every non-system genesis account must have a recoverable
+/// keystore AND its identity-file posting pubkey must match the genesis entry.
+/// A mismatch here means a chain launched with a key nobody can sign for — the
+/// exact failure Genesis v2 exists to prevent, caught while it's still fixable.
+///
+/// Reads only public files (genesis.json + *.wallet.json). No password, no
+/// secret. Exits non-zero if anything is wrong, so it can gate a launch script.
+fn cmd_verify_vault(args: &[String]) -> Result<i32> {
+    let vault = flag(args, "--vault").ok_or_else(|| anyhow!("--vault DIR required"))?;
+    let genesis = flag(args, "--genesis").ok_or_else(|| anyhow!("--genesis FILE required"))?;
+
+    let raw = std::fs::read_to_string(genesis)
+        .with_context(|| format!("reading {genesis}"))?;
+    let g: serde_json::Value = serde_json::from_str(&raw).context("parsing genesis.json")?;
+    let accounts = g["accounts"]
+        .as_object()
+        .ok_or_else(|| anyhow!("genesis.json has no \"accounts\" object"))?;
+
+    let dir = Path::new(vault);
+    let mut problems: Vec<String> = Vec::new();
+    let mut checked = 0usize;
+    let mut system = 0usize;
+
+    for (account, entry) in accounts {
+        // System funds have no keystore by design.
+        if account.starts_with("__") && account.ends_with("__") {
+            system += 1;
+            continue;
+        }
+        checked += 1;
+
+        // The genesis posting pubkey for this account.
+        let genesis_pk = entry["keys"]["posting"]
+            .as_str()
+            .or_else(|| entry["public_key"].as_str());
+        let genesis_pk = match genesis_pk {
+            Some(pk) => pk,
+            None => {
+                problems.push(format!("'{account}': genesis entry has no posting/public_key"));
+                continue;
+            }
+        };
+
+        // Must have a recoverable keystore.
+        let ks_path = dir.join(format!("{account}.keystore.json"));
+        if !ks_path.exists() {
+            problems.push(format!("'{account}': NO recoverable keystore in vault ({})", ks_path.display()));
+            continue;
+        }
+
+        // Identity file's posting pubkey must match the genesis entry.
+        let id_path = dir.join(format!("{account}.wallet.json"));
+        if !id_path.exists() {
+            problems.push(format!("'{account}': keystore present but no identity file to verify pubkey"));
+            continue;
+        }
+        let id_raw = std::fs::read_to_string(&id_path).unwrap_or_default();
+        let id: serde_json::Value = serde_json::from_str(&id_raw).unwrap_or(serde_json::Value::Null);
+        let vault_pk = id["btcpc_role_public_keys"]["posting"]
+            .as_str()
+            .or_else(|| id["btcpc_public_key_hex"].as_str())
+            .unwrap_or("");
+        if vault_pk != genesis_pk {
+            problems.push(format!(
+                "'{account}': genesis posting key {genesis_pk} does NOT match vault key {vault_pk}"
+            ));
+        }
+    }
+
+    println!(
+        "verify-vault: {checked} operated accounts checked, {system} system funds skipped."
+    );
+    if problems.is_empty() {
+        println!("OK ✓ — every operated genesis account has a recoverable keystore with a matching key.");
+        println!("Safe to launch.");
+        Ok(0)
+    } else {
+        eprintln!("\nFAIL — {} problem(s) that would launch an unrecoverable/forked account:", problems.len());
+        for p in &problems {
+            eprintln!("  ✗ {p}");
+        }
+        eprintln!("\nFix these before launching. A wrong key at genesis is permanent.");
+        Ok(2)
+    }
 }
 
 /// Fetch an encrypted keystore blob back from a relay into the local vault.
