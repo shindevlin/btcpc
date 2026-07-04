@@ -100,12 +100,13 @@ gitignored `wallets/` vault) so you can always refer back to it. Proposed set:
 
 | Account | Purpose | Notes |
 |---|---|---|
+| `shindevlin` | **Protocol founder / root owner** | HIGHEST value — the whitepaper makes this account the owner of `freeport`, `verasens`, `linkgit` (holds their seed phrases). If any wallet must be recoverable, it is this one. All three backup layers on. |
 | `natoshisakamoto` | The node / founder account | Node signing key; highest value — keystore + phrase + relay backup all on. |
 | `bullship` | Bullship inference billing | The account this whole thread needed. Fresh key, recoverable. You have its **Hive** key already — this is its **BTCPC** key. |
 | `__treasury__`, `__recycle_fund__`, `__testnet_fund__` | System funds | Defined in genesis, not user wallets — no keystore, but documented. |
-| `freeport` | Freeport marketplace service | Per-vertical service account. |
-| `linkgit` | LinkGit identity layer | Per-vertical service account. |
-| `verasens` | Verasens sensor layer | Per-vertical service account. |
+| `freeport` | Freeport marketplace service | Per-vertical service account. Owner: `shindevlin`. |
+| `linkgit` | LinkGit identity layer | Per-vertical service account. Owner: `shindevlin`. |
+| `verasens` | Verasens sensor layer | Per-vertical service account. Owner: `shindevlin`. |
 | `btcpc-market`, `btcpc-relay` | Service accounts | As needed by each running service. |
 | (bots) `btcpcbot`, `btcpcwalletbot` | Telegram bots | If they hold accounts. |
 

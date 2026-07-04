@@ -29,8 +29,9 @@ For each account, with a strong password you SAVE:
 BTCPC_WALLET_PASSWORD='<strong password — SAVE IT>' \
   btcpc wallet new --account <name> --vault wallets
 ```
-Accounts: `natoshisakamoto`, `bullship`, `freeport`, `linkgit`, `verasens`,
-`btcpc-market`, `btcpc-relay`.
+Accounts: `shindevlin` (founder / root owner — the MOST important to recover, it
+owns freeport/verasens/linkgit), `natoshisakamoto`, `bullship`, `freeport`,
+`linkgit`, `verasens`, `btcpc-market`, `btcpc-relay`.
 
 **For EACH one: write down the recovery phrase it prints (shown once).** This is
 the layer-2 backup. If you skip it and later lose the password, that account is
