@@ -1,16 +1,17 @@
 //! Inference job worker daemon.
 //!
 //! Scans the chain for Posted jobs, bids as a worker, executes the job via
-//! Ollama when awarded, and submits InferenceJobComplete with the result hash.
+//! inference_engine (embedded candle or external INFERENCE_URL), and submits
+//! InferenceJobComplete with the result hash.
 //!
 //! This is the correct inference participation mechanism. miner.rs (direct
 //! Mine entries) is the old self-directed approach and does not interact with
 //! the marketplace.
 //!
 //! Env vars:
-//!   BTCPC_WORKER      — "true" to activate this daemon
-//!   OLLAMA_URL        — Ollama base URL (default http://localhost:11434)
-//!   BTCPC_MODEL       — default model hint; job specifies model to use
+//!   BTCPC_WORKER         — "true" to activate this daemon
+//!   INFERENCE_URL        — external inference server (default: embedded candle)
+//!   BTCPC_MODEL          — default model hint; job specifies model to use
 //!   BTCPC_WORKER_FEE_BPS — fraction of max_fee to bid (default 9000 = 90%)
 
 use std::collections::HashSet;
@@ -23,6 +24,7 @@ use btcpc_types::LedgerEntry;
 
 use crate::chain::Chain;
 use crate::inference::{self, JobStatus};
+use crate::inference_engine::{self, ChatRequest, Message};
 use crate::net::NetCmd;
 use crate::udp_gossip::UdpGossipHandle;
 use crate::utils::now_ms;
@@ -141,10 +143,10 @@ async fn execute_awarded_jobs(
         info!("worker: executing job {} model={}", job.job_id, job.model);
 
         let (result_hash, output_text, latency_ms) =
-            call_ollama(&job.model, &input_text).await;
+            run_inference(&job.model, &input_text).await;
 
         if result_hash.is_empty() {
-            warn!("worker: Ollama returned empty result for job {}", job.job_id);
+            warn!("worker: inference returned empty result for job {}", job.job_id);
             continue;
         }
 
@@ -174,39 +176,31 @@ async fn execute_awarded_jobs(
     }
 }
 
-async fn call_ollama(model: &str, prompt: &str) -> (String, String, u64) {
-    let ollama_url = std::env::var("OLLAMA_URL")
-        .unwrap_or_else(|_| "http://localhost:11434".to_owned());
+async fn run_inference(model: &str, prompt: &str) -> (String, String, u64) {
+    if !inference_engine::available() {
+        warn!("worker: inference not available on this node");
+        return (String::new(), String::new(), 0);
+    }
 
     let start = std::time::Instant::now();
-    let client = reqwest::Client::new();
+    let req = ChatRequest {
+        model: model.to_owned(),
+        messages: vec![Message { role: "user".to_owned(), content: prompt.to_owned() }],
+        max_tokens: 512,
+    };
 
-    let resp = client
-        .post(format!("{}/api/generate", ollama_url))
-        .timeout(Duration::from_secs(120))
-        .json(&serde_json::json!({
-            "model": model,
-            "prompt": prompt,
-            "stream": false,
-            "keep_alive": "0s",
-            "options": { "temperature": 0.0 },
-        }))
-        .send()
-        .await;
-
-    let latency_ms = start.elapsed().as_millis() as u64;
-
-    match resp {
-        Ok(r) if r.status().is_success() => {
-            if let Ok(body) = r.json::<serde_json::Value>().await {
-                let text = body["response"].as_str().unwrap_or("").to_owned();
-                let hash = hex::encode(Sha256::digest(text.as_bytes()));
-                return (hash, text, latency_ms);
-            }
+    let latency_ms = match inference_engine::chat(req).await {
+        Ok(resp) => {
+            let latency_ms = start.elapsed().as_millis() as u64;
+            let hash = hex::encode(Sha256::digest(resp.content.as_bytes()));
+            return (hash, resp.content, latency_ms);
         }
-        Ok(r) => warn!("worker: Ollama {} ({}ms)", r.status(), latency_ms),
-        Err(e) => warn!("worker: Ollama unreachable: {} ({}ms)", e, latency_ms),
-    }
+        Err(e) => {
+            let latency_ms = start.elapsed().as_millis() as u64;
+            warn!("worker: inference failed ({}ms): {}", latency_ms, e);
+            latency_ms
+        }
+    };
 
     (String::new(), String::new(), latency_ms)
 }

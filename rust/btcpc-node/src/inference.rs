@@ -783,7 +783,8 @@ pub fn apply_pay(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
     let mut job = get_job(chain, job_id)
         .ok_or_else(|| anyhow::anyhow!("job '{}' not found", job_id))?;
 
-    let allowed = matches!(job.status, JobStatus::Verified | JobStatus::Reviewed | JobStatus::NoFee | JobStatus::Rejected);
+    // Completed is valid here: auto_settle_unverified pays jobs that expired without verifiers.
+    let allowed = matches!(job.status, JobStatus::Verified | JobStatus::Reviewed | JobStatus::NoFee | JobStatus::Rejected | JobStatus::Completed);
     if !allowed {
         bail!("job '{}' not ready for payment (status: {:?})", job_id, job.status);
     }

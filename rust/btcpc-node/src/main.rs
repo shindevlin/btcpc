@@ -2105,6 +2105,12 @@ async fn emit_epoch_rewards(
             if let Err(e) = chain.apply_entry(&entry) {
                 warn!("benchmark job {} failed: {}", job_id, e);
             } else {
+                // Store the input text so the local worker can execute it.
+                let prompt = format!("Summarise epoch {} of the BTCPC chain in one sentence.", epoch);
+                let _ = chain.store.state_set(
+                    &format!("infer_input:{}", job_id),
+                    prompt.as_bytes(),
+                );
                 broadcast_entry_desktop(&entry, cmd_tx).await;
             }
         }
