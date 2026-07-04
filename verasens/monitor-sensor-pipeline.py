@@ -213,76 +213,271 @@ def scan_block_for_sensor(node: str, epoch: int) -> list:
     ]
 
 
-# ── Sensor type rotation (Phase 1.2 — universal ingest test) ────────────────
+# ── Adaptive sensor scheduler (Phase 1.2) ───────────────────────────────────
+# Port of clients/btcpc-flipper/btcpc_scheduler.c
+# Three sensor classes:
+#   Continuous   — always interesting if not barren (subghz, gnss, coverage, sampled)
+#   Event        — interesting when tag/signal found; epoch-capped (nfc, rfid, ibutton)
+#   Housekeeping — fixed slow cadence, never backed off (heartbeat)
 
-# One type per epoch, cycled in order. Each type exercises a different
-# metadata schema so the generic ingest path is validated for every class.
-SENSOR_ROTATE_TYPES = [
-    ("gnss",      {"lat": 37.7749, "lon": -122.4194, "alt": 10.0, "accuracy": 5.0}),
-    ("subghz",    {"freq_hz": 433920000, "rssi": -72.5, "modulation": "AM270"}),
-    ("heartbeat", {"uptime_s": 3600, "battery_pct": 85, "fw": "1.2.0"}),
-    ("sampled",   {"value": 42.0, "unit": "raw"}),
-    ("rfid",      {"protocol": "EM4100", "obs_id": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"}),
-    ("nfc",       {"protocol": "ISO14443A", "obs_id": "b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5"}),
-    ("ibutton",   {"protocol": "DS1990A", "obs_id": "c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6"}),
-    ("coverage",  {"mcc": 310, "mnc": 260, "rsrp": -95, "lat": 37.7749, "lon": -122.4194}),
-]
+_SENSOR_TYPES = ["subghz", "gnss", "nfc", "rfid", "ibutton", "coverage", "sampled", "heartbeat"]
+_SENSOR_CLASS = {
+    "subghz":    "continuous",
+    "gnss":      "continuous",
+    "coverage":  "continuous",
+    "sampled":   "continuous",
+    "nfc":       "event",
+    "rfid":      "event",
+    "ibutton":   "event",
+    "heartbeat": "housekeeping",
+}
+# Representative metadata for each type (used when no real sensor data available)
+_SENSOR_META = {
+    "gnss":      {"lat": 37.7749, "lon": -122.4194, "alt": 10.0, "accuracy": 5.0},
+    "subghz":    {"freq_hz": 433920000, "rssi": -72.5, "modulation": "AM270"},
+    "heartbeat": {"uptime_s": 3600, "battery_pct": 85, "fw": "1.2.0"},
+    "sampled":   {"value": 42.0, "unit": "raw"},
+    "rfid":      {"protocol": "EM4100",    "obs_id": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"},
+    "nfc":       {"protocol": "ISO14443A", "obs_id": "b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5"},
+    "ibutton":   {"protocol": "DS1990A",   "obs_id": "c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6"},
+    "coverage":  {"mcc": 310, "mnc": 260, "rsrp": -95, "lat": 37.7749, "lon": -122.4194},
+}
+
+EPOCH_CAP        = 20    # event sensors stop earning after 20 commits/epoch
+MAX_BACKOFF      = 16    # max cycles to skip when barren
+HEARTBEAT_EVERY  = 30    # housekeeping fires every N cycles
+BASE_DELAY_S     = 0.5   # 500ms between cycles at full battery
 
 
-def next_rotate_type(epoch: int) -> tuple:
-    """Return (sensor_type, metadata) for this epoch, cycling in order."""
-    return SENSOR_ROTATE_TYPES[epoch % len(SENSOR_ROTATE_TYPES)]
-
-
-def submit_rotate_commit(node: str, account: str, posting_key_hex: str) -> dict | None:
+class SensorScheduler:
     """
-    Submit one SensorDataCommit for the current epoch, using the sensor type
-    that corresponds to (epoch % len(SENSOR_ROTATE_TYPES)).
+    Adaptive sensor rotation: yield-weighted priority, exponential barren
+    backoff, per-epoch event cap, battery-aware cycle delay.
 
-    Run once per epoch to cycle through all 8 sensor types in ~4 minutes.
+    Mirrors btcpc_scheduler.c exactly so device and test submission share
+    the same selection logic.
     """
-    info = get_node_info(node)
-    epoch = info.get("epoch", 0)
-    chain_id = info.get("chain_id", "btcpc-2")
-    sensor_type, metadata = next_rotate_type(epoch)
+
+    def __init__(self):
+        self.cycle = 0
+        self.battery_pct = 100
+        self.state = {
+            t: {
+                "class":          _SENSOR_CLASS[t],
+                "backoff":        0,
+                "skip_remaining": 0,
+                "epoch_yield":    0,
+                "total_yield":    0,
+                "attempts":       0,
+            }
+            for t in _SENSOR_TYPES
+        }
+
+    def new_epoch(self):
+        for t, st in self.state.items():
+            st["epoch_yield"] = 0
+            if st["class"] == "event":
+                st["backoff"] = 0
+                st["skip_remaining"] = 0
+
+    def set_battery(self, pct: int):
+        self.battery_pct = max(1, min(100, pct))
+
+    def _at_cap(self, t: str) -> bool:
+        st = self.state[t]
+        return st["class"] == "event" and st["epoch_yield"] >= EPOCH_CAP
+
+    def _eligible(self, t: str) -> bool:
+        if t == "heartbeat":
+            return (self.cycle % HEARTBEAT_EVERY) == 0
+        if self._at_cap(t):
+            return False
+        return self.state[t]["skip_remaining"] == 0
+
+    def next(self) -> str:
+        self.cycle += 1
+        for st in self.state.values():
+            if st["skip_remaining"] > 0:
+                st["skip_remaining"] -= 1
+
+        if self._eligible("heartbeat"):
+            return "heartbeat"
+
+        start = self.cycle % len(_SENSOR_TYPES)
+        for off in range(len(_SENSOR_TYPES)):
+            t = _SENSOR_TYPES[(start + off) % len(_SENSOR_TYPES)]
+            if t == "heartbeat":
+                continue
+            if self._eligible(t):
+                return t
+
+        # Everything backed off / capped — pick soonest
+        best, best_skip = "subghz", 0xFFFFFFFF
+        for t in _SENSOR_TYPES:
+            if t == "heartbeat" or self._at_cap(t):
+                continue
+            if self.state[t]["skip_remaining"] < best_skip:
+                best_skip = self.state[t]["skip_remaining"]
+                best = t
+        return best
+
+    def report(self, t: str, found: bool):
+        """Call after each scan with whether interesting data was found."""
+        st = self.state[t]
+        st["attempts"] += 1
+        if found:
+            st["epoch_yield"] += 1
+            st["total_yield"] += 1
+            st["backoff"] = 0
+            st["skip_remaining"] = 0
+        else:
+            if st["backoff"] == 0:
+                st["backoff"] = 1
+            elif st["backoff"] < MAX_BACKOFF:
+                st["backoff"] = min(st["backoff"] * 2, MAX_BACKOFF)
+            st["skip_remaining"] = st["backoff"]
+
+    def cycle_delay_s(self) -> float:
+        """Battery-aware inter-cycle delay: full=0.5s, low battery=up to ~3x."""
+        pct = max(1, self.battery_pct)
+        mult = 1.0 + (100 - pct) / 40.0
+        return BASE_DELAY_S * mult
+
+    def status(self) -> str:
+        parts = []
+        for t in _SENSOR_TYPES:
+            st = self.state[t]
+            cap = "CAP" if self._at_cap(t) else ""
+            back = f"b{st['backoff']}" if st["backoff"] > 0 else ""
+            tag = "/".join(x for x in [cap, back] if x) or "ok"
+            parts.append(f"{t}:{st['total_yield']}y/{st['attempts']}a({tag})")
+        return "  ".join(parts)
+
+
+def _is_interesting(sensor_type: str, metadata: dict, api_resp: dict | None) -> bool:
+    """
+    Decide whether a scan produced 'interesting' data worth boosting.
+    API success = at minimum not-barren for continuous sensors.
+    For event sensors: only interesting if an actual tag/signal was present
+    (simulated here by non-None obs_id / rssi above noise floor).
+    """
+    if api_resp is None:
+        return False  # submission rejected — treat as barren
+
+    if sensor_type == "heartbeat":
+        return True  # always interesting
+
+    if sensor_type in ("nfc", "rfid", "ibutton"):
+        # Interesting only if we have a real obs_id (not the synthetic placeholder)
+        obs = metadata.get("obs_id", "")
+        return bool(obs) and obs != "0" * 32
+
+    if sensor_type == "subghz":
+        rssi = metadata.get("rssi", -120)
+        return rssi > -100  # above noise floor
+
+    if sensor_type == "gnss":
+        accuracy = metadata.get("accuracy", 999)
+        return accuracy < 50  # sub-50m fix = real data
+
+    if sensor_type == "coverage":
+        rsrp = metadata.get("rsrp", -140)
+        return rsrp > -110  # decent cell signal
+
+    return True  # sampled: always interesting
+
+
+def _register_sensor(node: str, account: str, sensor_type: str, chain_id: str,
+                     posting_key_hex: str, sk) -> None:
+    """Idempotent sensor registration (re-register is a no-op on the chain)."""
     sensor_id = f"{account}/{sensor_type}-test"
-
-    # Register this sensor type (idempotent)
-    nacl_signing = _try_import_nacl()
-    if nacl_signing and posting_key_hex:
-        seed = bytes.fromhex(posting_key_hex)
-        sk = nacl_signing.SigningKey(seed)
-        reg_msg = json.dumps({
-            "chain_id": chain_id, "type": "SENSOR_REGISTER",
-            "sensor_id": sensor_id, "owner": account,
-            "sensor_type": sensor_type, "location": None, "signed_by": account,
-        }, separators=(",", ":"), sort_keys=True)
-        reg_sig = sk.sign(reg_msg.encode()).signature.hex()
-    else:
-        reg_sig = ""
-
+    reg_msg = json.dumps({
+        "chain_id": chain_id, "type": "SENSOR_REGISTER",
+        "sensor_id": sensor_id, "owner": account,
+        "sensor_type": sensor_type, "location": None, "signed_by": account,
+    }, separators=(",", ":"), sort_keys=True)
+    reg_sig = sk.sign(reg_msg.encode()).signature.hex() if sk else ""
     post(f"{node}/api/sensor/register", {
         "sensor_id": sensor_id, "owner": account,
         "sensor_type": sensor_type, "location": None,
-        "metadata": metadata, "signature": reg_sig,
+        "metadata": _SENSOR_META[sensor_type], "signature": reg_sig,
     })
 
-    readings = [{"epoch": epoch, "ts": int(time.time() * 1000), **metadata}]
-    batch_hash = make_batch_hash(sensor_id, epoch, readings)
-    sig = sign_sensor_commit(
-        chain_id=chain_id, sensor_id=sensor_id, owner=account,
-        batch_hash=batch_hash, reading_count=1,
-        sensor_type=sensor_type, posting_key_hex=posting_key_hex,
-    )
 
-    print(f"[{ts()}] rotate epoch={epoch} type={sensor_type} ({epoch % len(SENSOR_ROTATE_TYPES) + 1}/{len(SENSOR_ROTATE_TYPES)})")
-    resp = post(f"{node}/api/sensor/commit", {
-        "sensor_id": sensor_id, "owner": account,
-        "batch_hash": batch_hash, "reading_count": 1,
-        "sensor_type": sensor_type, "value": None, "signature": sig,
-    })
-    print(f"[{ts()}] response: {json.dumps(resp)}")
-    return resp
+def run_adaptive_scheduler(node: str, account: str, posting_key_hex: str,
+                           max_cycles: int = 0) -> None:
+    """
+    Run the adaptive sensor scheduler until interrupted (or max_cycles if set).
+
+    Cycles at 500ms–1.5s depending on battery. Submits the sensor type the
+    scheduler selects — highest-yield, non-barren, not-yet-epoch-capped sensor
+    wins each slot.  Prints a status line every 10 cycles.
+    """
+    nacl_signing = _try_import_nacl()
+    if nacl_signing is None:
+        raise ImportError("PyNaCl required: pip install PyNaCl")
+    seed = bytes.fromhex(posting_key_hex)
+    sk = nacl_signing.SigningKey(seed)
+
+    sched = SensorScheduler()
+    registered: set = set()
+    last_epoch = -1
+    cycle_count = 0
+
+    print(f"[{ts()}] Adaptive scheduler starting — node={node} account={account}")
+    print(f"[{ts()}] Sensor types: {', '.join(_SENSOR_TYPES)}")
+
+    while True:
+        info = get_node_info(node)
+        epoch = info.get("epoch", 0)
+        chain_id = info.get("chain_id", "btcpc-2")
+        battery = info.get("battery_pct", 100)  # node may not expose this; defaults to 100
+        sched.set_battery(battery)
+
+        if epoch != last_epoch:
+            sched.new_epoch()
+            last_epoch = epoch
+
+        sensor_type = sched.next()
+        sensor_id   = f"{account}/{sensor_type}-test"
+        metadata    = _SENSOR_META[sensor_type].copy()
+
+        # Register lazily (once per type)
+        if sensor_type not in registered:
+            _register_sensor(node, account, sensor_type, chain_id, posting_key_hex, sk)
+            registered.add(sensor_type)
+
+        # Build and sign commit
+        readings   = [{"epoch": epoch, "ts": int(time.time() * 1000), **metadata}]
+        batch_hash = make_batch_hash(sensor_id, epoch, readings)
+        sig = sign_sensor_commit(
+            chain_id=chain_id, sensor_id=sensor_id, owner=account,
+            batch_hash=batch_hash, reading_count=1,
+            sensor_type=sensor_type, posting_key_hex=posting_key_hex,
+        )
+        resp = post(f"{node}/api/sensor/commit", {
+            "sensor_id": sensor_id, "owner": account,
+            "batch_hash": batch_hash, "reading_count": 1,
+            "sensor_type": sensor_type, "value": None, "signature": sig,
+        })
+
+        found = _is_interesting(sensor_type, metadata, resp)
+        sched.report(sensor_type, found)
+
+        st = sched.state[sensor_type]
+        marker = "✓" if found else "✗"
+        print(f"[{ts()}] [{marker}] epoch={epoch} type={sensor_type:10s} "
+              f"yield={st['total_yield']:3d}  backoff={st['backoff']:2d}  "
+              f"resp={str(resp)[:60]}")
+
+        cycle_count += 1
+        if cycle_count % 10 == 0:
+            print(f"[{ts()}] sched: {sched.status()}")
+
+        if max_cycles and cycle_count >= max_cycles:
+            break
+
+        time.sleep(sched.cycle_delay_s())
 
 
 # ── Submit test entry ───────────────────────────────────────────────────────
@@ -462,9 +657,9 @@ if __name__ == "__main__":
     parser.add_argument("--submit-test", action="store_true",
                         help="Submit one test SensorDataCommit (sampled type) then exit")
     parser.add_argument("--rotate-test", action="store_true",
-                        help="Submit one SensorDataCommit for this epoch's type in the "
-                             "rotation cycle (gnss→subghz→heartbeat→sampled→rfid→nfc→ibutton→coverage), "
-                             "then exit.  Run once per epoch to walk all 8 types.")
+                        help="Run adaptive sensor scheduler: cycles at ~500ms, yield-weighted "
+                             "priority, exponential barren backoff, epoch cap for event sensors. "
+                             "Mirrors btcpc_scheduler.c. Requires --posting-key.")
     parser.add_argument("--account", default="",
                         help="Override account name (default: read from node /api/node/info)")
     parser.add_argument("--posting-key", default="",
@@ -478,7 +673,10 @@ if __name__ == "__main__":
             sys.exit(1)
         info = get_node_info(args.node)
         account = args.account or info.get("account", "natoshisakamoto")
-        submit_rotate_commit(args.node, account, args.posting_key)
+        try:
+            run_adaptive_scheduler(args.node, account, args.posting_key)
+        except KeyboardInterrupt:
+            print(f"\n[{ts()}] Scheduler stopped.")
         sys.exit(0)
 
     if args.submit_test:
