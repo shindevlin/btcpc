@@ -141,7 +141,31 @@ but note it — don't build new things on tract-onnx.
 
 ## 9. Status log (append-only, dated)
 - **2026-07-04:** Decision made (candle-embedded). Analysis docs written
-  (INFERENCE_ENGINE_ANALYSIS.md, INFERENCE_EMBED_SPEC.md — the latter to be
-  revised from llama.cpp to candle). Found btcpc-android/src/llm.rs as the proven
-  port source. NOT YET STARTED on code. bullship inference currently works by
-  pointing at Grouchly's node (which has Ollama+models running) as a stopgap.
+  (INFERENCE_ENGINE_ANALYSIS.md, INFERENCE_EMBED_SPEC.md — revised to candle).
+  Found btcpc-android/src/llm.rs as the proven port source. bullship inference
+  currently works by pointing at Grouchly's node (Ollama+models) as a stopgap.
+- **2026-07-04 (build started):** Shin said "just do candle, no wasted cycles" —
+  building directly, not the phased hedge.
+  - **NAME COLLISION CAUGHT:** `rust/btcpc-node/src/inference.rs` ALREADY EXISTS
+    and is the inference-JOB-MARKETPLACE state machine (bid/award/verify/dispute,
+    80KB) — NOT the model runner. Do NOT touch it. The model engine went into a
+    NEW file `inference_engine.rs`. `inference.rs` = marketplace,
+    `inference_engine.rs` = model execution. Keep them separate.
+  - Added candle-core/transformers/nn 0.10 + tokenizers 0.20 + hf-hub 0.3 to
+    btcpc-node/Cargo.toml (same versions as btcpc-android, which builds), all
+    `optional=true` behind feature `inference-embedded` (default ON).
+  - Wrote `inference_engine.rs`: unified `chat()`/`available()`/`warm_up()`,
+    Backend = Http(vLLM/Ollama) | Embedded(candle) | None, selected once at
+    startup. Embedded ports llm.rs's GGUF load + greedy generate. Uses
+    std::sync::OnceLock (not once_cell — not a node dep).
+  - `mod inference_engine;` registered in main.rs.
+  - **✓ CANDLE COMPILES ON rustc 1.90** (the #1 risk — CLEARED). `cargo +1.90.0
+    check --features inference-embedded`: candle-core 0.10.2, candle-nn,
+    candle-transformers all built clean on the pinned toolchain. No ICE, no
+    version conflict. The candle-vs-llama.cpp decision is validated. (One trivial
+    borrow bug in my own inference_engine.rs — two get_vocab() temporaries — fixed
+    by binding vocab once.)
+  - **NEXT:** wire the ~6 old Ollama call sites (§4) to inference_engine::chat,
+    call warm_up() at boot, rename has_ollama→has_inference. Streaming
+    (/v1/chat/completions SSE) still needs a streaming generate variant — current
+    port is non-streaming only. Then commit + push.

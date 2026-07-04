@@ -21,7 +21,6 @@ use crate::agent_task::{AgentTask, TaskStatus};
 use crate::agent_tools;
 use crate::net::NetCmd;
 
-const OLLAMA_TIMEOUT_SECS: u64 = 120;
 const VERIFIER_REVEAL_DELAY_EPOCHS: u64 = 1; // reveal one epoch after commit
 
 pub async fn run(
@@ -285,58 +284,54 @@ async fn reveal_committed_verifications(
     }
 }
 
-/// Execute a task via Ollama.  If the task declares allowed tools, runs a
-/// ReAct loop (up to 8 iterations); otherwise falls back to a single-shot
-/// /api/generate call.
+/// Execute a task via the unified inference engine (embedded candle by default,
+/// or an external INFERENCE_URL — no more Ollama daemon dependency). If the task
+/// declares allowed tools, runs a ReAct loop (up to 8 iterations); otherwise a
+/// single-shot completion.
+///
+/// This is what makes agent WORKFLOWS non-fragile: they run on whatever backend
+/// the node has (in-process by default), so a task never fails because a separate
+/// model server is down. See docs/AGENT_WORKFLOWS_PLAN.md + inference_engine.rs.
 async fn run_task(task: &AgentTask, chain: &Chain) -> anyhow::Result<String> {
-    let ollama_url = std::env::var("OLLAMA_URL")
-        .unwrap_or_else(|_| "http://localhost:11434".to_owned());
+    use crate::inference_engine::{self, ChatRequest, Message};
     let model = std::env::var("BTCPC_MODEL")
         .unwrap_or_else(|_| "qwen2.5:0.5b".to_owned());
 
-    let http = reqwest::Client::builder()
-        .timeout(Duration::from_secs(OLLAMA_TIMEOUT_SECS))
-        .build()?;
-
     if task.tools_allowed.is_empty() {
-        let resp = http.post(format!("{}/api/generate", ollama_url))
-            .json(&serde_json::json!({
-                "model":  model,
-                "prompt": task.description,
-                "stream": false,
-            }))
-            .send().await?
-            .json::<serde_json::Value>().await?;
-        return Ok(resp["response"].as_str().unwrap_or("").to_owned());
+        // Single-shot: one user turn, no tools.
+        let resp = inference_engine::chat(ChatRequest {
+            model: model.clone(),
+            messages: vec![Message { role: "user".into(), content: task.description.clone() }],
+            max_tokens: 512,
+        })
+        .await?;
+        return Ok(resp.content);
     }
 
-    // ReAct loop: build system prompt, then alternate model calls with tool dispatch.
+    // ReAct loop: system prompt, then alternate model calls with tool dispatch.
     let system = agent_tools::build_system_prompt(&task.tools_allowed);
     let mut messages = vec![
-        serde_json::json!({ "role": "system",  "content": system }),
-        serde_json::json!({ "role": "user",    "content": &task.description }),
+        Message { role: "system".into(), content: system },
+        Message { role: "user".into(), content: task.description.clone() },
     ];
 
     for _ in 0..8usize {
-        let resp = http.post(format!("{}/api/chat", ollama_url))
-            .json(&serde_json::json!({
-                "model":    model,
-                "messages": messages,
-                "stream":   false,
-            }))
-            .send().await?
-            .json::<serde_json::Value>().await?;
-
-        let content = resp["message"]["content"].as_str().unwrap_or("").to_owned();
+        let resp = inference_engine::chat(ChatRequest {
+            model: model.clone(),
+            messages: messages.clone(),
+            max_tokens: 512,
+        })
+        .await?;
+        let content = resp.content;
 
         if let Some((tool_name, args)) = agent_tools::parse_tool_call(&content) {
-            messages.push(serde_json::json!({ "role": "assistant", "content": &content }));
+            messages.push(Message { role: "assistant".into(), content: content.clone() });
             let result = agent_tools::dispatch(&tool_name, &args, chain).await;
             let result_text = serde_json::to_string(&result.value).unwrap_or_default();
-            messages.push(serde_json::json!({
-                "role":    "user",
-                "content": format!("[tool:{}] {}", tool_name, result_text),
-            }));
+            messages.push(Message {
+                role: "user".into(),
+                content: format!("[tool:{}] {}", tool_name, result_text),
+            });
             info!("[agent-worker] tool {} ok={}", tool_name, result.ok);
         } else {
             return Ok(content);
@@ -344,11 +339,12 @@ async fn run_task(task: &AgentTask, chain: &Chain) -> anyhow::Result<String> {
     }
 
     // Exhausted iterations — return last assistant message.
-    Ok(messages.iter().rev()
-        .find(|m| m["role"].as_str() == Some("assistant"))
-        .and_then(|m| m["content"].as_str())
-        .unwrap_or("")
-        .to_owned())
+    Ok(messages
+        .iter()
+        .rev()
+        .find(|m| m.role == "assistant")
+        .map(|m| m.content.clone())
+        .unwrap_or_default())
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
