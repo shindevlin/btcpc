@@ -214,10 +214,12 @@ pub fn router(state: AppState) -> Router {
         .route("/api/node/miners/:name", get(get_node_miner))
         .route("/api/node/network/capabilities", get(get_network_capabilities))
         // ── LinkGit ───────────────────────────────────────────────────────
+        .route("/api/linkgit/repos", get(get_all_linkgit_repos))
         .route("/api/linkgit/repos/:owner", get(get_linkgit_repos))
         .route("/api/linkgit/repo/:owner/:repo", get(get_linkgit_repo))
         .route("/api/linkgit/repo/create", post(post_linkgit_repo_create))
         .route("/api/linkgit/repo/ref/update", post(post_linkgit_ref_update))
+        .route("/api/linkgit/repo/:owner/:repo/read", post(post_linkgit_repo_read))
         .route("/api/linkgit/repo/access/grant", post(post_linkgit_access_grant))
         .route("/api/linkgit/repo/access/revoke", post(post_linkgit_access_revoke))
         .route("/api/linkgit/repo/:owner/:repo/wallet", post(post_linkgit_repo_wallet_init))
@@ -246,6 +248,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/ens/resolve/:name", get(get_ens_resolve))
         .route("/api/ens/repos/:name", get(get_ens_repos))
         // ── Verasens: Sensors / IoT ───────────────────────────────────────
+        .route("/api/sensors", get(get_all_sensors))
         .route("/api/sensor/register", post(post_sensor_register))
         .route("/api/sensor/commit", post(post_sensor_commit))
         .route("/api/sensor/vouch", post(post_sensor_vouch))
@@ -3259,7 +3262,11 @@ struct LinkGitAccessRevokeBody {
 // ── LinkGit handlers ──────────────────────────────────────────────────────────
 
 /// GET /api/linkgit/repos/:owner
-/// Returns all repos owned by the given account.
+/// Returns the owner's PUBLIC repos. This is an unauthenticated GET, so it must
+/// NOT expose private repos — a private repo is only visible to its owner or a
+/// granted user through an access-checked read (LinkGitAccessGrant). Listing
+/// private repos to anyone who names the owner would defeat privacy.
+/// (Follow-up: an authenticated variant returns the caller's own private repos.)
 async fn get_linkgit_repos(
     Path(owner): Path<String>,
     State(s): State<AppState>,
@@ -3268,12 +3275,97 @@ async fn get_linkgit_repos(
         .into_iter()
         .filter_map(|(_, v)| serde_json::from_slice::<serde_json::Value>(&v).ok())
         .filter(|r| r.get("owner").and_then(|o| o.as_str()) == Some(owner.as_str()))
+        .filter(repo_is_public)
         .collect();
-    Json(serde_json::json!({ "owner": owner, "repos": repos }))
+    Json(serde_json::json!({ "owner": owner, "repos": repos, "note": "public repos only" }))
+}
+
+/// True if a stored repo record is public (visibility != "private"). Private
+/// repos are hidden from public discovery — only their owner / granted users see
+/// them (via the authenticated read below). Default-deny: anything not explicitly
+/// "public" that is marked "private" is treated as private.
+fn repo_is_public(repo: &serde_json::Value) -> bool {
+    repo.get("visibility").and_then(|v| v.as_str()) != Some("private")
+}
+
+/// Verify `signature_hex` is a valid ed25519 signature over `message` by the
+/// given raw `pubkey_hex` (32-byte ed25519, hex). Used where the pubkey is known
+/// directly (e.g. an agent session's stored client_pubkey), not looked up by
+/// account.
+fn verify_pubkey_sig(pubkey_hex: &str, message: &str, signature_hex: &str) -> bool {
+    use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+    let Ok(pk_bytes) = hex::decode(pubkey_hex) else { return false };
+    let Ok(pk_arr) = <[u8; 32]>::try_from(pk_bytes.as_slice()) else { return false };
+    let Ok(vk) = VerifyingKey::from_bytes(&pk_arr) else { return false };
+    let Ok(sig_bytes) = hex::decode(signature_hex) else { return false };
+    let Ok(sig_arr) = <[u8; 64]>::try_from(sig_bytes.as_slice()) else { return false };
+    vk.verify(message.as_bytes(), &Signature::from_bytes(&sig_arr)).is_ok()
+}
+
+/// Verify that `signature_hex` is a valid ed25519 signature over `message` by the
+/// account `caller`'s `role` public key (e.g. "hide" for private-repo access).
+/// This is how we PROVE a caller is the keyholder before serving private data.
+fn verify_account_key_sig(
+    s: &AppState,
+    caller: &str,
+    role: &str,
+    message: &str,
+    signature_hex: &str,
+) -> bool {
+    use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+    let Some(acct) = s.chain.store.get_account(caller).ok().flatten() else { return false };
+    let Some(pk_hex) = acct["keys"][role].as_str() else { return false };
+    let Ok(pk_bytes) = hex::decode(pk_hex) else { return false };
+    let Ok(pk_arr) = <[u8; 32]>::try_from(pk_bytes.as_slice()) else { return false };
+    let Ok(vk) = VerifyingKey::from_bytes(&pk_arr) else { return false };
+    let Ok(sig_bytes) = hex::decode(signature_hex) else { return false };
+    let Ok(sig_arr) = <[u8; 64]>::try_from(sig_bytes.as_slice()) else { return false };
+    let sig = Signature::from_bytes(&sig_arr);
+    vk.verify(message.as_bytes(), &sig).is_ok()
+}
+
+/// Does `caller` hold access to `repo` (`repo_id`)? Delegates to the canonical
+/// `linkgit_server::can_read`: public → yes; else caller must be the owner or
+/// have a live LinkGitAccessGrant (revoke deletes the grant key). This is the
+/// same access predicate the git-serve layer enforces, so the read API and the
+/// object-serving layer agree on who can see a private repo.
+fn has_repo_access(s: &AppState, repo: &serde_json::Value, repo_id: &str, caller: &str) -> bool {
+    crate::linkgit_server::can_read(&s.chain.store, repo, repo_id, Some(caller))
+}
+
+/// GET /api/linkgit/repos
+/// Public discovery: list only PUBLIC repos on the chain. Private repos are NOT
+/// listed here (they'd leak otherwise). The owner sees their own private repos
+/// via /api/linkgit/repos/:owner. Fixes the visibility-leak in the discovery
+/// endpoint flagged when public/private support was audited.
+async fn get_all_linkgit_repos(State(s): State<AppState>) -> Json<serde_json::Value> {
+    let repos: Vec<serde_json::Value> = s.chain.store.state_scan_prefix("linkgit:repo:")
+        .into_iter()
+        .filter_map(|(_, v)| serde_json::from_slice::<serde_json::Value>(&v).ok())
+        .filter(repo_is_public)
+        .collect();
+    Json(serde_json::json!({ "count": repos.len(), "repos": repos, "note": "public repos only" }))
+}
+
+/// GET /api/sensors
+/// Discovery: list ALL registered sensors on the chain. Makes Verasens browsable
+/// — previously you could only query a single sensor by id. Flagged as a build
+/// gap by the daily health-check.
+async fn get_all_sensors(State(s): State<AppState>) -> Json<serde_json::Value> {
+    let sensors: Vec<serde_json::Value> = s.chain.store.state_scan_prefix("sensor:")
+        .into_iter()
+        .filter_map(|(_, v)| serde_json::from_slice::<serde_json::Value>(&v).ok())
+        .collect();
+    Json(serde_json::json!({ "count": sensors.len(), "sensors": sensors }))
 }
 
 /// GET /api/linkgit/repo/:owner/:repo
 /// Returns repo info and refs. repo_id is stored as "{owner}/{repo}".
+/// For a PRIVATE repo, an unauthenticated caller gets only a minimal stub
+/// (name/owner/visibility) — NOT the ref list, which reveals commit structure.
+/// The git objects themselves are encrypted to the owner's hide_key, so content
+/// is protected regardless; this hides the metadata too. (Follow-up: an
+/// access-checked read returns full private repo data to the owner / grantees.)
 async fn get_linkgit_repo(
     Path((owner, repo)): Path<(String, String)>,
     State(s): State<AppState>,
@@ -3282,11 +3374,77 @@ async fn get_linkgit_repo(
     let key = format!("linkgit:repo:{}", repo_id);
     match s.chain.store.get_meta(&key) {
         Some(bytes) => match serde_json::from_slice::<serde_json::Value>(&bytes) {
-            Ok(data) => Ok(Json(data)),
+            Ok(data) => {
+                if repo_is_public(&data) {
+                    Ok(Json(data))
+                } else {
+                    // Private: return a minimal stub only. Full data requires the
+                    // keyholder-authenticated POST .../read endpoint below.
+                    Ok(Json(serde_json::json!({
+                        "repo_id": repo_id,
+                        "owner": data.get("owner").cloned().unwrap_or(serde_json::json!(owner)),
+                        "name": data.get("name").cloned().unwrap_or_default(),
+                        "visibility": "private",
+                        "note": "private repo — POST /read with a hide-key signature to view (owner/grantee only)",
+                    })))
+                }
+            }
             Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
         },
         None => Err(StatusCode::NOT_FOUND),
     }
+}
+
+#[derive(Debug, Deserialize)]
+struct LinkGitReadBody {
+    /// The account requesting access — must be the owner or a grantee.
+    caller: String,
+    /// ed25519 signature (hex) by `caller`'s HIDE key over the challenge:
+    /// "btcpc:linkgit:read:{repo_id}:{caller}".
+    signature: String,
+}
+
+/// POST /api/linkgit/repo/:owner/:repo/read
+/// KEYHOLDER-ONLY read of a private repo. The caller proves they hold their key
+/// by signing the challenge with their HIDE key (the key private repo objects are
+/// encrypted to). We then check on-chain access (owner or granted). Only then is
+/// the full repo returned. Public repos are returned to anyone (no proof needed).
+///
+/// This is what makes "private = only the keyholder can see it" ENFORCED, not
+/// just hidden from discovery.
+async fn post_linkgit_repo_read(
+    Path((owner, repo)): Path<(String, String)>,
+    State(s): State<AppState>,
+    Json(body): Json<LinkGitReadBody>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let repo_id = format!("{}/{}", owner, repo);
+    let data = match s.chain.store.get_meta(&format!("linkgit:repo:{}", repo_id)) {
+        Some(bytes) => serde_json::from_slice::<serde_json::Value>(&bytes)
+            .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "corrupt repo record".into()))?,
+        None => return Err((StatusCode::NOT_FOUND, "repo not found".into())),
+    };
+
+    // Public repos: no keyholder proof required.
+    if repo_is_public(&data) {
+        return Ok(Json(data));
+    }
+
+    // Private: caller MUST prove they hold their key (sign the challenge with the
+    // HIDE key), and MUST be authorized (owner or grantee). Default-deny.
+    let challenge = format!("btcpc:linkgit:read:{}:{}", repo_id, body.caller);
+    if !verify_account_key_sig(&s, &body.caller, "hide", &challenge, &body.signature) {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            "signature does not verify against caller's hide key — not the keyholder".into(),
+        ));
+    }
+    if !has_repo_access(&s, &data, &repo_id, &body.caller) {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "keyholder verified, but no access grant for this private repo".into(),
+        ));
+    }
+    Ok(Json(data))
 }
 
 /// POST /api/linkgit/repo/create
@@ -9845,14 +10003,45 @@ async fn post_agent_session_close(
     Ok(Json(serde_json::json!({ "accepted": true, "epoch": epoch })))
 }
 
+/// GET /api/agent-session/:id  [?sig=<hex>]
+/// Agent sessions are the CLIENT's private, E2E-encrypted AI conversation. The
+/// full record (client identity, model, fee, and the encrypted turns) is returned
+/// ONLY to the session's own client, who proves ownership by signing the
+/// session_id with their session ed25519 key (`client_pubkey`) and passing it as
+/// ?sig=<hex>. Everyone else gets a minimal existence/status stub — not the
+/// client identity and not the turns. (Turn CONTENT is ciphertext regardless, but
+/// this also stops leaking metadata + who is talking to the agent.)
 async fn get_agent_session(
     State(s): State<AppState>,
     Path(session_id): Path<String>,
+    axum::extract::Query(q): axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> Json<serde_json::Value> {
     let key = format!("agent_session:{}", session_id);
     let session: serde_json::Value = s.chain.store.state_get(&key)
         .and_then(|b| serde_json::from_slice(&b).ok())
         .unwrap_or(serde_json::Value::Null);
+
+    if session.is_null() {
+        return Json(serde_json::json!({ "session_id": session_id, "exists": false }));
+    }
+
+    // Owner check: sig (hex) over the session_id, verified against the session's
+    // client_pubkey. Only the client who opened the session passes this.
+    let client_pubkey = session["client_pubkey"].as_str().unwrap_or("");
+    let is_owner = q.get("sig").map(|sig| {
+        verify_pubkey_sig(client_pubkey, &session_id, sig)
+    }).unwrap_or(false);
+
+    if !is_owner {
+        // Redacted stub — no client identity, no turns.
+        return Json(serde_json::json!({
+            "session_id": session_id,
+            "exists": true,
+            "status": session["status"].clone(),
+            "note": "private session — pass ?sig=<client-key signature over session_id> to read it",
+        }));
+    }
+
     let turns_key = format!("agent_session_turns:{}", session_id);
     let turns: serde_json::Value = s.chain.store.state_get(&turns_key)
         .and_then(|b| serde_json::from_slice(&b).ok())

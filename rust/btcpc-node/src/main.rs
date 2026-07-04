@@ -41,6 +41,7 @@ mod finalize;
 mod genesis;
 mod hardware;
 mod inference;
+mod inference_engine;
 mod inference_daemon;
 mod miner;
 mod reserved_names;
