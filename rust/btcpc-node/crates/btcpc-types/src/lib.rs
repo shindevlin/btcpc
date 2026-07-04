@@ -18,7 +18,7 @@ pub const NATIVE_TOKEN: &str = "BTCPC";
 pub const EPOCH_MS: u64 = 30_000;
 
 /// Chain identifiers — used in canonical signing messages and gossip validation.
-pub const MAINNET_CHAIN_ID: &str = "btcpc-1";
+pub const MAINNET_CHAIN_ID: &str = "btcpc-2";
 pub const TESTNET_CHAIN_ID: &str = "btcpc-satoshi";
 
 /// Name registration stake: locked in the account on creation, released only if the
