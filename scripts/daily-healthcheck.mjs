@@ -68,13 +68,11 @@ const CHECKS = [
   { area: "inference", name: "models",             path: "/v1/models",                     expectData: true,  mustWork: true },
   { area: "inference", name: "pricing",            path: "/v1/pricing",                    expectData: true,  mustWork: true },
 
-  // ── Verasens (sensors) — probe a known account's sensors this epoch ──
-  // NOTE: there is no "/api/sensors" list route — a discovery endpoint is a BUILD
-  // gap. We probe the strikes endpoint for a sensor id (200 = route alive).
-  { area: "verasens",  name: "sensor strikes route", path: "/api/sensors/probe/strikes",  expectData: false, mustWork: false },
+  // ── Verasens (sensors) — global discovery list (added to fix the gap) ──
+  { area: "verasens",  name: "sensors list",       path: "/api/sensors",                   expectData: true,  mustWork: false },
 
-  // ── LinkGit — list an owner's repos (real route needs :owner) ──
-  { area: "linkgit",   name: "repos(shindevlin)",  path: "/api/linkgit/repos/shindevlin",  expectData: true,  mustWork: false },
+  // ── LinkGit — global repo discovery list (added to fix the gap) ──
+  { area: "linkgit",   name: "repos (all)",        path: "/api/linkgit/repos",             expectData: true,  mustWork: false },
 
   // ── Freeport (marketplace) — expect EMPTY until storefronts ──
   { area: "freeport",  name: "storefronts",        path: "/api/commerce/storefronts",      expectData: true,  mustWork: false },
@@ -172,8 +170,8 @@ function renderReport({ started, results, byVerdict, fixNow, fixCritical, buildN
   L.push(``);
 
   L.push(`## 📋 Known BUILD gaps (missing functionality, not regressions)`);
-  L.push(`- **No global list endpoints** for sensors / linkgit repos / trackers — you can query by id but can't enumerate. A discovery API (\`/api/sensors\`, \`/api/linkgit/repos\`) would make Verasens/LinkGit browsable and testable. BUILD.`);
   L.push(`- **Verticals at zero live usage:** Verasens (sig-bug fixed, needs live submit), LinkGit (no repos), Freeport (no storefronts + missing drop-ship/warehouse/institutional vision). ACTIVATE + BUILD.`);
+  L.push(`- (Fixed) Discovery list endpoints \`/api/sensors\` + \`/api/linkgit/repos\` added — Verasens/LinkGit now enumerable.`);
   L.push(``);
   L.push(`## Where to focus`);
   if (fixCritical.length) {

@@ -214,6 +214,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/node/miners/:name", get(get_node_miner))
         .route("/api/node/network/capabilities", get(get_network_capabilities))
         // ── LinkGit ───────────────────────────────────────────────────────
+        .route("/api/linkgit/repos", get(get_all_linkgit_repos))
         .route("/api/linkgit/repos/:owner", get(get_linkgit_repos))
         .route("/api/linkgit/repo/:owner/:repo", get(get_linkgit_repo))
         .route("/api/linkgit/repo/create", post(post_linkgit_repo_create))
@@ -246,6 +247,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/ens/resolve/:name", get(get_ens_resolve))
         .route("/api/ens/repos/:name", get(get_ens_repos))
         // ── Verasens: Sensors / IoT ───────────────────────────────────────
+        .route("/api/sensors", get(get_all_sensors))
         .route("/api/sensor/register", post(post_sensor_register))
         .route("/api/sensor/commit", post(post_sensor_commit))
         .route("/api/sensor/vouch", post(post_sensor_vouch))
@@ -3270,6 +3272,30 @@ async fn get_linkgit_repos(
         .filter(|r| r.get("owner").and_then(|o| o.as_str()) == Some(owner.as_str()))
         .collect();
     Json(serde_json::json!({ "owner": owner, "repos": repos }))
+}
+
+/// GET /api/linkgit/repos
+/// Discovery: list ALL repos on the chain (no owner filter). Makes LinkGit
+/// browsable — previously you could only fetch by owner. Flagged as a build gap
+/// by the daily health-check.
+async fn get_all_linkgit_repos(State(s): State<AppState>) -> Json<serde_json::Value> {
+    let repos: Vec<serde_json::Value> = s.chain.store.state_scan_prefix("linkgit:repo:")
+        .into_iter()
+        .filter_map(|(_, v)| serde_json::from_slice::<serde_json::Value>(&v).ok())
+        .collect();
+    Json(serde_json::json!({ "count": repos.len(), "repos": repos }))
+}
+
+/// GET /api/sensors
+/// Discovery: list ALL registered sensors on the chain. Makes Verasens browsable
+/// — previously you could only query a single sensor by id. Flagged as a build
+/// gap by the daily health-check.
+async fn get_all_sensors(State(s): State<AppState>) -> Json<serde_json::Value> {
+    let sensors: Vec<serde_json::Value> = s.chain.store.state_scan_prefix("sensor:")
+        .into_iter()
+        .filter_map(|(_, v)| serde_json::from_slice::<serde_json::Value>(&v).ok())
+        .collect();
+    Json(serde_json::json!({ "count": sensors.len(), "sensors": sensors }))
 }
 
 /// GET /api/linkgit/repo/:owner/:repo
