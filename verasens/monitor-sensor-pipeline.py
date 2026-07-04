@@ -96,8 +96,9 @@ def sign_sensor_commit(
     seed = bytes.fromhex(posting_key_hex)
     sk = nacl_signing.SigningKey(seed)
 
-    # Build canonical message — serde_json::json! uses BTreeMap (alphabetical key order)
-    # since btcpc-node has no serde_json preserve_order feature.  sort_keys=True matches.
+    # Build canonical message — serde_json with preserve_order (indexmap) uses INSERTION order.
+    # Key order must match the json!{} literal in tx.rs canonical_signing_message exactly.
+    # Do NOT use sort_keys=True — that would produce alphabetical order which does not match.
     msg = json.dumps({
         "chain_id": chain_id,
         "type": "SENSOR_DATA_COMMIT",
@@ -107,7 +108,7 @@ def sign_sensor_commit(
         "reading_count": reading_count,
         "sensor_type": sensor_type,
         "signed_by": owner,
-    }, separators=(",", ":"), sort_keys=True)
+    }, separators=(",", ":"))
 
     signed = sk.sign(msg.encode())
     # nacl returns signature + message concatenated; first 64 bytes are the sig
@@ -400,7 +401,7 @@ def _register_sensor(node: str, account: str, sensor_type: str, chain_id: str,
         "chain_id": chain_id, "type": "SENSOR_REGISTER",
         "sensor_id": sensor_id, "owner": account,
         "sensor_type": sensor_type, "location": None, "signed_by": account,
-    }, separators=(",", ":"), sort_keys=True)
+    }, separators=(",", ":"))
     reg_sig = sk.sign(reg_msg.encode()).signature.hex() if sk else ""
     post(f"{node}/api/sensor/register", {
         "sensor_id": sensor_id, "owner": account,
@@ -530,7 +531,7 @@ def submit_test_commit(node: str, account: str, posting_key_hex: str) -> dict | 
             "sensor_type": "sampled",
             "location": None,
             "signed_by": account,
-        }, separators=(",", ":"), sort_keys=True)
+        }, separators=(",", ":"))
         reg_sig = sk.sign(reg_msg.encode()).signature.hex()
     else:
         reg_sig = ""
