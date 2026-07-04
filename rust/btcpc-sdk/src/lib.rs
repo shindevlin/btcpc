@@ -25,6 +25,11 @@ use std::{collections::HashMap, fs, path::Path};
 /// [`manifest`] for the full design.
 pub mod manifest;
 
+/// Recoverable encrypted keystore (Argon2id + AES-256-GCM). Every wallet created
+/// after Genesis v2 gets one, so a mnemonic can never be silently lost. See
+/// [`keystore`] and `docs/GENESIS_JULY4_2026.md`.
+pub mod keystore;
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 /// Number of dreams in one BTCPC (10^10).

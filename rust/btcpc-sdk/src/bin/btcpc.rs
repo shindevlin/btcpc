@@ -52,6 +52,7 @@ fn run() -> Result<i32> {
             }
         },
         Some("sync") => cmd_sync(&args[1..]),
+        Some("wallet") => wallet_cmd::run(&args[1..]),
         Some("--help") | Some("-h") | None => {
             usage();
             Ok(0)
@@ -71,9 +72,16 @@ fn usage() {
          \x20 btcpc manifest generate [--repo DIR] [--out FILE] [--chain-id ID]\n\
          \x20 btcpc manifest check    [--repo DIR] [--chain-id ID]\n\
          \x20 btcpc manifest diff     OLD.json NEW.json\n\
-         \x20 btcpc sync              [--manifest FILE | --node URL] [--dir DIR] [--chain-id ID]\n"
+         \x20 btcpc sync              [--manifest FILE | --node URL] [--dir DIR] [--chain-id ID]\n\
+         \x20 btcpc wallet new        --account NAME --vault DIR   (creates a recoverable keystore)\n\
+         \x20 btcpc wallet import     --account NAME --vault DIR   (from an existing mnemonic)\n\
+         \x20 btcpc wallet unlock     --keystore FILE              (prints PUBLIC keys only)\n\
+         \x20 btcpc wallet pubkeys    --keystore FILE              (public keys for genesis)\n"
     );
 }
+
+#[path = "wallet_cmd.rs"]
+mod wallet_cmd;
 
 // ── flag parsing (tiny) ─────────────────────────────────────────────────────
 
