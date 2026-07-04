@@ -213,6 +213,78 @@ def scan_block_for_sensor(node: str, epoch: int) -> list:
     ]
 
 
+# ── Sensor type rotation (Phase 1.2 — universal ingest test) ────────────────
+
+# One type per epoch, cycled in order. Each type exercises a different
+# metadata schema so the generic ingest path is validated for every class.
+SENSOR_ROTATE_TYPES = [
+    ("gnss",      {"lat": 37.7749, "lon": -122.4194, "alt": 10.0, "accuracy": 5.0}),
+    ("subghz",    {"freq_hz": 433920000, "rssi": -72.5, "modulation": "AM270"}),
+    ("heartbeat", {"uptime_s": 3600, "battery_pct": 85, "fw": "1.2.0"}),
+    ("sampled",   {"value": 42.0, "unit": "raw"}),
+    ("rfid",      {"protocol": "EM4100", "obs_id": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"}),
+    ("nfc",       {"protocol": "ISO14443A", "obs_id": "b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5"}),
+    ("ibutton",   {"protocol": "DS1990A", "obs_id": "c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6"}),
+    ("coverage",  {"mcc": 310, "mnc": 260, "rsrp": -95, "lat": 37.7749, "lon": -122.4194}),
+]
+
+
+def next_rotate_type(epoch: int) -> tuple:
+    """Return (sensor_type, metadata) for this epoch, cycling in order."""
+    return SENSOR_ROTATE_TYPES[epoch % len(SENSOR_ROTATE_TYPES)]
+
+
+def submit_rotate_commit(node: str, account: str, posting_key_hex: str) -> dict | None:
+    """
+    Submit one SensorDataCommit for the current epoch, using the sensor type
+    that corresponds to (epoch % len(SENSOR_ROTATE_TYPES)).
+
+    Run once per epoch to cycle through all 8 sensor types in ~4 minutes.
+    """
+    info = get_node_info(node)
+    epoch = info.get("epoch", 0)
+    chain_id = info.get("chain_id", "btcpc-2")
+    sensor_type, metadata = next_rotate_type(epoch)
+    sensor_id = f"{account}/{sensor_type}-test"
+
+    # Register this sensor type (idempotent)
+    nacl_signing = _try_import_nacl()
+    if nacl_signing and posting_key_hex:
+        seed = bytes.fromhex(posting_key_hex)
+        sk = nacl_signing.SigningKey(seed)
+        reg_msg = json.dumps({
+            "chain_id": chain_id, "type": "SENSOR_REGISTER",
+            "sensor_id": sensor_id, "owner": account,
+            "sensor_type": sensor_type, "location": None, "signed_by": account,
+        }, separators=(",", ":"), sort_keys=True)
+        reg_sig = sk.sign(reg_msg.encode()).signature.hex()
+    else:
+        reg_sig = ""
+
+    post(f"{node}/api/sensor/register", {
+        "sensor_id": sensor_id, "owner": account,
+        "sensor_type": sensor_type, "location": None,
+        "metadata": metadata, "signature": reg_sig,
+    })
+
+    readings = [{"epoch": epoch, "ts": int(time.time() * 1000), **metadata}]
+    batch_hash = make_batch_hash(sensor_id, epoch, readings)
+    sig = sign_sensor_commit(
+        chain_id=chain_id, sensor_id=sensor_id, owner=account,
+        batch_hash=batch_hash, reading_count=1,
+        sensor_type=sensor_type, posting_key_hex=posting_key_hex,
+    )
+
+    print(f"[{ts()}] rotate epoch={epoch} type={sensor_type} ({epoch % len(SENSOR_ROTATE_TYPES) + 1}/{len(SENSOR_ROTATE_TYPES)})")
+    resp = post(f"{node}/api/sensor/commit", {
+        "sensor_id": sensor_id, "owner": account,
+        "batch_hash": batch_hash, "reading_count": 1,
+        "sensor_type": sensor_type, "value": None, "signature": sig,
+    })
+    print(f"[{ts()}] response: {json.dumps(resp)}")
+    return resp
+
+
 # ── Submit test entry ───────────────────────────────────────────────────────
 
 def submit_test_commit(node: str, account: str, posting_key_hex: str) -> dict | None:
@@ -388,10 +460,26 @@ if __name__ == "__main__":
     parser.add_argument("--interval",    type=int, default=30,
                         help="Poll interval in seconds")
     parser.add_argument("--submit-test", action="store_true",
-                        help="Submit one test SensorDataCommit then exit")
+                        help="Submit one test SensorDataCommit (sampled type) then exit")
+    parser.add_argument("--rotate-test", action="store_true",
+                        help="Submit one SensorDataCommit for this epoch's type in the "
+                             "rotation cycle (gnss→subghz→heartbeat→sampled→rfid→nfc→ibutton→coverage), "
+                             "then exit.  Run once per epoch to walk all 8 types.")
+    parser.add_argument("--account", default="",
+                        help="Override account name (default: read from node /api/node/info)")
     parser.add_argument("--posting-key", default="",
                         help="64-char hex ed25519 seed (BTCPC_POSTING_KEY) for signing")
     args = parser.parse_args()
+
+    if args.rotate_test:
+        if not args.posting_key:
+            print("ERROR: --rotate-test requires --posting-key <64-char-hex-seed>",
+                  file=sys.stderr)
+            sys.exit(1)
+        info = get_node_info(args.node)
+        account = args.account or info.get("account", "natoshisakamoto")
+        submit_rotate_commit(args.node, account, args.posting_key)
+        sys.exit(0)
 
     if args.submit_test:
         if not args.posting_key:
@@ -399,7 +487,7 @@ if __name__ == "__main__":
                   file=sys.stderr)
             sys.exit(1)
         info = get_node_info(args.node)
-        account = info.get("account", "natoshisakamoto")
+        account = args.account or info.get("account", "natoshisakamoto")
         submit_test_commit(args.node, account, args.posting_key)
         sys.exit(0)
 
