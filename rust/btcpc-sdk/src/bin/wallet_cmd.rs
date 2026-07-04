@@ -29,13 +29,15 @@ pub fn run(args: &[String]) -> Result<i32> {
         Some("import") => cmd_import(&args[1..]),
         Some("unlock") => cmd_unlock(&args[1..]),
         Some("pubkeys") => cmd_pubkeys(&args[1..]),
+        Some("index") => cmd_index(&args[1..]),
         _ => {
             eprintln!(
                 "usage:\n  \
                  btcpc wallet new    --account NAME --vault DIR\n  \
                  btcpc wallet import --account NAME --vault DIR   (BTCPC_WALLET_MNEMONIC=...)\n  \
                  btcpc wallet unlock --keystore FILE\n  \
-                 btcpc wallet pubkeys --keystore FILE\n\n\
+                 btcpc wallet pubkeys --keystore FILE\n  \
+                 btcpc wallet index  --vault DIR                 (writes INDEX.md, public only)\n\n\
                  Password comes from BTCPC_WALLET_PASSWORD (never a CLI arg)."
             );
             Ok(1)
@@ -163,4 +165,66 @@ fn cmd_unlock(args: &[String]) -> Result<i32> {
 /// building a genesis entry. Requires the password (must decrypt to derive).
 fn cmd_pubkeys(args: &[String]) -> Result<i32> {
     cmd_unlock(args)
+}
+
+/// Build `<vault>/INDEX.md` — a public-only readable index of the vault: each
+/// account, its role public keys, and whether it has a recoverable keystore.
+/// Reads ONLY the public `*.wallet.json` identity files and lists which
+/// `*.keystore.json` exist. Never opens a keystore, never needs a password,
+/// never touches a secret.
+fn cmd_index(args: &[String]) -> Result<i32> {
+    let vault = flag(args, "--vault").ok_or_else(|| anyhow!("--vault DIR required"))?;
+    let dir = Path::new(vault);
+    if !dir.is_dir() {
+        bail!("vault {} is not a directory", dir.display());
+    }
+
+    // Collect accounts from identity files; note which have a keystore.
+    let mut rows: Vec<(String, Option<String>, bool)> = Vec::new(); // (account, posting_pk, has_keystore)
+    for entry in std::fs::read_dir(dir).with_context(|| format!("reading {}", dir.display()))? {
+        let path = entry?.path();
+        let name = path.file_name().and_then(|s| s.to_str()).unwrap_or("");
+        if let Some(account) = name.strip_suffix(".wallet.json") {
+            let raw = std::fs::read_to_string(&path).unwrap_or_default();
+            let v: serde_json::Value = serde_json::from_str(&raw).unwrap_or(serde_json::Value::Null);
+            let posting = v["btcpc_role_public_keys"]["posting"]
+                .as_str()
+                .or_else(|| v["btcpc_public_key_hex"].as_str())
+                .map(|s| s.to_string());
+            let has_ks = dir.join(format!("{account}.keystore.json")).exists();
+            rows.push((account.to_string(), posting, has_ks));
+        }
+    }
+    rows.sort_by(|a, b| a.0.cmp(&b.0));
+
+    let mut md = String::new();
+    md.push_str("# BTCPC Wallet Vault — INDEX\n\n");
+    md.push_str(
+        "Public information only. This index lists the accounts in this local vault, their \
+         posting public keys (for genesis), and whether each has a recoverable encrypted \
+         keystore. **No private keys, mnemonics, or passwords are ever stored here.**\n\n",
+    );
+    md.push_str(&format!("Accounts: {}\n\n", rows.len()));
+    md.push_str("| Account | Recoverable keystore | Posting public key |\n");
+    md.push_str("|---|---|---|\n");
+    for (account, posting, has_ks) in &rows {
+        let ks = if *has_ks { "✓ yes" } else { "✗ MISSING" };
+        let pk = posting.clone().unwrap_or_else(|| "(unknown)".into());
+        md.push_str(&format!("| `{account}` | {ks} | `{pk}` |\n"));
+    }
+    md.push_str(
+        "\n---\nRecovery: each account's mnemonic is inside its `*.keystore.json`, unlockable \
+         with `btcpc wallet unlock --keystore <file>` and the account's password. Keep this \
+         vault backed up; it is gitignored and must never be committed.\n",
+    );
+
+    let out = dir.join("INDEX.md");
+    std::fs::write(&out, md).with_context(|| format!("writing {}", out.display()))?;
+    println!("wrote {} ({} accounts)", out.display(), rows.len());
+    // Flag any account missing its keystore — that's the exact failure we're preventing.
+    let missing: Vec<&String> = rows.iter().filter(|(_, _, k)| !k).map(|(a, _, _)| a).collect();
+    if !missing.is_empty() {
+        eprintln!("WARNING: these accounts have an identity file but NO recoverable keystore: {missing:?}");
+    }
+    Ok(0)
 }
