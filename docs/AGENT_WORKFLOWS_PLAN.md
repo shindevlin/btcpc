@@ -82,6 +82,58 @@ Add **#7 — Agent workflows earn**: a multi-step agent workflow runs on the
 embedded engine and settles rewards on live btcpc-2. Owner: beastly (build) +
 grouchly (live execution).
 
+## 5b. AgentWorkflow DAG — precise design (Build 2, spec-before-code)
+
+A workflow is a **DAG over the existing agent-task machinery** — NOT a new
+execution engine. Each step becomes a normal `AgentTaskPost` when its
+dependencies have verified; step outputs substitute into dependent step inputs.
+
+### New ledger entry (crates/btcpc-types/src/entry.rs)
+```rust
+AgentWorkflowPost {
+    workflow_id:  String,
+    requester:    String,
+    steps:        Vec<WorkflowStep>,   // ordered; index = step id
+    max_fee:      u64,                  // total escrow = sum of step fees
+    deadline_epoch: u64,
+    epoch:        u64,
+    nonce:        u64,
+    signed_by:    String,
+}
+// where:
+struct WorkflowStep {
+    description:   String,             // may contain {{step:N}} placeholders
+    tools_allowed: Vec<String>,
+    step_fee:      u64,
+    min_verifiers: u32,
+    depends_on:    Vec<u32>,           // step indices that must VERIFY first
+}
+```
+Touches (the ~4 files): `entry.rs` (variant + epoch() + weight), `tx.rs`
+(validate: signed_by==requester, require_key, nonce, sig; DAG acyclic; fees sum ≤
+max_fee; escrow from agent_credit), `api.rs` (`POST /api/agent/workflow` +
+`GET /api/agent/workflow/:id`), `agent_task.rs`/orchestrator (scheduling).
+
+### Scheduling (agent_task.rs / orchestrator, epoch-driven)
+Store `agent_workflow:{id}` = { steps, statuses[], outputs[] }.
+Each epoch, for a workflow:
+1. For every step whose `depends_on` are all `Verified` and is itself `Pending`:
+   substitute `{{step:N}}` in its description with output[N], emit an internal
+   `AgentTaskPost` (reusing bid/assign/submit/verify/settle verbatim), mark
+   step `Posted`.
+2. When a step's task Settles, record its output, mark `Verified`.
+3. When ALL steps `Verified`, workflow `Done`; refund unused escrow.
+DAG acyclicity is validated at post time, so scheduling always terminates.
+Fan-out (independent steps) + join (a step depending on several) fall out for
+free. No new execution path — a workflow is orchestration *over* tasks.
+
+### Why this shape
+- Reuses the audited task verify/settle/reward economics per step — no new
+  reward-safety surface.
+- Outputs-as-inputs is the only genuinely new mechanic; it's a string
+  substitution at post time, verifiable and simple.
+- Matches the orchestrator's existing job/attempt/attestation model.
+
 ## 6. Order of operations
 1. Beastly: finish inference_engine wiring incl. agent_worker (Build 1) → commit.
 2. Beastly: add AgentWorkflow entry + orchestrator DAG scheduling (Build 2) →
