@@ -17,7 +17,7 @@
 //! override.
 
 use anyhow::{bail, Result};
-use btcpc_types::{LedgerEntry, NATIVE_TOKEN, DREAMS_PER_BTCPC, entry_weight, BASE_FEE_INITIAL_DREAMS, RECYCLE_FUND_ACCOUNT, TESTNET_FUND_ACCOUNT};
+use btcpc_types::{LedgerEntry, NATIVE_TOKEN, DREAMS_PER_BTCPC, entry_weight, BASE_FEE_INITIAL_DREAMS, RECYCLE_FUND_ACCOUNT, TESTNET_FUND_ACCOUNT, STAKE_EXEMPT_ACCOUNTS};
 use ed25519_dalek::{Signature, VerifyingKey};
 
 use crate::chain::Chain;
@@ -2108,6 +2108,10 @@ pub fn check_nonce(chain: &Chain, account: &str, submitted: u64) -> Result<()> {
 /// Reject spend attempts from accounts that exist but have no registered posting key.
 /// An account without a posting key is watch-only; no signature can be verified.
 fn require_key(chain: &Chain, account: &str) -> Result<()> {
+    // Protocol-internal accounts (testnet_fund, recycle, etc.) never hold posting keys.
+    if STAKE_EXEMPT_ACCOUNTS.contains(&account) {
+        return Ok(());
+    }
     if let Ok(Some(state)) = chain.store.get_account(account) {
         let has_key = state
             .get("keys")
