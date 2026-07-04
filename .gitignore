@@ -94,3 +94,11 @@ website-redesign/
 
 # Graphify knowledge graph output (generated, not source)
 graphify-out/
+
+# v2 launch node env (holds posting key) — never commit
+node.env
+*.node.env
+btcpc-v2-launch/
+
+# Daily healthcheck reports (generated)
+reports/health/
