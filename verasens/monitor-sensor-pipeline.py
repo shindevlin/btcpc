@@ -153,7 +153,12 @@ def post(url: str, payload: dict, timeout: int = 10):
             return json.loads(r.read())
     except urllib.error.HTTPError as e:
         body = e.read()
-        print(f"[{ts()}] HTTP {e.code} posting to {url}: {body.decode()[:200]}", file=sys.stderr)
+        if e.code == 429:
+            # Rate limited — back off 2s to let the window clear
+            print(f"[{ts()}] 429 rate limit — sleeping 2s", file=sys.stderr)
+            time.sleep(2.0)
+        else:
+            print(f"[{ts()}] HTTP {e.code} posting to {url}: {body.decode()[:200]}", file=sys.stderr)
         return None
     except Exception as e:
         print(f"[{ts()}] Error posting to {url}: {e}", file=sys.stderr)
@@ -226,9 +231,9 @@ _SENSOR_CLASS = {
     "gnss":      "continuous",
     "coverage":  "continuous",
     "sampled":   "continuous",
+    "ibutton":   "continuous",   # always-on: contact sensor, never barren by definition
     "nfc":       "event",
     "rfid":      "event",
-    "ibutton":   "event",
     "heartbeat": "housekeeping",
 }
 # Representative metadata for each type (used when no real sensor data available)
@@ -246,7 +251,7 @@ _SENSOR_META = {
 EPOCH_CAP        = 20    # event sensors stop earning after 20 commits/epoch
 MAX_BACKOFF      = 16    # max cycles to skip when barren
 HEARTBEAT_EVERY  = 30    # housekeeping fires every N cycles
-BASE_DELAY_S     = 0.5   # 500ms between cycles at full battery
+BASE_DELAY_S     = 1.1   # ~54 cycles/min at full battery — stays under 60 POST/min rate limit
 
 
 class SensorScheduler:
