@@ -25,7 +25,7 @@ pub struct Config {
     /// Unix millisecond timestamp for the genesis block.
     /// MUST be identical on every node — all nodes derive the same genesis hash from it.
     /// Set via BTCPC_GENESIS_TIMESTAMP env var.
-    /// Default: 1777633200000 = 2026-05-01 11:00:00 UTC = 12:00 noon IST (Ireland, UTC+1).
+    /// Default: 1783191600000 = 2026-07-04 19:00:00 UTC = 12:00 noon PDT (Los Angeles).
     pub genesis_timestamp: Option<u64>,
     /// Hex-encoded 32-byte ed25519 seed for signing clock seals.
     /// If set, node_id is derived from the public key so it is self-authenticating.
@@ -88,7 +88,7 @@ impl Config {
                 std::env::var("BTCPC_GENESIS_TIMESTAMP")
                     .ok()
                     .and_then(|s| s.parse().ok())
-                    .unwrap_or(1777633200000u64)
+                    .unwrap_or(1783191600000u64)
             ),
             posting_key: std::env::var("BTCPC_POSTING_KEY").ok(),
         }

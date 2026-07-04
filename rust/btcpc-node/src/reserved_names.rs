@@ -8,7 +8,7 @@
 
 /// shindevlin's posting key (from genesis.json). All reserved names point to this key.
 pub const SHINDEVLIN_POSTING_KEY: &str =
-    "3c5fe3f8646a13e70b2f74b9b0cf4343c0ecd0c2de48ae0c81bbd80524e23be3";
+    "c97a9f209e465c1593d2783e85d1cbf7ddf00c8097ee4259eef88aee55d85bd6";
 
 /// Popular first names worldwide — ASCII-compatible, 3+ characters.
 /// Globally diverse: English/Western, Spanish/Latin, Arabic/MENA, Indian, East Asian, African, Eastern European.

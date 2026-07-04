@@ -154,10 +154,10 @@ pub fn init_genesis(chain: &Chain, genesis_file: Option<&Path>, genesis_timestam
         "output_hashes": [],
         "chain_id": chain.chain_id,
         "launch": {
-            "proclamation": "BTCPC launched at noon, Ireland, 2026-05-01 12:00:00 IST (UTC+1)",
-            "timestamp_tz": "2026-05-01T12:00:00+01:00",
-            "timestamp_utc": "2026-05-01T11:00:00Z",
-            "genesis_ms": 1777633200000u64,
+            "proclamation": "BTCPC v2 launched at noon, Los Angeles, 2026-07-04 12:00:00 PDT (America's 250th — freedom tech for a free people)",
+            "timestamp_tz": "2026-07-04T12:00:00-07:00",
+            "timestamp_utc": "2026-07-04T19:00:00Z",
+            "genesis_ms": 1783191600000u64,
         },
     });
 
@@ -165,7 +165,7 @@ pub fn init_genesis(chain: &Chain, genesis_file: Option<&Path>, genesis_timestam
     chain.store.write_block(0, &block.to_bytes())?;
     chain.store.set_meta("genesis_hash", block.header.hash_hex().as_bytes())?;
     chain.store.set_meta("chain_id", chain.chain_id.as_bytes())?;
-    chain.store.set_meta("launch_proclamation", b"Launched at midnight, Ireland, 2026-05-01 00:00:00 IST")?;
+    chain.store.set_meta("launch_proclamation", b"BTCPC v2 - noon Los Angeles, 2026-07-04 (America's 250th)")?;
 
     // Seed governance council on-chain (D5). 2-of-3 required for parameter changes.
     let gov_keys: Vec<&str> = vec!["shindevlin", "natoshisakamoto", "josh"];

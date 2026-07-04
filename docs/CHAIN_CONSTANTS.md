@@ -10,7 +10,7 @@ drifts from the value in source code.
 
 | Constant | Value | Source |
 |----------|-------|--------|
-| Mainnet chain ID | `btcpc-1` | `btcpc-types/src/lib.rs:MAINNET_CHAIN_ID` |
+| Mainnet chain ID | `btcpc-2` | `btcpc-types/src/lib.rs:MAINNET_CHAIN_ID` |
 | Testnet chain ID | `btcpc-satoshi` | `btcpc-types/src/lib.rs:TESTNET_CHAIN_ID` |
 | Native token symbol | `BTCPC` | `btcpc-types/src/lib.rs:NATIVE_TOKEN` |
 | HTTP API port | `4242` | `src/config.rs` default |
@@ -30,7 +30,7 @@ drifts from the value in source code.
 | Doubling interval | 4,200,000 epochs | Epoch duration doubles per era | `emission.rs:DOUBLING_INTERVAL` |
 | Recycle-only era | Era 5 | No new supply after this | `emission.rs:RECYCLE_ERA` |
 | Supply exhaustion | ~124 years from genesis | ~2150 | derived |
-| Genesis timestamp | 1777633200000 ms | 2026-05-01 noon Ireland (UTC+1) | `src/config.rs` default |
+| Genesis timestamp | 1783191600000 ms | 2026-07-04 noon Los Angeles (PDT, UTC-7) | `src/config.rs` default |
 
 ---
 
