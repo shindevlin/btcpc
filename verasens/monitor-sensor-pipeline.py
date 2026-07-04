@@ -82,10 +82,10 @@ def sign_sensor_commit(
     Sign a SensorDataCommit canonical message with an ed25519 posting key seed.
     Returns 128-char hex signature.
 
-    Canonical message (keys sorted alphabetically, compact JSON no spaces):
-      {"batch_hash":"...","chain_id":"...","owner":"...",
-       "reading_count":N,"sensor_id":"...","sensor_type":"...",
-       "signed_by":"...","type":"SENSOR_DATA_COMMIT"}
+    Canonical message (insertion order matching tx.rs json! literal, compact JSON no spaces):
+      {"chain_id":"...","type":"SENSOR_DATA_COMMIT","sensor_id":"...",
+       "owner":"...","batch_hash":"...","reading_count":N,
+       "sensor_type":"...","signed_by":"..."}
 
     Requires: pip install PyNaCl
     """
