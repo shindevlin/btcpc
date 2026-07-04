@@ -5709,9 +5709,12 @@ async fn get_epoch_validators(
                 "quorum_threshold": ((validators.len() as f64 * 0.51).ceil() as u64).max(1),
             })))
         }
-        None => (StatusCode::NOT_FOUND, Json(serde_json::json!({
-            "error": "no validator snapshot for this epoch",
+        None => (StatusCode::OK, Json(serde_json::json!({
             "epoch": epoch,
+            "validators": [],
+            "count": 0,
+            "quorum_threshold": 1,
+            "note": "no snapshot recorded for this epoch",
         }))),
     }
 }
