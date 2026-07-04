@@ -30,6 +30,8 @@ pub fn run(args: &[String]) -> Result<i32> {
         Some("unlock") => cmd_unlock(&args[1..]),
         Some("pubkeys") => cmd_pubkeys(&args[1..]),
         Some("index") => cmd_index(&args[1..]),
+        Some("backup") => cmd_backup(&args[1..]),
+        Some("restore") => cmd_restore(&args[1..]),
         _ => {
             eprintln!(
                 "usage:\n  \
@@ -37,7 +39,9 @@ pub fn run(args: &[String]) -> Result<i32> {
                  btcpc wallet import --account NAME --vault DIR   (BTCPC_WALLET_MNEMONIC=...)\n  \
                  btcpc wallet unlock --keystore FILE\n  \
                  btcpc wallet pubkeys --keystore FILE\n  \
-                 btcpc wallet index  --vault DIR                 (writes INDEX.md, public only)\n\n\
+                 btcpc wallet index  --vault DIR                 (writes INDEX.md, public only)\n  \
+                 btcpc wallet backup  --keystore FILE --node URL (Layer 3: upload ciphertext only)\n  \
+                 btcpc wallet restore --account NAME --node URL --vault DIR (fetch ciphertext)\n\n\
                  Password comes from BTCPC_WALLET_PASSWORD (never a CLI arg)."
             );
             Ok(1)
@@ -226,5 +230,86 @@ fn cmd_index(args: &[String]) -> Result<i32> {
     if !missing.is_empty() {
         eprintln!("WARNING: these accounts have an identity file but NO recoverable keystore: {missing:?}");
     }
+    Ok(0)
+}
+
+// ── Layer 3: optional encrypted-relay backup ────────────────────────────────
+//
+// These upload/fetch ONLY the encrypted keystore blob (the ciphertext already
+// produced by Argon2id + AES-256-GCM). The password never leaves the device;
+// the relay stores opaque bytes it cannot decrypt. Losing the local vault no
+// longer means losing the account.
+//
+// Node contract (to be served by POST/GET /api/keystore/backup — the client is
+// authoritative on the shape so the node route can be wired to match):
+//   PUT  {node}/api/keystore/backup/{account}   body = keystore JSON (ciphertext)
+//   GET  {node}/api/keystore/backup/{account}   -> keystore JSON
+
+fn backup_url(node: &str, account: &str) -> String {
+    format!("{}/api/keystore/backup/{}", node.trim_end_matches('/'), account)
+}
+
+/// Upload the encrypted keystore blob to a relay/node. Refuses to send anything
+/// but a valid, sealed keystore (never a decrypted secret).
+fn cmd_backup(args: &[String]) -> Result<i32> {
+    let ks_file = flag(args, "--keystore").ok_or_else(|| anyhow!("--keystore FILE required"))?;
+    let node = flag(args, "--node").ok_or_else(|| anyhow!("--node URL required"))?;
+
+    // Load + sanity-check it IS an encrypted keystore (has ciphertext, argon2id).
+    let ks = Keystore::load(Path::new(ks_file))?;
+    if ks.crypto.kdf != "argon2id" || ks.crypto.ciphertext.is_empty() {
+        bail!("refusing to back up: file is not a sealed argon2id keystore");
+    }
+    let body = serde_json::to_string(&ks)?;
+    let client = reqwest::blocking::Client::new();
+    let resp = client
+        .put(backup_url(node, &ks.account))
+        .header("content-type", "application/json")
+        .body(body)
+        .send()
+        .with_context(|| format!("PUT keystore backup for '{}'", ks.account))?;
+    if !resp.status().is_success() {
+        bail!("backup failed: HTTP {}", resp.status());
+    }
+    println!(
+        "backed up '{}' (ciphertext only — the relay cannot decrypt it) to {}",
+        ks.account, node
+    );
+    Ok(0)
+}
+
+/// Fetch an encrypted keystore blob back from a relay into the local vault.
+/// Does NOT decrypt — you still need the password to unlock it afterward.
+fn cmd_restore(args: &[String]) -> Result<i32> {
+    let account = flag(args, "--account").ok_or_else(|| anyhow!("--account NAME required"))?;
+    let node = flag(args, "--node").ok_or_else(|| anyhow!("--node URL required"))?;
+    let vault = flag(args, "--vault").ok_or_else(|| anyhow!("--vault DIR required"))?;
+
+    let client = reqwest::blocking::Client::new();
+    let resp = client
+        .get(backup_url(node, account))
+        .send()
+        .with_context(|| format!("GET keystore backup for '{account}'"))?;
+    if !resp.status().is_success() {
+        bail!("restore failed: HTTP {} (no backup for '{account}'?)", resp.status());
+    }
+    let text = resp.text()?;
+    // Validate it parses as a keystore before writing.
+    let ks: Keystore = serde_json::from_str(&text).context("relay returned a non-keystore body")?;
+    if ks.account != account {
+        bail!("relay returned keystore for '{}', expected '{}'", ks.account, account);
+    }
+    let out = keystore_path(vault, account);
+    if out.exists() {
+        bail!("keystore already exists at {} — refusing to overwrite", out.display());
+    }
+    ks.save(&out)?;
+    println!(
+        "restored '{}' keystore to {}. Unlock it with:\n  \
+         BTCPC_WALLET_PASSWORD=... btcpc wallet unlock --keystore {}",
+        account,
+        out.display(),
+        out.display()
+    );
     Ok(0)
 }
