@@ -278,21 +278,53 @@ This means a single seed phrase controls a user's entire multi-chain identity.
 BTCPC does not take custody of external chain assets — the derivation is
 deterministic and happens client-side.
 
+**Recoverable key storage (sovereignty guarantee).** Self-custody is only real
+if the user can actually recover their keys. Every wallet created on BTCPC writes
+a **recoverable encrypted keystore** — `<account>.keystore.json` — that seals the
+BIP-39 mnemonic with **Argon2id** (a memory-hard password KDF) and
+**AES-256-GCM** (authenticated encryption). The password is set by the user and
+never leaves the device; only ciphertext is ever written or, optionally, backed
+up. Recovery has three layers, so no single loss is fatal:
+
+1. **Keystore file** — unlock with your password to recover the account.
+2. **Recovery phrase** — the mnemonic is displayed once at creation, with a
+   write-it-down confirmation gate; it recovers the account even with no file.
+3. **Optional encrypted relay backup** — the user may store the *ciphertext*
+   blob on a BTCPC relay so the account survives losing the local file. The
+   password never leaves the device; the relay holds only data it cannot decrypt.
+
+Wallet creation cannot complete without producing a recoverable keystore — you
+can no longer create an account that leaves no way back to it. This is enforced
+in the wallet tooling (`btcpc wallet new`), not left to user discipline.
+
 ### 1.4 Chain ID and Genesis
 
 | Network | Chain ID |
 |---------|---------|
-| Mainnet | `btcpc-1` |
+| Mainnet | `btcpc-2` |
 | Testnet | `btcpc-satoshi` |
+
+**Genesis: July 4th, 2026 — noon Los Angeles (`1783191600000` ms, 19:00 UTC).**
+BTCPC launches on America's 250th anniversary. It is freedom tech for a
+freedom-based country: a sovereign chain with self-custody, no gatekeepers, and
+— from this genesis forward — no silent loss of keys (§1.3).
 
 The genesis block is anchored to a canonical `BTCPC_GENESIS_TIMESTAMP`. Every
 node on the network must use the identical genesis timestamp when computing epoch
 boundaries. A node with a mismatched timestamp will fork immediately and find
-zero peers. The genesis block contains 17 founding accounts seeded with preserved
-keypairs, establishing initial identity for protocol accounts and the chain
-founder. These accounts carry no pre-allocated token balance — they exist only
-so that protocol-owned chain operations (fee collection, escrow settlement, recycle)
-have a verified identity from block 0.
+zero peers. The genesis block seeds founding accounts with preserved keypairs,
+establishing initial identity for protocol accounts and the chain founder. Every
+founding key is created under the recoverable-keystore flow (§1.3) and backed up
+locally — the genesis itself embodies the sovereignty guarantee. These accounts
+carry no pre-allocated token balance — they exist only so that protocol-owned
+chain operations (fee collection, escrow settlement, recycle) have a verified
+identity from block 0.
+
+> **Why a fresh genesis.** The prior chain (May 1 2026, "Mayday") created wallets
+> without durable key storage: seed phrases were shown once and, in practice,
+> lost — leaving accounts that were owned but unsignable. That is a chain-fatal
+> flaw that cannot be patched in place. Genesis v2 makes recoverable key storage
+> a precondition of account creation, so it can never recur.
 
 ### 1.5 P2P Network
 
