@@ -1,5 +1,5 @@
 use crate::api;
-use crate::panels::{AppData, BtcpcBehavior, PaneKind};
+use crate::panels::{AppData, HoneBehavior, PaneKind};
 
 // ── Key role ──────────────────────────────────────────────────────────────────
 
@@ -40,7 +40,7 @@ impl Session {
 
 fn load_session() -> Option<Session> {
     let home = std::env::var("HOME").ok()?;
-    let path = std::path::PathBuf::from(home).join(".btcpc").join("session.json");
+    let path = std::path::PathBuf::from(home).join(".honemesh").join("session.json");
     serde_json::from_slice(&std::fs::read(path).ok()?).ok()
 }
 
@@ -77,7 +77,7 @@ fn query_erc20_balance(rpc_url: &str, contract: &str, address: &str) -> Option<u
 
 fn save_session(s: &Session) -> anyhow::Result<()> {
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
-    let dir  = std::path::PathBuf::from(home).join(".btcpc");
+    let dir  = std::path::PathBuf::from(home).join(".honemesh");
     std::fs::create_dir_all(&dir)?;
     std::fs::write(dir.join("session.json"), serde_json::to_string_pretty(s)?)?;
     Ok(())
@@ -97,10 +97,10 @@ fn discover_wallet(account: &str) -> Option<String> {
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
     let data_dir = std::env::var("HONE_DATA_DIR").unwrap_or_default();
     let candidates = [
-        format!("{}/.btcpc/{}.wallet.key", home, account),
-        format!("{}/.btcpc/wallet.key", home),
+        format!("{}/.honemesh/{}.wallet.key", home, account),
+        format!("{}/.honemesh/wallet.key", home),
         format!("{}/wallet.key", data_dir),
-        format!("{}/.btcpc/key.json", home),
+        format!("{}/.honemesh/key.json", home),
     ];
     candidates.iter()
         .find(|p| !p.starts_with("/wallet.key") && std::path::Path::new(p.as_str()).exists())
@@ -126,7 +126,7 @@ fn try_login(login: &mut LoginState) -> Option<Session> {
             Some(p) => { login.key_file = p.clone(); p }
             None => {
                 login.error = Some(format!(
-                    "No key file found — tried ~/.btcpc/{}.wallet.key, wallet.key, key.json",
+                    "No key file found — tried ~/.honemesh/{}.wallet.key, wallet.key, key.json",
                     account
                 ));
                 return None;
@@ -206,7 +206,7 @@ fn try_login(login: &mut LoginState) -> Option<Session> {
 
 fn layout_path() -> std::path::PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-    std::path::PathBuf::from(home).join(".btcpc").join("gui-layout.json")
+    std::path::PathBuf::from(home).join(".honemesh").join("gui-layout.json")
 }
 
 fn default_tree() -> egui_tiles::Tree<PaneKind> {
@@ -219,7 +219,7 @@ fn default_tree() -> egui_tiles::Tree<PaneKind> {
     let settings  = tiles.insert_pane(PaneKind::Settings);
     let main_tabs = tiles.insert_tab_tile(vec![wallet, staking, inference, explorer, settings]);
     let root      = tiles.insert_horizontal_tile(vec![node, main_tabs]);
-    egui_tiles::Tree::new("btcpc_layout", root, tiles)
+    egui_tiles::Tree::new("hone_layout", root, tiles)
 }
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
@@ -297,7 +297,7 @@ fn setup_theme(ctx: &egui::Context) {
 
 // ── App ───────────────────────────────────────────────────────────────────────
 
-pub struct BtcpcApp {
+pub struct HoneApp {
     pub tree:         egui_tiles::Tree<PaneKind>,
     pub data:         AppData,
     pub session:      Option<Session>,
@@ -307,7 +307,7 @@ pub struct BtcpcApp {
     pending_add:      Option<PaneKind>,
 }
 
-impl BtcpcApp {
+impl HoneApp {
     pub fn new(cc: &eframe::CreationContext) -> Self {
         setup_theme(&cc.egui_ctx);
         let session = load_session();
@@ -338,7 +338,7 @@ impl BtcpcApp {
             .map(|p| read_chain_addresses(p))
             .unwrap_or((None, None));
 
-        let mut app = BtcpcApp {
+        let mut app = HoneApp {
             tree,
             data: AppData { node_url, account, key_file, key_role, eth_address, btc_pubkey, ..Default::default() },
             session,
@@ -417,9 +417,9 @@ impl BtcpcApp {
         // wHONE balance via Ethereum JSON-RPC
         if let Some(ref eth_addr) = self.data.eth_address.clone() {
             let rpc  = self.data.eth_rpc_url.clone();
-            let cont = self.data.wbtcpc_contract.clone();
+            let cont = self.data.whone_contract.clone();
             if !rpc.is_empty() && !cont.is_empty() {
-                self.data.wbtcpc_balance = query_erc20_balance(&rpc, &cont, eth_addr);
+                self.data.whone_balance = query_erc20_balance(&rpc, &cont, eth_addr);
             }
         }
         self.last_refresh = std::time::Instant::now();
@@ -444,7 +444,7 @@ impl BtcpcApp {
 
     fn show_login_modal(&mut self, ctx: &egui::Context) {
         let orange = egui::Color32::from_rgb(247, 147, 26);
-        egui::Window::new("btcpc_login")
+        egui::Window::new("hone_login")
             .title_bar(false)
             .collapsible(false)
             .resizable(false)
@@ -482,7 +482,7 @@ impl BtcpcApp {
 
                         ui.label("Key file");
                         ui.add(egui::TextEdit::singleline(&mut self.login.key_file)
-                            .hint_text("blank = auto-discover ~/.btcpc/{account}.wallet.key")
+                            .hint_text("blank = auto-discover ~/.honemesh/{account}.wallet.key")
                             .desired_width(280.0));
                         ui.end_row();
 
@@ -533,7 +533,7 @@ impl BtcpcApp {
     }
 }
 
-impl eframe::App for BtcpcApp {
+impl eframe::App for HoneApp {
     fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         if let Some(kind) = self.pending_add.take() {
             self.add_pane_to_tree(kind);
@@ -571,7 +571,7 @@ impl eframe::App for BtcpcApp {
                             let _ = std::fs::remove_file(
                                 std::path::PathBuf::from(
                                     std::env::var("HOME").unwrap_or_else(|_| ".".into())
-                                ).join(".btcpc").join("session.json")
+                                ).join(".honemesh").join("session.json")
                             );
                             ui.close_menu();
                         }
@@ -631,7 +631,7 @@ impl eframe::App for BtcpcApp {
                 .fill(egui::Color32::from_rgb(13, 13, 18))
                 .inner_margin(egui::Margin::same(0_i8)))
             .show(&ctx, |ui| {
-                let mut behavior = BtcpcBehavior { data: &mut self.data };
+                let mut behavior = HoneBehavior { data: &mut self.data };
                 self.tree.ui(&mut behavior, ui);
             });
 

@@ -43,7 +43,7 @@ pub fn cmd_science_create(
 
     println!("{}", "Scientific job created.".green().bold());
     println!("{} {}", "Job ID:".bold(), job_id);
-    println!("{} {} dreams{}", "Fee paid:".bold(), fee_paid,
+    println!("{} {} hunits{}", "Fee paid:".bold(), fee_paid,
         if oss { " (40% open-source discount applied)" } else { "" });
     println!("{} {}", "Status:".bold(), res.get("status").and_then(|v| v.as_str()).unwrap_or("queued"));
     Ok(())
@@ -94,7 +94,7 @@ pub fn cmd_science_job(id: &str) -> Result<()> {
     println!("{} {}", "Status:".bold(), field("status"));
     println!("{} {}", "Requester:".bold(), field("requester"));
     println!("{} {}", "Open Source:".bold(), field_bool("open_source"));
-    println!("{} {} dreams", "Fee Paid:".bold(), field_u64("fee_paid"));
+    println!("{} {} hunits", "Fee Paid:".bold(), field_u64("fee_paid"));
     if let Some(model) = job.get("model").and_then(|v| v.as_str()) {
         println!("{} {}", "Model:".bold(), model);
     }

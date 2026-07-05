@@ -7,7 +7,7 @@ use crate::api::ApiClient;
 use crate::helpers::{next_nonce, node_chain_id, print_resp, resolve_key_file, sign_entry};
 
 pub fn cmd_bridge_fund(
-    bridge_id: &str, custodian: &str, amount_dreams: u64,
+    bridge_id: &str, custodian: &str, amount_hunits: u64,
     external_tx_hash: &str, chain: &str, key_file: Option<&Path>,
 ) -> Result<()> {
     let api = ApiClient::new();
@@ -16,12 +16,12 @@ pub fn cmd_bridge_fund(
     let chain_id = node_chain_id(&api)?;
     let sig = sign_entry(&kp, &chain_id, "BridgeFund", json!({
         "bridge_id": bridge_id, "custodian": custodian,
-        "amount_dreams": amount_dreams, "external_tx_hash": external_tx_hash,
+        "amount_hunits": amount_hunits, "external_tx_hash": external_tx_hash,
         "chain": chain, "nonce": nonce,
     }));
     let resp: Value = api.post("/api/bridge/fund", &json!({
         "bridge_id": bridge_id, "custodian": custodian,
-        "amount_dreams": amount_dreams, "external_tx_hash": external_tx_hash,
+        "amount_hunits": amount_hunits, "external_tx_hash": external_tx_hash,
         "chain": chain, "nonce": nonce, "signed_by": custodian, "signature": sig,
     }))?;
     print_resp(&resp);
@@ -29,7 +29,7 @@ pub fn cmd_bridge_fund(
 }
 
 pub fn cmd_bridge_wrap(
-    account: &str, amount_dreams: u64, external_address: &str,
+    account: &str, amount_hunits: u64, external_address: &str,
     chain: &str, key_file: Option<&Path>,
 ) -> Result<()> {
     let api = ApiClient::new();
@@ -37,11 +37,11 @@ pub fn cmd_bridge_wrap(
     let nonce = next_nonce(&api, account)?;
     let chain_id = node_chain_id(&api)?;
     let sig = sign_entry(&kp, &chain_id, "BridgeWrap", json!({
-        "account": account, "amount_dreams": amount_dreams,
+        "account": account, "amount_hunits": amount_hunits,
         "external_address": external_address, "chain": chain, "nonce": nonce,
     }));
     let resp: Value = api.post("/api/bridge/wrap", &json!({
-        "account": account, "amount_dreams": amount_dreams,
+        "account": account, "amount_hunits": amount_hunits,
         "external_address": external_address, "chain": chain,
         "nonce": nonce, "signed_by": account, "signature": sig,
     }))?;
@@ -50,7 +50,7 @@ pub fn cmd_bridge_wrap(
 }
 
 pub fn cmd_bridge_unwrap(
-    account: &str, amount_dreams: u64, recipient_external: &str,
+    account: &str, amount_hunits: u64, recipient_external: &str,
     chain: &str, key_file: Option<&Path>,
 ) -> Result<()> {
     let api = ApiClient::new();
@@ -58,11 +58,11 @@ pub fn cmd_bridge_unwrap(
     let nonce = next_nonce(&api, account)?;
     let chain_id = node_chain_id(&api)?;
     let sig = sign_entry(&kp, &chain_id, "BridgeUnwrap", json!({
-        "account": account, "amount_dreams": amount_dreams,
+        "account": account, "amount_hunits": amount_hunits,
         "recipient_external": recipient_external, "chain": chain, "nonce": nonce,
     }));
     let resp: Value = api.post("/api/bridge/unwrap", &json!({
-        "account": account, "amount_dreams": amount_dreams,
+        "account": account, "amount_hunits": amount_hunits,
         "recipient_external": recipient_external, "chain": chain,
         "nonce": nonce, "signed_by": account, "signature": sig,
     }))?;

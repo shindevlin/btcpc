@@ -20,7 +20,7 @@ pub async fn order_placed(
          📦 Product: <code>{product_id}</code>\n\
          👤 Buyer: <b>{buyer}</b>\n\
          🏪 Seller: <b>{seller}</b>\n\
-         💰 Total: <b>{total} HoneMesh</b>  ×{quantity}\n\
+         💰 Total: <b>{total} HONE</b>  ×{quantity}\n\
          ⏱ Fulfill within 40 hours to avoid auto-cancel"
     );
 

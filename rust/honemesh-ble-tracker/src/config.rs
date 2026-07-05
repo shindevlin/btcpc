@@ -3,7 +3,7 @@ use clap::Parser;
 #[derive(Parser, Debug, Clone)]
 #[command(about = "HoneMesh BLE tracker scanner daemon")]
 pub struct Config {
-    /// URL of the local btcpc-node API.
+    /// URL of the local honemesh-node API.
     #[arg(long, env = "HONE_NODE_URL", default_value = "http://127.0.0.1:3001")]
     pub node_url: String,
 
@@ -33,6 +33,6 @@ pub struct Config {
     pub min_rssi: i16,
 
     /// Path for the local sled DB (co-location log).
-    #[arg(long, env = "HONE_TRACKER_DB", default_value = "/var/lib/btcpc/tracker.db")]
+    #[arg(long, env = "HONE_TRACKER_DB", default_value = "/var/lib/honemesh/tracker.db")]
     pub db_path: String,
 }

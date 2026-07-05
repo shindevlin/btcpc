@@ -3,8 +3,11 @@ name = "honemesh-bot"
 version = "1.0.0"
 edition = "2021"
 authors = ["Shin Devlin <shindevlin@proton.me>"]
-description = "BTCPC Telegram bot"
+description = "HoneMesh Telegram bot"
 
+
+# Standalone crate — not a member of rust/Cargo.toml workspace.
+[workspace]
 [dependencies]
 teloxide = { version = "0.13", features = ["macros"] }
 reqwest = { version = "0.12", features = ["json"] }

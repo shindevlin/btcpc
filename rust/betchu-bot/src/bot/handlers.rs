@@ -159,9 +159,9 @@ async fn cmd_bets(bot: Bot, msg: Message, state: std::sync::Arc<AppState>) -> Ha
     }
 
     // Generate AI insight for top pool if HoneMesh is configured
-    if let Some(btcpc) = &state.btcpc {
+    if let Some(hone) = &state.hone {
         if let Some(top) = pools.first() {
-            if let Ok(insight) = btcpc
+            if let Ok(insight) = hone
                 .analyze_pool(
                     top.pool_id,
                     &top.description,
@@ -401,7 +401,7 @@ async fn cmd_app(bot: Bot, msg: Message, state: std::sync::Arc<AppState>) -> Han
 
 async fn cmd_network(bot: Bot, msg: Message, state: std::sync::Arc<AppState>) -> HandlerResult {
     let health = match state
-        .btcpc_service
+        .hone_service
         .as_ref()
     {
         Some(svc) => {
@@ -415,7 +415,7 @@ async fn cmd_network(bot: Bot, msg: Message, state: std::sync::Arc<AppState>) ->
         msg.chat.id,
         format!(
             "HoneMesh Network Status\n\nAPI: {}\nChain: Base Sepolia\nContract: {}\n\nPowered by HoneMesh P2P inference",
-            state.config.btcpc_api_url,
+            state.config.hone_api_url,
             &state.config.bet_contract_address[..8],
         ),
     )
@@ -490,8 +490,8 @@ pub async fn handle_dialogue_text(
 
             // 2. Try HoneMesh semantic match first; fall back to fuzzy string match
             // Returns (normalized_desc, start_epoch, sport) or None
-            let matched: Option<(String, u64, String)> = if let Some(btcpc) = &state.btcpc {
-                match btcpc.match_game_description(&raw, &games).await {
+            let matched: Option<(String, u64, String)> = if let Some(hone) = &state.hone {
+                match hone.match_game_description(&raw, &games).await {
                     Ok(Some(idx)) => {
                         let g = &games[idx];
                         Some((g.normalized_description(), g.start_epoch, g.sport.clone()))

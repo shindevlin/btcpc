@@ -157,11 +157,11 @@ mod tests {
 
     fn make_chain() -> (Arc<Chain>, TempDir) {
         let dir = tempfile::Builder::new()
-            .prefix("btcpc_tor_test_")
+            .prefix("hone_tor_test_")
             .tempdir()
             .expect("tempdir");
         let store = crate::store::Store::open(dir.path()).expect("store open");
-        let chain = Arc::new(Chain::new(store, "tor-test-node".into(), "btcpc-satoshi".into()));
+        let chain = Arc::new(Chain::new(store, "tor-test-node".into(), "hone-testnet".into()));
         (chain, dir)
     }
 

@@ -163,7 +163,7 @@ mod tests {
         let dir = tempfile::TempDir::new().unwrap();
         let store = crate::store::Store::open(dir.path()).unwrap();
         let chain = Chain::new(
-            store, "test".to_string(), "btcpc-test".to_string(),
+            store, "test".to_string(), "hone-test".to_string(),
         );
         (chain, dir)
     }

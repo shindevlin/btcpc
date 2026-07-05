@@ -8,7 +8,7 @@ use crate::net::NetCmd;
 use crate::utils::now_ms;
 
 // 5 HONE for 30 days of a hosted clock node
-pub const HOSTING_PRICE_DREAMS: u64 = 500_000_000;
+pub const HOSTING_PRICE_HUNITS: u64 = 500_000_000;
 // Duration in epochs: 30 days × 86400s/day ÷ 30s/epoch = 86,400 epochs
 pub const HOSTING_DURATION_EPOCHS: u64 = 86_400;
 // RocksDB key prefix for pending hosting requests
@@ -27,7 +27,7 @@ pub async fn run_service_node(
     // Advertise hosting capability in node meta so the network can discover it
     let listing = serde_json::json!({
         "node": account,
-        "price_hunits": HOSTING_PRICE_DREAMS,
+        "price_hunits": HOSTING_PRICE_HUNITS,
         "duration_epochs": HOSTING_DURATION_EPOCHS,
         "docker_available": check_docker(),
         "updated_ms": now_ms(),
@@ -107,8 +107,8 @@ async fn process_hosting_requests(
             }
             Err(e) => {
                 warn!("[hosting] failed to provision for '{}': {}", buyer, e);
-                let _ = chain.store.credit(&buyer, NATIVE_TOKEN, HOSTING_PRICE_DREAMS);
-                let _ = chain.store.debit(service_account, NATIVE_TOKEN, HOSTING_PRICE_DREAMS);
+                let _ = chain.store.credit(&buyer, NATIVE_TOKEN, HOSTING_PRICE_HUNITS);
+                let _ = chain.store.debit(service_account, NATIVE_TOKEN, HOSTING_PRICE_HUNITS);
                 req["status"] = serde_json::json!("refunded");
                 req["error"] = serde_json::json!(e.to_string());
                 let _ = chain.store.state_set(&key, &serde_json::to_vec(&req).unwrap_or_default());
@@ -126,7 +126,7 @@ fn provision_hosted_node(buyer_account: &str) -> anyhow::Result<String> {
         .chars()
         .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_')
         .collect::<String>();
-    let container_name = format!("btcpc-hosted-{}", safe_name);
+    let container_name = format!("hone-hosted-{}", safe_name);
 
     // Remove any stale container with this name
     let _ = std::process::Command::new("docker")
@@ -135,7 +135,7 @@ fn provision_hosted_node(buyer_account: &str) -> anyhow::Result<String> {
 
     let api_port = find_free_port(14242, 14342).unwrap_or(14242).to_string();
     let p2p_port = find_free_port(16942, 17042).unwrap_or(16942).to_string();
-    let vol_name = format!("btcpc-hosted-{}", safe_name);
+    let vol_name = format!("hone-hosted-{}", safe_name);
 
     let out = std::process::Command::new("docker")
         .args([
@@ -146,14 +146,14 @@ fn provision_hosted_node(buyer_account: &str) -> anyhow::Result<String> {
             "-e", "HONE_CLOCK=true",
             "-e", "HONE_MINER=false",
             "-e", "HONE_STORAGE=false",
-            "-e", "HONE_CHAIN_ID=btcpc-1",
+            "-e", "HONE_CHAIN_ID=hone",
             "-e", &format!("HONE_API_PORT={}", api_port),
             "-e", &format!("HONE_P2P_PORT={}", p2p_port),
             "-e", "HONE_ANNOUNCE_ADDR=",
             "-p", &format!("{}:4242", api_port),
             "-p", &format!("{}:6942", p2p_port),
             "-v", &format!("{}:/data", vol_name),
-            "ghcr.io/btcpc-network/btcpc-node:latest",
+            "ghcr.io/honemesh-network/honemesh-node:latest",
         ])
         .output()?;
 
@@ -194,7 +194,7 @@ pub fn place_hosting_request(
         "request_id": request_id,
         "buyer": buyer,
         "service_node": service_node,
-        "price_hunits": HOSTING_PRICE_DREAMS,
+        "price_hunits": HOSTING_PRICE_HUNITS,
         "duration_epochs": HOSTING_DURATION_EPOCHS,
         "status": "pending",
         "created_ms": now_ms(),

@@ -476,11 +476,11 @@ mod tests {
 
     fn make_chain_and_cmd_tx() -> (Arc<Chain>, tokio::sync::mpsc::Sender<crate::net::NetCmd>, TempDir) {
         let dir = tempfile::Builder::new()
-            .prefix("btcpc_lorawan_test_")
+            .prefix("hone_lorawan_test_")
             .tempdir()
             .expect("tempdir");
         let store = crate::store::Store::open(dir.path()).expect("store open");
-        let chain = Arc::new(Chain::new(store, "lorawan-test-node".into(), "btcpc-satoshi".into()));
+        let chain = Arc::new(Chain::new(store, "lorawan-test-node".into(), "hone-testnet".into()));
         let (cmd_tx, _cmd_rx) = tokio::sync::mpsc::channel(64);
         (chain, cmd_tx, dir)
     }

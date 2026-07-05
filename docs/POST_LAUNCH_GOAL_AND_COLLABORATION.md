@@ -1,13 +1,13 @@
 ---
 title: BTCPC Post-Launch — project analysis, forward goal, and autonomous collaboration protocol
-description: Now that btcpc-2 is live, where the project stands, the goal to keep advancing, and how Beastly + Grouchly build together without human intervention (except gated actions)
+description: Now that hone is live, where the project stands, the goal to keep advancing, and how Beastly + Grouchly build together without human intervention (except gated actions)
 author: Shin Devlin
 status: living charter
 ---
 
 # Post-Launch Charter
 
-> **Context:** btcpc-2 launched July 4 2026, live and in consensus (epoch 150+,
+> **Context:** hone launched July 4 2026, live and in consensus (epoch 150+,
 > 20+ peers, 4 founder nodes). The keys-lost failure that caused 4 relaunches is
 > permanently fixed (recoverable keystores). This charter shifts the two agents
 > (Beastly = dev/chain, Grouchly = devices) from launch-firefighting to
@@ -18,13 +18,13 @@ status: living charter
 ## 1. Project analysis — where we actually stand (2026-07-04)
 
 ### Live and working
-- **Chain:** btcpc-2 live, 4 founder nodes (shindevlin/beastly, natoshisakamoto +
+- **Chain:** hone live, 4 founder nodes (shindevlin/beastly, natoshisakamoto +
   Nebra/josh via Grouchly), sealing epochs, rewards flowing. shindevlin ~1.3B
   dreams earned.
 - **Keys:** all 11 accounts recoverable (Argon2id keystores), full multi-chain key
   records exported + encrypted. Relaunch cycle broken.
 - **Bullship (first customer):** funded, inference key registered, real
-  completions billed. Runs on real btcpc-2 inference.
+  completions billed. Runs on real hone inference.
 - **Roadmap:** 78/81 done. Only open item: **T4-5** (HardwareClaim TEE
   attestation, Tier 4).
 - **Integration manifest:** self-updating consumer-repo understanding, shipped.
@@ -59,7 +59,7 @@ status: living charter
 Measured by these milestones, in rough priority:
 
 1. **Verasens earns** — a phone/Flipper/Nebra submits SensorDataCommit and
-   receives SensorReward on btcpc-2, verified on-chain. (Closest to done —
+   receives SensorReward on hone, verified on-chain. (Closest to done —
    Grouchly's sig fix + josh funding unblock it.)
 2. **Phone is a live earning node** — APK rebuilt, phone mines (qwen2.5-0.5b) +
    sensors, visibly earning in-app. The Proof-of-Compute demo made real.

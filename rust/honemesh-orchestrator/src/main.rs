@@ -39,7 +39,7 @@ impl Config {
             category: "Weather".to_string(),
             query: "Open-Meteo".to_string(),
             worker_id: "local-api-worker".to_string(),
-            runtime_id: "btcpc-api-tool-demo".to_string(),
+            runtime_id: "honemesh-api-tool-demo".to_string(),
             max_bytes: 16 * 1024,
             timeout_secs: 20,
             allow_auth: false,
@@ -367,7 +367,7 @@ struct ProbeResult {
 
 async fn probe_url(url: &str, max_bytes: usize, timeout_secs: u64) -> Result<ProbeResult, String> {
     let client = reqwest::Client::builder()
-        .user_agent("btcpc-orchestratord/0.1 (+https://btcpc.net)")
+        .user_agent("honemesh-orchestratord/0.1 (+https://honemesh.net)")
         .timeout(Duration::from_secs(timeout_secs))
         .redirect(reqwest::redirect::Policy::limited(5))
         .build()
@@ -451,7 +451,7 @@ fn worker_for(worker_id: &str, category: &str) -> RuntimeWorker {
             api_categories: BTreeSet::from([category.to_string()]),
             max_concurrent_jobs: 1,
         },
-        stake_dreams: 1_000_000,
+        stake_hunits: 1_000_000,
         status: WorkerStatus::Active,
         metadata: Metadata::new(),
     }
@@ -477,6 +477,6 @@ fn now_unix_secs() -> u64 {
 
 fn usage(binary: &str) -> String {
     format!(
-        "Usage:\n  {binary} run-api-tool --catalog <snapshot.json> [--category Weather] [--query Open-Meteo] [--worker local-api-worker] [--runtime btcpc-api-tool-demo] [--max-bytes 16384] [--timeout-secs 20] [--verified-only] [--allow-auth] [--out report.json]\n\nExample:\n  {binary} run-api-tool --catalog /mnt/btcpc-storage/catalogs/public-apis.snapshot.json --category Weather --query Open-Meteo --out /tmp/api-tool-report.json"
+        "Usage:\n  {binary} run-api-tool --catalog <snapshot.json> [--category Weather] [--query Open-Meteo] [--worker local-api-worker] [--runtime honemesh-api-tool-demo] [--max-bytes 16384] [--timeout-secs 20] [--verified-only] [--allow-auth] [--out report.json]\n\nExample:\n  {binary} run-api-tool --catalog /mnt/honemesh-storage/catalogs/public-apis.snapshot.json --category Weather --query Open-Meteo --out /tmp/api-tool-report.json"
     )
 }

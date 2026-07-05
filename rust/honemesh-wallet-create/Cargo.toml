@@ -2,13 +2,16 @@
 name = "honemesh-wallet-create"
 version = "0.1.0"
 edition = "2021"
-authors = ["BTCPC contributors"]
-description = "Standalone BTCPC wallet and account creation app"
+authors = ["HoneMesh contributors"]
+description = "Standalone HoneMesh wallet and account creation app"
 
 [[bin]]
 name = "honemesh-wallet-create"
 path = "src/main.rs"
 
+
+# Standalone crate — not a member of rust/Cargo.toml workspace.
+[workspace]
 [dependencies]
 eframe = { version = "0.34", default-features = false, features = ["default_fonts", "glow", "x11", "wayland"] }
 egui = "0.34"

@@ -1,12 +1,12 @@
-//! btcpc-hivefs-adapter — Hive external replica writer and verifier.
+//! honemesh-hivefs-adapter — Hive external replica writer and verifier.
 //!
 //! # Usage
 //!
 //! ## Phase 2 — Write
 //!
 //! ```text
-//! btcpc-hivefs-adapter write \
-//!   --cid bafybtcpc... \
+//! honemesh-hivefs-adapter write \
+//!   --cid bafyhone... \
 //!   --file /path/to/chunk.bin \
 //!   --kind chunk
 //! ```
@@ -18,9 +18,9 @@
 //! ## Phase 3 — Verify
 //!
 //! ```text
-//! btcpc-hivefs-adapter verify \
-//!   --node-id <storage-node-btcpc-account> \
-//!   --cid bafybtcpc... \
+//! honemesh-hivefs-adapter verify \
+//!   --node-id <storage-node-hone-account> \
+//!   --cid bafyhone... \
 //!   --hive-tx-id <40-char-hex> \
 //!   --hive-block-num 12345678 \
 //!   --op-index 0 \
@@ -30,7 +30,7 @@
 //! Required env: HIVE_ACCOUNT, HONE_NODE_ID, HONE_VERIFIER_ID, HONE_VERIFIER_KEY
 //! Optional env: HONE_API_URL, HIVE_API_URL
 
-mod btcpc_client;
+mod hone_client;
 mod hive_client;
 mod verifier;
 mod writer;
@@ -40,7 +40,7 @@ use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(
-    name = "btcpc-hivefs-adapter",
+    name = "honemesh-hivefs-adapter",
     version,
     about = "HoneMesh-FS Hive external replica writer and verifier"
 )]

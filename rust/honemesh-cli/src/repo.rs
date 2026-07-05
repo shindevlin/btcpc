@@ -9,10 +9,10 @@ use crate::session;
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-/// Save a repo keypair to ~/.btcpc/repos/{name}.key.json.
+/// Save a repo keypair to ~/.honemesh/repos/{name}.key.json.
 fn save_repo_key(repo_name: &str, account: &str, private_key_hex: &str) -> Result<()> {
     let home = std::env::var("HOME").context("HOME not set")?;
-    let dir = PathBuf::from(home).join(".btcpc").join("repos");
+    let dir = PathBuf::from(home).join(".honemesh").join("repos");
     std::fs::create_dir_all(&dir)?;
     let path = dir.join(format!("{}.key.json", repo_name));
     let json = serde_json::to_string_pretty(&json!({
@@ -34,16 +34,16 @@ fn load_keypair(path: &Path) -> Result<KeyPair> {
         .with_context(|| format!("cannot read key file {}", path.display()))?;
     let v: Value = serde_json::from_str(&raw)
         .with_context(|| format!("invalid JSON in {}", path.display()))?;
-    if let Some(hex) = v.get("btcpc_active_private_key").and_then(|h| h.as_str()).filter(|h| !h.is_empty()) {
+    if let Some(hex) = v.get("hone_active_private_key").and_then(|h| h.as_str()).filter(|h| !h.is_empty()) {
         return KeyPair::from_hex(hex)
-            .with_context(|| format!("bad btcpc_active_private_key in {}", path.display()));
+            .with_context(|| format!("bad hone_active_private_key in {}", path.display()));
     }
     if let Some(hex) = v.get("private_key_hex").and_then(|h| h.as_str()).filter(|h| !h.is_empty()) {
         return KeyPair::from_hex(hex)
             .with_context(|| format!("bad private_key_hex in {}", path.display()));
     }
     Err(anyhow!(
-        "{}: unrecognised key file — expected wallet.key (btcpc_active_private_key) or key.json (private_key_hex)",
+        "{}: unrecognised key file — expected wallet.key (hone_active_private_key) or key.json (private_key_hex)",
         path.display()
     ))
 }
@@ -55,7 +55,7 @@ fn resolve_account(explicit: Option<&str>) -> Result<String> {
     if let Some(s) = session::load() {
         return Ok(s.account);
     }
-    bail!("no account specified — pass --account or run `btcpc login` first")
+    bail!("no account specified — pass --account or run `hone login` first")
 }
 
 fn node_chain_id(api: &ApiClient) -> Result<String> {
@@ -83,7 +83,7 @@ fn sign_repo_create(keypair: &KeyPair, chain_id: &str, repo_id: &str, owner: &st
     keypair.sign_entry_json(&msg)
 }
 
-// ── btcpc repo create ─────────────────────────────────────────────────────────
+// ── hone repo create ─────────────────────────────────────────────────────────
 
 pub fn cmd_repo_create(
     name: &str,
@@ -134,7 +134,7 @@ pub fn cmd_repo_create(
     Ok(())
 }
 
-// ── btcpc repo init ───────────────────────────────────────────────────────────
+// ── hone repo init ───────────────────────────────────────────────────────────
 
 pub fn cmd_repo_init(
     name: &str,
@@ -220,7 +220,7 @@ pub fn cmd_repo_init(
     Ok(())
 }
 
-// ── btcpc repo list ───────────────────────────────────────────────────────────
+// ── hone repo list ───────────────────────────────────────────────────────────
 
 pub fn cmd_repo_list(owner: Option<&str>) -> Result<()> {
     let api = ApiClient::new();
@@ -248,7 +248,7 @@ pub fn cmd_repo_list(owner: Option<&str>) -> Result<()> {
     Ok(())
 }
 
-// ── btcpc repo info ───────────────────────────────────────────────────────────
+// ── hone repo info ───────────────────────────────────────────────────────────
 
 pub fn cmd_repo_info(owner: &str, name: &str) -> Result<()> {
     let api = ApiClient::new();
@@ -283,7 +283,7 @@ pub fn cmd_repo_info(owner: &str, name: &str) -> Result<()> {
     Ok(())
 }
 
-// ── btcpc repo clone ──────────────────────────────────────────────────────────
+// ── hone repo clone ──────────────────────────────────────────────────────────
 
 pub fn cmd_repo_clone(owner: &str, name: &str, dir: Option<&str>) -> Result<()> {
     let api = ApiClient::new();

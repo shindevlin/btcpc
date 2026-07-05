@@ -1,4 +1,4 @@
-//! WASM smart contract integration — deploys and calls contracts via btcpc-contract-runtime.
+//! WASM smart contract integration — deploys and calls contracts via honemesh-contract-runtime.
 //!
 //! State is persisted in RocksDB (CF_META) using namespaced keys:
 //!   "contract:{contract_id}:{hex_storage_key}"  → raw value bytes
@@ -291,14 +291,14 @@ mod tests {
 
     fn make_engine(label: &str) -> (ContractEngine, tempfile::TempDir) {
         let dir = tempfile::Builder::new()
-            .prefix(&format!("btcpc_contract_{}_", label))
+            .prefix(&format!("hone_contract_{}_", label))
             .tempdir()
             .expect("tempdir");
         let store = crate::store::Store::open(dir.path()).expect("store");
         let chain = Arc::new(crate::chain::Chain::new(
             store,
             format!("contract-{}", label),
-            "btcpc-satoshi".to_string(),
+            "hone-testnet".to_string(),
         ));
         (ContractEngine::new(chain), dir)
     }

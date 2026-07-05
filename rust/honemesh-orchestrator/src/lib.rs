@@ -93,7 +93,7 @@ pub struct RuntimeRequirements {
     pub runtime_kinds: BTreeSet<RuntimeKind>,
     pub models: BTreeSet<String>,
     pub api_categories: BTreeSet<String>,
-    pub min_stake_dreams: u64,
+    pub min_stake_hunits: u64,
 }
 
 impl RuntimeRequirements {
@@ -102,7 +102,7 @@ impl RuntimeRequirements {
             runtime_kinds: BTreeSet::from([kind]),
             models: BTreeSet::new(),
             api_categories: BTreeSet::new(),
-            min_stake_dreams: 0,
+            min_stake_hunits: 0,
         }
     }
 }
@@ -116,7 +116,7 @@ pub struct WorkerCapabilities {
 }
 
 impl WorkerCapabilities {
-    pub fn supports(&self, requirements: &RuntimeRequirements, stake_dreams: u64) -> bool {
+    pub fn supports(&self, requirements: &RuntimeRequirements, stake_hunits: u64) -> bool {
         requirements
             .runtime_kinds
             .iter()
@@ -129,7 +129,7 @@ impl WorkerCapabilities {
                 .api_categories
                 .iter()
                 .all(|category| self.api_categories.contains(category))
-            && stake_dreams >= requirements.min_stake_dreams
+            && stake_hunits >= requirements.min_stake_hunits
     }
 }
 
@@ -146,7 +146,7 @@ pub struct RuntimeWorker {
     pub account: String,
     pub endpoint: Option<String>,
     pub capabilities: WorkerCapabilities,
-    pub stake_dreams: u64,
+    pub stake_hunits: u64,
     pub status: WorkerStatus,
     pub metadata: Metadata,
 }
@@ -451,7 +451,7 @@ impl OrchestrationStore for InMemoryOrchestrator {
                 job.status.is_claimable()
                     && worker
                         .capabilities
-                        .supports(&job.requirements, worker.stake_dreams)
+                        .supports(&job.requirements, worker.stake_hunits)
             })
             .map(|(job_id, _)| job_id.clone());
 
@@ -636,7 +636,7 @@ mod tests {
                 api_categories: BTreeSet::from(["Weather".to_string()]),
                 max_concurrent_jobs: 4,
             },
-            stake_dreams: 1_000,
+            stake_hunits: 1_000,
             status: WorkerStatus::Active,
             metadata: Metadata::new(),
         }

@@ -60,7 +60,7 @@ impl CrossChainFinalityModule {
 
     /// Build and persist a finality announcement for `finality_epoch`.
     ///
-    /// `chain_id` is the HoneMesh chain identifier (e.g. `"btcpc-1"` or `"btcpc-satoshi"`).
+    /// `chain_id` is the HoneMesh chain identifier (e.g. `"hone"` or `"hone-testnet"`).
     /// `prev_finality_epoch` is the most recently announced epoch (0 if none).
     pub fn announce(
         &self,
@@ -239,7 +239,7 @@ fn compute_announcement_hash(state_root: &str, finality_hash: &str, infer_hash: 
 
 fn fallback_state_root(epoch: u64) -> String {
     let mut h = Sha256::new();
-    h.update(b"btcpc-state-root");
+    h.update(b"hone-state-root");
     h.update(epoch.to_le_bytes());
     hex::encode(h.finalize())
 }
@@ -289,7 +289,7 @@ mod tests {
     fn make_chain() -> (Arc<Chain>, TempDir) {
         let dir = TempDir::new().unwrap();
         let store = crate::store::Store::open(dir.path()).expect("store");
-        let chain = Arc::new(Chain::new(store, "test-node".into(), "btcpc-satoshi".into()));
+        let chain = Arc::new(Chain::new(store, "test-node".into(), "hone-testnet".into()));
         (chain, dir)
     }
 
@@ -297,21 +297,21 @@ mod tests {
     fn get_finality_cutoff_returns_zero_when_no_announcement() {
         let (chain, dir) = make_chain();
         let module = CrossChainFinalityModule::new(chain, dir.path().to_str().unwrap());
-        assert_eq!(module.get_finality_cutoff("btcpc-1"), 0);
+        assert_eq!(module.get_finality_cutoff("hone"), 0);
     }
 
     #[test]
     fn is_epoch_finalized_false_when_no_announcement() {
         let (chain, dir) = make_chain();
         let module = CrossChainFinalityModule::new(chain, dir.path().to_str().unwrap());
-        assert!(!module.is_epoch_finalized("btcpc-1", 5));
+        assert!(!module.is_epoch_finalized("hone", 5));
     }
 
     #[test]
     fn assert_epoch_finalized_errors_when_not_finalized() {
         let (chain, dir) = make_chain();
         let module = CrossChainFinalityModule::new(chain, dir.path().to_str().unwrap());
-        assert!(module.assert_epoch_finalized("btcpc-1", 10).is_err());
+        assert!(module.assert_epoch_finalized("hone", 10).is_err());
     }
 
     #[test]
@@ -320,24 +320,24 @@ mod tests {
         let data_dir = dir.path().to_str().unwrap();
         let module = CrossChainFinalityModule::new(chain.clone(), data_dir);
 
-        let ann = module.announce("btcpc-1", 100, 0, "shindevlin").unwrap();
+        let ann = module.announce("hone", 100, 0, "shindevlin").unwrap();
         assert_eq!(ann.finality_epoch, 100);
-        assert_eq!(ann.chain_id, "btcpc-1");
+        assert_eq!(ann.chain_id, "hone");
         assert!(!ann.announcement_hash.is_empty());
 
-        let latest = module.load_latest_announcement("btcpc-1").unwrap();
+        let latest = module.load_latest_announcement("hone").unwrap();
         assert_eq!(latest.finality_epoch, 100);
-        assert_eq!(module.get_finality_cutoff("btcpc-1"), 100);
-        assert!(module.is_epoch_finalized("btcpc-1", 100));
-        assert!(module.is_epoch_finalized("btcpc-1", 50));
-        assert!(!module.is_epoch_finalized("btcpc-1", 101));
+        assert_eq!(module.get_finality_cutoff("hone"), 100);
+        assert!(module.is_epoch_finalized("hone", 100));
+        assert!(module.is_epoch_finalized("hone", 50));
+        assert!(!module.is_epoch_finalized("hone", 101));
 
         let epoch_file = PathBuf::from(data_dir)
-            .join("anchors/cross-chain/btcpc-1/epoch-100.json");
+            .join("anchors/cross-chain/hone/epoch-100.json");
         assert!(epoch_file.exists());
 
         // On-chain record was written.
-        let key = "cc_finality:btcpc-1:100".to_owned();
+        let key = "cc_finality:hone:100".to_owned();
         assert!(chain.store.state_get(&key).is_some());
     }
 }

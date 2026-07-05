@@ -3,12 +3,15 @@ name = "honemesh-cli"
 version = "1.2.2"
 edition = "2021"
 authors = ["Shin Devlin <shindevlin@proton.me>"]
-description = "BTCPC chain CLI"
+description = "HoneMesh chain CLI"
 
 [[bin]]
 name = "hone"
 path = "src/main.rs"
 
+
+# Standalone crate — not a member of rust/Cargo.toml workspace.
+[workspace]
 [dependencies]
 clap = { version = "4", features = ["derive", "env"] }
 reqwest = { version = "0.12", features = ["json", "blocking"] }

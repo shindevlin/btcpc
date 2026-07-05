@@ -9,7 +9,7 @@ use crate::chain::Chain;
 use honemesh_types::NATIVE_TOKEN;
 
 /// Reward per verified blob serve proof in hunits (0.01 HONE).
-pub const BLOB_SERVE_REWARD_DREAMS: u64 = 1_000_000;
+pub const BLOB_SERVE_REWARD_HUNITS: u64 = 1_000_000;
 
 /// Maximum bytes_served per proof (prevents overclaiming).
 pub const MAX_BYTES_PER_PROOF: u64 = 100 * 1024 * 1024 * 1024; // 100 GB
@@ -53,7 +53,7 @@ pub fn apply_serve_proof(
     chain.store.state_set(&proof_used_key(proof_hash), &epoch.to_le_bytes())?;
 
     // Credit reward
-    let reward = BLOB_SERVE_REWARD_DREAMS;
+    let reward = BLOB_SERVE_REWARD_HUNITS;
     chain.store.credit(node_id, NATIVE_TOKEN, reward)?;
 
     // Update serve stats (per node)
@@ -90,11 +90,11 @@ mod tests {
 
     fn make_chain(label: &str) -> (Chain, tempfile::TempDir) {
         let dir = tempfile::Builder::new()
-            .prefix(&format!("btcpc_test_{}_", label))
+            .prefix(&format!("hone_test_{}_", label))
             .tempdir()
             .unwrap();
         let store = crate::store::Store::open(dir.path()).unwrap();
-        let chain = Chain::new(store, format!("node-{}", label), "btcpc-test".to_string());
+        let chain = Chain::new(store, format!("node-{}", label), "hone-test".to_string());
         (chain, dir)
     }
 

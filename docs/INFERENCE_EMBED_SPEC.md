@@ -40,7 +40,7 @@ Two sources of fragility today, both fixed here:
 
 ## 2. The single inference interface
 
-Create `rust/btcpc-node/src/inference.rs` — the ONE entry point:
+Create `rust/honemesh-node/src/inference.rs` — the ONE entry point:
 
 ```rust
 pub struct ChatRequest { pub model: String, pub messages: Vec<Message>, pub max_tokens: Option<u32>, pub stream: bool }
@@ -95,7 +95,7 @@ Rust engine, phone + node.
 ## 4. Model management (also non-fragile)
 
 - The embedded backend loads a **GGUF** file from a configured path
-  (`BTCPC_MODEL_PATH`), default a small model to match the phone tier
+  (`HONE_MODEL_PATH`), default a small model to match the phone tier
   (`qwen2.5-0.5b` GGUF). Small = fast cold start, runs on CPU/ARM (the Nebra).
 - On boot, if the model file is missing, the node **downloads it once** from a
   content-addressed store (BTCPC-FS or a pinned URL) and caches it. Missing model

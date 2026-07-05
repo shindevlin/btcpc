@@ -42,14 +42,14 @@ impl Session {
 
 pub fn load_session() -> Option<Session> {
     let home = std::env::var("HOME").ok()?;
-    let path = std::path::PathBuf::from(home).join(".btcpc").join("session.json");
+    let path = std::path::PathBuf::from(home).join(".honemesh").join("session.json");
     let bytes = std::fs::read(path).ok()?;
     serde_json::from_slice(&bytes).ok()
 }
 
 pub fn save_session(s: &Session) -> anyhow::Result<()> {
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
-    let dir = std::path::PathBuf::from(home).join(".btcpc");
+    let dir = std::path::PathBuf::from(home).join(".honemesh");
     std::fs::create_dir_all(&dir)?;
     let path = dir.join("session.json");
     let json = serde_json::to_string_pretty(s)?;

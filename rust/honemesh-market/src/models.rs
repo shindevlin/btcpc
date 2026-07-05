@@ -34,7 +34,7 @@ impl LedgerEntry {
             entry_type: entry_type.to_string(),
             from: Some(from.to_string()),
             to: None,
-            token: "HoneMesh".to_string(),
+            token: "HONE".to_string(),
             amount: 0.0,
             epoch,
             signature: None,

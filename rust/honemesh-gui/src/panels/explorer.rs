@@ -1,6 +1,6 @@
 use super::AppData;
 
-fn dreams_to_btcpc(hunits: u64) -> String {
+fn hunits_to_hone(hunits: u64) -> String {
     format!("{:.8}", hunits as f64 / 100_000_000.0)
 }
 
@@ -19,7 +19,7 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
                     status
                         .get("total_supply")
                         .and_then(|v| v.as_u64())
-                        .map(|s| format!("{} HoneMesh", dreams_to_btcpc(s)))
+                        .map(|s| format!("{} HONE", hunits_to_hone(s)))
                         .unwrap_or_else(|| "—".to_string()),
                 );
                 ui.end_row();
@@ -29,7 +29,7 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
                     status
                         .get("circulating_supply")
                         .and_then(|v| v.as_u64())
-                        .map(|s| format!("{} HoneMesh", dreams_to_btcpc(s)))
+                        .map(|s| format!("{} HONE", hunits_to_hone(s)))
                         .unwrap_or_else(|| "—".to_string()),
                 );
                 ui.end_row();
@@ -39,7 +39,7 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
                     status
                         .get("staked_total")
                         .and_then(|v| v.as_u64())
-                        .map(|s| format!("{} HoneMesh", dreams_to_btcpc(s)))
+                        .map(|s| format!("{} HONE", hunits_to_hone(s)))
                         .unwrap_or_else(|| "—".to_string()),
                 );
                 ui.end_row();

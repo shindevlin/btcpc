@@ -63,7 +63,7 @@ pub async fn create_product(
     }
 
     let epoch = current_epoch();
-    let token = body.token.unwrap_or_else(|| "HoneMesh".to_string());
+    let token = body.token.unwrap_or_else(|| "HONE".to_string());
 
     let mut entry = LedgerEntry::new("PRODUCT_CREATE", &seller, epoch);
     entry.product_data = Some(json!({

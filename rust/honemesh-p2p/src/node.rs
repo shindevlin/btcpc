@@ -16,16 +16,16 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 use tracing::{debug, error, info, warn};
 
-const HONE_TOPIC: &str = "btcpc";
+const HONE_TOPIC: &str = "hone";
 
 // Bootstrap peers — always dialed on start for eclipse protection
 const BOOTSTRAP_PEERS: &[&str] = &[
-    "/dns4/node1.btcpc.network/tcp/6942",
-    "/dns4/node2.btcpc.network/tcp/6942",
+    "/dns4/node1.honemesh.net/tcp/6942",
+    "/dns4/node2.honemesh.net/tcp/6942",
 ];
 
 #[derive(NetworkBehaviour)]
-struct BtcpcBehaviour {
+struct HoneBehaviour {
     gossipsub: gossipsub::Behaviour,
     kademlia: kad::Behaviour<MemoryStore>,
     identify:  identify::Behaviour,
@@ -88,7 +88,7 @@ impl Node {
 
                 // Identify: exchange protocol version + listen addresses with peers
                 let identify = identify::Behaviour::new(identify::Config::new(
-                    "/btcpc/1.0.0".to_string(),
+                    "/hone/1.0.0".to_string(),
                     key.public(),
                 ));
 
@@ -98,7 +98,7 @@ impl Node {
                         .with_timeout(Duration::from_secs(30)),
                 );
 
-                Ok(BtcpcBehaviour { gossipsub, kademlia, identify, ping })
+                Ok(HoneBehaviour { gossipsub, kademlia, identify, ping })
             })?
             .with_swarm_config(|cfg| {
                 cfg.with_idle_connection_timeout(Duration::from_secs(60))
@@ -150,8 +150,8 @@ impl Node {
 
     async fn handle_swarm_event(
         &self,
-        event: SwarmEvent<BtcpcBehaviourEvent>,
-        swarm: &mut libp2p::Swarm<BtcpcBehaviour>,
+        event: SwarmEvent<HoneBehaviourEvent>,
+        swarm: &mut libp2p::Swarm<HoneBehaviour>,
     ) {
         match event {
             SwarmEvent::NewListenAddr { address, .. } => {
@@ -171,7 +171,7 @@ impl Node {
                     params: serde_json::json!({ "peer": peer_id.to_string() }),
                 });
             }
-            SwarmEvent::Behaviour(BtcpcBehaviourEvent::Gossipsub(
+            SwarmEvent::Behaviour(HoneBehaviourEvent::Gossipsub(
                 gossipsub::Event::Message { propagation_source, message, .. }
             )) => {
                 match serde_json::from_slice::<Value>(&message.data) {
@@ -188,7 +188,7 @@ impl Node {
                     Err(e) => warn!("Non-JSON gossip from {}: {}", propagation_source, e),
                 }
             }
-            SwarmEvent::Behaviour(BtcpcBehaviourEvent::Identify(
+            SwarmEvent::Behaviour(HoneBehaviourEvent::Identify(
                 identify::Event::Received { peer_id, info, .. }
             )) => {
                 // Feed discovered addresses into Kademlia routing table
@@ -196,7 +196,7 @@ impl Node {
                     swarm.behaviour_mut().kademlia.add_address(&peer_id, addr);
                 }
             }
-            SwarmEvent::Behaviour(BtcpcBehaviourEvent::Kademlia(
+            SwarmEvent::Behaviour(HoneBehaviourEvent::Kademlia(
                 kad::Event::OutboundQueryProgressed { result, .. }
             )) => {
                 if let kad::QueryResult::Bootstrap(Ok(kad::BootstrapOk { num_remaining, .. })) = result {
@@ -205,7 +205,7 @@ impl Node {
                     }
                 }
             }
-            SwarmEvent::Behaviour(BtcpcBehaviourEvent::Ping(
+            SwarmEvent::Behaviour(HoneBehaviourEvent::Ping(
                 ping::Event { peer, result, .. }
             )) => {
                 if let Err(e) = result {
@@ -228,7 +228,7 @@ impl Node {
     async fn handle_command(
         &self,
         cmd: IpcCommand,
-        swarm: &mut libp2p::Swarm<BtcpcBehaviour>,
+        swarm: &mut libp2p::Swarm<HoneBehaviour>,
         topic: &gossipsub::IdentTopic,
     ) {
         match cmd {

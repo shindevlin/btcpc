@@ -1,5 +1,5 @@
 use super::{
-    AppData, dreams_to_btcpc, parse_btcpc_input,
+    AppData, hunits_to_hone, parse_hone_input,
     not_signed_in, active_key_required, section_heading, card,
     ORANGE, GREEN, RED, DIM_TEXT,
 };
@@ -73,7 +73,7 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
                     let base = data.node_url.clone();
                     let model = data.forms.job_model.clone();
                     let input = data.forms.job_input.clone();
-                    let max_fee = parse_btcpc_input(&data.forms.job_max_fee);
+                    let max_fee = parse_hone_input(&data.forms.job_max_fee);
                     let deadline = data.forms.job_deadline.trim().parse::<u64>().ok();
 
                     match (key_file, max_fee, deadline) {

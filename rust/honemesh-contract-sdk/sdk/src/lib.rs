@@ -9,12 +9,12 @@ Write smart contracts for the HoneMesh chain in Rust. Contracts compile to
 ```rust
 use honemesh_contract_sdk::*;
 
-#[btcpc_contract]
+#[hone_contract]
 pub struct Counter {
     count: u64,
 }
 
-#[btcpc_impl]
+#[hone_impl]
 impl Counter {
     #[init]
     pub fn new(start: u64) -> Self {
@@ -54,7 +54,7 @@ pub mod collections;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod mock;
 
-pub use btcpc_contract_sdk_macros::{btcpc_contract, btcpc_impl, init, call, view, private, callback};
+pub use honemesh_contract_sdk_macros::{hone_contract, hone_impl, init, call, view, private, callback};
 
 pub use types::{AccountId, Balance, Epoch, ContractId};
 pub use storage::{StorageKey, LookupMap, UnorderedMap, Vector, LazyOption};

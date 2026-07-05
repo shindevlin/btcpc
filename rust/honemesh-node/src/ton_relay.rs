@@ -267,7 +267,7 @@ async fn handle_activation(
 
     // Emit TonWalletActivated entry
     let entry = honemesh_types::LedgerEntry::TonWalletActivated {
-        btcpc_account:  config.account.clone(),
+        hone_account:  config.account.clone(),
         ton_address:    ton_address.clone(),
         source_chain:   source_chain.to_string(),
         source_address: from_address.to_string(),
@@ -292,13 +292,13 @@ async fn handle_activation(
 }
 
 fn find_pending_intent(chain: &Arc<Chain>, source_chain: &str, from_address: &str) -> Result<Option<String>> {
-    // Key format: ton_activation_intent:{btcpc_account}:{source_address}
+    // Key format: ton_activation_intent:{hone_account}:{source_address}
     let prefix = "ton_activation_intent:";
     let pairs = chain.store.state_scan_prefix(prefix);
     for (key, val_bytes) in pairs {
         // Parse the key: split by ':' and compare the last segment exactly
         let parts: Vec<&str> = key.splitn(3, ':').collect();
-        // parts[0]="ton_activation_intent", parts[1]=btcpc_account, parts[2]=source_address
+        // parts[0]="ton_activation_intent", parts[1]=hone_account, parts[2]=source_address
         if parts.len() < 3 { continue; }
         if parts[2] != from_address { continue; }
 

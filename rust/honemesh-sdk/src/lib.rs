@@ -3,11 +3,11 @@
 //! # Quick start
 //!
 //! ```no_run
-//! use honemesh_sdk::BtcpcClient;
+//! use honemesh_sdk::HoneClient;
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
-//!     let client = BtcpcClient::new("http://localhost:4242");
+//!     let client = HoneClient::new("http://localhost:4242");
 //!     let latest = client.latest().await?;
 //!     println!("Current epoch: {}", latest.epoch);
 //!     Ok(())
@@ -32,7 +32,7 @@ pub mod keystore;
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-/// Number of hunits in one HoneMesh (10^10).
+/// Number of hunits in one HONE (10^10).
 pub const HUNITS_PER_HONE: u64 = 10_000_000_000;
 
 /// Native token ticker.
@@ -97,10 +97,10 @@ struct AllBalancesResponse {
 
 /// HTTP client for the HoneMesh node API.
 ///
-/// Build with [`BtcpcClient::new`], optionally attach a default account with
-/// [`BtcpcClient::with_account`], or load from environment with
-/// [`BtcpcClient::from_env`].
-pub struct BtcpcClient {
+/// Build with [`HoneClient::new`], optionally attach a default account with
+/// [`HoneClient::with_account`], or load from environment with
+/// [`HoneClient::from_env`].
+pub struct HoneClient {
     base_url: String,
     account: Option<String>,
     /// Bearer token sent in `Authorization: Bearer <api_key>` for paid endpoints.
@@ -109,7 +109,7 @@ pub struct BtcpcClient {
     http: reqwest::Client,
 }
 
-impl BtcpcClient {
+impl HoneClient {
     /// Create a client pointing at `base_url` (e.g. `"http://localhost:4242"`).
     pub fn new(base_url: impl Into<String>) -> Self {
         Self {
@@ -1374,10 +1374,11 @@ pub struct WalletFile {
     /// HoneMesh account name.
     pub account: String,
     /// Derived HoneMesh posting public key (hex). Kept for older callers.
-    pub btcpc_public_key_hex: String,
+    #[serde(alias = "btcpc_public_key_hex")]
+    pub hone_public_key_hex: String,
     /// HoneMesh role public keys derived from the canonical HoneMesh wallet path.
-    #[serde(default)]
-    pub btcpc_role_public_keys: std::collections::HashMap<String, String>,
+    #[serde(default, alias = "btcpc_role_public_keys")]
+    pub hone_role_public_keys: std::collections::HashMap<String, String>,
     /// Derived chain addresses / public keys.
     /// Keys: "evm", "solana", "bitcoin". Values: address strings (all public).
     pub chain_addresses: std::collections::HashMap<String, String>,
@@ -1386,7 +1387,7 @@ pub struct WalletFile {
 /// Derivation paths used per chain.
 pub mod paths {
     const H: u32 = 0x8000_0000;
-    /// HoneMesh SLIP-44 coin type. This must match btcpc-node wallet derivation.
+    /// HoneMesh SLIP-44 coin type. This must match honemesh-node wallet derivation.
     pub const HONE_COIN: u32 = 6942;
     /// HoneMesh owner key: cold key for key rotation and governance.
     pub const HONE_OWNER: &[u32] = &[44 | H, HONE_COIN | H, 0 | H, 0 | H];
@@ -1452,8 +1453,8 @@ impl Wallet {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
-        let kp = self.btcpc_keypair()?;
-        let role_keys = self.btcpc_role_public_keys()?;
+        let kp = self.hone_keypair()?;
+        let role_keys = self.hone_role_public_keys()?;
         let mut addrs = std::collections::HashMap::new();
         if let Ok(a) = self.evm_address()       { addrs.insert("evm".into(), a); }
         if let Ok(a) = self.bitcoin_pubkey_hex() { addrs.insert("bitcoin".into(), a); }
@@ -1462,8 +1463,8 @@ impl Wallet {
         let wf = WalletFile {
             version: 3,
             account: self.account.clone(),
-            btcpc_public_key_hex: kp.public_key_hex(),
-            btcpc_role_public_keys: role_keys,
+            hone_public_key_hex: kp.public_key_hex(),
+            hone_role_public_keys: role_keys,
             chain_addresses: addrs,
         };
         fs::write(path, serde_json::to_string_pretty(&wf)?)?;
@@ -1471,12 +1472,12 @@ impl Wallet {
     }
 
     /// HoneMesh signing key derived via SLIP10-ed25519.
-    pub fn btcpc_keypair(&self) -> Result<KeyPair> {
-        self.btcpc_role_keypair("posting")
+    pub fn hone_keypair(&self) -> Result<KeyPair> {
+        self.hone_role_keypair("posting")
     }
 
     /// HoneMesh role key derived from canonical m/44'/6942'/role'/0' paths.
-    pub fn btcpc_role_keypair(&self, role: &str) -> Result<KeyPair> {
+    pub fn hone_role_keypair(&self, role: &str) -> Result<KeyPair> {
         let path = match role {
             "owner" => paths::HONE_OWNER,
             "active" => paths::HONE_ACTIVE,
@@ -1491,15 +1492,15 @@ impl Wallet {
     }
 
     /// Legacy SDK v1 HONE key path. Only for migration of existing wallet.json files.
-    pub fn legacy_btcpc_keypair(&self) -> Result<KeyPair> {
+    pub fn legacy_hone_keypair(&self) -> Result<KeyPair> {
         let key_bytes = slip10_ed25519_derive(&self.seed, paths::HONE_LEGACY);
         KeyPair::from_bytes(&key_bytes)
     }
 
-    pub fn btcpc_role_public_keys(&self) -> Result<std::collections::HashMap<String, String>> {
+    pub fn hone_role_public_keys(&self) -> Result<std::collections::HashMap<String, String>> {
         let mut out = std::collections::HashMap::new();
         for role in ["owner", "active", "posting", "memo", "hide", "seek"] {
-            out.insert(role.to_string(), self.btcpc_role_keypair(role)?.public_key_hex());
+            out.insert(role.to_string(), self.hone_role_keypair(role)?.public_key_hex());
         }
         Ok(out)
     }
@@ -1577,8 +1578,8 @@ impl Wallet {
     /// Returns `(chain, address, derivation_path)` tuples.
     pub fn chain_addresses(&self) -> Vec<(String, String, String)> {
         let mut out = Vec::new();
-        if let Ok(kp) = self.btcpc_keypair() {
-            out.push(("btcpc".into(), kp.public_key_hex(), paths::HONE_POSTING_STR.into()));
+        if let Ok(kp) = self.hone_keypair() {
+            out.push(("hone".into(), kp.public_key_hex(), paths::HONE_POSTING_STR.into()));
         }
         if let Ok(addr) = self.evm_address() {
             out.push(("evm".into(), addr, "m/44'/60'/0'/0/0".into()));
@@ -1685,12 +1686,12 @@ fn bip32_secp256k1_derive(seed: &[u8], path: &str) -> Result<[u8; 32]> {
 const DEFAULT_CONTRACT_GAS: u64 = 300_000_000_000;
 
 pub struct Bsp20Client<'a> {
-    client: &'a BtcpcClient,
+    client: &'a HoneClient,
     contract_id: String,
 }
 
 impl<'a> Bsp20Client<'a> {
-    pub fn new(client: &'a BtcpcClient, contract_id: &str) -> Self {
+    pub fn new(client: &'a HoneClient, contract_id: &str) -> Self {
         Self {
             client,
             contract_id: contract_id.to_string(),
@@ -1793,12 +1794,12 @@ impl<'a> Bsp20Client<'a> {
 }
 
 pub struct Bsp721Client<'a> {
-    client: &'a BtcpcClient,
+    client: &'a HoneClient,
     contract_id: String,
 }
 
 impl<'a> Bsp721Client<'a> {
-    pub fn new(client: &'a BtcpcClient, contract_id: &str) -> Self {
+    pub fn new(client: &'a HoneClient, contract_id: &str) -> Self {
         Self {
             client,
             contract_id: contract_id.to_string(),
@@ -1882,12 +1883,12 @@ impl<'a> Bsp721Client<'a> {
 // ── Utility helpers ───────────────────────────────────────────────────────────
 
 /// Convert HoneMesh decimal string to hunits (u64).
-pub fn btcpc_to_hunits(btcpc: &str) -> Result<u64> {
-    parse_decimal_btcpc_to_hunits(btcpc)
+pub fn hone_to_hunits(hone: &str) -> Result<u64> {
+    parse_decimal_hone_to_hunits(hone)
 }
 
 /// Convert hunits (u64) to HoneMesh decimal string with 10 fractional digits.
-pub fn hunits_to_btcpc(hunits: u64) -> String {
+pub fn hunits_to_hone(hunits: u64) -> String {
     let whole = hunits / HUNITS_PER_HONE;
     let frac = hunits % HUNITS_PER_HONE;
     format!("{}.{:010}", whole, frac)
@@ -1949,7 +1950,7 @@ fn parse_hunits_value(value: &serde_json::Value) -> Result<u64> {
 fn parse_number_string_to_hunits(raw: &str) -> Result<u64> {
     let trimmed = raw.trim();
     if trimmed.contains('.') {
-        parse_decimal_btcpc_to_hunits(trimmed)
+        parse_decimal_hone_to_hunits(trimmed)
     } else {
         trimmed
             .parse::<u64>()
@@ -1957,7 +1958,7 @@ fn parse_number_string_to_hunits(raw: &str) -> Result<u64> {
     }
 }
 
-fn parse_decimal_btcpc_to_hunits(s: &str) -> Result<u64> {
+fn parse_decimal_hone_to_hunits(s: &str) -> Result<u64> {
     let s = s.trim();
     let (int_str, frac_str) = match s.find('.') {
         Some(i) => (&s[..i], &s[i + 1..]),

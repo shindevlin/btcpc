@@ -6,7 +6,7 @@
 //! steps, step-detector, heart-rate, GPS, battery, audio-level.
 //!
 //! Java calls nativeSubmitReading; this builds the LedgerEntry,
-//! applies it locally, and broadcasts over btcpc/entries gossip.
+//! applies it locally, and broadcasts over hone/entries gossip.
 
 use std::sync::Arc;
 use sha2::{Digest, Sha256};
@@ -60,6 +60,10 @@ pub async fn submit(
         value:     reading.primary_value,
         data_hash: data_hash.clone(),
         metadata:  Some(metadata),
+        // Unsigned bootstrap submission — the micronode does not attach a
+        // posting-key signature; verification is skipped until the owner
+        // registers a key (see entry.rs SensorReading::signed_by docs).
+        signed_by: String::new(),
     };
 
     if let Err(e) = chain.apply_entry(&entry) {
@@ -70,7 +74,7 @@ pub async fn submit(
     let envelope = serde_json::json!({ "entry": entry });
     if let Ok(data) = serde_json::to_vec(&envelope) {
         let _ = cmd_tx.send(NetCmd::Broadcast {
-            topic: "btcpc/entries",
+            topic: "hone/entries",
             data,
         }).await;
     }

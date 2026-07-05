@@ -11,27 +11,27 @@ profile data, custom attributes, etc.).
 ## Deploy
 
 ```bash
-btcpc contract deploy registry.wasm --account shindevlin
+hone contract deploy registry.wasm --account shindevlin
 ```
 
 ## Usage
 
 ```bash
 # Register an entry
-btcpc contract call <address> register \
+hone contract call <address> register \
   --args '{"key":"profile","value":"ipfs://Qm..."}' \
   --account alice
 
 # Read an entry
-btcpc contract view <address> get \
+hone contract view <address> get \
   --args '{"account":"alice","key":"profile"}'
 
 # List all entries for an account
-btcpc contract view <address> list \
+hone contract view <address> list \
   --args '{"account":"alice"}'
 
 # Delete an entry
-btcpc contract call <address> unregister \
+hone contract call <address> unregister \
   --args '{"key":"profile"}' \
   --account alice
 ```
@@ -46,7 +46,7 @@ const MAX_KEYS_PER_ACCOUNT: usize = 64;
 
 // ── Contract state ────────────────────────────────────────────────────────────
 
-#[btcpc_contract]
+#[hone_contract]
 pub struct Registry {
     /// account_id#key → value
     entries: LookupMap<String, String>,
@@ -56,7 +56,7 @@ pub struct Registry {
 
 // ── Methods ───────────────────────────────────────────────────────────────────
 
-#[btcpc_impl]
+#[hone_impl]
 impl Registry {
     #[init]
     pub fn new() -> Self {
@@ -90,7 +90,7 @@ impl Registry {
         self.entries.insert(&store_key, &value);
         log!("[registry] {} set {}={:.40}", caller, key, value);
         emit!(serde_json::json!({
-            "standard": "btcpc-registry",
+            "standard": "hone-registry",
             "event": "register",
             "account": caller,
             "key": key,
@@ -118,7 +118,7 @@ impl Registry {
 
         log!("[registry] {} deleted {}", caller, key);
         emit!(serde_json::json!({
-            "standard": "btcpc-registry",
+            "standard": "hone-registry",
             "event": "unregister",
             "account": caller,
             "key": key,

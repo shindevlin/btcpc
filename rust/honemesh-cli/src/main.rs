@@ -29,10 +29,10 @@ use std::process;
 
 #[derive(Parser)]
 #[command(
-    name = "btcpc",
+    name = "hone",
     version = "1.0.0",
     author = "Shin Devlin <shindevlin@proton.me>",
-    about = "HoneMesh chain CLI — interact with a btcpc-node",
+    about = "HoneMesh chain CLI — interact with a honemesh-node",
     long_about = None
 )]
 struct Cli {
@@ -122,7 +122,7 @@ enum Commands {
         /// Hex-encoded public key
         #[arg(long)]
         pubkey: Option<String>,
-        /// Key file used to sign the account claim (default: session key or ~/.btcpc/key.json)
+        /// Key file used to sign the account claim (default: session key or ~/.honemesh/key.json)
         #[arg(long)]
         key_file: Option<PathBuf>,
     },
@@ -240,12 +240,12 @@ enum Commands {
         action: RepoCommands,
     },
 
-    /// Sign in with a key file — saves session to ~/.btcpc/session.json
+    /// Sign in with a key file — saves session to ~/.honemesh/session.json
     Login {
         /// Account name to associate with this session
         #[arg(long)]
         account: String,
-        /// Path to key file (default: ~/.btcpc/key.json)
+        /// Path to key file (default: ~/.honemesh/key.json)
         #[arg(long)]
         key_file: Option<PathBuf>,
         /// Node URL (default: http://localhost:4242)
@@ -365,13 +365,13 @@ enum ContractCommands {
 enum KeyCommands {
     /// Generate a new keypair and save to a file.
     Generate {
-        /// Output path (default: ~/.btcpc/key.json)
+        /// Output path (default: ~/.honemesh/key.json)
         #[arg(long)]
         output: Option<PathBuf>,
     },
     /// Show the public key for a key file.
     Show {
-        /// Key file path (default: ~/.btcpc/key.json)
+        /// Key file path (default: ~/.honemesh/key.json)
         #[arg(long)]
         key_file: Option<PathBuf>,
     },
@@ -382,7 +382,7 @@ enum KeyCommands {
         /// Key role to register (default: posting). Options: posting, owner, memo, active.
         #[arg(long, default_value = "posting")]
         role: String,
-        /// Key file path (default: ~/.btcpc/key.json)
+        /// Key file path (default: ~/.honemesh/key.json)
         #[arg(long)]
         key_file: Option<PathBuf>,
     },
@@ -396,47 +396,47 @@ enum WalletCommands {
         /// HoneMesh account name to register.
         #[arg(long)]
         account: String,
-        /// Where to save the wallet file (default: ~/.btcpc/wallet.json).
+        /// Where to save the wallet file (default: ~/.honemesh/wallet.json).
         #[arg(long)]
         output: Option<PathBuf>,
     },
     /// Restore a wallet from an existing mnemonic and show its derived addresses.
     Show {
-        /// Wallet file path (default: ~/.btcpc/wallet.json).
+        /// Wallet file path (default: ~/.honemesh/wallet.json).
         #[arg(long)]
         wallet_file: Option<PathBuf>,
     },
     /// Re-publish derived chain addresses for a wallet already on-chain.
     /// Requires the mnemonic to derive the signing key (never stored on disk).
     Publish {
-        /// Wallet file path (default: ~/.btcpc/wallet.json).
+        /// Wallet file path (default: ~/.honemesh/wallet.json).
         #[arg(long)]
         wallet_file: Option<PathBuf>,
         /// BIP39 mnemonic phrase (or set HONE_MNEMONIC env var).
         #[arg(long)]
         mnemonic: String,
     },
-    /// Write .btcpc/wallet.env in the current directory from your saved wallet.
+    /// Write .honemesh/wallet.env in the current directory from your saved wallet.
     /// Run this inside a project repo to wire up HONE_ACCOUNT and HONE_API_KEY.
     Env {
-        /// Wallet file to read account name from (default: ~/.btcpc/wallet.json).
+        /// Wallet file to read account name from (default: ~/.honemesh/wallet.json).
         #[arg(long)]
         wallet_file: Option<PathBuf>,
-        /// Override output path (default: .btcpc/wallet.env in CWD).
+        /// Override output path (default: .honemesh/wallet.env in CWD).
         #[arg(long)]
         output: Option<PathBuf>,
     },
-    /// Generate a random API key, register it on-chain, and write it to .btcpc/wallet.env.
+    /// Generate a random API key, register it on-chain, and write it to .honemesh/wallet.env.
     /// Requires your mnemonic to sign the on-chain AccountApiKeySet entry.
     #[command(name = "api-key-gen")]
     ApiKeyGen {
         /// BIP39 mnemonic phrase (or set HONE_MNEMONIC env var).
         #[arg(long, env = "HONE_MNEMONIC")]
         mnemonic: String,
-        /// Wallet file (default: ~/.btcpc/wallet.json).
+        /// Wallet file (default: ~/.honemesh/wallet.json).
         #[arg(long)]
         wallet_file: Option<PathBuf>,
-        /// Output path (default: .btcpc/wallet.env in CWD).
+        /// Output path (default: .honemesh/wallet.env in CWD).
         #[arg(long)]
         output: Option<PathBuf>,
     },
@@ -768,7 +768,7 @@ enum AmberPillCommands {
     /// Mint your Amber Pill (one per hardware fingerprint; grants 1.5× mining weight)
     Mint {
         #[arg(long)] account: String,
-        /// Hardware fingerprint hex (from btcpc-node /api/node/hardware or btcpc-node logs)
+        /// Hardware fingerprint hex (from honemesh-node /api/node/hardware or honemesh-node logs)
         #[arg(long)] fingerprint: String,
         #[arg(long)] key_file: Option<std::path::PathBuf>,
     },
@@ -958,7 +958,7 @@ enum BridgeCommands {
     Fund {
         #[arg(long)] bridge_id: String,
         #[arg(long)] custodian: String,
-        #[arg(long)] amount_dreams: u64,
+        #[arg(long)] amount_hunits: u64,
         #[arg(long)] external_tx_hash: String,
         #[arg(long, default_value = "ethereum")] chain: String,
         #[arg(long)] key_file: Option<PathBuf>,
@@ -966,15 +966,15 @@ enum BridgeCommands {
     /// Wrap HoneMesh → wHONE (sends to external chain)
     Wrap {
         #[arg(long)] account: String,
-        #[arg(long)] amount_dreams: u64,
+        #[arg(long)] amount_hunits: u64,
         #[arg(long)] external_address: String,
         #[arg(long, default_value = "ethereum")] chain: String,
         #[arg(long)] key_file: Option<PathBuf>,
     },
-    /// Unwrap wHONE → HoneMesh (queues an unlock request)
+    /// Unwrap wHONE → HONE (queues an unlock request)
     Unwrap {
         #[arg(long)] account: String,
-        #[arg(long)] amount_dreams: u64,
+        #[arg(long)] amount_hunits: u64,
         #[arg(long)] recipient_external: String,
         #[arg(long, default_value = "ethereum")] chain: String,
         #[arg(long)] key_file: Option<PathBuf>,
@@ -1561,14 +1561,14 @@ fn run() -> Result<()> {
         },
 
         Commands::Bridge { action } => match action {
-            BridgeCommands::Fund { bridge_id, custodian, amount_dreams, external_tx_hash, chain, key_file } => {
-                bridge::cmd_bridge_fund(&bridge_id, &custodian, amount_dreams, &external_tx_hash, &chain, key_file.as_deref())?;
+            BridgeCommands::Fund { bridge_id, custodian, amount_hunits, external_tx_hash, chain, key_file } => {
+                bridge::cmd_bridge_fund(&bridge_id, &custodian, amount_hunits, &external_tx_hash, &chain, key_file.as_deref())?;
             }
-            BridgeCommands::Wrap { account, amount_dreams, external_address, chain, key_file } => {
-                bridge::cmd_bridge_wrap(&account, amount_dreams, &external_address, &chain, key_file.as_deref())?;
+            BridgeCommands::Wrap { account, amount_hunits, external_address, chain, key_file } => {
+                bridge::cmd_bridge_wrap(&account, amount_hunits, &external_address, &chain, key_file.as_deref())?;
             }
-            BridgeCommands::Unwrap { account, amount_dreams, recipient_external, chain, key_file } => {
-                bridge::cmd_bridge_unwrap(&account, amount_dreams, &recipient_external, &chain, key_file.as_deref())?;
+            BridgeCommands::Unwrap { account, amount_hunits, recipient_external, chain, key_file } => {
+                bridge::cmd_bridge_unwrap(&account, amount_hunits, &recipient_external, &chain, key_file.as_deref())?;
             }
             BridgeCommands::Unlock { request_id, custodian, external_tx_hash, key_file } => {
                 bridge::cmd_bridge_unlock(&request_id, &custodian, &external_tx_hash, key_file.as_deref())?;
@@ -1702,7 +1702,7 @@ fn parse_repo_slug(slug: &str) -> Result<(String, String)> {
     }
     let owner = session::load()
         .map(|s| s.account)
-        .ok_or_else(|| anyhow::anyhow!("no owner in slug and no active session — use owner/repo or run `btcpc login`"))?;
+        .ok_or_else(|| anyhow::anyhow!("no owner in slug and no active session — use owner/repo or run `hone login`"))?;
     Ok((owner, slug.to_owned()))
 }
 
@@ -1743,7 +1743,7 @@ fn cmd_whoami() -> Result<()> {
         }
         None => {
             println!("{}", "Not logged in.".yellow());
-            println!("Run: btcpc login --account <name> [--key-file <path>] [--node-url <url>]");
+            println!("Run: hone login --account <name> [--key-file <path>] [--node-url <url>]");
         }
     }
     Ok(())

@@ -1,20 +1,20 @@
-//! `btcpc` — the ecosystem CLI. Its job here is the integration manifest:
-//! generate it (in the btcpc repo), enforce it in CI, and sync it into any
+//! `hone` — the ecosystem CLI. Its job here is the integration manifest:
+//! generate it (in the hone repo), enforce it in CI, and sync it into any
 //! consumer repo so that repo stays correct across HoneMesh updates.
 //!
 //! Subcommands:
-//!   btcpc manifest generate [--repo <dir>] [--out btcpc-manifest.json]
-//!       Regenerate the manifest from the btcpc source tree.
+//!   hone manifest generate [--repo <dir>] [--out honemesh-manifest.json]
+//!       Regenerate the manifest from the HoneMesh source tree.
 //!
-//!   btcpc manifest check [--repo <dir>]
+//!   hone manifest check [--repo <dir>]
 //!       CI gate: regenerate and compare against the committed
-//!       btcpc-manifest.json. Exit non-zero if they differ (the API changed but
+//!       honemesh-manifest.json. Exit non-zero if they differ (the API changed but
 //!       the manifest wasn't updated in the same commit).
 //!
-//!   btcpc manifest diff <old.json> <new.json>
+//!   hone manifest diff <old.json> <new.json>
 //!       Print the ADDED / REMOVED / DEPRECATED / breaking changelog.
 //!
-//!   btcpc sync [--node <url> | --manifest <path>] [--dir <consumer repo>]
+//!   hone sync [--node <url> | --manifest <path>] [--dir <consumer repo>]
 //!       Consumer side: refresh HoneMesh.md + HoneMesh.lock in the current repo and
 //!       print what changed since last sync. Exit 2 on breaking changes.
 //!
@@ -32,7 +32,7 @@ fn main() {
     match run() {
         Ok(code) => exit(code),
         Err(e) => {
-            eprintln!("btcpc: error: {e:#}");
+            eprintln!("hone: error: {e:#}");
             exit(1);
         }
     }
@@ -58,7 +58,7 @@ fn run() -> Result<i32> {
             Ok(0)
         }
         Some(other) => {
-            eprintln!("btcpc: unknown command '{other}'");
+            eprintln!("hone: unknown command '{other}'");
             usage();
             Ok(1)
         }
@@ -67,16 +67,16 @@ fn run() -> Result<i32> {
 
 fn usage() {
     eprintln!(
-        "btcpc — HoneMesh ecosystem CLI\n\n\
+        "hone — HoneMesh ecosystem CLI\n\n\
          USAGE:\n\
-         \x20 btcpc manifest generate [--repo DIR] [--out FILE] [--chain-id ID]\n\
-         \x20 btcpc manifest check    [--repo DIR] [--chain-id ID]\n\
-         \x20 btcpc manifest diff     OLD.json NEW.json\n\
-         \x20 btcpc sync              [--manifest FILE | --node URL] [--dir DIR] [--chain-id ID]\n\
-         \x20 btcpc wallet new        --account NAME --vault DIR   (creates a recoverable keystore)\n\
-         \x20 btcpc wallet import     --account NAME --vault DIR   (from an existing mnemonic)\n\
-         \x20 btcpc wallet unlock     --keystore FILE              (prints PUBLIC keys only)\n\
-         \x20 btcpc wallet pubkeys    --keystore FILE              (public keys for genesis)\n"
+         \x20 hone manifest generate [--repo DIR] [--out FILE] [--chain-id ID]\n\
+         \x20 hone manifest check    [--repo DIR] [--chain-id ID]\n\
+         \x20 hone manifest diff     OLD.json NEW.json\n\
+         \x20 hone sync              [--manifest FILE | --node URL] [--dir DIR] [--chain-id ID]\n\
+         \x20 hone wallet new        --account NAME --vault DIR   (creates a recoverable keystore)\n\
+         \x20 hone wallet import     --account NAME --vault DIR   (from an existing mnemonic)\n\
+         \x20 hone wallet unlock     --keystore FILE              (prints PUBLIC keys only)\n\
+         \x20 hone wallet pubkeys    --keystore FILE              (public keys for genesis)\n"
     );
 }
 
@@ -118,7 +118,7 @@ fn repo_root(args: &[String]) -> PathBuf {
 }
 
 fn chain_id(args: &[String]) -> String {
-    flag(args, "--chain-id").unwrap_or("btcpc-1").to_string()
+    flag(args, "--chain-id").unwrap_or("hone").to_string()
 }
 
 // ── commands ────────────────────────────────────────────────────────────────
@@ -151,7 +151,7 @@ fn cmd_check(args: &[String]) -> Result<i32> {
 
     if !committed_path.exists() {
         eprintln!(
-            "FAIL: {} does not exist. Run `btcpc manifest generate` and commit it.",
+            "FAIL: {} does not exist. Run `hone manifest generate` and commit it.",
             committed_path.display()
         );
         return Ok(2);
@@ -159,7 +159,7 @@ fn cmd_check(args: &[String]) -> Result<i32> {
     let committed: Manifest = load_manifest(&committed_path)?;
 
     if committed.surface_hash == fresh.surface_hash
-        && committed.btcpc_version == fresh.btcpc_version
+        && committed.hone_version == fresh.hone_version
     {
         println!("OK: committed manifest matches source (surface {}).", fresh.surface_hash);
         return Ok(0);
@@ -169,14 +169,14 @@ fn cmd_check(args: &[String]) -> Result<i32> {
     eprintln!("FAIL: committed manifest is stale — the source surface changed but the manifest wasn't regenerated.\n");
     let d = diff_manifests(&committed, &fresh, None);
     eprintln!("{}", sync::render_changelog(&d));
-    eprintln!("\nFix: run `btcpc manifest generate` and commit {}.", MANIFEST_FILENAME);
+    eprintln!("\nFix: run `hone manifest generate` and commit {}.", MANIFEST_FILENAME);
     Ok(2)
 }
 
 fn cmd_diff(args: &[String]) -> Result<i32> {
     let pos = positionals(args);
     if pos.len() != 2 {
-        bail!("usage: btcpc manifest diff OLD.json NEW.json");
+        bail!("usage: hone manifest diff OLD.json NEW.json");
     }
     let old = load_manifest(Path::new(pos[0]))?;
     let new = load_manifest(Path::new(pos[1]))?;
@@ -205,14 +205,14 @@ fn cmd_sync(args: &[String]) -> Result<i32> {
             "Initialized HoneMesh.md + HoneMesh.lock (HoneMesh {} surface {}).\n\
              Tip: list the entries/routes you use under uses_entries/uses_routes in HoneMesh.lock \
              to get targeted change alerts.",
-            new_manifest.btcpc_version,
+            new_manifest.hone_version,
             &new_manifest.surface_hash[..new_manifest.surface_hash.len().min(12)]
         );
     } else if let Some(d) = &outcome.diff {
         println!("{}", sync::render_changelog(d));
         if d.has_breaking() {
             eprintln!(
-                "\nbtcpc sync: BREAKING changes above affect surface this repo uses. \
+                "\nhone sync: BREAKING changes above affect surface this repo uses. \
                  Update your integration before deploying."
             );
         }

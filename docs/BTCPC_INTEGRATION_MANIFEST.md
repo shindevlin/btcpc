@@ -13,8 +13,8 @@ status: implemented
 > (and the repo's coding agent) can *refresh on demand* and trust to be current.
 
 > **Status: built.** The generator, differ, CI gate, and consumer `sync` are
-> implemented in `rust/btcpc-sdk` (`src/manifest/`, binary `btcpc`). The
-> canonical manifest is committed at the repo root as `btcpc-manifest.json`
+> implemented in `rust/honemesh-sdk` (`src/manifest/`, binary `btcpc`). The
+> canonical manifest is committed at the repo root as `honemesh-manifest.json`
 > (188 entries, 307 routes as of BTCPC 1.2.2). See **§4. Using it today**.
 
 The chain's surface changes: new ledger entries, new routes, new deploy
@@ -40,10 +40,10 @@ hand — so it can never drift from what the node actually serves:
 ```jsonc
 {
   "btcpc_manifest_version": 1,
-  "chain_id": "btcpc-1",
+  "chain_id": "hone",
   "node_version": "2.14.0",
   "generated_at_epoch": 1234567,
-  "genesis_ts": 1777633200000,
+  "genesis_ts": 1783191600000,
 
   "endpoints": {
     "http_api": "https://<node>/api",
@@ -59,7 +59,7 @@ hand — so it can never drift from what the node actually serves:
   },
 
   "entry_types": [
-    // generated from LedgerEntry (crates/btcpc-types/src/entry.rs):
+    // generated from LedgerEntry (crates/honemesh-types/src/entry.rs):
     {
       "type": "SensorDataCommit",
       "route": "POST /api/sensor/commit",
@@ -102,8 +102,8 @@ agent-driven repos, a line in `AGENTS.md`/`CLAUDE.md` pointing at it):
 <!-- BTCPC.md — how THIS repo uses BTCPC. Self-updating: run the refresh command below. -->
 # How <this repo> uses BTCPC
 
-- BTCPC node: https://node.btcpc.net
-- Refresh this file:  `npx btcpc-sdk sync-manifest --node https://node.btcpc.net`
+- BTCPC node: https://node.honemesh.net
+- Refresh this file:  `npx btcpc-sdk sync-manifest --node https://node.honemesh.net`
   (fetches /api/integration/manifest, regenerates the sections below)
 - Last synced: epoch 1234567 (node 2.14.0)
 
@@ -166,14 +166,14 @@ they also *document* the hosting surface as it arrives, closing the loop between
 
 ## 4. Using it today
 
-The system is implemented in `rust/btcpc-sdk` (module `src/manifest/`, binary
-`btcpc`). Build it once: `cd rust/btcpc-sdk && cargo build --release --bin btcpc`.
+The system is implemented in `rust/honemesh-sdk` (module `src/manifest/`, binary
+`btcpc`). Build it once: `cd rust/honemesh-sdk && cargo build --release --bin btcpc`.
 
 ### For BTCPC maintainers (in this repo)
 
 ```bash
 # Regenerate the canonical manifest after changing routes/entries/signing:
-btcpc manifest generate --repo .          # writes btcpc-manifest.json
+btcpc manifest generate --repo .          # writes honemesh-manifest.json
 
 # CI runs this — fails if the committed manifest drifted from source:
 btcpc manifest check --repo .             # exit 0 = current, 2 = stale
@@ -182,19 +182,19 @@ btcpc manifest check --repo .             # exit 0 = current, 2 = stale
 The `.github/workflows/manifest-check.yml` gate enforces that any change to
 `api.rs`, `tx.rs`, or `entry.rs` regenerates the manifest in the same commit.
 So "what changed in BTCPC's surface" is always a real `git diff` of
-`btcpc-manifest.json`.
+`honemesh-manifest.json`.
 
 ### For consumer repos (Bullship, bots, services)
 
 ```bash
 # One-time: initialize BTCPC.md + BTCPC.lock in your repo.
-btcpc sync --manifest path/to/btcpc-manifest.json   # or --node https://node.btcpc.net
+btcpc sync --manifest path/to/honemesh-manifest.json   # or --node https://node.honemesh.net
 
 # In CI, after pulling BTCPC updates — prints the changelog, exits 2 on breaking:
-btcpc sync --node https://node.btcpc.net
+btcpc sync --node https://node.honemesh.net
 ```
 
-`btcpc sync` regenerates `BTCPC.md` (human/agent-readable contract + changelog)
+`hone sync` regenerates `BTCPC.md` (human/agent-readable contract + changelog)
 and `BTCPC.lock` (machine baseline). It reports every change as **ADDED /
 REMOVED / DEPRECATED / CHANGED** and **exits non-zero on breaking changes** — so
 a consumer's CI blocks a deploy that would break against the new surface. List
@@ -223,4 +223,4 @@ piece of the surface is at, per BTCPC commit, automatically.
 
 *Cross-refs:* `docs/SERVICE_HOST_V2_14.md` (the hosting surface this manifest
 exposes), `docs/AGENT_INTEGRATION.md`, `docs/API_CATALOG_LIBRARY.md`.
-Implementation: `rust/btcpc-sdk/src/manifest/`, `.github/workflows/manifest-check.yml`.
+Implementation: `rust/honemesh-sdk/src/manifest/`, `.github/workflows/manifest-check.yml`.

@@ -436,9 +436,9 @@ pub fn info_refs(store: &Store, owner: &str, repo_name: &str, service: &str, aut
     }
 
     let caps = if is_push {
-        "report-status delete-refs ofs-delta agent=git/btcpc"
+        "report-status delete-refs ofs-delta agent=git/hone"
     } else {
-        "ofs-delta agent=git/btcpc"
+        "ofs-delta agent=git/hone"
     };
 
     let ct: &'static str = if is_push {
@@ -761,7 +761,7 @@ async fn api_create_repo(
         return (StatusCode::CONFLICT, Json(serde_json::json!({"error": "repo already exists"}))).into_response();
     }
     let epoch = s.chain.current_epoch();
-    let clone_url = format!("https://git.btcpc.net/{}/{}", owner, body.name);
+    let clone_url = format!("https://git.honemesh.net/{}/{}", owner, body.name);
     let meta = serde_json::json!({
         "owner":          owner,
         "name":           body.name,
@@ -1085,7 +1085,7 @@ async fn api_create_token(
     // Generate a random token and store only its hash.
     use rand::Rng;
     let raw: [u8; 32] = rand::thread_rng().gen();
-    let token_plain = format!("btcpc_{}", hex::encode(raw));
+    let token_plain = format!("hone_{}", hex::encode(raw));
     let token_hash  = sha256_hex(token_plain.as_bytes());
     let token_id    = hex::encode(&raw[..8]);
     let epoch       = s.chain.current_epoch();

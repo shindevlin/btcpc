@@ -7,10 +7,10 @@ use tabled::{Table, Tabled};
 use crate::api::ApiClient;
 
 /// Convert hunits (u64) to HoneMesh string with 10 decimal places.
-pub fn dreams_to_btcpc(hunits: u64) -> String {
+pub fn hunits_to_hone(hunits: u64) -> String {
     let whole = hunits / 10_000_000_000;
     let frac = hunits % 10_000_000_000;
-    format!("{}.{:010} HoneMesh", whole, frac)
+    format!("{}.{:010} HONE", whole, frac)
 }
 
 // ── Balance ──────────────────────────────────────────────────────────────────
@@ -30,13 +30,13 @@ pub fn cmd_balance(account: &str, token: Option<&str>) -> Result<()> {
     let token_name = token
         .map(|s| s.to_string())
         .or(resp.token)
-        .unwrap_or_else(|| "HoneMesh".to_string());
+        .unwrap_or_else(|| "HONE".to_string());
 
     if let Some(hunits) = resp.hunits {
         println!(
             "{} {}",
             "Balance:".bold(),
-            dreams_to_btcpc(hunits).green()
+            hunits_to_hone(hunits).green()
         );
         println!("{} {}", "Token:".bold(), token_name);
     } else if let Some(bal) = resp.balance {
@@ -66,10 +66,10 @@ pub fn cmd_stake(account: &str) -> Result<()> {
     let resp: StakeResp = api.get(&path)?;
 
     if let Some(hunits) = resp.hunits {
-        println!("{} {}", "Staked:".bold(), dreams_to_btcpc(hunits).yellow());
+        println!("{} {}", "Staked:".bold(), hunits_to_hone(hunits).yellow());
     } else if let Some(s) = resp.stake {
         println!(
-            "{} {} HoneMesh",
+            "{} {} HONE",
             "Staked:".bold(),
             value_to_display(&s).yellow()
         );

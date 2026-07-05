@@ -19,7 +19,7 @@ use tracing::info;
 use honemesh_types::{LedgerEntry, NATIVE_TOKEN, RECYCLE_FUND_ACCOUNT};
 use crate::chain::Chain;
 
-const COMMIT_DEPOSIT_DREAMS: u64 = 10_000; // 0.0001 HONE — ensures reveals
+const COMMIT_DEPOSIT_HUNITS: u64 = 10_000; // 0.0001 HONE — ensures reveals
 const REVEAL_WINDOW_EPOCHS: u64 = 2;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -62,7 +62,7 @@ pub fn apply_commit(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
     }
 
     // Lock deposit.
-    chain.store.debit(committer, NATIVE_TOKEN, COMMIT_DEPOSIT_DREAMS)?;
+    chain.store.debit(committer, NATIVE_TOKEN, COMMIT_DEPOSIT_HUNITS)?;
 
     round.commits.push(VrfCommitRecord {
         committer: committer.clone(),
@@ -100,7 +100,7 @@ pub fn apply_reveal(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
 
     commit.revealed_secret = Some(secret_hex.clone());
     commit.deposit_refunded = true;
-    chain.store.credit(committer, NATIVE_TOKEN, COMMIT_DEPOSIT_DREAMS)?;
+    chain.store.credit(committer, NATIVE_TOKEN, COMMIT_DEPOSIT_HUNITS)?;
 
     // Check if all commits have revealed → auto-finalise.
     let all_revealed = round.commits.iter().all(|c| c.revealed_secret.is_some());
@@ -148,7 +148,7 @@ pub fn sweep_epoch(chain: &Chain, epoch: u64) {
             if !round.finalised {
                 for commit in round.commits.iter_mut().filter(|c| !c.deposit_refunded) {
                     // Deposit already deducted — send to recycle.
-                    let _ = chain.store.credit(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN, COMMIT_DEPOSIT_DREAMS);
+                    let _ = chain.store.credit(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN, COMMIT_DEPOSIT_HUNITS);
                     commit.deposit_refunded = true;
                 }
                 // Finalise with whatever was revealed.
@@ -172,7 +172,7 @@ mod tests {
         let dir = tempfile::TempDir::new().unwrap();
         let store = crate::store::Store::open(dir.path()).unwrap();
         let chain = Chain::new(
-            store, "test".to_string(), "btcpc-test".to_string(),
+            store, "test".to_string(), "hone-test".to_string(),
         );
         (chain, dir)
     }
@@ -213,7 +213,7 @@ mod tests {
     #[test]
     fn commit_stores_commitment() {
         let (chain, _dir) = make_chain();
-        fund(&chain, "alice", COMMIT_DEPOSIT_DREAMS * 10);
+        fund(&chain, "alice", COMMIT_DEPOSIT_HUNITS * 10);
         register_clock(&chain, "alice");
 
         let secret_hex = hex::encode([0xab; 32]);
@@ -240,7 +240,7 @@ mod tests {
     #[test]
     fn reveal_with_correct_preimage_succeeds() {
         let (chain, _dir) = make_chain();
-        fund(&chain, "alice", COMMIT_DEPOSIT_DREAMS * 10);
+        fund(&chain, "alice", COMMIT_DEPOSIT_HUNITS * 10);
         register_clock(&chain, "alice");
 
         let secret_hex = hex::encode([0xcd; 32]);
@@ -274,7 +274,7 @@ mod tests {
     #[test]
     fn reveal_with_wrong_preimage_fails() {
         let (chain, _dir) = make_chain();
-        fund(&chain, "alice", COMMIT_DEPOSIT_DREAMS * 10);
+        fund(&chain, "alice", COMMIT_DEPOSIT_HUNITS * 10);
         register_clock(&chain, "alice");
 
         let epoch: u64 = 8;
@@ -305,7 +305,7 @@ mod tests {
     #[test]
     fn double_commit_fails() {
         let (chain, _dir) = make_chain();
-        fund(&chain, "alice", COMMIT_DEPOSIT_DREAMS * 10);
+        fund(&chain, "alice", COMMIT_DEPOSIT_HUNITS * 10);
         register_clock(&chain, "alice");
 
         let epoch: u64 = 9;
@@ -337,7 +337,7 @@ mod tests {
     #[test]
     fn reveal_before_commit_fails() {
         let (chain, _dir) = make_chain();
-        fund(&chain, "alice", COMMIT_DEPOSIT_DREAMS * 10);
+        fund(&chain, "alice", COMMIT_DEPOSIT_HUNITS * 10);
         register_clock(&chain, "alice");
 
         let epoch: u64 = 10;

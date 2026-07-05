@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BTCPCScan — Chain Explorer</title>
+<title>HoneScan — Chain Explorer</title>
 <style>
   :root {
     --bg: #0a0a0f;
@@ -86,8 +86,8 @@
 <body>
 
 <header>
-  <h1>⛓ BTCPCScan</h1>
-  <span id="chain-id-badge" class="chain-badge">btcpc-1</span>
+  <h1>⛓ HoneScan</h1>
+  <span id="chain-id-badge" class="chain-badge">hone</span>
   <span id="sync-status" style="margin-left:auto; color: var(--accent2); font-size:11px;">● Live</span>
 </header>
 
@@ -153,7 +153,7 @@ function timeAgo(ms) {
   return Math.floor(s/86400) + 'd ago';
 }
 
-function dreams(n) {
+function hunits(n) {
   if (n == null) return '—';
   return (n / 10_000_000_000).toFixed(4) + ' ₿C';
 }
@@ -184,9 +184,9 @@ async function loadStats() {
     document.getElementById('s-epoch').textContent  = status.current_epoch?.toLocaleString() ?? '—';
     document.getElementById('s-nodes').textContent  = status.active_nodes ?? status.clock_nodes ?? '—';
     document.getElementById('s-accounts').textContent = supply.account_count ?? supply.accounts ?? '—';
-    document.getElementById('s-supply').textContent = supply.total_supply_btcpc?.toFixed(2) + ' ₿C' ?? '—';
-    document.getElementById('s-circ').textContent   = supply.circulating_btcpc?.toFixed(2) + ' ₿C' ?? '—';
-    const chainId = status.chain_id ?? 'btcpc-1';
+    document.getElementById('s-supply').textContent = supply.total_supply_hone?.toFixed(2) + ' ₿C' ?? '—';
+    document.getElementById('s-circ').textContent   = supply.circulating_hone?.toFixed(2) + ' ₿C' ?? '—';
+    const chainId = status.chain_id ?? 'hone';
     document.getElementById('chain-id-badge').textContent = chainId;
   } catch(e) {
     console.warn('stats:', e);
@@ -234,13 +234,13 @@ function renderTxns(txns, tbodyId) {
     const inner = e[type] || e;
     const from = inner.from || inner.account || inner.miner || inner.node_id || '';
     const to   = inner.to   || '';
-    const amt  = inner.amount ?? inner.amount_dreams ?? null;
+    const amt  = inner.amount ?? inner.amount_hunits ?? null;
     const epoch = t._epoch || t.epoch || inner.epoch || '';
     return `<tr>
       <td>${txBadge(type)}</td>
       <td><span class="addr" onclick="showAccount('${from}')">${shortAddr(from)}</span></td>
       <td><span class="addr" onclick="showAccount('${to}')">${shortAddr(to)}</span></td>
-      <td class="amount-pos">${amt != null ? dreams(amt) : '—'}</td>
+      <td class="amount-pos">${amt != null ? hunits(amt) : '—'}</td>
       <td><span class="epoch-link" onclick="showBlock(${epoch})">${epoch.toLocaleString ? epoch.toLocaleString() : epoch}</span></td>
     </tr>`;
   }).join('');
@@ -310,7 +310,7 @@ async function showAllTxns() {
       const inner = e[type] || e;
       const from = inner.from || inner.account || inner.miner || inner.node_id || '';
       const to   = inner.to   || '';
-      const amt  = inner.amount ?? inner.amount_dreams ?? null;
+      const amt  = inner.amount ?? inner.amount_hunits ?? null;
       const epoch = t._epoch || t.epoch || inner.epoch || '';
       const memo = inner.memo ? ` "${inner.memo}"` : '';
       return `  epoch ${String(epoch).padStart(6)} | ${(type||'').padEnd(12)} | ${(from||'').padEnd(16)} → ${(to||'').padEnd(16)} | ${amt != null ? (amt/1e10).toFixed(4)+' ₿C' : '—'}${memo}`;

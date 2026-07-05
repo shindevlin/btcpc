@@ -6,7 +6,7 @@ use anyhow::{Context, Result};
 use parking_lot::{Mutex, RwLock};
 use sha2::{Sha256, Digest as Sha256Digest};
 use tracing::{info, warn};
-use honemesh_types::{AccountId, LedgerEntry, NATIVE_TOKEN, CLOCK_REWARD_DREAMS, era, RECYCLE_ERA, RECYCLE_FUND_ACCOUNT, TESTNET_FUND_ACCOUNT, DEVICE_CLAIM_OVERBID_NUM, DEVICE_CLAIM_OVERBID_DENOM, OVERCLAIM_STAKER_SHARE_BPS, MAX_SIGHTINGS_PER_OBSERVER_PER_EPOCH, STORAGE_CHALLENGE_CHUNK_BYTES, SENSOR_GNSS_MAX_SPEED_M_S, EPOCH_DURATION_S, COVERAGE_GRID_RESOLUTION, COVERAGE_MAX_REPORTS_PER_EPOCH, COVERAGE_DEAD_SPOT_DBM_THRESHOLD, COVERAGE_CORROBORATION_MIN_REPORTERS, COVERAGE_MAX_CORROBORATING_REPORTERS, RUNTIME_FEE_HOST_BPS, RUNTIME_FEE_RECYCLE_BPS};
+use honemesh_types::{AccountId, LedgerEntry, NATIVE_TOKEN, CLOCK_REWARD_HUNITS, era, RECYCLE_ERA, RECYCLE_FUND_ACCOUNT, TESTNET_FUND_ACCOUNT, DEVICE_CLAIM_OVERBID_NUM, DEVICE_CLAIM_OVERBID_DENOM, OVERCLAIM_STAKER_SHARE_BPS, MAX_SIGHTINGS_PER_OBSERVER_PER_EPOCH, STORAGE_CHALLENGE_CHUNK_BYTES, SENSOR_GNSS_MAX_SPEED_M_S, EPOCH_DURATION_S, COVERAGE_GRID_RESOLUTION, COVERAGE_MAX_REPORTS_PER_EPOCH, COVERAGE_DEAD_SPOT_DBM_THRESHOLD, COVERAGE_CORROBORATION_MIN_REPORTERS, COVERAGE_MAX_CORROBORATING_REPORTERS, RUNTIME_FEE_HOST_BPS, RUNTIME_FEE_RECYCLE_BPS};
 
 use crate::inference;
 use crate::store::Store;
@@ -701,7 +701,7 @@ impl Chain {
                     {
                         if !semver_gte(ver, &min_ver) {
                             anyhow::bail!(
-                                "node version '{}' is below minimum required '{}' — upgrade btcpc-node",
+                                "node version '{}' is below minimum required '{}' — upgrade honemesh-node",
                                 ver, min_ver.trim()
                             );
                         }
@@ -716,7 +716,7 @@ impl Chain {
                             .unwrap_or_default();
                         if !approved_sw.is_empty() && !approved_sw.iter().any(|h| h == sw_hash) {
                             anyhow::bail!(
-                                "software hash '{}' is not on the approved list — upgrade to an official btcpc-node release",
+                                "software hash '{}' is not on the approved list — upgrade to an official honemesh-node release",
                                 sw_hash
                             );
                         }
@@ -910,9 +910,9 @@ impl Chain {
                     .with_context(|| format!("signature recovery failed for {} link on '{}'", chain, account))?;
 
                 // Re-derive commitment from recovered address and the nonce embedded in signed_message.
-                // Message format: "btcpc:link:{account}:{chain}:{nonce}"
+                // Message format: "hone:link:{account}:{chain}:{nonce}"
                 let nonce = signed_message.split(':').nth(4)
-                    .ok_or_else(|| anyhow::anyhow!("malformed signed_message — expected btcpc:link:account:chain:nonce"))?;
+                    .ok_or_else(|| anyhow::anyhow!("malformed signed_message — expected hone:link:account:chain:nonce"))?;
                 let expected = {
                     use sha2::{Digest, Sha256};
                     let mut h = Sha256::new();
@@ -1472,7 +1472,7 @@ impl Chain {
                 self.store.credit(host_id, NATIVE_TOKEN, *amount)?;
             }
 
-            // Freeport commerce — recorded on-chain, state managed by btcpc-market sidecar
+            // Freeport commerce — recorded on-chain, state managed by honemesh-market sidecar
             LedgerEntry::StoreUpdate { .. }
             | LedgerEntry::ProductCreate { .. }
             | LedgerEntry::ProductUpdate { .. }
@@ -1900,7 +1900,7 @@ impl Chain {
             // ── Clock reward ──────────────────────────────────────────────────
             LedgerEntry::ClockReward { node_id, amount, epoch } => {
                 self.ensure_account(node_id, *epoch)?;
-                let _ = CLOCK_REWARD_DREAMS;
+                let _ = CLOCK_REWARD_HUNITS;
                 let node_credit = self.distribute_role_backer_reward("clock", node_id, *amount)?;
                 self.store.credit(node_id, NATIVE_TOKEN, node_credit)?;
             }
@@ -2988,10 +2988,10 @@ impl Chain {
                 crate::agent_task::apply_settle(self, entry)?;
             }
 
-            LedgerEntry::TonActivationIntent { btcpc_account, ton_address, source_chain, source_address, epoch, .. } => {
-                self.touch_alive(btcpc_account, *epoch);
-                self.ensure_account(btcpc_account, *epoch)?;
-                let key = format!("ton_activation_intent:{}:{}", btcpc_account, source_address);
+            LedgerEntry::TonActivationIntent { hone_account, ton_address, source_chain, source_address, epoch, .. } => {
+                self.touch_alive(hone_account, *epoch);
+                self.ensure_account(hone_account, *epoch)?;
+                let key = format!("ton_activation_intent:{}:{}", hone_account, source_address);
                 let val = serde_json::json!({
                     "ton_address": ton_address,
                     "source_chain": source_chain,
@@ -3002,10 +3002,10 @@ impl Chain {
                 self.store.state_set(&key, &serde_json::to_vec(&val).unwrap())?;
             }
 
-            LedgerEntry::TonWalletActivated { btcpc_account, ton_address, source_address, tx_hash, ton_sent, fee_usdt, usdt_received, epoch, relay, .. } => {
+            LedgerEntry::TonWalletActivated { hone_account, ton_address, source_address, tx_hash, ton_sent, fee_usdt, usdt_received, epoch, relay, .. } => {
                 // Update the pending intent to completed — key must match the intent's write key
                 // which uses source_address (the chain where USDT was sent from), not ton_address.
-                let key = format!("ton_activation_intent:{}:{}", btcpc_account, source_address);
+                let key = format!("ton_activation_intent:{}:{}", hone_account, source_address);
                 let val = serde_json::json!({
                     "ton_address": ton_address,
                     "status": "activated",
@@ -3383,11 +3383,11 @@ mod tests {
 
     fn make_chain(label: &str) -> (Chain, TempDir) {
         let dir = tempfile::Builder::new()
-            .prefix(&format!("btcpc_test_{}_", label))
+            .prefix(&format!("hone_test_{}_", label))
             .tempdir()
             .expect("tempdir");
         let store = crate::store::Store::open(dir.path()).expect("store open");
-        let chain = Chain::new(store, format!("node-{}", label), "btcpc-satoshi".to_string());
+        let chain = Chain::new(store, format!("node-{}", label), "hone-testnet".to_string());
         (chain, dir)
     }
 
@@ -3656,7 +3656,7 @@ mod tests {
         let vk = signing_key.verifying_key();
         let pubkey_b58 = bs58::encode(vk.as_bytes()).into_string();
 
-        let message = "btcpc:link:alice:solana:42";
+        let message = "hone:link:alice:solana:42";
         let sig = signing_key.sign(message.as_bytes());
         let sig_field = format!("{}:{}", pubkey_b58, hex::encode(sig.to_bytes()));
 
@@ -3675,7 +3675,7 @@ mod tests {
         let vk = signing_key.verifying_key();
         let pubkey_b58 = bs58::encode(vk.as_bytes()).into_string();
 
-        let message = "btcpc:link:alice:solana:42";
+        let message = "hone:link:alice:solana:42";
         let sig = signing_key.sign(b"wrong message");
         let sig_field = format!("{}:{}", pubkey_b58, hex::encode(sig.to_bytes()));
 
@@ -3695,7 +3695,7 @@ mod tests {
         let sk = SecretKey::from_slice(&[3u8; 32]).expect("valid secp256k1 key");
         let pk = secp256k1::PublicKey::from_secret_key(&secp, &sk);
 
-        let message = "btcpc:link:alice:bitcoin:42";
+        let message = "hone:link:alice:bitcoin:42";
 
         // Build Bitcoin message hash (SHA256d of prefixed message)
         let magic = b"Bitcoin Signed Message:\n";
@@ -3746,13 +3746,13 @@ mod tests {
         // Too short — not 65 bytes.
         let garbage = base64::engine::general_purpose::STANDARD.encode(b"not a valid signature at all");
         assert!(
-            recover_chain_address_public("btc_legacy", "btcpc:link:alice:bitcoin:1", &garbage).is_err(),
+            recover_chain_address_public("btc_legacy", "hone:link:alice:bitcoin:1", &garbage).is_err(),
             "short garbled Bitcoin sig must fail"
         );
         // Wrong length sig (64 bytes instead of 65).
         let short = base64::engine::general_purpose::STANDARD.encode(&[1u8; 64]);
         assert!(
-            recover_chain_address_public("btc_legacy", "btcpc:link:alice:bitcoin:1", &short).is_err(),
+            recover_chain_address_public("btc_legacy", "hone:link:alice:bitcoin:1", &short).is_err(),
             "64-byte Bitcoin sig must fail (must be 65)"
         );
     }
@@ -3771,7 +3771,7 @@ mod tests {
         let vk = sk.verifying_key();
         let pubkey_b58 = bs58::encode(vk.as_bytes()).into_string();
 
-        let message = format!("btcpc:link:alice:solana:99");
+        let message = format!("hone:link:alice:solana:99");
         let sig = sk.sign(message.as_bytes());
         let sig_field = format!("{}:{}", pubkey_b58, hex::encode(sig.to_bytes()));
 
@@ -3820,7 +3820,7 @@ mod tests {
         let sk = SecretKey::from_slice(&[11u8; 32]).expect("valid key");
         let pk = secp256k1::PublicKey::from_secret_key(&secp, &sk);
 
-        let message = "btcpc:link:alice:bitcoin:7".to_string();
+        let message = "hone:link:alice:bitcoin:7".to_string();
 
         // Build Bitcoin message hash
         let magic = b"Bitcoin Signed Message:\n";
@@ -3888,7 +3888,7 @@ mod tests {
         let sk = SigningKey::from_bytes(&[9u8; 32]);
         let vk = sk.verifying_key();
         let pubkey_b58 = bs58::encode(vk.as_bytes()).into_string();
-        let message = "btcpc:link:alice:solana:99".to_string();
+        let message = "hone:link:alice:solana:99".to_string();
         let sig = sk.sign(message.as_bytes());
         let sig_field = format!("{}:{}", pubkey_b58, hex::encode(sig.to_bytes()));
 
@@ -4385,7 +4385,7 @@ mod tests {
     #[test]
     fn test_fee_routes_to_recycle_fund() {
         use crate::tx;
-        use honemesh_types::{BASE_FEE_INITIAL_DREAMS, ENTRY_WEIGHT_MICRO, RECYCLE_FUND_ACCOUNT};
+        use honemesh_types::{BASE_FEE_INITIAL_HUNITS, ENTRY_WEIGHT_MICRO, RECYCLE_FUND_ACCOUNT};
 
         let (chain, _dir) = make_chain("fee-recycle");
         // Credit alice's balance directly (no account record) so require_key
@@ -4394,7 +4394,7 @@ mod tests {
         fund(&chain, "bob", 100 * 10_000_000_000);
         seal_epoch(&chain, 0);
 
-        let fee = BASE_FEE_INITIAL_DREAMS * ENTRY_WEIGHT_MICRO; // 1 × 10_000_000
+        let fee = BASE_FEE_INITIAL_HUNITS * ENTRY_WEIGHT_MICRO; // 1 × 10_000_000
 
         let alice_before  = chain.get_balance("alice", NATIVE_TOKEN);
         let recycle_before = chain.get_balance(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN);
@@ -4420,10 +4420,10 @@ mod tests {
     #[test]
     fn test_entry_rejected_when_fee_unaffordable() {
         use crate::tx;
-        use honemesh_types::{BASE_FEE_INITIAL_DREAMS, ENTRY_WEIGHT_MICRO};
+        use honemesh_types::{BASE_FEE_INITIAL_HUNITS, ENTRY_WEIGHT_MICRO};
 
         let (chain, _dir) = make_chain("fee-reject");
-        let fee = BASE_FEE_INITIAL_DREAMS * ENTRY_WEIGHT_MICRO;
+        let fee = BASE_FEE_INITIAL_HUNITS * ENTRY_WEIGHT_MICRO;
         // Fund alice with LESS than the fee so transfer + fee is unaffordable.
         fund(&chain, "alice", fee / 2);
         fund(&chain, "bob",   0);
@@ -4454,7 +4454,7 @@ mod tests {
     #[test]
     fn test_account_create_subsidized_from_testnet_fund() {
         use crate::tx;
-        use honemesh_types::{BASE_FEE_INITIAL_DREAMS, ENTRY_WEIGHT_REGISTRATION, TESTNET_FUND_ACCOUNT, RECYCLE_FUND_ACCOUNT};
+        use honemesh_types::{BASE_FEE_INITIAL_HUNITS, ENTRY_WEIGHT_REGISTRATION, TESTNET_FUND_ACCOUNT, RECYCLE_FUND_ACCOUNT};
         use ed25519_dalek::{Signer, SigningKey};
         use rand::rngs::OsRng;
 
@@ -4463,7 +4463,7 @@ mod tests {
         fund(&chain, TESTNET_FUND_ACCOUNT, 500 * 10_000_000_000);
         seal_epoch(&chain, 0);
 
-        let fee = BASE_FEE_INITIAL_DREAMS * ENTRY_WEIGHT_REGISTRATION;
+        let fee = BASE_FEE_INITIAL_HUNITS * ENTRY_WEIGHT_REGISTRATION;
         let testnet_before = chain.get_balance(TESTNET_FUND_ACCOUNT, NATIVE_TOKEN);
         let recycle_before  = chain.get_balance(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN);
 
@@ -4501,12 +4501,12 @@ mod tests {
     /// Fee scales proportionally with entry weight: a Heavy entry costs 5× a Micro entry.
     #[test]
     fn test_fee_proportional_to_entry_weight() {
-        use honemesh_types::{BASE_FEE_INITIAL_DREAMS, ENTRY_WEIGHT_MICRO, ENTRY_WEIGHT_HEAVY, entry_weight};
+        use honemesh_types::{BASE_FEE_INITIAL_HUNITS, ENTRY_WEIGHT_MICRO, ENTRY_WEIGHT_HEAVY, entry_weight};
         use honemesh_types::LedgerEntry as LE;
 
         let transfer = LE::Transfer {
             from: "a".to_string(), to: "b".to_string(),
-            amount: 1, token: "HoneMesh".to_string(),
+            amount: 1, token: "HONE".to_string(),
             memo: None, epoch: 1, nonce: 1,
             signed_by: "a".to_string(), twofactor: None,
         };
@@ -4521,8 +4521,8 @@ mod tests {
         assert_eq!(entry_weight(&transfer),    ENTRY_WEIGHT_MICRO);
         assert_eq!(entry_weight(&storage_hb),  ENTRY_WEIGHT_HEAVY);
         assert_eq!(
-            BASE_FEE_INITIAL_DREAMS * entry_weight(&storage_hb),
-            BASE_FEE_INITIAL_DREAMS * entry_weight(&transfer) * 5,
+            BASE_FEE_INITIAL_HUNITS * entry_weight(&storage_hb),
+            BASE_FEE_INITIAL_HUNITS * entry_weight(&transfer) * 5,
             "Heavy fee must be 5× Micro fee at the same base_fee"
         );
     }
@@ -4530,9 +4530,9 @@ mod tests {
     /// compute_next_base_fee is tested for both directions.
     #[test]
     fn test_base_fee_adjusts_with_epoch_load() {
-        use honemesh_types::{compute_next_base_fee, BASE_FEE_INITIAL_DREAMS, EPOCH_TARGET_WEIGHT_UNITS};
+        use honemesh_types::{compute_next_base_fee, BASE_FEE_INITIAL_HUNITS, EPOCH_TARGET_WEIGHT_UNITS};
 
-        let initial = BASE_FEE_INITIAL_DREAMS;
+        let initial = BASE_FEE_INITIAL_HUNITS;
         let target  = EPOCH_TARGET_WEIGHT_UNITS;
 
         // Empty epoch → fee drops 10%.
@@ -5484,9 +5484,9 @@ mod property_tests {
     use tempfile::TempDir;
 
     fn prop_chain() -> (Chain, TempDir) {
-        let dir = tempfile::Builder::new().prefix("btcpc_prop_").tempdir().unwrap();
+        let dir = tempfile::Builder::new().prefix("hone_prop_").tempdir().unwrap();
         let store = crate::store::Store::open(dir.path()).unwrap();
-        let chain = Chain::new(store, "prop-node".into(), "btcpc-satoshi".into());
+        let chain = Chain::new(store, "prop-node".into(), "hone-testnet".into());
         (chain, dir)
     }
 

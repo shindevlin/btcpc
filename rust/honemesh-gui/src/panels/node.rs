@@ -70,7 +70,7 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
     card(ui, |ui| {
         let fmt = |v: Option<&serde_json::Value>| {
             v.and_then(|v| v.as_u64())
-                .map(|d| format!("{:.2} HoneMesh", d as f64 / 10_000_000_000.0))
+                .map(|d| format!("{:.2} HONE", d as f64 / 10_000_000_000.0))
                 .unwrap_or_else(|| "—".into())
         };
         ui.horizontal_wrapped(|ui| {

@@ -75,9 +75,9 @@ pub struct AppData {
     // Cross-chain / bridge
     pub eth_address: Option<String>,
     pub btc_pubkey: Option<String>,
-    pub wbtcpc_balance: Option<u64>,
+    pub whone_balance: Option<u64>,
     pub eth_rpc_url: String,
-    pub wbtcpc_contract: String,
+    pub whone_contract: String,
 }
 
 impl Default for AppData {
@@ -99,9 +99,9 @@ impl Default for AppData {
             role_requirements: None,
             eth_address: None,
             btc_pubkey: None,
-            wbtcpc_balance: None,
+            whone_balance: None,
             eth_rpc_url: String::new(),
-            wbtcpc_contract: String::new(),
+            whone_contract: String::new(),
         }
     }
 }
@@ -122,7 +122,7 @@ pub const CARD_BORDER: egui::Color32 = egui::Color32::from_rgb(42, 42, 60);
 /// 1 HONE = 10_000_000_000 hunits (10^10)
 pub const HUNITS_PER_HONE: u64 = 10_000_000_000;
 
-pub fn dreams_to_btcpc(hunits: u64) -> String {
+pub fn hunits_to_hone(hunits: u64) -> String {
     let whole = hunits / HUNITS_PER_HONE;
     let frac  = hunits % HUNITS_PER_HONE;
     if frac == 0 {
@@ -133,7 +133,7 @@ pub fn dreams_to_btcpc(hunits: u64) -> String {
     }
 }
 
-pub fn parse_btcpc_input(s: &str) -> Option<u64> {
+pub fn parse_hone_input(s: &str) -> Option<u64> {
     s.trim().parse::<f64>().ok()
         .filter(|a| *a >= 0.0)
         .map(|a| (a * HUNITS_PER_HONE as f64).round() as u64)
@@ -197,11 +197,11 @@ pub fn active_key_required(ui: &mut egui::Ui) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-pub struct BtcpcBehavior<'a> {
+pub struct HoneBehavior<'a> {
     pub data: &'a mut AppData,
 }
 
-impl<'a> egui_tiles::Behavior<PaneKind> for BtcpcBehavior<'a> {
+impl<'a> egui_tiles::Behavior<PaneKind> for HoneBehavior<'a> {
     fn tab_title_for_pane(&mut self, pane: &PaneKind) -> egui::WidgetText {
         match pane {
             PaneKind::NodeStatus => "Node".into(),

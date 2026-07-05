@@ -27,7 +27,7 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive("btcpc_market=info".parse()?)
+                .add_directive("honemesh_market=info".parse()?)
                 .add_directive("tower_http=warn".parse()?)
         )
         .init();
@@ -171,7 +171,7 @@ async fn main() -> Result<()> {
 async fn health() -> axum::Json<serde_json::Value> {
     axum::Json(serde_json::json!({
         "ok": true,
-        "service": "btcpc-market",
+        "service": "honemesh-market",
         "version": env!("CARGO_PKG_VERSION"),
         "epoch": models::current_epoch(),
     }))

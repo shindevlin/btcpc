@@ -1,5 +1,5 @@
 /*!
-# btcpc-contract-runtime
+# honemesh-contract-runtime
 
 IPC server that executes WASM smart contracts for the HoneMesh chain.
 Receives JSON-RPC calls from the Node.js chain process over a Unix socket,
@@ -35,7 +35,7 @@ use honemesh_contract_runtime::{
     state::{ContractState, StorageKv},
 };
 
-const SOCKET_PATH: &str = "/tmp/btcpc-contract-runtime.sock";
+const SOCKET_PATH: &str = "/tmp/honemesh-contract-runtime.sock";
 
 #[tokio::main]
 async fn main() -> Result<()> {

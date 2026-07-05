@@ -7,7 +7,7 @@ fungible token interface. Mirrors ERC-20 semantics on HoneMesh.
 ## Deploy
 
 ```bash
-btcpc contract deploy ft.wasm \
+hone contract deploy ft.wasm \
   --args '{"name":"MyToken","symbol":"MTK","decimals":8,"total_supply":"1000000000000000"}' \
   --account natoshisakamoto
 ```
@@ -15,7 +15,7 @@ btcpc contract deploy ft.wasm \
 ## Call
 
 ```bash
-btcpc contract call honesc<address> transfer \
+hone contract call honesc<address> transfer \
   --args '{"to":"alice","amount":"500000000"}' \
   --account natoshisakamoto
 ```
@@ -23,7 +23,7 @@ btcpc contract call honesc<address> transfer \
 ## View
 
 ```bash
-btcpc contract view honesc<address> balance_of \
+hone contract view honesc<address> balance_of \
   --args '{"account":"alice"}'
 ```
 */
@@ -53,7 +53,7 @@ pub struct FtMetadata {
 
 // ── Contract State ───────────────────────────────────────────────────────────
 
-#[btcpc_contract]
+#[hone_contract]
 pub struct FungibleToken {
     pub metadata: FtMetadata,
     pub total_supply: u128,
@@ -63,7 +63,7 @@ pub struct FungibleToken {
 
 // ── Methods ──────────────────────────────────────────────────────────────────
 
-#[btcpc_impl]
+#[hone_impl]
 impl FungibleToken {
     /// Deploy a new fungible token.
     /// `total_supply` is in the token's smallest unit (considering `decimals`).

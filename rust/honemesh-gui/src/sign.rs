@@ -9,11 +9,11 @@ pub fn load_keypair(path: &Path, role: &str) -> Result<KeyPair> {
     let v: Value = serde_json::from_str(&raw)
         .with_context(|| format!("invalid JSON in {}", path.display()))?;
 
-    // wallet.key format: role-specific fields
+    // wallet.key format: role-specific fields (btcpc_* accepts pre-rebrand files)
     let wallet_fields: &[&str] = match role {
-        "owner"   => &["btcpc_owner_private_key"],
-        "posting" => &["btcpc_private_key", "btcpc_posting_private_key"],
-        _         => &["btcpc_active_private_key"],
+        "owner"   => &["hone_owner_private_key", "btcpc_owner_private_key"],
+        "posting" => &["hone_private_key", "hone_posting_private_key", "btcpc_private_key"],
+        _         => &["hone_active_private_key", "btcpc_active_private_key"],
     };
     for field in wallet_fields {
         if let Some(hex) = v.get(*field).and_then(|h| h.as_str()).filter(|h| !h.is_empty()) {
@@ -52,7 +52,7 @@ pub fn get_epoch(base: &str) -> u64 {
         .unwrap_or(0)
 }
 
-pub fn submit_transfer(base: &str, key_file: &Path, from: &str, to: &str, amount_dreams: u64) -> Result<String> {
+pub fn submit_transfer(base: &str, key_file: &Path, from: &str, to: &str, amount_hunits: u64) -> Result<String> {
     if !key_file.exists() {
         return Err(anyhow!("key file not found: {}", key_file.display()));
     }
@@ -64,7 +64,7 @@ pub fn submit_transfer(base: &str, key_file: &Path, from: &str, to: &str, amount
         "type": "TRANSFER",
         "from": from,
         "to": to,
-        "amount": amount_dreams,
+        "amount": amount_hunits,
         "token": "HoneMesh",
         "nonce": nonce,
     }))?;
@@ -72,7 +72,7 @@ pub fn submit_transfer(base: &str, key_file: &Path, from: &str, to: &str, amount
     let body = json!({
         "from": from,
         "to": to,
-        "amount": amount_dreams,
+        "amount": amount_hunits,
         "token": "HoneMesh",
         "signed_by": from,
         "nonce": nonce,
@@ -87,7 +87,7 @@ pub fn submit_transfer(base: &str, key_file: &Path, from: &str, to: &str, amount
     }
 }
 
-pub fn submit_stake(base: &str, key_file: &Path, account: &str, amount_dreams: u64, add: bool) -> Result<String> {
+pub fn submit_stake(base: &str, key_file: &Path, account: &str, amount_hunits: u64, add: bool) -> Result<String> {
     if !key_file.exists() {
         return Err(anyhow!("key file not found: {}", key_file.display()));
     }
@@ -99,14 +99,14 @@ pub fn submit_stake(base: &str, key_file: &Path, account: &str, amount_dreams: u
         "chain_id": chain_id,
         "type": kind,
         "account": account,
-        "amount": amount_dreams,
+        "amount": amount_hunits,
         "nonce": nonce,
     }))?;
     let sig = keypair.sign_entry_json(&msg);
     let path = if add { "/api/stake" } else { "/api/unstake" };
     let body = json!({
         "account": account,
-        "amount": amount_dreams,
+        "amount": amount_hunits,
         "signed_by": account,
         "nonce": nonce,
         "signature": sig,
@@ -125,7 +125,7 @@ pub fn submit_role_stake(
     staker: &str,
     node: &str,
     role: &str,
-    amount_dreams: u64,
+    amount_hunits: u64,
     add: bool,
 ) -> Result<String> {
     if !key_file.exists() {
@@ -146,7 +146,7 @@ pub fn submit_role_stake(
         "node": node,
         "role": role,
         "staker": staker,
-        "amount": amount_dreams,
+        "amount": amount_hunits,
         "nonce": nonce,
     }))?;
     let sig = keypair.sign_entry_json(&msg);
@@ -154,7 +154,7 @@ pub fn submit_role_stake(
         "node": node,
         "role": role,
         "staker": staker,
-        "amount": amount_dreams,
+        "amount": amount_hunits,
         "epoch": epoch,
         "signed_by": staker,
         "nonce": nonce,

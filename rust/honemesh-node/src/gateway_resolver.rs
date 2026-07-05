@@ -4,12 +4,12 @@
 use crate::chain::Chain;
 
 /// Resolve a HoneMesh shortcode or URL path to a store or product.
-/// Shortcodes: `@account`, `@account/product`, `btcpc:{account}/{product}`
+/// Shortcodes: `@account`, `@account/product`, `hone:{account}/{product}`
 pub fn resolve(chain: &Chain, input: &str) -> serde_json::Value {
-    // Strip leading `@` or `btcpc:` prefix
+    // Strip leading `@` or `hone:` prefix
     let path = input
         .trim_start_matches('@')
-        .trim_start_matches("btcpc:");
+        .trim_start_matches("hone:");
 
     let parts: Vec<&str> = path.splitn(2, '/').collect();
     let account = parts[0];

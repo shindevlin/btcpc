@@ -1,30 +1,30 @@
 name: Integration Manifest Check
 
-# The btcpc-manifest.json committed at the repo root is the ecosystem's source
+# The honemesh-manifest.json committed at the repo root is the ecosystem's source
 # of truth for the chain's surface (routes + ledger-entry signing shapes). It is
-# generated from the node source by `btcpc manifest generate`. This gate fails
+# generated from the node source by `hone manifest generate`. This gate fails
 # the build if the surface changed but the manifest wasn't regenerated in the
 # same commit — so consumer repos can always trust the committed manifest to
 # match what the node actually serves.
 #
-# If this fails: run `cargo run -p btcpc-sdk --bin btcpc -- manifest generate`
-# (from rust/btcpc-sdk) and commit the updated btcpc-manifest.json.
+# If this fails: run `cargo run -p honemesh-sdk --bin hone -- manifest generate`
+# (from rust/honemesh-sdk) and commit the updated honemesh-manifest.json.
 
 on:
   push:
     paths:
-      - 'rust/btcpc-node/src/api.rs'
-      - 'rust/btcpc-node/src/tx.rs'
-      - 'rust/btcpc-node/crates/btcpc-types/src/entry.rs'
-      - 'rust/btcpc-sdk/**'
-      - 'btcpc-manifest.json'
+      - 'rust/honemesh-node/src/api.rs'
+      - 'rust/honemesh-node/src/tx.rs'
+      - 'rust/honemesh-node/crates/honemesh-types/src/entry.rs'
+      - 'rust/honemesh-sdk/**'
+      - 'honemesh-manifest.json'
   pull_request:
     paths:
-      - 'rust/btcpc-node/src/api.rs'
-      - 'rust/btcpc-node/src/tx.rs'
-      - 'rust/btcpc-node/crates/btcpc-types/src/entry.rs'
-      - 'rust/btcpc-sdk/**'
-      - 'btcpc-manifest.json'
+      - 'rust/honemesh-node/src/api.rs'
+      - 'rust/honemesh-node/src/tx.rs'
+      - 'rust/honemesh-node/crates/honemesh-types/src/entry.rs'
+      - 'rust/honemesh-sdk/**'
+      - 'honemesh-manifest.json'
 
 jobs:
   manifest-check:
@@ -42,17 +42,17 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            rust/btcpc-sdk/target
-          key: manifest-check-${{ runner.os }}-${{ hashFiles('rust/btcpc-sdk/Cargo.lock') }}
+            rust/honemesh-sdk/target
+          key: manifest-check-${{ runner.os }}-${{ hashFiles('rust/honemesh-sdk/Cargo.lock') }}
 
-      - name: Build btcpc CLI
-        working-directory: rust/btcpc-sdk
-        run: cargo build --bin btcpc --release
+      - name: Build hone CLI
+        working-directory: rust/honemesh-sdk
+        run: cargo build --bin hone --release
 
       - name: Run manifest unit tests
-        working-directory: rust/btcpc-sdk
+        working-directory: rust/honemesh-sdk
         run: cargo test --release manifest
 
       - name: Check committed manifest is current
         run: |
-          ./rust/btcpc-sdk/target/release/btcpc manifest check --repo .
+          ./rust/honemesh-sdk/target/release/hone manifest check --repo .

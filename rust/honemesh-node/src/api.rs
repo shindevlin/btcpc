@@ -236,11 +236,11 @@ pub fn router(state: AppState) -> Router {
         .route("/api/linkgit/repo/:owner/:repo/pulls/:id/merge", post(post_pr_merge))
         .route("/api/linkgit/repo/:owner/:repo/pulls/:id/close", post(post_pr_close))
         // ── LinkGit: git smart HTTP protocol ──────────────────────────────
-        // btcpc.net/git/owner/repo  (path-prefixed, also used via api.btcpc.net)
+        // honemesh.net/git/owner/repo  (path-prefixed, also used via api.honemesh.net)
         .route("/git/:owner/:repo/info/refs", get(git_info_refs))
         .route("/git/:owner/:repo/git-upload-pack", post(git_upload_pack))
         .route("/git/:owner/:repo/git-receive-pack", post(git_receive_pack))
-        // git.btcpc.net/owner/repo  (short form — whole subdomain is the forge)
+        // git.honemesh.net/owner/repo  (short form — whole subdomain is the forge)
         .route("/:owner/:repo/info/refs", get(git_info_refs))
         .route("/:owner/:repo/git-upload-pack", post(git_upload_pack))
         .route("/:owner/:repo/git-receive-pack", post(git_receive_pack))
@@ -312,14 +312,14 @@ pub fn router(state: AppState) -> Router {
         .route("/api/node/list", get(get_node_list))
         .route("/api/node/info", get(get_node_info))
         .route("/api/node/models", get(get_node_models))
-        // Integration manifest — self-updating consumer contract (btcpc sync --node)
+        // Integration manifest — self-updating consumer contract (hone sync --node)
         .route("/api/integration/manifest", get(get_integration_manifest))
         .route("/api/integration/manifest.md", get(get_integration_manifest_md))
         .route("/api/node/config", axum::routing::patch(patch_node_config))
         .route("/app", get(get_app_dashboard))
         .route("/app.html", get(get_app_dashboard))
-        .route("/btcpcscan", get(get_btcpcscan))
-        .route("/btcpcscan.html", get(get_btcpcscan))
+        .route("/honescan", get(get_honescan))
+        .route("/honescan.html", get(get_honescan))
         .route("/network-viz", get(get_network_viz))
         .route("/network-viz.html", get(get_network_viz))
         .route("/integrate", get(get_integrate))
@@ -674,7 +674,7 @@ async fn get_all_accounts(State(s): State<AppState>) -> Json<serde_json::Value> 
 
 /// Step 1: generate a short-lived challenge for the user to sign with their external wallet.
 ///
-/// The challenge format is: "btcpc:link:{account}:{chain}:{nonce}"
+/// The challenge format is: "hone:link:{account}:{chain}:{nonce}"
 ///
 /// Sign it with:
 ///   Ethereum / EVM — MetaMask: personal_sign(challenge, account)
@@ -703,7 +703,7 @@ async fn get_chain_link_challenge(
 
     // Generate a random nonce and build the challenge string.
     let nonce = hex::encode(rand::random::<[u8; 16]>());
-    let challenge = format!("btcpc:link:{}:{}:{}", account, chain, nonce);
+    let challenge = format!("hone:link:{}:{}:{}", account, chain, nonce);
 
     // Store challenge for 10 minutes (verified at submission time).
     let key = format!("{}:{}", account, chain);
@@ -758,7 +758,7 @@ async fn post_verify_chain(
         }
     };
 
-    let signed_message = format!("btcpc:link:{}:{}:{}", body.account, body.chain, nonce);
+    let signed_message = format!("hone:link:{}:{}:{}", body.account, body.chain, nonce);
 
     // Build the VerifyChainLink entry — chain.rs verifies the signature and commitment.
     let epoch = s.chain.current_epoch();
@@ -994,7 +994,7 @@ async fn get_epoch(
 
 // GET /health
 async fn health() -> Json<serde_json::Value> {
-    Json(serde_json::json!({ "status": "ok", "node": "btcpc-node" }))
+    Json(serde_json::json!({ "status": "ok", "node": "honemesh-node" }))
 }
 
 /// POST /api/github/webhook
@@ -1046,14 +1046,14 @@ async fn post_github_webhook(
                 let github_login = payload["installation"]["account"]["login"]
                     .as_str().unwrap_or("");
                 if !github_login.is_empty() {
-                    let btcpc_account = format!("gh_{}", github_login.to_lowercase()
+                    let hone_account = format!("gh_{}", github_login.to_lowercase()
                         .chars().filter(|c| c.is_alphanumeric() || *c == '_' || *c == '-').collect::<String>());
 
                     // Create account on-chain if it doesn't exist
-                    if s.chain.store.get_account(&btcpc_account).ok().flatten().is_none() {
+                    if s.chain.store.get_account(&hone_account).ok().flatten().is_none() {
                         let epoch = s.chain.current_epoch();
                         let entry = honemesh_types::LedgerEntry::AccountCreate {
-                            account: btcpc_account.clone(),
+                            account: hone_account.clone(),
                             keys: std::collections::BTreeMap::new(),
                             chain_proofs: vec![],
                             epoch,
@@ -1063,14 +1063,14 @@ async fn post_github_webhook(
                         s.chain.push_pending(entry.clone(), None);
                         let _ = s.tx_broadcast.send((entry, None));
                         tracing::info!("[github-app] created HoneMesh account '{}' for GitHub user '{}'",
-                            btcpc_account, github_login);
+                            hone_account, github_login);
                     }
 
                     return (StatusCode::OK, Json(serde_json::json!({
                         "ok": true,
                         "event": event,
-                        "btcpc_account": btcpc_account,
-                        "note": "Account created on-chain. Visit btcpc.net/app to claim your wallet."
+                        "hone_account": hone_account,
+                        "note": "Account created on-chain. Visit honemesh.net/app to claim your wallet."
                     })));
                 }
             }
@@ -1090,8 +1090,8 @@ async fn get_node_hosting_listings(State(s): State<AppState>) -> Json<serde_json
     let listings = crate::services::list_hosting_nodes(&s.chain);
     Json(serde_json::json!({
         "listings": listings,
-        "price_hunits": crate::services::HOSTING_PRICE_DREAMS,
-        "price_btcpc": crate::services::HOSTING_PRICE_DREAMS as f64 / 100_000_000.0,
+        "price_hunits": crate::services::HOSTING_PRICE_HUNITS,
+        "price_hone": crate::services::HOSTING_PRICE_HUNITS as f64 / 100_000_000.0,
         "duration_epochs": crate::services::HOSTING_DURATION_EPOCHS,
         "note": "Pay HoneMesh to a service node to get a hosted clock node on the HoneMesh network."
     }))
@@ -1109,7 +1109,7 @@ async fn post_node_hosting_buy(
     State(s): State<AppState>,
     Json(body): Json<NodeHostingBuyBody>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    let price = crate::services::HOSTING_PRICE_DREAMS;
+    let price = crate::services::HOSTING_PRICE_HUNITS;
 
     // Verify buyer has enough balance
     let bal = s.chain.store.get_balance(&body.buyer, NATIVE_TOKEN);
@@ -1142,7 +1142,7 @@ async fn post_node_hosting_buy(
         to: body.service_node.clone(),
         amount: price,
         token: NATIVE_TOKEN.to_string(),
-        memo: Some("btcpc-node-hosting".to_string()),
+        memo: Some("honemesh-node-hosting".to_string()),
         epoch,
         nonce,
         signed_by: body.buyer.clone(),
@@ -1297,7 +1297,7 @@ async fn get_node_list(State(s): State<AppState>) -> Json<serde_json::Value> {
 // GET /api/node/info — node identity and active roles
 async fn get_node_info(State(s): State<AppState>) -> Json<serde_json::Value> {
     let account  = std::env::var("HONE_ACCOUNT").unwrap_or_default();
-    let chain_id = std::env::var("HONE_CHAIN_ID").unwrap_or_else(|_| "btcpc-1".to_owned());
+    let chain_id = std::env::var("HONE_CHAIN_ID").unwrap_or_else(|_| "hone".to_owned());
     let is_clock  = std::env::var("HONE_CLOCK").map(|v| v == "true" || v == "1").unwrap_or(false);
     let is_worker = std::env::var("HONE_WORKER").map(|v| v == "true" || v == "1")
         .unwrap_or(s.capabilities.has_ollama);
@@ -1351,15 +1351,15 @@ async fn get_node_info(State(s): State<AppState>) -> Json<serde_json::Value> {
 // ── Integration manifest ────────────────────────────────────────────────────
 // The manifest is the ecosystem's machine-readable understanding of this node's
 // surface (routes + ledger-entry signing shapes). It is generated from source by
-// `btcpc manifest generate` (rust/btcpc-sdk) and committed at the repo root as
-// btcpc-manifest.json; CI (.github/workflows/manifest-check.yml) fails if it
+// `hone manifest generate` (rust/honemesh-sdk) and committed at the repo root as
+// honemesh-manifest.json; CI (.github/workflows/manifest-check.yml) fails if it
 // drifts from source. We embed that CI-verified artifact at compile time and
-// serve it verbatim, so `btcpc sync --node <url>` always gets exactly the
+// serve it verbatim, so `hone sync --node <url>` always gets exactly the
 // manifest that shipped with this binary — no runtime file dependency, no drift.
-static INTEGRATION_MANIFEST_JSON: &str = include_str!("../../../btcpc-manifest.json");
+static INTEGRATION_MANIFEST_JSON: &str = include_str!("../../../honemesh-manifest.json");
 
 // GET /api/integration/manifest — the machine-readable capability manifest.
-// Consumed by `btcpc sync --node <url>`.
+// Consumed by `hone sync --node <url>`.
 async fn get_integration_manifest() -> impl IntoResponse {
     use axum::http::header;
     (
@@ -1393,7 +1393,7 @@ fn render_manifest_markdown(json: &str) -> String {
         Ok(v) => v,
         Err(e) => return format!("# HoneMesh Integration Manifest\n\n_manifest unavailable: {e}_\n"),
     };
-    let ver = v["btcpc_version"].as_str().unwrap_or("unknown");
+    let ver = v["hone_version"].as_str().unwrap_or("unknown");
     let chain = v["chain_id"].as_str().unwrap_or("unknown");
     let hash = v["surface_hash"].as_str().unwrap_or("");
     let entries = v["entries"].as_object().map(|m| m.len()).unwrap_or(0);
@@ -1415,7 +1415,7 @@ fn render_manifest_markdown(json: &str) -> String {
         "- **HoneMesh version:** {ver}\n- **Chain:** {chain}\n- **Surface hash:** `{hash}`\n\
          - **Surface size:** {entries} entries, {routes} routes\n- **Submittable entries:** {}\n\n\
          Machine-readable: `GET /api/integration/manifest`. \
-         Sync a consumer repo: `btcpc sync --node <this node>`.\n\n",
+         Sync a consumer repo: `hone sync --node <this node>`.\n\n",
         submittable.len()
     ));
     s.push_str("## Submittable ledger entries (signing type)\n\n");
@@ -1498,7 +1498,7 @@ async fn get_bootstrap_peers(
     State(s): State<AppState>,
     axum::extract::Query(params): axum::extract::Query<HashMap<String, String>>,
 ) -> Json<serde_json::Value> {
-    let chain_id = params.get("chain_id").map(|s| s.as_str()).unwrap_or("btcpc-1");
+    let chain_id = params.get("chain_id").map(|s| s.as_str()).unwrap_or("hone");
     let prefix = format!("peer_announce:{}:", chain_id);
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -1571,7 +1571,7 @@ async fn post_bootstrap_peer(
 // Accepts three wire formats to eliminate f64 precision loss on large amounts:
 //   integer  → treated as hunits directly          e.g. 15_000_000_000
 //   float    → HoneMesh × HUNITS_PER_HONE, rounded   e.g. 1.5   (only safe < ~900k HoneMesh)
-//   string   → decimal HoneMesh, integer arithmetic   e.g. "1.5" (always safe)
+//   string   → decimal HONE, integer arithmetic   e.g. "1.5" (always safe)
 //
 // String form is preferred for any amount that might exceed 900_000 HONE.
 
@@ -1611,15 +1611,15 @@ where
         }
 
         fn visit_str<E: de::Error>(self, v: &str) -> Result<u64, E> {
-            parse_btcpc_str(v).map_err(|_| E::invalid_value(Unexpected::Str(v), &self))
+            parse_hone_str(v).map_err(|_| E::invalid_value(Unexpected::Str(v), &self))
         }
     }
 
     d.deserialize_any(AmountVisitor)
 }
 
-/// Parse a decimal HoneMesh string to hunits using integer arithmetic only.
-fn parse_btcpc_str(s: &str) -> Result<u64, ()> {
+/// Parse a decimal HONE string to hunits using integer arithmetic only.
+fn parse_hone_str(s: &str) -> Result<u64, ()> {
     let s = s.trim();
     let (int_str, frac_str) = match s.find('.') {
         Some(i) => (&s[..i], &s[i + 1..]),
@@ -2541,7 +2541,7 @@ fn faucet_amount_hunits(epoch: u64) -> u64 {
     else if epoch <= 10_000 { 1_000_000_000 } // 0.1 HONE
     else                   { 100_000_000 }    // 0.01 HONE
 }
-fn faucet_amount_btcpc(epoch: u64) -> f64 {
+fn faucet_amount_hone(epoch: u64) -> f64 {
     faucet_amount_hunits(epoch) as f64 / 10_000_000_000.0
 }
 
@@ -2614,10 +2614,10 @@ async fn post_faucet_claim(
     // Wallet balance must be zero
     let balance = s.chain.store.get_balance(&account, NATIVE_TOKEN);
     if balance > 0 {
-        let btcpc = balance as f64 / 10_000_000_000.0;
+        let hone = balance as f64 / 10_000_000_000.0;
         return (StatusCode::BAD_REQUEST, Json(serde_json::json!({
-            "error": format!("You already have {:.4} HoneMesh. Use your tokens before claiming more.", btcpc),
-            "balance_btcpc": btcpc,
+            "error": format!("You already have {:.4} HONE. Use your tokens before claiming more.", hone),
+            "balance_hone": hone,
         })));
     }
 
@@ -2657,11 +2657,11 @@ async fn post_faucet_claim(
         Ok(_) => (StatusCode::OK, Json(serde_json::json!({
             "success": true,
             "type": "transfer",
-            "amount_btcpc": faucet_amount_btcpc(current_epoch),
+            "amount_hone": faucet_amount_hone(current_epoch),
             "amount_hunits": amount,
             "message": format!(
-                "Welcome to HoneMesh — {:.4} HoneMesh sent to {}. Earn more by mining, running sensors, or storing data.",
-                faucet_amount_btcpc(current_epoch), account
+                "Welcome to HoneMesh — {:.4} HONE sent to {}. Earn more by mining, running sensors, or storing data.",
+                faucet_amount_hone(current_epoch), account
             ),
         }))),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
@@ -2678,9 +2678,9 @@ async fn get_faucet_status(State(s): State<AppState>) -> Json<serde_json::Value>
         "faucet_account": FAUCET_ACCOUNT,
         "testnet_only": true,
         "available": s.chain.chain_id == TESTNET_CHAIN_ID,
-        "reserve_btcpc": reserve as f64 / 10_000_000_000.0,
+        "reserve_hone": reserve as f64 / 10_000_000_000.0,
         "reserve_hunits": reserve,
-        "claim_amount_btcpc": faucet_amount_btcpc(epoch),
+        "claim_amount_hone": faucet_amount_hone(epoch),
         "claim_amount_hunits": faucet_amount_hunits(epoch),
         "cooldown_hours": FAUCET_RECLAIM_COOLDOWN_EPOCHS * 30 / 3600,
         "ip_limit_per_day": FAUCET_IP_MAX_PER_DAY,
@@ -2792,9 +2792,9 @@ async fn get_explorer_status(State(s): State<AppState>) -> Json<serde_json::Valu
         "epoch_ms": EPOCH_MS,
         "genesis_timestamp_ms": GENESIS_TS_MS,
         "accounts": account_ids.len(),
-        "circulating_btcpc": circulating as f64 / 10_000_000_000.0,
+        "circulating_hone": circulating as f64 / 10_000_000_000.0,
         "circulating_hunits": circulating,
-        "max_supply_btcpc": 42_000_000,
+        "max_supply_hone": 42_000_000,
         "active_nodes_last_100": by_account.len(),
         "miners": roles.get("miner").copied().unwrap_or(0),
         "clock_nodes": roles.get("clock").copied().unwrap_or(0),
@@ -2819,7 +2819,7 @@ async fn get_explorer_supply(State(s): State<AppState>) -> Json<serde_json::Valu
             total += bal;
             holders.push(serde_json::json!({
                 "account": id,
-                "btcpc": bal as f64 / 10_000_000_000.0,
+                "hone": bal as f64 / 10_000_000_000.0,
                 "hunits": bal,
             }));
         }
@@ -2827,8 +2827,8 @@ async fn get_explorer_supply(State(s): State<AppState>) -> Json<serde_json::Valu
     holders.sort_by(|a, b| b["hunits"].as_u64().cmp(&a["hunits"].as_u64()));
 
     Json(serde_json::json!({
-        "max_supply_btcpc": 42_000_000,
-        "circulating_btcpc": total as f64 / 10_000_000_000.0,
+        "max_supply_hone": 42_000_000,
+        "circulating_hone": total as f64 / 10_000_000_000.0,
         "circulating_hunits": total,
         "holders": holders.len(),
         "balances": holders,
@@ -2906,8 +2906,8 @@ async fn get_explorer_miners(State(s): State<AppState>) -> Json<serde_json::Valu
         serde_json::json!({
             "account": account,
             "roles": roles.into_iter().collect::<Vec<_>>(),
-            "balance_btcpc": balance as f64 / 10_000_000_000.0,
-            "rewards_window_btcpc": rewards as f64 / 10_000_000_000.0,
+            "balance_hone": balance as f64 / 10_000_000_000.0,
+            "rewards_window_hone": rewards as f64 / 10_000_000_000.0,
             "epochs_active": epochs_active,
             "last_epoch": last_epoch,
             "last_seen_ms": epoch_timestamp_ms(last_epoch),
@@ -2991,10 +2991,10 @@ async fn get_staking_network(State(s): State<AppState>) -> Json<serde_json::Valu
     }
     let avg_stake = if stakers > 0 { total_staked / stakers } else { 0 };
     Json(serde_json::json!({
-        "total_staked_btcpc": total_staked as f64 / 10_000_000_000.0,
+        "total_staked_hone": total_staked as f64 / 10_000_000_000.0,
         "total_staked_hunits": total_staked,
         "stakers": stakers,
-        "avg_stake_btcpc": avg_stake as f64 / 10_000_000_000.0,
+        "avg_stake_hone": avg_stake as f64 / 10_000_000_000.0,
         "chain_height": s.chain.current_epoch(),
     }))
 }
@@ -3029,13 +3029,13 @@ async fn get_staking_requirements(State(s): State<AppState>) -> Json<serde_json:
             "verifier": verifier,
             "mempool":  mempool,
         },
-        "clock":    { "hunits": clock,    "btcpc": clock    as f64 / 10_000_000_000.0 },
-        "miner":    { "hunits": miner,    "btcpc": miner    as f64 / 10_000_000_000.0 },
-        "storage":  { "hunits": storage,  "btcpc": storage  as f64 / 10_000_000_000.0 },
-        "sensor":   { "hunits": sensor,   "btcpc": sensor   as f64 / 10_000_000_000.0 },
-        "service":  { "hunits": service,  "btcpc": service  as f64 / 10_000_000_000.0 },
-        "verifier": { "hunits": verifier, "btcpc": verifier as f64 / 10_000_000_000.0 },
-        "mempool":  { "hunits": mempool,  "btcpc": mempool  as f64 / 10_000_000_000.0 },
+        "clock":    { "hunits": clock,    "hone": clock    as f64 / 10_000_000_000.0 },
+        "miner":    { "hunits": miner,    "hone": miner    as f64 / 10_000_000_000.0 },
+        "storage":  { "hunits": storage,  "hone": storage  as f64 / 10_000_000_000.0 },
+        "sensor":   { "hunits": sensor,   "hone": sensor   as f64 / 10_000_000_000.0 },
+        "service":  { "hunits": service,  "hone": service  as f64 / 10_000_000_000.0 },
+        "verifier": { "hunits": verifier, "hone": verifier as f64 / 10_000_000_000.0 },
+        "mempool":  { "hunits": mempool,  "hone": mempool  as f64 / 10_000_000_000.0 },
         "loyalty_slope_bps":      loyalty_slope_bps,
         "stake_increase_cap_bps": stake_increase_cap_bps,
     }))
@@ -3070,7 +3070,7 @@ async fn post_node_capability(
     State(s): State<AppState>,
     Json(body): Json<NodeCapabilityBody>,
 ) -> (StatusCode, Json<serde_json::Value>) {
-    let msg = format!("btcpc-capability:{}:{}", body.account, body.epoch);
+    let msg = format!("hone-capability:{}:{}", body.account, body.epoch);
     if let Err(e) = crate::tx::check_sig_raw(&s.chain, &body.account, msg.as_bytes(), Some(&body.signature)) {
         return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({ "error": format!("invalid signature: {}", e) })));
     }
@@ -3112,7 +3112,7 @@ async fn get_node_miners_all(State(s): State<AppState>) -> Json<serde_json::Valu
                 "roles": roles.into_iter().collect::<Vec<_>>(),
                 "epochs_active": epochs_active,
                 "last_epoch": last_epoch,
-                "rewards_window_btcpc": rewards as f64 / 10_000_000_000.0,
+                "rewards_window_hone": rewards as f64 / 10_000_000_000.0,
             });
             if let Some(c) = caps {
                 v["capabilities"] = c;
@@ -3400,7 +3400,7 @@ struct LinkGitReadBody {
     /// The account requesting access — must be the owner or a grantee.
     caller: String,
     /// ed25519 signature (hex) by `caller`'s HIDE key over the challenge:
-    /// "btcpc:linkgit:read:{repo_id}:{caller}".
+    /// "hone:linkgit:read:{repo_id}:{caller}".
     signature: String,
 }
 
@@ -3431,7 +3431,7 @@ async fn post_linkgit_repo_read(
 
     // Private: caller MUST prove they hold their key (sign the challenge with the
     // HIDE key), and MUST be authorized (owner or grantee). Default-deny.
-    let challenge = format!("btcpc:linkgit:read:{}:{}", repo_id, body.caller);
+    let challenge = format!("hone:linkgit:read:{}:{}", repo_id, body.caller);
     if !verify_account_key_sig(&s, &body.caller, "hide", &challenge, &body.signature) {
         return Err((
             StatusCode::UNAUTHORIZED,
@@ -3848,18 +3848,18 @@ async fn post_pr_close(
 // ── POST /public/agent-chat ───────────────────────────────────────────────────
 
 const AGENT_SYSTEM_PROMPT: &str = "\
-You are the HoneMesh setup assistant on btcpc.net. HONE is a sovereign blockchain where \
+You are the HoneMesh setup assistant on honemesh.net. HONE is a sovereign blockchain where \
 miners earn by running AI tasks via Ollama — no gatekeepers, no cloud.\n\n\
 Keep every reply under 3 sentences. Be direct and actionable. Give exact commands when asked.\n\n\
 Platform setup:\n\
-- Windows: download start-windows.bat from btcpc.net, double-click it. Handles Ollama binding and Docker automatically.\n\
-- Linux / Ubuntu / WSL: download start.sh from btcpc.net, run: bash start.sh\n\
+- Windows: download start-windows.bat from honemesh.net, double-click it. Handles Ollama binding and Docker automatically.\n\
+- Linux / Ubuntu / WSL: download start.sh from honemesh.net, run: bash start.sh\n\
 - Docker only (advanced): set OLLAMA_URL=http://host.docker.internal:11434 in .env, then: docker compose up -d\n\
-- Android: install the HoneMesh app from btcpc.net/android\n\n\
+- Android: install the HoneMesh app from honemesh.net/android\n\n\
 Requirements: Docker Desktop (Windows/Mac) or Docker Engine (Linux), plus Ollama on the host.\n\
 Recommended first model: qwen3:4b (run: ollama pull qwen3:4b)\n\n\
 Mining starts automatically once the node is running and a model is loaded.\n\
-Explorer: btcpc.net/explorer — wallet: btcpc.net/app";
+Explorer: honemesh.net/explorer — wallet: honemesh.net/app";
 
 const AGENT_RATE_LIMIT: usize = 12; // requests per 60-second window per IP
 
@@ -4833,7 +4833,7 @@ function renderRoute(wps) {
   }).filter(p => p.lat !== null && p.lon !== null);
 
   if (pts.length === 0) {
-    statusMsg('Route loaded — CID decryption needed for GPS coords. Use btcpc-cli tracker decrypt.');
+    statusMsg('Route loaded — CID decryption needed for GPS coords. Use honemesh-cli tracker decrypt.');
     return;
   }
 
@@ -4870,31 +4870,31 @@ function scrub(val) {
 
 static INSTALL_SCRIPT_TEMPLATE: &str = r#"#!/usr/bin/env bash
 # HoneMesh node installer for account: __ACCOUNT__
-# Generated by btcpc.net — runs on Linux x86_64 or aarch64
+# Generated by honemesh.net — runs on Linux x86_64 or aarch64
 set -euo pipefail
 
 ACCOUNT="__ACCOUNT__"
 NODE_ID="${ACCOUNT}"
-CHAIN_ID="btcpc-satoshi"
+CHAIN_ID="hone-testnet"
 GENESIS_TS="1777633200000"
 # Fetch live peer list from the registry; fall back to WS relay if registry is empty.
-REGISTRY_PEERS=$(curl -fsSL --connect-timeout 5 "https://btcpc.net/api/peers/bootstrap?chain_id=btcpc-satoshi" 2>/dev/null \
+REGISTRY_PEERS=$(curl -fsSL --connect-timeout 5 "https://honemesh.net/api/peers/bootstrap?chain_id=hone-testnet" 2>/dev/null \
   | grep -o '"[^"]*"' | grep '^"/dns' | tr -d '"' | tr '\n' ',' | sed 's/,$//')
 if [ -n "$REGISTRY_PEERS" ]; then
   BOOTSTRAP="$REGISTRY_PEERS"
 else
   # Fall back: connect via WebSocket relay (works behind any NAT/firewall)
-  BOOTSTRAP="/dns4/p2p.btcpc.net/tcp/443/wss"
+  BOOTSTRAP="/dns4/p2p.honemesh.net/tcp/443/wss"
 fi
-DATA_DIR="$HOME/.btcpc"
+DATA_DIR="$HOME/.honemesh"
 ENV_FILE="$DATA_DIR/node.env"
-BIN=/usr/local/bin/btcpc-node
-BASE_URL="https://btcpc.net/download"
+BIN=/usr/local/bin/honemesh-node
+BASE_URL="https://honemesh.net/download"
 
 ARCH=$(uname -m)
 case "$ARCH" in
-  x86_64)  ASSET="btcpc-node-x86_64-linux" ;;
-  aarch64) ASSET="btcpc-node-aarch64-linux" ;;
+  x86_64)  ASSET="honemesh-node-x86_64-linux" ;;
+  aarch64) ASSET="honemesh-node-aarch64-linux" ;;
   *)       echo "Unsupported architecture: $ARCH"; exit 1 ;;
 esac
 
@@ -4984,7 +4984,7 @@ fi
 
 # ── 1. Download binary ────────────────────────────────────────────────────────
 echo ""
-echo "  ==> Downloading btcpc-node ($ARCH)..."
+echo "  ==> Downloading honemesh-node ($ARCH)..."
 TMP=$(mktemp)
 curl -fsSL --progress-bar "$BASE_URL/$ASSET" -o "$TMP"
 chmod +x "$TMP"
@@ -4992,7 +4992,7 @@ chmod +x "$TMP"
 file "$TMP" 2>/dev/null | grep -q ELF || { echo "Download failed — not an ELF binary"; rm -f "$TMP"; exit 1; }
 sudo install -m 755 "$TMP" "$BIN"
 rm -f "$TMP"
-echo "  ==> Installed: $($BIN --version 2>/dev/null || echo btcpc-node)"
+echo "  ==> Installed: $($BIN --version 2>/dev/null || echo honemesh-node)"
 
 # ── 2. Create data dir and env file ──────────────────────────────────────────
 mkdir -p "$DATA_DIR"
@@ -5007,7 +5007,7 @@ HONE_P2P_PORT=6942
 HONE_MINER=true
 HONE_CLOCK=true
 HONE_BOOTSTRAP_PEERS=$BOOTSTRAP
-HONE_LOG_LEVEL=btcpc_node=info
+HONE_LOG_LEVEL=hone_node=info
 ENVEOF
 
 if [[ -n "$ACCOUNT_PUBKEY" ]]; then
@@ -5020,9 +5020,9 @@ chmod 600 "$ENV_FILE"
 mkdir -p "$HOME/.config/systemd/user"
 
 # Stop existing service if running
-systemctl --user stop btcpc-node 2>/dev/null || true
+systemctl --user stop honemesh-node 2>/dev/null || true
 
-cat > "$HOME/.config/systemd/user/btcpc-node.service" << SERVICE
+cat > "$HOME/.config/systemd/user/honemesh-node.service" << SERVICE
 [Unit]
 Description=HoneMesh Node (__ACCOUNT__)
 After=network-online.target
@@ -5030,7 +5030,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/btcpc-node
+ExecStart=/usr/local/bin/honemesh-node
 EnvironmentFile=$DATA_DIR/node.env
 Environment="HONE_DATA_DIR=$DATA_DIR"
 Restart=on-failure
@@ -5044,7 +5044,7 @@ SERVICE
 
 # ── 4. Enable and start ───────────────────────────────────────────────────────
 systemctl --user daemon-reload
-systemctl --user enable --now btcpc-node
+systemctl --user enable --now honemesh-node
 loginctl enable-linger "$USER" 2>/dev/null || true
 
 # ── 5. Wait for node to come up ──────────────────────────────────────────────
@@ -5072,7 +5072,7 @@ if [ $STARTED -eq 1 ]; then
     echo "  ║  Account : __ACCOUNT__                      ║"
     echo "  ║  Epoch   : $EPOCH"
     echo "  ║  API     : http://localhost:4242             ║"
-    echo "  ║  Logs    : journalctl --user -u btcpc-node -f ║"
+    echo "  ║  Logs    : journalctl --user -u honemesh-node -f ║"
     echo "  ╚══════════════════════════════════════════════╝"
     echo ""
     if $IS_WSL; then
@@ -5088,7 +5088,7 @@ if [ $STARTED -eq 1 ]; then
     fi
 else
     echo "  ⚠  Node did not start in time. Check logs:"
-    echo "     journalctl --user -u btcpc-node -n 50"
+    echo "     journalctl --user -u honemesh-node -n 50"
     if $IS_WSL; then
     echo ""
     echo "  WSL tip: if 'systemctl' gives 'System has not been booted with systemd',"
@@ -5098,7 +5098,7 @@ fi
 "#;
 
 /// GET /install/:account
-/// Returns a personalized shell installer.  Usage: curl btcpc.net/install/bob | bash
+/// Returns a personalized shell installer.  Usage: curl honemesh.net/install/bob | bash
 async fn get_install_script(
     Path(account): Path<String>,
 ) -> (axum::http::StatusCode, [(axum::http::HeaderName, &'static str); 2], String) {
@@ -5159,17 +5159,17 @@ INSTALL COMMAND
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Linux or macOS:
-  curl -sL https://btcpc.net/install/{account} | bash
+  curl -sL https://honemesh.net/install/{account} | bash
 
 Windows (run this in PowerShell):
   wsl --install -d Ubuntu
-  wsl -d Ubuntu -- bash -c "curl -sL https://btcpc.net/install/{account} | bash"
+  wsl -d Ubuntu -- bash -c "curl -sL https://honemesh.net/install/{account} | bash"
   (If WSL is already installed, skip the first line.)
 
 Docker:
   docker run --rm -it ubuntu:24.04 bash -c \
     "apt-get update -qq && apt-get install -y curl && \
-     curl -sL https://btcpc.net/install/{account} | bash"
+     curl -sL https://honemesh.net/install/{account} | bash"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 AFTER INSTALL — VERIFY IT WORKED
@@ -5186,11 +5186,11 @@ WHAT THE SCRIPT DOES (for the cautious)
 
 This is the same pattern used by rustup, Homebrew, and nvm — a small shell
 script that downloads and installs a single binary. You can read it first:
-  curl -sL https://btcpc.net/install/{account}
+  curl -sL https://honemesh.net/install/{account}
 
 It does exactly four things:
-  1. Downloads the btcpc-node binary (a single ~30 MB statically-linked file)
-  2. Creates ~/.btcpc/node.env with your account name and settings (chmod 600)
+  1. Downloads the honemesh-node binary (a single ~30 MB statically-linked file)
+  2. Creates ~/.honemesh/node.env with your account name and settings (chmod 600)
   3. Installs a systemd user service so the node starts automatically
   4. Starts the node
 
@@ -5217,19 +5217,19 @@ anywhere and is not stored in a recoverable form outside your machine.
 COMMON COMMANDS AFTER INSTALL
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  journalctl --user -u btcpc-node -f        # live logs
-  systemctl --user restart btcpc-node       # restart
-  systemctl --user stop btcpc-node          # stop
+  journalctl --user -u honemesh-node -f        # live logs
+  systemctl --user restart honemesh-node       # restart
+  systemctl --user stop honemesh-node          # stop
   curl http://localhost:4242/api/latest     # current epoch and block hash
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 LINKS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  Website    https://btcpc.net
-  Explorer   https://btcpc.net  (scan tab)
-  Whitepaper https://btcpc.net/docs/whitepaper
-  API        https://btcpc.net/docs/api
+  Website    https://honemesh.net
+  Explorer   https://honemesh.net  (scan tab)
+  Whitepaper https://honemesh.net/docs/whitepaper
+  API        https://honemesh.net/docs/api
 "#, account = account);
 
     (
@@ -5239,9 +5239,9 @@ LINKS
     )
 }
 
-/// GET /btcpcscan — block explorer UI
-async fn get_btcpcscan() -> axum::response::Html<&'static str> {
-    axum::response::Html(include_str!("../../../website/btcpcscan.html"))
+/// GET /honescan — block explorer UI
+async fn get_honescan() -> axum::response::Html<&'static str> {
+    axum::response::Html(include_str!("../../../website/honescan.html"))
 }
 
 /// GET /setup — guided onboarding: wallet creation + account registration + install command
@@ -5421,7 +5421,7 @@ input[type=text].err { border-color: #ef4444; }
   <div class="screen" id="s-creating">
     <div class="step-bar"><div class="step-dot done"></div><div class="step-dot done"></div><div class="step-dot active"></div><div class="step-dot"></div></div>
     <h1>Creating account</h1>
-    <p class="sub"><span class="spinner"></span>Registering <strong id="creating-name"></strong> on btcpc-satoshi and linking your wallets&hellip;</p>
+    <p class="sub"><span class="spinner"></span>Registering <strong id="creating-name"></strong> on hone-testnet and linking your wallets&hellip;</p>
   </div>
 
   <!-- Screen 4: done -->
@@ -5434,11 +5434,11 @@ input[type=text].err { border-color: #ef4444; }
     <div id="done-install-curl" style="margin-top:18px;">
       <p style="font-size:0.85rem;color:#888;">Run this on your machine to install a node:</p>
       <div class="cmd-box"><span id="done-cmd"></span><button class="copy-btn" onclick="copyEl('done-cmd',this)">Copy</button></div>
-      <p style="font-size:0.78rem;color:#555;margin-top:10px;">Need the install script again later? <code style="color:#888;">curl btcpc.net/install/<span id="done-acct-inline"></span> | bash</code></p>
+      <p style="font-size:0.78rem;color:#555;margin-top:10px;">Need the install script again later? <code style="color:#888;">curl honemesh.net/install/<span id="done-acct-inline"></span> | bash</code></p>
     </div>
     <div id="done-install-android" style="display:none;margin-top:18px;">
       <p style="font-size:0.85rem;color:#888;">Download the HoneMesh Android app:</p>
-      <a id="done-apk-link" href="/download/btcpc-android.apk" class="btn" style="display:block;text-align:center;text-decoration:none;margin-top:8px;">Download HoneMesh Android APK</a>
+      <a id="done-apk-link" href="/download/honemesh-android.apk" class="btn" style="display:block;text-align:center;text-decoration:none;margin-top:8px;">Download HoneMesh Android APK</a>
     </div>
   </div>
 
@@ -5504,10 +5504,10 @@ window.pickDevice = function(flow, dev) {
   const res   = document.getElementById('ex-result');
   if (dev === 'android') {
     label.textContent = 'Download the HoneMesh Android app:';
-    cmdEl.innerHTML = `<a href="/download/btcpc-android.apk" style="color:#f59e0b;">Download btcpc-android.apk</a>`;
+    cmdEl.innerHTML = `<a href="/download/honemesh-android.apk" style="color:#f59e0b;">Download honemesh-android.apk</a>`;
   } else {
     label.textContent = 'Run this on your machine:';
-    cmdEl.textContent = `curl -fsSL btcpc.net/install/${acct} | bash`;
+    cmdEl.textContent = `curl -fsSL honemesh.net/install/${acct} | bash`;
   }
   res.style.display = 'block';
 };
@@ -5579,10 +5579,10 @@ window.goCreate = async function() {
     const ethAddr = await deriveEthAddress(ethKey.publicKey);
 
     // HoneMesh key: m/44'/12345'/0'/0'/0' (hardened for ed25519 SLIP10)
-    // We derive a secp256k1 key from this path and record it as the btcpc posting key
+    // We derive a secp256k1 key from this path and record it as the hone posting key
     // (ed25519 migration happens on-node from seed phrase in a future CLI update)
-    const btcpcKey = root.derive("m/44'/12345'/0'/0'/0'");
-    const btcpcPubHex = toHex(btcpcKey.publicKey);
+    const honeKey = root.derive("m/44'/12345'/0'/0'/0'");
+    const honePubHex = toHex(honeKey.publicKey);
 
     // Register account with all pubkeys
     const resp = await fetch('/api/account/create', {
@@ -5591,7 +5591,7 @@ window.goCreate = async function() {
       body: JSON.stringify({
         account: state.account,
         keys: {
-          posting: btcpcPubHex,
+          posting: honePubHex,
           btc: btcPubHex,
           eth: ethAddr,
         }
@@ -5605,11 +5605,11 @@ window.goCreate = async function() {
     document.getElementById('done-title').textContent =
       result.status === 'already_exists' ? 'Account registered!' : 'Account created!';
     document.getElementById('done-sub').textContent =
-      `Your wallets for "${state.account}" are now anchored on btcpc-satoshi.`;
+      `Your wallets for "${state.account}" are now anchored on hone-testnet.`;
 
     const keyGrid = document.getElementById('done-keys');
     keyGrid.innerHTML = `
-      <span class="key-label">HoneMesh</span><span class="key-val">${btcpcPubHex}</span>
+      <span class="key-label">HoneMesh</span><span class="key-val">${honePubHex}</span>
       <span class="key-label">BTC</span><span class="key-val">${btcPubHex}</span>
       <span class="key-label">ETH</span><span class="key-val">${ethAddr}</span>
     `;
@@ -5621,7 +5621,7 @@ window.goCreate = async function() {
     } else {
       document.getElementById('done-install-curl').style.display = 'block';
       document.getElementById('done-install-android').style.display = 'none';
-      document.getElementById('done-cmd').textContent = `curl -fsSL btcpc.net/install/${state.account} | bash`;
+      document.getElementById('done-cmd').textContent = `curl -fsSL honemesh.net/install/${state.account} | bash`;
     }
 
     showScreen('s-done');
@@ -5787,7 +5787,7 @@ async fn get_clock_registered(State(s): State<AppState>) -> Json<serde_json::Val
                 "account":            account,
                 "devices":            devices,
                 "total_stake":        total,
-                "total_btcpc":        total as f64 / 10_000_000_000.0,
+                "total_hone":        total as f64 / 10_000_000_000.0,
                 "first_staked_epoch": first_epoch,
             })
         })
@@ -5805,7 +5805,7 @@ async fn get_clock_registered(State(s): State<AppState>) -> Json<serde_json::Val
             "account":            node_id,
             "devices":            devices,
             "total_stake":        legacy_stake,
-            "total_btcpc":        legacy_stake as f64 / 10_000_000_000.0,
+            "total_hone":        legacy_stake as f64 / 10_000_000_000.0,
             "first_staked_epoch": j["registered_epoch"].as_u64().unwrap_or(0),
         }));
     }
@@ -5816,7 +5816,7 @@ async fn get_clock_registered(State(s): State<AppState>) -> Json<serde_json::Val
     Json(serde_json::json!({
         "stakers":   accounts.len(),
         "min_stake": min_stake,
-        "min_btcpc": min_stake as f64 / 10_000_000_000.0,
+        "min_hone": min_stake as f64 / 10_000_000_000.0,
         "accounts":  accounts,
     }))
 }
@@ -6262,7 +6262,7 @@ async fn get_download_file(
     let data_dir = std::env::var("HONE_DATA_DIR")
         .unwrap_or_else(|_| {
             format!(
-                "{}/.btcpc",
+                "{}/.honemesh",
                 std::env::var("HOME").unwrap_or_default()
             )
         });
@@ -6331,7 +6331,7 @@ async fn get_role_backers(
         "current_backers": backers.len(),
         "backers": backers,
         "total_backed_hunits": total_backed,
-        "total_backed_btcpc": total_backed as f64 / 10_000_000_000.0,
+        "total_backed_hone": total_backed as f64 / 10_000_000_000.0,
     }))
 }
 
@@ -6348,7 +6348,7 @@ async fn get_account_positions(
         "account": account,
         "positions": positions,
         "total_role_staked_hunits": total_staked,
-        "total_role_staked_btcpc": total_staked as f64 / 10_000_000_000.0,
+        "total_role_staked_hone": total_staked as f64 / 10_000_000_000.0,
     }))
 }
 
@@ -6445,7 +6445,7 @@ struct TestnetRegisterBody {
     #[serde(default)]
     signature: String,
 }
-fn default_testnet_chain_id() -> String { "btcpc-satoshi".to_string() }
+fn default_testnet_chain_id() -> String { "hone-testnet".to_string() }
 
 #[derive(serde::Deserialize)]
 struct TestnetDeregisterBody {
@@ -6500,7 +6500,7 @@ async fn get_testnet_status(
     State(s): State<AppState>,
     axum::extract::Path(account): axum::extract::Path<String>,
 ) -> Json<serde_json::Value> {
-    let key = format!("testnet_op:{}:btcpc-satoshi", account);
+    let key = format!("testnet_op:{}:hone-testnet", account);
     let registered = s.chain.store.state_get(&key).is_some();
     Json(serde_json::json!({ "account": account, "registered": registered }))
 }
@@ -6530,14 +6530,14 @@ async fn post_testnet_toggle(
         honemesh_types::LedgerEntry::TestnetOperatorRegister {
             mainnet_account: account.clone(),
             testnet_node_id: account.clone(),
-            testnet_chain_id: "btcpc-satoshi".to_string(),
+            testnet_chain_id: "hone-testnet".to_string(),
             epoch,
             signed_by: account.clone(),
         }
     } else {
         honemesh_types::LedgerEntry::TestnetOperatorDeregister {
             mainnet_account: account.clone(),
-            testnet_chain_id: "btcpc-satoshi".to_string(),
+            testnet_chain_id: "hone-testnet".to_string(),
             epoch,
             signed_by: account.clone(),
         }
@@ -6658,7 +6658,7 @@ async fn get_node_role_stakes_by_role(
         "node": node,
         "role": role,
         "total_hunits": total,
-        "total_btcpc": total as f64 / honemesh_types::HUNITS_PER_HONE as f64,
+        "total_hone": total as f64 / honemesh_types::HUNITS_PER_HONE as f64,
         "backers": entries,
     }))
 }
@@ -6748,7 +6748,7 @@ async fn get_purchase_quote(
         .and_then(|v| v.parse().ok())
         .unwrap_or(100.0);
 
-    let btcpc_amount = (usd_amount / price_usd).floor() as u64;
+    let hone_amount = (usd_amount / price_usd).floor() as u64;
     let eth_address = cfg.get("eth_address").and_then(|v| v.as_str()).unwrap_or("").to_string();
 
     let chain = params.get("chain").map(|s| s.as_str()).unwrap_or("ethereum");
@@ -6762,8 +6762,8 @@ async fn get_purchase_quote(
     };
 
     Json(serde_json::json!({
-        "btcpc_amount": btcpc_amount,
-        "price_per_btcpc_usd": price_usd,
+        "hone_amount": hone_amount,
+        "price_per_hone_usd": price_usd,
         "usd_amount": usd_amount,
         "chain": chain,
         "token": token,
@@ -6774,8 +6774,8 @@ async fn get_purchase_quote(
 
 #[derive(serde::Deserialize)]
 struct PurchaseSubmitBody {
-    btcpc_account: String,
-    btcpc_pubkeys: Option<serde_json::Value>,
+    hone_account: String,
+    hone_pubkeys: Option<serde_json::Value>,
     usd_amount: f64,
     chain: String,
     token: String,
@@ -6793,18 +6793,18 @@ async fn post_purchase_submit(
     if !enabled {
         return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": "OTC desk not configured" })));
     }
-    if b.btcpc_account.trim().is_empty() {
-        return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": "btcpc_account required" })));
+    if b.hone_account.trim().is_empty() {
+        return (StatusCode::BAD_REQUEST, Json(serde_json::json!({ "error": "hone_account required" })));
     }
 
     let price_usd: f64 = cfg.get("price_usd").and_then(|v| v.as_f64()).unwrap_or(0.001);
-    let btcpc_amount = (b.usd_amount / price_usd).floor() as u64;
+    let hone_amount = (b.usd_amount / price_usd).floor() as u64;
     let eth_address = cfg.get("eth_address").and_then(|v| v.as_str()).unwrap_or("").to_string();
 
     let purchase_id = {
         use sha2::Digest;
         let mut h = sha2::Sha256::new();
-        h.update(b.btcpc_account.as_bytes());
+        h.update(b.hone_account.as_bytes());
         h.update(&b.usd_amount.to_le_bytes());
         h.update(&std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -6821,10 +6821,10 @@ async fn post_purchase_submit(
 
     let order = serde_json::json!({
         "purchase_id": purchase_id,
-        "btcpc_account": b.btcpc_account,
-        "btcpc_pubkeys": b.btcpc_pubkeys,
+        "hone_account": b.hone_account,
+        "hone_pubkeys": b.hone_pubkeys,
         "usd_amount": b.usd_amount,
-        "btcpc_amount": btcpc_amount,
+        "hone_amount": hone_amount,
         "chain": b.chain,
         "token": b.token,
         "payment_address": eth_address,
@@ -6842,7 +6842,7 @@ async fn post_purchase_submit(
     let memo_required = b.chain != "ethereum";
     (StatusCode::OK, Json(serde_json::json!({
         "purchase_id": purchase_id,
-        "btcpc_amount": btcpc_amount,
+        "hone_amount": hone_amount,
         "payment_address": eth_address,
         "chain": b.chain,
         "token": b.token,
@@ -7499,14 +7499,14 @@ fn git_auth(headers: &HeaderMap) -> Option<String> {
 /// resolve it via ENS → HoneMesh; otherwise use it as-is.
 async fn resolve_owner(s: &AppState, owner: &str) -> String {
     if crate::ens::is_ens_name(owner) {
-        crate::ens::btcpc_account_for_ens(&s.chain, owner).await
+        crate::ens::hone_account_for_ens(&s.chain, owner).await
             .unwrap_or_else(|| owner.to_owned())
     } else {
         owner.to_owned()
     }
 }
 
-/// GET /git/:owner/:repo/info/refs   (also /:owner/:repo/info/refs for git.btcpc.net)
+/// GET /git/:owner/:repo/info/refs   (also /:owner/:repo/info/refs for git.honemesh.net)
 async fn git_info_refs(
     State(s): State<AppState>,
     Path((owner, repo)): Path<(String, String)>,
@@ -7656,17 +7656,17 @@ async fn get_ens_resolve(
     State(s): State<AppState>,
     Path(name): Path<String>,
 ) -> Json<serde_json::Value> {
-    let (text_record, eth_addr, btcpc_account) = tokio::join!(
-        crate::ens::resolve_text(&name, "btcpc"),
+    let (text_record, eth_addr, hone_account) = tokio::join!(
+        crate::ens::resolve_text(&name, "hone"),
         crate::ens::resolve_addr(&name),
-        crate::ens::btcpc_account_for_ens(&s.chain, &name),
+        crate::ens::hone_account_for_ens(&s.chain, &name),
     );
     Json(serde_json::json!({
         "ens_name": name,
         "eth_address": eth_addr,
-        "btcpc_text_record": text_record,
-        "btcpc_account": btcpc_account,
-        "resolved": btcpc_account.is_some(),
+        "hone_text_record": text_record,
+        "hone_account": hone_account,
+        "resolved": hone_account.is_some(),
     }))
 }
 
@@ -7676,11 +7676,11 @@ async fn get_ens_repos(
     State(s): State<AppState>,
     Path(name): Path<String>,
 ) -> Json<serde_json::Value> {
-    let account = crate::ens::btcpc_account_for_ens(&s.chain, &name).await;
+    let account = crate::ens::hone_account_for_ens(&s.chain, &name).await;
     let Some(ref acct) = account else {
         return Json(serde_json::json!({
             "ens_name": name,
-            "btcpc_account": null,
+            "hone_account": null,
             "repos": [],
             "error": "ENS name not linked to a HoneMesh account",
         }));
@@ -7692,26 +7692,26 @@ async fn get_ens_repos(
         .collect();
     Json(serde_json::json!({
         "ens_name": name,
-        "btcpc_account": account,
+        "hone_account": account,
         "repos": repos,
     }))
 }
 
 // ── POST /v1/chat/completions — OpenAI-compatible inference gateway ──────────
 //
-// External projects can point their OpenAI client at https://btcpc.net/v1
+// External projects can point their OpenAI client at https://honemesh.net/v1
 // and use any Ollama model running on the network.
 //
-// Auth: `Authorization: Bearer <btcpc_account>` — REQUIRED.
+// Auth: `Authorization: Bearer <hone_account>` — REQUIRED.
 //       Account must exist on-chain with sufficient balance.
-//       Fee of V1_INFERENCE_FEE_DREAMS is debited per request and credited to this node.
+//       Fee of V1_INFERENCE_FEE_HUNITS is debited per request and credited to this node.
 // Rate: 60 req/60s per IP
 
 /// Hunits charged per token (input + output) for /v1/chat/completions.
 /// 100 hunits/token means a 100-token exchange costs 10,000 hunits (0.0001 HONE).
-const DREAMS_PER_TOKEN: u64 = 100;
+const HUNITS_PER_TOKEN: u64 = 100;
 /// Minimum fee per request regardless of token count.
-const MIN_INFERENCE_FEE_DREAMS: u64 = 1_000;
+const MIN_INFERENCE_FEE_HUNITS: u64 = 1_000;
 
 #[derive(Deserialize)]
 struct OpenAiMessage {
@@ -7771,7 +7771,7 @@ async fn post_v1_chat_completions(
             None => {
                 return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({
                     "error": {
-                        "message": "Authorization required. Set Authorization: Bearer <btcpc_account>. Get an account via @btcpcbot on Telegram or POST /api/faucet/claim.",
+                        "message": "Authorization required. Set Authorization: Bearer <hone_account>. Get an account via @btcpcbot on Telegram or POST /api/faucet/claim.",
                         "type": "authentication_error"
                     }
                 }))).into_response();
@@ -7779,7 +7779,7 @@ async fn post_v1_chat_completions(
             Some(a) if a.is_empty() => {
                 return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({
                     "error": {
-                        "message": "Authorization required. Set Authorization: Bearer <btcpc_account>. Get an account via @btcpcbot on Telegram or POST /api/faucet/claim.",
+                        "message": "Authorization required. Set Authorization: Bearer <hone_account>. Get an account via @btcpcbot on Telegram or POST /api/faucet/claim.",
                         "type": "authentication_error"
                     }
                 }))).into_response();
@@ -7797,7 +7797,7 @@ async fn post_v1_chat_completions(
                 _ => {
                     return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({
                         "error": {
-                            "message": "Invalid API key. Generate one with `btcpc wallet api-key-gen` or create an account via @btcpcbot.",
+                            "message": "Invalid API key. Generate one with `hone wallet api-key-gen` or create an account via @btcpcbot.",
                             "type": "authentication_error"
                         }
                     }))).into_response();
@@ -7806,12 +7806,12 @@ async fn post_v1_chat_completions(
         };
         {
             let balance = s.chain.store.get_balance(&account, honemesh_types::NATIVE_TOKEN);
-            if balance < MIN_INFERENCE_FEE_DREAMS {
+            if balance < MIN_INFERENCE_FEE_HUNITS {
                 return (StatusCode::PAYMENT_REQUIRED, Json(serde_json::json!({
                     "error": {
                         "message": format!(
                             "Insufficient balance. Need at least {} hunits, have {}. Get tokens via @btcpcbot or POST /api/faucet/claim.",
-                            MIN_INFERENCE_FEE_DREAMS, balance
+                            MIN_INFERENCE_FEE_HUNITS, balance
                         ),
                         "type": "insufficient_quota"
                     }
@@ -7892,7 +7892,7 @@ async fn post_v1_chat_completions(
                             let prompt_tokens = v["prompt_eval_count"].as_u64().unwrap_or(0);
                             let completion_tokens = v["eval_count"].as_u64().unwrap_or(0);
                             let total_tokens = prompt_tokens + completion_tokens;
-                            let fee = (total_tokens * DREAMS_PER_TOKEN).max(MIN_INFERENCE_FEE_DREAMS);
+                            let fee = (total_tokens * HUNITS_PER_TOKEN).max(MIN_INFERENCE_FEE_HUNITS);
                             let balance = s_stream.chain.store.get_balance(&caller_stream, honemesh_types::NATIVE_TOKEN);
                             let actual_fee = fee.min(balance);
                             if actual_fee > 0 {
@@ -7924,7 +7924,7 @@ async fn post_v1_chat_completions(
                 let prompt_tokens = v["prompt_eval_count"].as_u64().unwrap_or(0);
                 let completion_tokens = v["eval_count"].as_u64().unwrap_or(0);
                 let total_tokens = prompt_tokens + completion_tokens;
-                let fee = (total_tokens * DREAMS_PER_TOKEN).max(MIN_INFERENCE_FEE_DREAMS);
+                let fee = (total_tokens * HUNITS_PER_TOKEN).max(MIN_INFERENCE_FEE_HUNITS);
                 let balance = s.chain.store.get_balance(&caller, honemesh_types::NATIVE_TOKEN);
                 let actual_fee = fee.min(balance);
                 if actual_fee > 0 {
@@ -7978,7 +7978,7 @@ async fn get_v1_models(State(s): State<AppState>) -> Json<serde_json::Value> {
         .into_iter()
         .map(|m| {
             let id = m["name"].as_str().unwrap_or("").to_owned();
-            serde_json::json!({ "id": id, "object": "model", "created": created, "owned_by": "btcpc" })
+            serde_json::json!({ "id": id, "object": "model", "created": created, "owned_by": "hone" })
         })
         .collect();
 
@@ -7986,7 +7986,7 @@ async fn get_v1_models(State(s): State<AppState>) -> Json<serde_json::Value> {
     let active = s.current_model.read().await.clone();
     let mut data = data;
     if !active.is_empty() && !data.iter().any(|m| m["id"].as_str() == Some(&active)) {
-        data.push(serde_json::json!({ "id": active, "object": "model", "created": created, "owned_by": "btcpc" }));
+        data.push(serde_json::json!({ "id": active, "object": "model", "created": created, "owned_by": "hone" }));
     }
 
     Json(serde_json::json!({ "object": "list", "data": data }))
@@ -7994,15 +7994,15 @@ async fn get_v1_models(State(s): State<AppState>) -> Json<serde_json::Value> {
 
 async fn get_v1_pricing(State(s): State<AppState>) -> Json<serde_json::Value> {
     let active_model = s.current_model.read().await.clone();
-    let tokens_per_btcpc = 100_000_000u64 / DREAMS_PER_TOKEN;
+    let tokens_per_hone = 100_000_000u64 / HUNITS_PER_TOKEN;
     Json(serde_json::json!({
         "currency": "hunits",
-        "hunits_per_btcpc": 100_000_000u64,
-        "tokens_per_btcpc": tokens_per_btcpc,
+        "hunits_per_hone": 100_000_000u64,
+        "tokens_per_hone": tokens_per_hone,
         "inference": {
-            "hunits_per_token": DREAMS_PER_TOKEN,
-            "min_fee_hunits": MIN_INFERENCE_FEE_DREAMS,
-            "price_per_1k_tokens_btcpc": (DREAMS_PER_TOKEN * 1000) as f64 / 100_000_000.0,
+            "hunits_per_token": HUNITS_PER_TOKEN,
+            "min_fee_hunits": MIN_INFERENCE_FEE_HUNITS,
+            "price_per_1k_tokens_hone": (HUNITS_PER_TOKEN * 1000) as f64 / 100_000_000.0,
             "active_model": active_model
         },
         "note": "Fee debited from your HoneMesh balance per request. Set Authorization: Bearer <account>."
@@ -8311,11 +8311,11 @@ async fn get_fee_estimate(State(s): State<AppState>) -> Json<serde_json::Value> 
     let base_fee: u64 = s.chain.store.state_get("chain_param:base_fee")
         .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
         .and_then(|j| j["fee"].as_u64())
-        .unwrap_or(honemesh_types::BASE_FEE_INITIAL_DREAMS);
+        .unwrap_or(honemesh_types::BASE_FEE_INITIAL_HUNITS);
     let suggested_priority = base_fee / 10; // 10% tip suggestion
     Json(serde_json::json!({
         "base_fee": base_fee,
-        "base_fee_btcpc": base_fee as f64 / HUNITS_PER_HONE as f64,
+        "base_fee_hone": base_fee as f64 / HUNITS_PER_HONE as f64,
         "suggested_priority": suggested_priority,
         "epoch": s.chain.current_epoch(),
     }))
@@ -8326,7 +8326,7 @@ async fn get_mempool_status(State(s): State<AppState>) -> Json<serde_json::Value
     let base_fee: u64 = s.chain.store.state_get("chain_param:base_fee")
         .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
         .and_then(|j| j["fee"].as_u64())
-        .unwrap_or(honemesh_types::BASE_FEE_INITIAL_DREAMS);
+        .unwrap_or(honemesh_types::BASE_FEE_INITIAL_HUNITS);
     let target = honemesh_types::EPOCH_TARGET_WEIGHT_UNITS;
     let congestion_pct = (pending as u64 * 100).min(target * 2) / target.max(1);
     Json(serde_json::json!({
@@ -8676,7 +8676,7 @@ async fn get_bridge_queue(State(s): State<AppState>) -> Json<serde_json::Value> 
 /// The oracle private key must be set in `HONE_ORACLE_KEY` (32-byte hex).
 #[derive(Deserialize)]
 struct BridgeClaimProofRequest {
-    btcpc_account: String,
+    hone_account: String,
     eth_address: String,
     amount_hunits: u64,
     chain_id: Option<u64>,
@@ -8705,7 +8705,7 @@ async fn post_bridge_claim_proof(
     ))?;
 
     // Check balance
-    let balance: u64 = s.chain.store.get_balance(&body.btcpc_account, NATIVE_TOKEN);
+    let balance: u64 = s.chain.store.get_balance(&body.hone_account, NATIVE_TOKEN);
     if balance < body.amount_hunits {
         return Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({
             "error": "insufficient balance",
@@ -8720,9 +8720,9 @@ async fn post_bridge_claim_proof(
         .ok().and_then(|v| v.try_into().ok())
         .ok_or_else(|| (StatusCode::BAD_REQUEST, Json(serde_json::json!({"error": "invalid eth_address"}))))?;
 
-    // btcpcAccount packed as bytes32 (right-padded)
+    // honeAccount packed as bytes32 (right-padded)
     let mut account_b32 = [0u8; 32];
-    let acct = body.btcpc_account.as_bytes();
+    let acct = body.hone_account.as_bytes();
     account_b32[..acct.len().min(32)].copy_from_slice(&acct[..acct.len().min(32)]);
 
     // amount in wHONE raw units: 1 hunit = 100 raw units (10 decimals vs 8)
@@ -8732,7 +8732,7 @@ async fn post_bridge_claim_proof(
     let chain_id = body.chain_id.unwrap_or(8453u64);
     let ts_ns = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos();
-    let nonce_input = format!("btcpc_claim:{}:{}:{}:{}", body.btcpc_account, body.amount_hunits, chain_id, ts_ns);
+    let nonce_input = format!("hone_claim:{}:{}:{}:{}", body.hone_account, body.amount_hunits, chain_id, ts_ns);
     let nonce_b32: [u8; 32] = Keccak256::digest(nonce_input.as_bytes()).into();
     let nonce_hex = hex::encode(&nonce_b32);
     let nonce_key = format!("cc_nonce:{}", &nonce_hex);
@@ -8773,34 +8773,34 @@ async fn post_bridge_claim_proof(
     let _ = s.chain.store.state_set(&nonce_key, &serde_json::to_vec(&ts_ns).unwrap());
 
     // Burn HoneMesh via BridgeWrap
-    let tx_nonce: u64 = s.chain.store.get_account(&body.btcpc_account)
+    let tx_nonce: u64 = s.chain.store.get_account(&body.hone_account)
         .ok().flatten()
         .and_then(|st| st.get("nonce").and_then(|v| v.as_u64()))
         .unwrap_or(0);
     let epoch = s.chain.current_epoch();
     let wrap_entry = honemesh_types::LedgerEntry::BridgeWrap {
-        account: body.btcpc_account.clone(),
+        account: body.hone_account.clone(),
         amount_hunits: body.amount_hunits,
         external_address: format!("0x{}", hex::encode(&eth_bytes)),
         chain: format!("eip155:{}", chain_id),
         epoch,
         nonce: tx_nonce,
-        signed_by: body.btcpc_account.clone(),
+        signed_by: body.hone_account.clone(),
         signature: body.signature.clone(),
     };
     s.chain.push_pending(wrap_entry.clone(), body.signature.clone());
     let _ = s.tx_broadcast.send((wrap_entry, body.signature));
 
     Ok(Json(serde_json::json!({
-        "btcpc_account": body.btcpc_account,
+        "hone_account": body.hone_account,
         "eth_address": format!("0x{}", hex::encode(&eth_bytes)),
         "amount_hunits": body.amount_hunits,
-        "amount_wbtcpc_raw": amount_raw.to_string(),
+        "amount_whone_raw": amount_raw.to_string(),
         "chain_id": chain_id,
         "nonce": format!("0x{}", nonce_hex),
         "signature": format!("0x{}", hex::encode(&sig_65)),
         "claim_fee_wei": "100000000000000",
-        "note": "Call wHONE.claim(btcpcAccount, amount, nonce, signature) on Base. Send claim_fee_wei as msg.value."
+        "note": "Call wHONE.claim(honeAccount, amount, nonce, signature) on Base. Send claim_fee_wei as msg.value."
     })))
 }
 
@@ -10424,7 +10424,7 @@ async fn get_vrf_round(
 #[derive(Deserialize)]
 struct TonActivateBody {
     /// The user's HoneMesh account name — must exist on-chain and sign this entry.
-    btcpc_account:  String,
+    hone_account:  String,
     ton_address:    String,
     source_chain:   String,  // "tron" | "ethereum"
     source_address: String,
@@ -10449,14 +10449,14 @@ async fn post_ton_activate(
     };
 
     let entry = honemesh_types::LedgerEntry::TonActivationIntent {
-        btcpc_account:  body.btcpc_account.clone(),
+        hone_account:  body.hone_account.clone(),
         ton_address:    body.ton_address.clone(),
         source_chain:   body.source_chain.clone(),
         source_address: body.source_address.clone(),
         usdt_amount:    2_000_000, // 2 USDT
         epoch,
         nonce:          body.nonce,
-        signed_by:      body.btcpc_account.clone(),
+        signed_by:      body.hone_account.clone(),
     };
 
     let sig_ref = body.signature.as_deref();

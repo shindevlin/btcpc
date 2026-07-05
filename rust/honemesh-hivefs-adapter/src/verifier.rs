@@ -7,16 +7,16 @@
 use anyhow::{bail, Context, Result};
 use sha2::{Digest, Sha256};
 
-use crate::btcpc_client::{compute_challenge_hash, BtcpcClient, HiveVerifyParams};
+use crate::hone_client::{compute_challenge_hash, HoneClient, HiveVerifyParams};
 use crate::hive_client::HiveClient;
 
 /// Environment-sourced verifier configuration.
 pub struct VerifierConfig {
     #[allow(dead_code)]
-    pub btcpc_node_id: String,          // the storage node being verified (kept for config symmetry)
-    pub btcpc_verifier_id: String,      // this verifier's HoneMesh account
-    pub btcpc_verifier_key_hex: String, // ed25519 hex key for HONE_VERIFIER_KEY
-    pub btcpc_api_url: String,
+    pub hone_node_id: String,          // the storage node being verified (kept for config symmetry)
+    pub hone_verifier_id: String,      // this verifier's HoneMesh account
+    pub hone_verifier_key_hex: String, // ed25519 hex key for HONE_VERIFIER_KEY
+    pub hone_api_url: String,
     pub hive_api_url: String,
     pub hive_account: String, // Hive account that originally posted the custom_json
 }
@@ -27,13 +27,13 @@ impl VerifierConfig {
         // HONE_NODE_ID is the storage node being verified.
         // HIVE_ACCOUNT is the Hive account that originally broadcast the custom_json.
         Ok(Self {
-            btcpc_node_id: std::env::var("HONE_NODE_ID")
+            hone_node_id: std::env::var("HONE_NODE_ID")
                 .context("HONE_NODE_ID not set")?,
-            btcpc_verifier_id: std::env::var("HONE_VERIFIER_ID")
+            hone_verifier_id: std::env::var("HONE_VERIFIER_ID")
                 .context("HONE_VERIFIER_ID not set")?,
-            btcpc_verifier_key_hex: std::env::var("HONE_VERIFIER_KEY")
+            hone_verifier_key_hex: std::env::var("HONE_VERIFIER_KEY")
                 .context("HONE_VERIFIER_KEY not set")?,
-            btcpc_api_url: std::env::var("HONE_API_URL")
+            hone_api_url: std::env::var("HONE_API_URL")
                 .unwrap_or_else(|_| "http://localhost:4242".into()),
             hive_api_url: std::env::var("HIVE_API_URL")
                 .unwrap_or_else(|_| "https://api.hive.blog".into()),
@@ -99,9 +99,9 @@ pub async fn run_verify(
     }
 
     // ── 4. Fetch prev_seal_hash and compute challenge hash ───────────────────
-    let btcpc = BtcpcClient::new(&cfg.btcpc_api_url);
+    let hone = HoneClient::new(&cfg.hone_api_url);
     let prev_epoch = epoch.saturating_sub(1);
-    let prev_seal_hash = btcpc.block_hash(prev_epoch).await?;
+    let prev_seal_hash = hone.block_hash(prev_epoch).await?;
     if prev_seal_hash.is_empty() {
         bail!(
             "epoch {} block hash not available from HoneMesh node — is the epoch finalized?",
@@ -121,11 +121,11 @@ pub async fn run_verify(
 
     // ── 5. Submit HiveReplicaVerify ───────────────────────────────────────────
     let verify_params = HiveVerifyParams {
-        verifier: cfg.btcpc_verifier_id.clone(),
+        verifier: cfg.hone_verifier_id.clone(),
         node_id: node_id.clone(),
         cid: cid.clone(),
         hive_account: cfg.hive_account.clone(),
-        custom_json_id: "btcpc_fs_v1".into(),
+        custom_json_id: "hone_fs_v1".into(),
         hive_block_num,
         hive_tx_id: hive_tx_id.clone(),
         op_index,
@@ -136,8 +136,8 @@ pub async fn run_verify(
         challenge_hash,
     };
 
-    let resp = btcpc
-        .post_hive_verify(verify_params, &cfg.btcpc_verifier_key_hex)
+    let resp = hone
+        .post_hive_verify(verify_params, &cfg.hone_verifier_key_hex)
         .await?;
 
     eprintln!("HiveReplicaVerify submitted: {}", resp);
@@ -162,7 +162,7 @@ struct ParsedPayload {
 /// Extract and parse the `custom_json` field from a Hive operation.
 ///
 /// The operation shape from condenser_api.get_ops_in_block is:
-/// `{ "op": ["custom_json", { "id": "btcpc_fs_v1", "json": "..." }], ... }`
+/// `{ "op": ["custom_json", { "id": "hone_fs_v1", "json": "..." }], ... }`
 /// or in some API versions:
 /// `{ "type": "custom_json_operation", "value": { "id": "...", "json": "..." } }`
 fn parse_custom_json_op(op: &serde_json::Value) -> Result<ParsedPayload> {
@@ -172,9 +172,9 @@ fn parse_custom_json_op(op: &serde_json::Value) -> Result<ParsedPayload> {
         .get("id")
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    if id != "btcpc_fs_v1" {
+    if id != "hone_fs_v1" {
         bail!(
-            "expected Hive op id 'btcpc_fs_v1', got '{}'",
+            "expected Hive op id 'hone_fs_v1', got '{}'",
             id
         );
     }
@@ -255,11 +255,11 @@ fn extract_op_body(op: &serde_json::Value) -> Result<&serde_json::Value> {
 
 fn payload_type_to_kind(t: &str) -> Result<String> {
     match t {
-        "btcpc_fs_manifest_v1" => Ok("manifest".into()),
-        "btcpc_fs_chunk_v1" => Ok("chunk".into()),
-        "btcpc_fs_parity_v1" => Ok("parity".into()),
+        "hone_fs_manifest_v1" => Ok("manifest".into()),
+        "hone_fs_chunk_v1" => Ok("chunk".into()),
+        "hone_fs_parity_v1" => Ok("parity".into()),
         other => bail!(
-            "unknown btcpc_fs payload type '{}'; expected btcpc_fs_{{manifest,chunk,parity}}_v1",
+            "unknown hone_fs payload type '{}'; expected hone_fs_{{manifest,chunk,parity}}_v1",
             other
         ),
     }

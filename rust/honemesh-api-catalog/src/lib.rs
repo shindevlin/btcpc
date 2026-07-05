@@ -440,7 +440,7 @@ fn now_unix_secs() -> u64 {
 #[cfg(feature = "verify")]
 pub fn default_http_client() -> Result<reqwest::Client, reqwest::Error> {
     reqwest::Client::builder()
-        .user_agent("btcpc-api-catalog/0.1 (+https://btcpc.net)")
+        .user_agent("honemesh-api-catalog/0.1 (+https://honemesh.net)")
         .timeout(std::time::Duration::from_secs(15))
         .redirect(reqwest::redirect::Policy::limited(5))
         .build()

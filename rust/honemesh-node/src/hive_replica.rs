@@ -356,11 +356,11 @@ mod tests {
 
     fn make_chain(label: &str) -> (Chain, tempfile::TempDir) {
         let dir = tempfile::Builder::new()
-            .prefix(&format!("btcpc_hive_replica_{}_", label))
+            .prefix(&format!("hone_hive_replica_{}_", label))
             .tempdir()
             .unwrap();
         let store = crate::store::Store::open(dir.path()).unwrap();
-        let chain = Chain::new(store, format!("node-{}", label), "btcpc-test".to_string());
+        let chain = Chain::new(store, format!("node-{}", label), "hone-test".to_string());
         chain
             .store
             .state_set("epoch_seal_hash:0", b"prev-seal")
@@ -381,9 +381,9 @@ mod tests {
     fn commit(node_id: &str, kind: &str, bytes: u64) -> LedgerEntry {
         LedgerEntry::HiveReplicaCommit {
             node_id: node_id.to_string(),
-            cid: "bafybtcpcblob".to_string(),
-            hive_account: "btcpc.hive".to_string(),
-            custom_json_id: "btcpc_fs_v1".to_string(),
+            cid: "bafyhoneblob".to_string(),
+            hive_account: "hone.hive".to_string(),
+            custom_json_id: "hone_fs_v1".to_string(),
             hive_block_num: 42,
             hive_tx_id: "0123456789abcdef0123456789abcdef01234567".to_string(),
             op_index: 0,
@@ -403,7 +403,7 @@ mod tests {
         let challenge_hash = expected_challenge_hash(
             chain,
             node_id,
-            "bafybtcpcblob",
+            "bafyhoneblob",
             "0123456789abcdef0123456789abcdef01234567",
             1,
         )
@@ -411,9 +411,9 @@ mod tests {
         LedgerEntry::HiveReplicaVerify {
             verifier: verifier.to_string(),
             node_id: node_id.to_string(),
-            cid: "bafybtcpcblob".to_string(),
-            hive_account: "btcpc.hive".to_string(),
-            custom_json_id: "btcpc_fs_v1".to_string(),
+            cid: "bafyhoneblob".to_string(),
+            hive_account: "hone.hive".to_string(),
+            custom_json_id: "hone_fs_v1".to_string(),
             hive_block_num: 42,
             hive_tx_id: "0123456789abcdef0123456789abcdef01234567".to_string(),
             op_index: 0,

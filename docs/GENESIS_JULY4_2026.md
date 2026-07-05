@@ -3,7 +3,7 @@ title: BTCPC Genesis v2 — July 4th, 2026 (Freedom Tech Relaunch)
 description: Plan for review — why we reset the chain, the recoverable-keystore fix, and the wallet recreation for every project
 author: Shin Devlin
 status: DRAFT — for review before any build
-supersedes_genesis: 1777633200000 (May 1 2026, "Mayday")
+supersedes_genesis: 1783191600000 (May 1 2026, "Mayday")
 ---
 
 # BTCPC Genesis v2 — July 4th, 2026
@@ -16,13 +16,13 @@ supersedes_genesis: 1777633200000 (May 1 2026, "Mayday")
 
 ## 1. Why reset the chain
 
-The current chain (genesis `1777633200000`, May 1 2026) carries a **fatal,
+The current chain (genesis `1783191600000`, May 1 2026) carries a **fatal,
 unfixable-in-place flaw**: **wallets were created without any recoverable key
 storage.**
 
 - The SDK's `Wallet::save_to_file` writes **only public keys** — by design:
   *"No private key, no mnemonic, no seed — those must be kept by the user."*
-  (`rust/btcpc-sdk/src/lib.rs:1445`).
+  (`rust/honemesh-sdk/src/lib.rs:1445`).
 - The mnemonic was shown once (if at all) and discarded. In practice it was
   **never durably delivered** — confirmed: not on either PC, not in Telegram,
   not in Signal.
@@ -46,7 +46,7 @@ genesis to July 4 2026 makes the mission the launch.
 
 - **New genesis timestamp: `1783191600000`** = 2026-07-04 12:00:00 PDT (noon Los Angeles)
   (19:00 UTC). Noon Pacific (Los Angeles) on Independence Day.
-- Retires the "Mayday" / May 1 anchor (`1777633200000`).
+- Retires the "Mayday" / May 1 anchor (`1783191600000`).
 - 64 days after the old genesis — a real, deliberate relaunch, not a slip.
 
 *(Locked to noon Pacific / Los Angeles — Shin's call.)*
@@ -122,7 +122,7 @@ to git (the vault is gitignored).
 
 ## 5. Whitepaper update
 
-`docs/BTCPC_WHITEPAPER.md` updated to reflect:
+`docs/HONE_WHITEPAPER.md` updated to reflect:
 - New genesis (July 4 2026, 250th anniversary) and the freedom-tech framing.
 - The recoverable-keystore model as a **first-class sovereignty guarantee**:
   self-custody with real recovery, no silent key loss.
@@ -134,7 +134,7 @@ to git (the vault is gitignored).
    in `btcpc-sdk`, with tests (round-trip, wrong-password rejection, tamper
    detection). *No chain changes yet.*
 2. **Wallet-creation flow** — make keystore-writing mandatory; add the
-   mnemonic-shown-once confirmation gate; add `btcpc wallet new` / `import` /
+   mnemonic-shown-once confirmation gate; add `hone wallet new` / `import` /
    `unlock` commands.
 3. **Local wallet vault** — recreate the operated accounts (§4), write their
    keystores into a gitignored `wallets/`, produce `wallets/INDEX.md`.
@@ -158,5 +158,5 @@ to git (the vault is gitignored).
 2. Any accounts missing from the §4 list that you want wallets for?
 3. Should the local `wallets/` vault live in the btcpc repo (gitignored) or a
    separate path you name?
-4. Keep chain IDs (`btcpc-1` mainnet / `btcpc-satoshi` testnet), or new IDs to
+4. Keep chain IDs (`hone` mainnet / `hone-testnet` testnet), or new IDs to
    cleanly separate v2 from v1?

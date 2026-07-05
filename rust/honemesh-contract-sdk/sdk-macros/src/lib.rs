@@ -3,15 +3,15 @@ Procedural macros for HoneMesh smart contracts.
 
 # Attributes
 
-- `#[btcpc_contract]` — on a struct: derives Borsh, adds state load/save logic
-- `#[btcpc_impl]` — on an impl block: generates the WASM dispatch table
+- `#[hone_contract]` — on a struct: derives Borsh, adds state load/save logic
+- `#[hone_impl]` — on an impl block: generates the WASM dispatch table
 - `#[init]` — marks the constructor (called once on CONTRACT_DEPLOY)
 - `#[call]` — public state-changing method (costs EB)
 - `#[view]` — public read-only method (cheaper EB, no state write)
 - `#[private]` — only callable by the contract itself (for callbacks)
 - `#[callback]` — receives the result of a cross-contract call
 
-The `#[btcpc_impl]` macro on an impl block generates a `__btcpc_dispatch()`
+The `#[hone_impl]` macro on an impl block generates a `__hone_dispatch()`
 extern "C" function that:
   1. Reads the method name and JSON args from host registers
   2. Loads contract state from storage (for non-view methods)
@@ -27,7 +27,7 @@ use syn::{parse_macro_input, DeriveInput, ItemImpl, ImplItem, ImplItemFn, FnArg,
 
 /// Mark a struct as a HoneMesh smart contract.
 #[proc_macro_attribute]
-pub fn btcpc_contract(_attr: TokenStream, input: TokenStream) -> TokenStream {
+pub fn hone_contract(_attr: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
 
@@ -61,7 +61,7 @@ pub fn btcpc_contract(_attr: TokenStream, input: TokenStream) -> TokenStream {
 
 /// Generate the WASM dispatch table for an impl block.
 #[proc_macro_attribute]
-pub fn btcpc_impl(_attr: TokenStream, input: TokenStream) -> TokenStream {
+pub fn hone_impl(_attr: TokenStream, input: TokenStream) -> TokenStream {
     let impl_block = parse_macro_input!(input as ItemImpl);
     let self_ty = &impl_block.self_ty;
 
@@ -135,7 +135,7 @@ pub fn btcpc_impl(_attr: TokenStream, input: TokenStream) -> TokenStream {
         // Single WASM entry point called by the runtime.
         #[cfg(target_arch = "wasm32")]
         #[no_mangle]
-        pub extern "C" fn __btcpc_dispatch() {
+        pub extern "C" fn __hone_dispatch() {
             let method = ::honemesh_contract_sdk::env::read_method_name();
             match method.as_str() {
                 #(#init_arms)*

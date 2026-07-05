@@ -1,7 +1,7 @@
 {
-  "name": "BTCPC Sensor",
-  "short_name": "BTCPC Sensor",
-  "description": "Turn your phone into a BTCPC sensor node. Earn from the IoT pool by sharing sensor data.",
+  "name": "HoneMesh Sensor",
+  "short_name": "HoneMesh Sensor",
+  "description": "Turn your phone into a HoneMesh sensor node. Earn from the IoT pool by sharing sensor data.",
   "start_url": "/app",
   "display": "standalone",
   "orientation": "portrait",

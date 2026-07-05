@@ -38,7 +38,7 @@ fn to_spki_der(verifying_key: &VerifyingKey) -> Vec<u8> {
 fn key_path(sensor_id: &str) -> PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
     let data_dir = std::env::var("HONE_DATA_DIR")
-        .unwrap_or_else(|_| format!("{}/.btcpc", home));
+        .unwrap_or_else(|_| format!("{}/.honemesh", home));
     // Sanitize sensor_id for use in filename (replace / with -)
     let safe_id = sensor_id.replace('/', "-");
     PathBuf::from(data_dir).join(format!("sensor-{}.key", safe_id))

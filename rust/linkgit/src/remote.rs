@@ -39,7 +39,7 @@ pub async fn run(client: Client, owner: String, repo: String) -> Result<()> {
             let parts: Vec<&str> = line.splitn(3, ' ').collect();
             if parts.len() >= 2 {
                 let _sha = parts[1];
-                // Phase 2: retrieve pack data from btcpc-fs by CID and write to .git/objects
+                // Phase 2: retrieve pack data from hone-fs by CID and write to .git/objects
             }
             writeln!(out, "")?;
             out.flush()?;

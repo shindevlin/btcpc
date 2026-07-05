@@ -18,7 +18,7 @@
 //!   1. TCP connect to SAM host:port (default 127.0.0.1:7656)
 //!   2. Handshake:  HELLO VERSION MIN=3.0 MAX=3.3\n
 //!      Response:   HELLO REPLY RESULT=OK VERSION=3.x
-//!   3. Session:    SESSION CREATE STYLE=DATAGRAM ID=btcpc-i2p DESTINATION=TRANSIENT PORT=<udp>\n
+//!   3. Session:    SESSION CREATE STYLE=DATAGRAM ID=honemesh-i2p DESTINATION=TRANSIENT PORT=<udp>\n
 //!      Response:   SESSION STATUS RESULT=OK DESTINATION=<base64>
 //!   4. Actual datagrams arrive on the UDP port specified in step 3.
 //!      The TCP control connection must stay open — dropping it kills the session.
@@ -147,7 +147,7 @@ async fn try_start(
 
     // ── SESSION CREATE (DATAGRAM) ────────────────────────────────────────────
     let session_cmd = format!(
-        "SESSION CREATE STYLE=DATAGRAM ID=btcpc-i2p DESTINATION=TRANSIENT PORT={}\n",
+        "SESSION CREATE STYLE=DATAGRAM ID=honemesh-i2p DESTINATION=TRANSIENT PORT={}\n",
         udp_port
     );
     writer.write_all(session_cmd.as_bytes()).await.ok()?;
@@ -336,11 +336,11 @@ mod tests {
 
     fn make_chain_and_cmd_tx() -> (Arc<Chain>, tokio::sync::mpsc::Sender<crate::net::NetCmd>, TempDir) {
         let dir = tempfile::Builder::new()
-            .prefix("btcpc_i2p_test_")
+            .prefix("hone_i2p_test_")
             .tempdir()
             .expect("tempdir");
         let store = crate::store::Store::open(dir.path()).expect("store open");
-        let chain = Arc::new(Chain::new(store, "i2p-test-node".into(), "btcpc-satoshi".into()));
+        let chain = Arc::new(Chain::new(store, "i2p-test-node".into(), "hone-testnet".into()));
         let (cmd_tx, _cmd_rx) = tokio::sync::mpsc::channel(64);
         (chain, cmd_tx, dir)
     }

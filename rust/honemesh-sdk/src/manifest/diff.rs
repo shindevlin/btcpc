@@ -191,8 +191,8 @@ pub fn diff_manifests(old: &Manifest, new: &Manifest, filter: Option<&Filter>) -
     });
 
     ManifestDiff {
-        from_version: old.btcpc_version.clone(),
-        to_version: new.btcpc_version.clone(),
+        from_version: old.hone_version.clone(),
+        to_version: new.hone_version.clone(),
         from_surface_hash: old.surface_hash.clone(),
         to_surface_hash: new.surface_hash.clone(),
         changes,
@@ -338,8 +338,8 @@ mod tests {
         }
         Manifest {
             schema_version: 1,
-            btcpc_version: "1.0.0".into(),
-            chain_id: "btcpc-1".into(),
+            hone_version: "1.0.0".into(),
+            chain_id: "hone".into(),
             surface_hash: "h".into(),
             entries: map,
             routes: BTreeMap::new(),

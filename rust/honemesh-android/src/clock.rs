@@ -244,7 +244,7 @@ pub async fn run(
                             "rewards_hash": rewards_hash,
                         })) {
                             let _ = cmd_tx_clone.send(NetCmd::Broadcast {
-                                topic: "btcpc/consensus",
+                                topic: "hone/consensus",
                                 data,
                             }).await;
                         }
@@ -282,7 +282,7 @@ pub async fn run(
                         let envelope = serde_json::json!({"entry": entry});
                         if let Ok(data) = serde_json::to_vec(&envelope) {
                             let _ = cmd_tx_fin.send(NetCmd::Broadcast {
-                                topic: "btcpc/entries",
+                                topic: "hone/entries",
                                 data,
                             }).await;
                         }
@@ -340,7 +340,7 @@ pub async fn run(
         // Broadcast to peers.
         if let Ok(data) = serde_json::to_vec(&seal) {
             let _ = cmd_tx_c.send(NetCmd::Broadcast {
-                topic: "btcpc/seals",
+                topic: "hone/seals",
                 data,
             }).await;
         }
@@ -606,7 +606,7 @@ async fn broadcast_entry(
     let envelope = serde_json::json!({"entry": entry});
     if let Ok(data) = serde_json::to_vec(&envelope) {
         cmd_tx.send(crate::net::NetCmd::Broadcast {
-            topic: "btcpc/entries",
+            topic: "hone/entries",
             data,
         }).await.is_ok()
     } else {

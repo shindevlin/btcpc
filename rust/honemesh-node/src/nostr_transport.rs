@@ -154,12 +154,12 @@ async fn try_start(
 
     client.connect().await;
 
-    // Subscribe: kind + #p = "btcpc" (protocol marker tag, filtered relay-side).
+    // Subscribe: kind + #p = "hone" (protocol marker tag, filtered relay-side).
     // The `chain` and `h` tags are validated client-side only since relay-side
     // filtering only indexes single-letter tags (NIP-01).
     let filter = Filter::new()
         .kind(Kind::Custom(kind_num))
-        .custom_tag(SingleLetterTag::lowercase(Alphabet::P), ["btcpc"]);
+        .custom_tag(SingleLetterTag::lowercase(Alphabet::P), ["hone"]);
 
     if let Err(e) = client.subscribe(vec![filter], None).await {
         warn!("nostr: subscription failed: {}", e);
@@ -167,7 +167,7 @@ async fn try_start(
     }
 
     info!(
-        "nostr: subscribed to kind {} events tagged #p=btcpc on {} relay(s)",
+        "nostr: subscribed to kind {} events tagged #p=hone on {} relay(s)",
         kind_num,
         relay_urls.len()
     );
@@ -367,7 +367,7 @@ async fn run_send_loop(
 
         // Build and sign the event.
         let event_result = EventBuilder::new(event_kind.clone(), content)
-            .tag(Tag::custom(TagKind::custom("p"),     ["btcpc"]))
+            .tag(Tag::custom(TagKind::custom("p"),     ["hone"]))
             .tag(Tag::custom(TagKind::custom("chain"), [chain_id.as_str()]))
             .tag(Tag::custom(TagKind::custom("h"),     [entry_hash_hex.as_str()]))
             .sign_with_keys(&keys);
@@ -406,11 +406,11 @@ mod tests {
 
     fn make_chain_and_cmd_tx() -> (Arc<Chain>, tokio::sync::mpsc::Sender<crate::net::NetCmd>, TempDir) {
         let dir = tempfile::Builder::new()
-            .prefix("btcpc_nostr_test_")
+            .prefix("hone_nostr_test_")
             .tempdir()
             .expect("tempdir");
         let store = crate::store::Store::open(dir.path()).expect("store open");
-        let chain = Arc::new(Chain::new(store, "nostr-test-node".into(), "btcpc-satoshi".into()));
+        let chain = Arc::new(Chain::new(store, "nostr-test-node".into(), "hone-testnet".into()));
         let (cmd_tx, _cmd_rx) = tokio::sync::mpsc::channel(64);
         (chain, cmd_tx, dir)
     }
@@ -423,7 +423,7 @@ mod tests {
         std::env::remove_var("HONE_NOSTR");
 
         let (chain, cmd_tx, _dir) = make_chain_and_cmd_tx();
-        let result = start_nostr(chain, cmd_tx, "btcpc-satoshi".into()).await;
+        let result = start_nostr(chain, cmd_tx, "hone-testnet".into()).await;
 
         assert!(
             result.is_none(),
@@ -453,7 +453,7 @@ mod tests {
 
         let result = tokio::time::timeout(
             std::time::Duration::from_secs(10),
-            start_nostr(chain, cmd_tx, "btcpc-satoshi".into()),
+            start_nostr(chain, cmd_tx, "hone-testnet".into()),
         )
         .await;
 
@@ -477,7 +477,7 @@ mod tests {
         std::env::set_var("HONE_NOSTR_RELAYS", ",");
 
         let (chain, cmd_tx, _dir) = make_chain_and_cmd_tx();
-        let result = start_nostr(chain, cmd_tx, "btcpc-satoshi".into()).await;
+        let result = start_nostr(chain, cmd_tx, "hone-testnet".into()).await;
 
         std::env::remove_var("HONE_NOSTR");
         std::env::remove_var("HONE_NOSTR_RELAYS");

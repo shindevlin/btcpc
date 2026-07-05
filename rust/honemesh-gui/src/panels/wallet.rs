@@ -1,5 +1,5 @@
 use super::{
-    AppData, dreams_to_btcpc, parse_btcpc_input,
+    AppData, hunits_to_hone, parse_hone_input,
     not_signed_in, active_key_required, section_heading, card,
     GREEN, BLUE, YELLOW, DIM_TEXT, ORANGE,
 };
@@ -22,7 +22,7 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
     card(ui, |ui| {
         ui.vertical_centered(|ui| {
             let balance_str = data.balance
-                .map(|b| dreams_to_btcpc(b))
+                .map(|b| hunits_to_hone(b))
                 .unwrap_or_else(|| "—".to_string());
 
             ui.label(egui::RichText::new(&balance_str)
@@ -37,7 +37,7 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
                 ui.vertical_centered(|ui| {
                     ui.label(egui::RichText::new("Staked").size(11.0).color(DIM_TEXT));
                     ui.label(egui::RichText::new(
-                        data.staked.map(|s| format!("{} HoneMesh", dreams_to_btcpc(s)))
+                        data.staked.map(|s| format!("{} HONE", hunits_to_hone(s)))
                             .unwrap_or_else(|| "—".to_string())
                     ).size(13.0).color(BLUE));
                 });
@@ -108,7 +108,7 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
                 if to.is_empty() {
                     data.forms.transfer_result = Some((false, "recipient is required".into()));
                 } else {
-                    match (key_file, parse_btcpc_input(&data.forms.transfer_amount)) {
+                    match (key_file, parse_hone_input(&data.forms.transfer_amount)) {
                         (_, None) => {
                             data.forms.transfer_result = Some((false, "invalid amount".into()));
                         }
@@ -159,9 +159,9 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
                 }
                 ui.add_space(8.0);
                 // wHONE balance
-                let bal_str = match data.wbtcpc_balance {
-                    Some(b) => format!("{} wHONE", dreams_to_btcpc(b)),
-                    None if data.wbtcpc_contract.is_empty() => "configure contract →".into(),
+                let bal_str = match data.whone_balance {
+                    Some(b) => format!("{} wHONE", hunits_to_hone(b)),
+                    None if data.whone_contract.is_empty() => "configure contract →".into(),
                     None => "—".into(),
                 };
                 ui.label(egui::RichText::new(bal_str).size(11.0).color(ORANGE));

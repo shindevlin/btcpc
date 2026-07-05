@@ -51,7 +51,7 @@ pub async fn run_miner(
         let (input_tokens, output_tokens, output_hash) = {
             let mut engine = llm.lock().await;
             if engine.ensure_ready().await {
-                let prompt = format!("btcpc epoch {} miner {}", next_epoch, account);
+                let prompt = format!("hone epoch {} miner {}", next_epoch, account);
                 match engine.generate(&prompt, 64).await {
                     Ok(output) => {
                         // candle doesn't expose input token count — approximate from whitespace
@@ -91,7 +91,7 @@ pub async fn run_miner(
         let envelope = serde_json::json!({"entry": entry});
         if let Ok(data) = serde_json::to_vec(&envelope) {
             let _ = cmd_tx.send(NetCmd::Broadcast {
-                topic: "btcpc/entries",
+                topic: "hone/entries",
                 data,
             }).await;
         }

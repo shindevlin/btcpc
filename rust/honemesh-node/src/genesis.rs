@@ -37,7 +37,7 @@ pub fn init_genesis(chain: &Chain, genesis_file: Option<&Path>, genesis_timestam
                         info!("chain_id migrated: '{}' → '{}'", stored_id, chain.chain_id);
                     } else {
                         eprintln!(
-                            "btcpc-node: chain_id mismatch — this database was initialized as '{}' \
+                            "honemesh-node: chain_id mismatch — this database was initialized as '{}' \
                              but HONE_CHAIN_ID='{}'. Use a separate HONE_DATA_DIR for each chain. \
                              To migrate deliberately, set HONE_CHAIN_ID_MIGRATION=1 for one restart.",
                             stored_id, chain.chain_id

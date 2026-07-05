@@ -126,7 +126,7 @@ async fn fire_alert(
 
     if let Some(url) = webhook {
         let payload = serde_json::json!({
-            "text": format!("[btcpc-node] {} — {}", kind, message),
+            "text": format!("[honemesh-node] {} — {}", kind, message),
             "event": event,
         });
         let _ = http.post(url).json(&payload).send().await;

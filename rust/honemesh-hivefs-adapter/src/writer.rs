@@ -9,16 +9,16 @@ use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use sha2::{Digest, Sha256};
 use std::path::Path;
 
-use crate::btcpc_client::{BtcpcClient, HiveCommitParams};
+use crate::hone_client::{HoneClient, HiveCommitParams};
 use crate::hive_client::{HiveClient, MIN_CONFIRMATIONS};
 
 /// Environment-sourced writer configuration.
 pub struct WriterConfig {
     pub hive_account: String,
     pub hive_posting_key_hex: String,
-    pub btcpc_node_id: String,
-    pub btcpc_posting_key_hex: String,
-    pub btcpc_api_url: String,
+    pub hone_node_id: String,
+    pub hone_posting_key_hex: String,
+    pub hone_api_url: String,
     pub hive_api_url: String,
 }
 
@@ -29,11 +29,11 @@ impl WriterConfig {
                 .context("HIVE_ACCOUNT not set")?,
             hive_posting_key_hex: std::env::var("HIVE_POSTING_KEY")
                 .context("HIVE_POSTING_KEY not set")?,
-            btcpc_node_id: std::env::var("HONE_NODE_ID")
+            hone_node_id: std::env::var("HONE_NODE_ID")
                 .context("HONE_NODE_ID not set")?,
-            btcpc_posting_key_hex: std::env::var("HONE_POSTING_KEY")
+            hone_posting_key_hex: std::env::var("HONE_POSTING_KEY")
                 .context("HONE_POSTING_KEY not set")?,
-            btcpc_api_url: std::env::var("HONE_API_URL")
+            hone_api_url: std::env::var("HONE_API_URL")
                 .unwrap_or_else(|_| "http://localhost:4242".into()),
             hive_api_url: std::env::var("HIVE_API_URL")
                 .unwrap_or_else(|_| "https://api.hive.blog".into()),
@@ -79,7 +79,7 @@ pub async fn run_write(
     let mut tx = hive.build_custom_json_tx(
         &props,
         &cfg.hive_account,
-        "btcpc_fs_v1",
+        "hone_fs_v1",
         &hive_json_payload,
     );
     HiveClient::sign_tx_placeholder(&mut tx, &cfg.hive_posting_key_hex)?;
@@ -101,12 +101,12 @@ pub async fn run_write(
     eprintln!("confirmed in block ~{}", hive_block_num);
 
     // ── 5. Submit HiveReplicaCommit ───────────────────────────────────────────
-    let btcpc = BtcpcClient::new(&cfg.btcpc_api_url);
+    let hone = HoneClient::new(&cfg.hone_api_url);
     let commit_params = HiveCommitParams {
-        node_id: cfg.btcpc_node_id.clone(),
+        node_id: cfg.hone_node_id.clone(),
         cid: cid.clone(),
         hive_account: cfg.hive_account.clone(),
-        custom_json_id: "btcpc_fs_v1".into(),
+        custom_json_id: "hone_fs_v1".into(),
         hive_block_num,
         hive_tx_id: hive_tx_id.clone(),
         op_index,
@@ -117,8 +117,8 @@ pub async fn run_write(
         confirmations,
     };
 
-    let resp = btcpc
-        .post_hive_commit(commit_params, &cfg.btcpc_posting_key_hex)
+    let resp = hone
+        .post_hive_commit(commit_params, &cfg.hone_posting_key_hex)
         .await?;
 
     eprintln!("HiveReplicaCommit submitted: {}", resp);
@@ -158,7 +158,7 @@ fn build_hive_payload(
             let manifest: serde_json::Value = serde_json::from_slice(file_bytes)
                 .context("manifest file must be valid JSON")?;
             Ok(serde_json::json!({
-                "type": "btcpc_fs_manifest_v1",
+                "type": "hone_fs_manifest_v1",
                 "cid": cid,
                 "size_bytes": manifest.get("size_bytes").cloned().unwrap_or(serde_json::Value::Null),
                 "chunk_size": manifest.get("chunk_size").cloned().unwrap_or(serde_json::Value::Null),
@@ -182,7 +182,7 @@ fn build_hive_payload(
                 None
             };
             let mut v = serde_json::json!({
-                "type": "btcpc_fs_chunk_v1",
+                "type": "hone_fs_chunk_v1",
                 "cid": cid,
                 "chunk_index": 0,
                 "payload_sha256": payload_sha256,
@@ -195,7 +195,7 @@ fn build_hive_payload(
         }
         "parity" => {
             Ok(serde_json::json!({
-                "type": "btcpc_fs_parity_v1",
+                "type": "hone_fs_parity_v1",
                 "cid": cid,
                 "payload_sha256": payload_sha256,
                 "merkle_root": merkle_root,
@@ -203,7 +203,7 @@ fn build_hive_payload(
         }
         "full" => {
             Ok(serde_json::json!({
-                "type": "btcpc_fs_manifest_v1",
+                "type": "hone_fs_manifest_v1",
                 "cid": cid,
                 "merkle_root": merkle_root,
                 "payload_sha256": payload_sha256,

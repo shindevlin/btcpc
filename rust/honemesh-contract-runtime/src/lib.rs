@@ -1,7 +1,7 @@
 /*!
 # HoneMesh Contract Runtime
 
-Executes WASM smart contracts compiled with `btcpc-contract-sdk`.
+Executes WASM smart contracts compiled with `honemesh-contract-sdk`.
 
 ## Execution model
 
@@ -14,7 +14,7 @@ Each call to [`execute_call`] is fully isolated:
 
 ## Integration
 
-The runtime is a library embedded in the `btcpc-p2p` Rust sidecar.
+The runtime is a library embedded in the `honemesh-p2p` Rust sidecar.
 Node.js invokes it via the Unix socket IPC using the `contract_call`
 and `contract_deploy` JSON-RPC methods.
 */

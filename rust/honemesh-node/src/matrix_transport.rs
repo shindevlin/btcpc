@@ -18,9 +18,9 @@
 //! Env vars:
 //!   HONE_MATRIX               — "true" to activate
 //!   HONE_MATRIX_HOMESERVER    — e.g. "https://matrix.org"
-//!   HONE_MATRIX_USER          — full MXID, e.g. "@btcpc:matrix.org"
+//!   HONE_MATRIX_USER          — full MXID, e.g. "@hone:matrix.org"
 //!   HONE_MATRIX_PASSWORD      — account password
-//!   HONE_MATRIX_ROOM          — room ID or alias, e.g. "#btcpc-entries:matrix.org"
+//!   HONE_MATRIX_ROOM          — room ID or alias, e.g. "#hone-entries:matrix.org"
 
 use std::sync::Arc;
 
@@ -216,7 +216,7 @@ async fn restore_or_login(
     // Fresh password login.
     match client.matrix_auth()
         .login_username(user, password)
-        .initial_device_display_name("btcpc-node")
+        .initial_device_display_name("honemesh-node")
         .send()
         .await
     {

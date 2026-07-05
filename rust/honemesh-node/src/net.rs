@@ -1,12 +1,12 @@
-//! btcpc-node P2P networking — libp2p 0.56
+//! honemesh-node P2P networking — libp2p 0.56
 #![allow(dead_code)]
 //!
 //! Gossipsub topics:
-//!   btcpc/blocks     — serialized block bytes (JSON envelope: {"epoch":N,"data_b64":"..."})
-//!   btcpc/entries    — ledger entries (JSON)
-//!   btcpc/seals      — epoch seals (JSON)
-//!   btcpc/sync       — block sync requests/responses
-//!   btcpc/consensus  — reward hash proposals (JSON: {epoch,rewards_hash,node_id})
+//!   hone/blocks     — serialized block bytes (JSON envelope: {"epoch":N,"data_b64":"..."})
+//!   hone/entries    — ledger entries (JSON)
+//!   hone/seals      — epoch seals (JSON)
+//!   hone/sync       — block sync requests/responses
+//!   hone/consensus  — reward hash proposals (JSON: {epoch,rewards_hash,node_id})
 //!
 //! Public surface:
 //!   Network::new(config, event_tx) -> (Network, NetworkHandle)
@@ -84,7 +84,7 @@ pub struct NetworkHandle {
 // ---------------------------------------------------------------------------
 
 #[derive(NetworkBehaviour)]
-struct BtcpcBehaviour {
+struct HoneBehaviour {
     gossipsub: gossipsub::Behaviour,
     kademlia:  kad::Behaviour<MemoryStore>,
     identify:  identify::Behaviour,
@@ -96,7 +96,7 @@ struct BtcpcBehaviour {
 // Internal broadcast routing keys — all callers use these exact strings, and
 // the receive-side dispatch (below) matches against them, so they must stay in
 // lockstep. The on-wire gossipsub topic is "{chain_id}/{key}", so a rename of
-// chain_id (e.g. btcpc-2 → hone) alone splits the mesh: mainnet, testnet, and
+// chain_id (e.g. hone → hone) alone splits the mesh: mainnet, testnet, and
 // any prior-named chain never share a topic even across the same physical peers.
 const TOPIC_BLOCKS:     &str = "hone/blocks";
 const TOPIC_ENTRIES:    &str = "hone/entries";
@@ -239,7 +239,7 @@ impl Network {
                 kademlia.set_mode(Some(kad::Mode::Server));
 
                 let identify = identify::Behaviour::new(identify::Config::new(
-                    "/btcpc/1.0.0".to_string(),
+                    "/hone/1.0.0".to_string(),
                     key.public(),
                 ));
 
@@ -254,7 +254,7 @@ impl Network {
                     key.public().to_peer_id(),
                 ).map_err(|e| anyhow::anyhow!("mDNS init failed: {}", e))?;
 
-                Ok(BtcpcBehaviour { gossipsub, kademlia, identify, ping, mdns })
+                Ok(HoneBehaviour { gossipsub, kademlia, identify, ping, mdns })
             })?
             .with_swarm_config(|cfg| {
                 cfg.with_idle_connection_timeout(Duration::from_secs(60))
@@ -263,7 +263,7 @@ impl Network {
 
         // ------------------------------------------------------------------
         // 3. Subscribe to topics — on-wire name = "{chain_id}/{key}"
-        //    e.g. "btcpc-1/btcpc/entries" vs "btcpc-satoshi/btcpc/entries"
+        //    e.g. "hone/hone/entries" vs "hone-testnet/hone/entries"
         //    so mainnet and testnet never share a gossip mesh.
         // ------------------------------------------------------------------
         let cid = &self.config.chain_id;
@@ -287,7 +287,7 @@ impl Network {
         swarm.listen_on(listen_tcp)?;
 
         // WebSocket transport — allows nodes behind NAT to connect via the
-        // cloudflared tunnel at wss://p2p.btcpc.net (port 443 → local 4943).
+        // cloudflared tunnel at wss://p2p.honemesh.net (port 443 → local 4943).
         let ws_port = std::env::var("HONE_WS_PORT")
             .ok().and_then(|s| s.parse().ok()).unwrap_or(4943u16);
         let listen_ws: Multiaddr = format!("/ip4/0.0.0.0/tcp/{}/ws", ws_port).parse()?;
@@ -344,20 +344,20 @@ impl Network {
             }
         }
 
-        // Announce own WS multiaddr to btcpc.net peer registry.
-        // HONE_ANNOUNCE_ADDR overrides; otherwise builds from peer_id + p2p.btcpc.net.
+        // Announce own WS multiaddr to honemesh.net peer registry.
+        // HONE_ANNOUNCE_ADDR overrides; otherwise builds from peer_id + p2p.honemesh.net.
         {
             let peer_id = swarm.local_peer_id().to_string();
             let chain_id = self.config.chain_id.clone();
             let node_id  = self.config.node_id.clone();
             let announce_addr = std::env::var("HONE_ANNOUNCE_ADDR").unwrap_or_else(|_| {
-                format!("/dns4/p2p.btcpc.net/tcp/443/wss/p2p/{}", peer_id)
+                format!("/dns4/p2p.honemesh.net/tcp/443/wss/p2p/{}", peer_id)
             });
             // Fire-and-forget; never blocks startup.
             tokio::spawn(async move {
                 // Small delay so the swarm is fully initialised.
                 tokio::time::sleep(Duration::from_secs(5)).await;
-                discovery::announce_to_btcpc_net_addr(&announce_addr, &chain_id, &node_id).await;
+                discovery::announce_to_hone_net_addr(&announce_addr, &chain_id, &node_id).await;
             });
         }
 
@@ -369,7 +369,7 @@ impl Network {
         info!(
             peer_id = %swarm.local_peer_id(),
             port    = self.config.p2p_port,
-            "btcpc-node P2P running",
+            "honemesh-node P2P running",
         );
 
         // ------------------------------------------------------------------
@@ -419,8 +419,8 @@ impl Network {
 
     fn handle_swarm_event(
         &self,
-        event: SwarmEvent<BtcpcBehaviourEvent>,
-        swarm: &mut libp2p::Swarm<BtcpcBehaviour>,
+        event: SwarmEvent<HoneBehaviourEvent>,
+        swarm: &mut libp2p::Swarm<HoneBehaviour>,
         peer_cache: &mut HashMap<String, Vec<Multiaddr>>,
     ) {
         match event {
@@ -440,14 +440,14 @@ impl Network {
             }
 
             // Gossipsub message
-            SwarmEvent::Behaviour(BtcpcBehaviourEvent::Gossipsub(
+            SwarmEvent::Behaviour(HoneBehaviourEvent::Gossipsub(
                 gossipsub::Event::Message { message, propagation_source, .. }
             )) => {
                 self.handle_gossip_message(&message, propagation_source.to_string());
             }
 
             // Identify — feed addresses into Kademlia, persist, and derive HTTP URL.
-            SwarmEvent::Behaviour(BtcpcBehaviourEvent::Identify(
+            SwarmEvent::Behaviour(HoneBehaviourEvent::Identify(
                 identify::Event::Received { peer_id, info, .. }
             )) => {
                 let cache_entry = peer_cache
@@ -468,7 +468,7 @@ impl Network {
             }
 
             // Kademlia bootstrap progress
-            SwarmEvent::Behaviour(BtcpcBehaviourEvent::Kademlia(
+            SwarmEvent::Behaviour(HoneBehaviourEvent::Kademlia(
                 kad::Event::OutboundQueryProgressed { result, .. }
             )) => {
                 if let kad::QueryResult::Bootstrap(Ok(kad::BootstrapOk { num_remaining, .. })) = result {
@@ -479,7 +479,7 @@ impl Network {
             }
 
             // Ping
-            SwarmEvent::Behaviour(BtcpcBehaviourEvent::Ping(
+            SwarmEvent::Behaviour(HoneBehaviourEvent::Ping(
                 ping::Event { peer, result, .. }
             )) => {
                 if let Err(e) = result {
@@ -488,7 +488,7 @@ impl Network {
             }
 
             // mDNS — local network peer discovery
-            SwarmEvent::Behaviour(BtcpcBehaviourEvent::Mdns(
+            SwarmEvent::Behaviour(HoneBehaviourEvent::Mdns(
                 mdns::Event::Discovered(peers)
             )) => {
                 for (peer_id, addr) in peers {
@@ -497,7 +497,7 @@ impl Network {
                     let _ = swarm.dial(addr);
                 }
             }
-            SwarmEvent::Behaviour(BtcpcBehaviourEvent::Mdns(
+            SwarmEvent::Behaviour(HoneBehaviourEvent::Mdns(
                 mdns::Event::Expired(peers)
             )) => {
                 for (peer_id, _addr) in peers {
@@ -564,15 +564,15 @@ impl Network {
                 // {"epoch": N, "data_b64": "..."}
                 let epoch = match json.get("epoch").and_then(|v| v.as_u64()) {
                     Some(e) => e,
-                    None    => { warn!("btcpc/blocks: missing 'epoch' field"); return; }
+                    None    => { warn!("hone/blocks: missing 'epoch' field"); return; }
                 };
                 let data_b64 = match json.get("data_b64").and_then(|v| v.as_str()) {
                     Some(s) => s,
-                    None    => { warn!("btcpc/blocks: missing 'data_b64' field"); return; }
+                    None    => { warn!("hone/blocks: missing 'data_b64' field"); return; }
                 };
                 let data = match B64.decode(data_b64) {
                     Ok(b)  => b,
-                    Err(e) => { warn!("btcpc/blocks: base64 decode error: {}", e); return; }
+                    Err(e) => { warn!("hone/blocks: base64 decode error: {}", e); return; }
                 };
                 debug!("Received block epoch={} ({} bytes) from {}", epoch, data.len(), source);
                 self.emit(NetworkEvent::Block { epoch, data });
@@ -612,15 +612,15 @@ impl Network {
             TOPIC_CONSENSUS => {
                 let epoch = match json.get("epoch").and_then(|v| v.as_u64()) {
                     Some(e) => e,
-                    None => { warn!("btcpc/consensus: missing 'epoch'"); return; }
+                    None => { warn!("hone/consensus: missing 'epoch'"); return; }
                 };
                 let rewards_hash = match json.get("rewards_hash").and_then(|v| v.as_str()) {
                     Some(h) => h.to_owned(),
-                    None => { warn!("btcpc/consensus: missing 'rewards_hash'"); return; }
+                    None => { warn!("hone/consensus: missing 'rewards_hash'"); return; }
                 };
                 let node_id = match json.get("node_id").and_then(|v| v.as_str()) {
                     Some(n) => n.to_owned(),
-                    None => { warn!("btcpc/consensus: missing 'node_id'"); return; }
+                    None => { warn!("hone/consensus: missing 'node_id'"); return; }
                 };
                 debug!("Received consensus proposal epoch={} hash={} from {}", epoch, rewards_hash, source);
                 self.emit(NetworkEvent::ConsensusProposal { epoch, rewards_hash, node_id });
@@ -632,15 +632,15 @@ impl Network {
                     Some("response") => {
                         let epoch = match json.get("epoch").and_then(|v| v.as_u64()) {
                             Some(e) => e,
-                            None    => { warn!("btcpc/sync response: missing 'epoch'"); return; }
+                            None    => { warn!("hone/sync response: missing 'epoch'"); return; }
                         };
                         let data_b64 = match json.get("data_b64").and_then(|v| v.as_str()) {
                             Some(s) => s,
-                            None    => { warn!("btcpc/sync response: missing 'data_b64'"); return; }
+                            None    => { warn!("hone/sync response: missing 'data_b64'"); return; }
                         };
                         let data = match B64.decode(data_b64) {
                             Ok(b)  => b,
-                            Err(e) => { warn!("btcpc/sync: base64 decode error: {}", e); return; }
+                            Err(e) => { warn!("hone/sync: base64 decode error: {}", e); return; }
                         };
                         debug!("Received sync response epoch={} from {}", epoch, source);
                         self.emit(NetworkEvent::Block { epoch, data });
@@ -654,7 +654,7 @@ impl Network {
                         );
                     }
                     other => {
-                        warn!("btcpc/sync: unknown type {:?}", other);
+                        warn!("hone/sync: unknown type {:?}", other);
                     }
                 }
             }
@@ -670,7 +670,7 @@ impl Network {
     fn handle_cmd(
         &self,
         cmd: NetCmd,
-        swarm: &mut libp2p::Swarm<BtcpcBehaviour>,
+        swarm: &mut libp2p::Swarm<HoneBehaviour>,
         t_blocks:    &gossipsub::IdentTopic,
         t_entries:   &gossipsub::IdentTopic,
         t_seals:     &gossipsub::IdentTopic,
@@ -696,7 +696,7 @@ impl Network {
             }
 
             NetCmd::RequestBlock { epoch, peer: _ } => {
-                // Publish a sync request; any peer with that block will respond via btcpc/sync
+                // Publish a sync request; any peer with that block will respond via hone/sync
                 let payload = match serde_json::to_vec(&serde_json::json!({
                     "type": "request",
                     "epoch": epoch,

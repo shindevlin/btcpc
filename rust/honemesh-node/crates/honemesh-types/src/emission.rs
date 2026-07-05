@@ -100,11 +100,11 @@ pub const BTC_PROJECTED_END_MS: u64 =
 
 /// Per-epoch block reward in hunits during the new-supply phase (eras 0-4).
 /// 2 HONE × 10^10 hunits/HoneMesh = 20_000_000_000 hunits.
-pub const BLOCK_REWARD_DREAMS: u64 = 2 * 10_000_000_000;
+pub const BLOCK_REWARD_HUNITS: u64 = 2 * 10_000_000_000;
 
 /// Total new-supply cap in hunits.
 /// 42_000_000 HONE × 10^10 hunits/HoneMesh.
-pub const SUPPLY_CAP_DREAMS: u64 = 42_000_000 * 10_000_000_000;
+pub const SUPPLY_CAP_HUNITS: u64 = 42_000_000 * 10_000_000_000;
 
 /// First era whose rewards come entirely from recycled tokens (no new supply).
 pub const RECYCLE_ERA: u64 = 5;
@@ -131,7 +131,7 @@ pub const CRITICAL_MASS_LINKGIT_BUILD: u64 = 3;
 /// Base clock reward per epoch at era 0 (30-second epochs).
 /// Doubles each era so clock nodes earn the same per-day income regardless of how
 /// long epochs get.  Use clock_reward_at(epoch) rather than this constant directly.
-pub const CLOCK_REWARD_DREAMS: u64 = 10_000_000; // 0.001 HONE at era 0
+pub const CLOCK_REWARD_HUNITS: u64 = 10_000_000; // 0.001 HONE at era 0
 
 /// Inference fee split in basis points (10_000 = 100%).
 /// Worker receives the bulk; verifiers/reviewers share their pools equally.
@@ -157,13 +157,13 @@ pub const MIN_REVIEW_VOTES: u64 = 3;
 
 /// System account holding mainnet tokens reserved for testnet node operators.
 /// Receives 0.4%/epoch from the epoch reward pool.
-/// Testnet operators (accounts running btcpc-satoshi nodes) claim proportional
+/// Testnet operators (accounts running hone-testnet nodes) claim proportional
 /// shares via TestnetReward entries — same account name as their mainnet identity.
 pub const TESTNET_FUND_ACCOUNT: &str = "__testnet_fund__";
 
 /// Per registered testnet operator per mainnet epoch (base, era 0).
 /// Scales with epoch duration the same way clock_reward_at does.
-pub const TESTNET_REWARD_BASE_DREAMS: u64 = 5_000_000; // 0.0005 HONE at era 0
+pub const TESTNET_REWARD_BASE_HUNITS: u64 = 5_000_000; // 0.0005 HONE at era 0
 
 // ── DAO treasury ─────────────────────────────────────────────────────────────
 
@@ -178,14 +178,14 @@ pub const TREASURY_ACCOUNT: &str = "__treasury__";
 #[inline]
 pub fn clock_reward_at(epoch: u64) -> u64 {
     let shift = era(epoch).min(RECYCLE_ERA);
-    CLOCK_REWARD_DREAMS << shift
+    CLOCK_REWARD_HUNITS << shift
 }
 
 /// Per-operator testnet reward at the given mainnet epoch (scales with clock_reward_at).
 #[inline]
 pub fn testnet_reward_at(epoch: u64) -> u64 {
     let shift = era(epoch).min(RECYCLE_ERA);
-    TESTNET_REWARD_BASE_DREAMS << shift
+    TESTNET_REWARD_BASE_HUNITS << shift
 }
 
 /// Integer square root (Newton's method) — deterministic across all platforms.
@@ -517,7 +517,7 @@ pub const ENTRY_WEIGHT_REGISTRATION: u64 = 20; // AccountCreate, ClockNodeRegist
 
 /// Starting base fee per weight unit in hunits (0.001 HONE at era-0).
 /// Adjusts ±10% per epoch toward EPOCH_TARGET_WEIGHT_UNITS (EIP-1559-style).
-pub const BASE_FEE_INITIAL_DREAMS: u64 = 10_000_000; // 0.001 HONE per weight unit
+pub const BASE_FEE_INITIAL_HUNITS: u64 = 10_000_000; // 0.001 HONE per weight unit
 
 /// Target total entry weight per epoch (50% of comfortable epoch capacity).
 /// If actual_weight < target → fee falls; if actual_weight > target → fee rises.
@@ -527,10 +527,10 @@ pub const EPOCH_TARGET_WEIGHT_UNITS: u64 = 1_000;
 pub const BASE_FEE_MAX_CHANGE_BPS: u64 = 1_000;
 
 /// Absolute minimum base fee (0.0000001 HONE) — prevents fee dropping to zero.
-pub const BASE_FEE_MIN_DREAMS: u64 = 1_000;
+pub const BASE_FEE_MIN_HUNITS: u64 = 1_000;
 
 /// Absolute maximum base fee (100 HONE) — hard cap against runaway increases.
-pub const BASE_FEE_MAX_DREAMS: u64 = 100 * 10_000_000_000;
+pub const BASE_FEE_MAX_HUNITS: u64 = 100 * 10_000_000_000;
 
 /// Compute the base fee for the next epoch given epoch weight vs. target.
 ///
@@ -557,7 +557,7 @@ pub fn compute_next_base_fee(current: u64, actual_weight: u64, target_weight: u6
     } else {
         current.saturating_sub(change)
     };
-    new_fee.max(BASE_FEE_MIN_DREAMS).min(BASE_FEE_MAX_DREAMS)
+    new_fee.max(BASE_FEE_MIN_HUNITS).min(BASE_FEE_MAX_HUNITS)
 }
 
 // ── Phase 4: Storage and Sensor Proofs ────────────────────────────────���─────
@@ -700,7 +700,7 @@ pub fn epoch_duration_ms(epoch: u64) -> u64 {
 
 /// Block reward in hunits for the given epoch number.
 ///
-/// Returns `BLOCK_REWARD_DREAMS` until the supply cap would be exceeded, then
+/// Returns `BLOCK_REWARD_HUNITS` until the supply cap would be exceeded, then
 /// returns the remaining hunits (may be less than a full reward), then 0 for
 /// all epochs in era 5+.  Era 5 rewards are distributed from the recycled-token
 /// fund managed separately.
@@ -709,12 +709,12 @@ pub fn block_reward_at(epoch: u64) -> u64 {
         return 0; // recycled-token era — separate reward path
     }
     // Epochs start at 1; epoch 0 is the genesis marker with no reward.
-    let total_already_emitted = epoch.saturating_mul(BLOCK_REWARD_DREAMS);
-    if total_already_emitted >= SUPPLY_CAP_DREAMS {
+    let total_already_emitted = epoch.saturating_mul(BLOCK_REWARD_HUNITS);
+    if total_already_emitted >= SUPPLY_CAP_HUNITS {
         return 0;
     }
-    let remaining = SUPPLY_CAP_DREAMS - total_already_emitted;
-    BLOCK_REWARD_DREAMS.min(remaining)
+    let remaining = SUPPLY_CAP_HUNITS - total_already_emitted;
+    BLOCK_REWARD_HUNITS.min(remaining)
 }
 
 /// Wall-clock offset in milliseconds from genesis for the start of `epoch`.
@@ -813,7 +813,7 @@ mod tests {
         // Era 5 onward: no new supply
         assert_eq!(block_reward_at(5 * DOUBLING_INTERVAL), 0);
         // Well within era 0: full reward
-        assert_eq!(block_reward_at(1), BLOCK_REWARD_DREAMS);
+        assert_eq!(block_reward_at(1), BLOCK_REWARD_HUNITS);
     }
 
     #[test]
@@ -822,7 +822,7 @@ mod tests {
         let total: u64 = (0..5 * DOUBLING_INTERVAL)
             .map(block_reward_at)
             .sum();
-        assert_eq!(total, SUPPLY_CAP_DREAMS);
+        assert_eq!(total, SUPPLY_CAP_HUNITS);
     }
 
     #[test]

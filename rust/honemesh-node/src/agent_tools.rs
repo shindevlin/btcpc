@@ -114,7 +114,7 @@ async fn web_search(args: &Value) -> Result<Value, String> {
     );
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(TOOL_TIMEOUT_SECS))
-        .user_agent("btcpc-agent/1.0")
+        .user_agent("honemesh-agent/1.0")
         .build()
         .map_err(|e| e.to_string())?;
 

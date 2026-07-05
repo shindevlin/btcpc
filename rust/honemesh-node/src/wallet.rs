@@ -64,24 +64,37 @@ pub struct WalletKeys {
     pub mnemonic: String,
 
     // HoneMesh role keys — SLIP-10 m/44'/6942'/role'/0'
+    // serde aliases accept pre-rebrand wallet.key files (btcpc_* field names).
     // Owner: key rotation and governance. Keep this one cold.
-    pub btcpc_owner_private_key:   String,
-    pub btcpc_owner_public_key:    String,
+    #[serde(alias = "btcpc_owner_private_key")]
+    pub hone_owner_private_key:   String,
+    #[serde(alias = "btcpc_owner_public_key")]
+    pub hone_owner_public_key:    String,
     // Active: transfers and staking.
-    pub btcpc_active_private_key:  String,
-    pub btcpc_active_public_key:   String,
+    #[serde(alias = "btcpc_active_private_key")]
+    pub hone_active_private_key:  String,
+    #[serde(alias = "btcpc_active_public_key")]
+    pub hone_active_public_key:   String,
     // Posting: daily ops. Safe to keep on device.
-    pub btcpc_private_key: String,  // ← kept as canonical "posting" for back-compat
-    pub btcpc_public_key:  String,
+    #[serde(alias = "btcpc_private_key")]
+    pub hone_private_key: String,  // ← kept as canonical "posting" for back-compat
+    #[serde(alias = "btcpc_public_key")]
+    pub hone_public_key:  String,
     // Memo: encrypted messages and selective disclosure.
-    pub btcpc_memo_private_key:    String,
-    pub btcpc_memo_public_key:     String,
+    #[serde(alias = "btcpc_memo_private_key")]
+    pub hone_memo_private_key:    String,
+    #[serde(alias = "btcpc_memo_public_key")]
+    pub hone_memo_public_key:     String,
     // Hide: encrypt private content for your own eyes only.
-    pub btcpc_hide_private_key:    String,
-    pub btcpc_hide_public_key:     String,
+    #[serde(alias = "btcpc_hide_private_key")]
+    pub hone_hide_private_key:    String,
+    #[serde(alias = "btcpc_hide_public_key")]
+    pub hone_hide_public_key:     String,
     // Seek: encrypted digital delivery to buyers.
-    pub btcpc_seek_private_key:    String,
-    pub btcpc_seek_public_key:     String,
+    #[serde(alias = "btcpc_seek_private_key")]
+    pub hone_seek_private_key:    String,
+    #[serde(alias = "btcpc_seek_public_key")]
+    pub hone_seek_public_key:     String,
 
     // Bitcoin — secp256k1 BIP44 m/44'/0'/0'/0/0
     pub bitcoin_wif:    String,
@@ -227,7 +240,7 @@ pub fn init(data_dir: &Path) -> Result<WalletKeys> {
         match restore_from_input(&raw) {
             Ok(keys) => {
                 save(&key_path, &keys)?;
-                info!(btcpc = %keys.btcpc_public_key, "wallet: restored from HONE_POSTING_KEY");
+                info!(hone = %keys.hone_public_key, "wallet: restored from HONE_POSTING_KEY");
                 return Ok(keys);
             }
             Err(e) => warn!("wallet: HONE_POSTING_KEY could not be parsed ({}), ignoring", e),
@@ -243,14 +256,14 @@ pub fn init(data_dir: &Path) -> Result<WalletKeys> {
         if let Ok(keys) = serde_json::from_str::<WalletKeys>(&json) {
             // Upgrade if new chains or role keys are missing (mnemonic is the source of truth)
             if keys.xrp_address.is_empty() || keys.sui_address.is_empty()
-                || keys.btcpc_owner_public_key.is_empty()
+                || keys.hone_owner_public_key.is_empty()
             {
                 let upgraded = restore_from_input(&keys.mnemonic)?;
                 save(&key_path, &upgraded)?;
-                warn!(btcpc = %upgraded.btcpc_public_key, "wallet: upgraded to full multi-chain + role key format");
+                warn!(hone = %upgraded.hone_public_key, "wallet: upgraded to full multi-chain + role key format");
                 return Ok(upgraded);
             }
-            info!(btcpc = %keys.btcpc_public_key, "wallet: loaded from wallet.key");
+            info!(hone = %keys.hone_public_key, "wallet: loaded from wallet.key");
             return Ok(keys);
         }
 
@@ -259,15 +272,15 @@ pub fn init(data_dir: &Path) -> Result<WalletKeys> {
         struct Legacy {
             #[serde(default)] mnemonic:          String,
             #[serde(default)] private_key:        String,
-            #[serde(default)] btcpc_private_key:  String,
+            #[serde(default, alias = "btcpc_private_key")] hone_private_key:  String,
         }
         if let Ok(leg) = serde_json::from_str::<Legacy>(&json) {
-            let input = [&leg.mnemonic, &leg.private_key, &leg.btcpc_private_key]
+            let input = [&leg.mnemonic, &leg.private_key, &leg.hone_private_key]
                 .iter().find(|s| !s.is_empty()).copied().cloned()
                 .ok_or_else(|| anyhow::anyhow!("legacy wallet.key has no usable key field"))?;
             let keys = restore_from_input(&input).context("upgrade legacy wallet.key")?;
             save(&key_path, &keys)?;
-            warn!(btcpc = %keys.btcpc_public_key, "wallet: migrated legacy format → multi-chain");
+            warn!(hone = %keys.hone_public_key, "wallet: migrated legacy format → multi-chain");
             return Ok(keys);
         }
 
@@ -283,17 +296,17 @@ pub fn init(data_dir: &Path) -> Result<WalletKeys> {
     Ok(keys)
 }
 
-/// Copy the wallet to ~/.btcpc/{account}.wallet.key and ~/.btcpc/{account}.txt so
+/// Copy the wallet to ~/.honemesh/{account}.wallet.key and ~/.honemesh/{account}.txt so
 /// TUI/CLI can find it without knowing the node's data directory.
-/// Called every startup — safe to repeat. User can encrypt the ~/.btcpc/ folder.
+/// Called every startup — safe to repeat. User can encrypt the ~/.honemesh/ folder.
 pub fn backup_to_home(account: &str, keys: &WalletKeys) {
     let home = match std::env::var("HOME") {
         Ok(h) => h,
         Err(_) => return,
     };
-    let dir = std::path::PathBuf::from(&home).join(".btcpc");
+    let dir = std::path::PathBuf::from(&home).join(".honemesh");
     if let Err(e) = std::fs::create_dir_all(&dir) {
-        warn!("wallet: could not create ~/.btcpc: {}", e);
+        warn!("wallet: could not create ~/.honemesh: {}", e);
         return;
     }
 
@@ -395,12 +408,12 @@ fn format_txt_backup(account: &str, k: &WalletKeys) -> String {
 ",
         account.to_uppercase(),
         k.mnemonic,
-        k.btcpc_owner_public_key,   k.btcpc_owner_private_key,
-        k.btcpc_active_public_key,  k.btcpc_active_private_key,
-        k.btcpc_public_key,         k.btcpc_private_key,
-        k.btcpc_memo_public_key,    k.btcpc_memo_private_key,
-        k.btcpc_hide_public_key,    k.btcpc_hide_private_key,
-        k.btcpc_seek_public_key,    k.btcpc_seek_private_key,
+        k.hone_owner_public_key,   k.hone_owner_private_key,
+        k.hone_active_public_key,  k.hone_active_private_key,
+        k.hone_public_key,         k.hone_private_key,
+        k.hone_memo_public_key,    k.hone_memo_private_key,
+        k.hone_hide_public_key,    k.hone_hide_private_key,
+        k.hone_seek_public_key,    k.hone_seek_private_key,
         k.ethereum_address,   k.ethereum_private_key,
         k.bitcoin_pubkey,     k.bitcoin_wif,
         k.solana_address,     k.solana_private_key,
@@ -432,16 +445,16 @@ pub fn register_account(
     let posting_key = std::env::var("HONE_ACCOUNT_PUBKEY")
         .ok()
         .filter(|k| k.len() == 64)
-        .unwrap_or_else(|| keys.btcpc_public_key.clone());
+        .unwrap_or_else(|| keys.hone_public_key.clone());
 
     // All 6 HONE role keys — all public, registered on-chain for verification.
     let mut km: std::collections::BTreeMap<String, String> = std::collections::BTreeMap::new();
-    km.insert("owner".to_string(),   keys.btcpc_owner_public_key.clone());
-    km.insert("active".to_string(),  keys.btcpc_active_public_key.clone());
+    km.insert("owner".to_string(),   keys.hone_owner_public_key.clone());
+    km.insert("active".to_string(),  keys.hone_active_public_key.clone());
     km.insert("posting".to_string(), posting_key);
-    km.insert("memo".to_string(),    keys.btcpc_memo_public_key.clone());
-    km.insert("hide".to_string(),    keys.btcpc_hide_public_key.clone());
-    km.insert("seek".to_string(),    keys.btcpc_seek_public_key.clone());
+    km.insert("memo".to_string(),    keys.hone_memo_public_key.clone());
+    km.insert("hide".to_string(),    keys.hone_hide_public_key.clone());
+    km.insert("seek".to_string(),    keys.hone_seek_public_key.clone());
 
     // Build easy-mode chain proofs: commitment per chain, no plaintext addresses on-chain.
     // The nonces live in wallet.key — back it up for future selective disclosure.
@@ -477,8 +490,8 @@ pub fn register_account(
 
     info!(
         account,
-        owner    = %keys.btcpc_owner_public_key,
-        posting  = %keys.btcpc_public_key,
+        owner    = %keys.hone_owner_public_key,
+        posting  = %keys.hone_public_key,
         eth      = %keys.ethereum_address,
         sol      = %keys.solana_address,
         "wallet: account registered on-chain with 6 role keys + all chain commitments"
@@ -580,18 +593,18 @@ fn derive_all(mnemonic: Mnemonic) -> Result<WalletKeys> {
     Ok(WalletKeys {
         mnemonic: mnemonic.to_string(),
 
-        btcpc_owner_private_key:  hex::encode(&owner_priv),
-        btcpc_owner_public_key:   hex::encode(&owner_pub),
-        btcpc_active_private_key: hex::encode(&active_priv),
-        btcpc_active_public_key:  hex::encode(&active_pub),
-        btcpc_private_key:        hex::encode(&post_priv),
-        btcpc_public_key:         hex::encode(&post_pub),
-        btcpc_memo_private_key:   hex::encode(&memo_priv),
-        btcpc_memo_public_key:    hex::encode(&memo_pub),
-        btcpc_hide_private_key:   hex::encode(&hide_priv),
-        btcpc_hide_public_key:    hex::encode(&hide_pub),
-        btcpc_seek_private_key:   hex::encode(&seek_priv),
-        btcpc_seek_public_key:    hex::encode(&seek_pub),
+        hone_owner_private_key:  hex::encode(&owner_priv),
+        hone_owner_public_key:   hex::encode(&owner_pub),
+        hone_active_private_key: hex::encode(&active_priv),
+        hone_active_public_key:  hex::encode(&active_pub),
+        hone_private_key:        hex::encode(&post_priv),
+        hone_public_key:         hex::encode(&post_pub),
+        hone_memo_private_key:   hex::encode(&memo_priv),
+        hone_memo_public_key:    hex::encode(&memo_pub),
+        hone_hide_private_key:   hex::encode(&hide_priv),
+        hone_hide_public_key:    hex::encode(&hide_pub),
+        hone_seek_private_key:   hex::encode(&seek_priv),
+        hone_seek_public_key:    hex::encode(&seek_pub),
 
         bitcoin_wif:    btc_addr.clone(),
         bitcoin_pubkey: btc_pub,
@@ -896,16 +909,16 @@ fn print_new_wallet(k: &WalletKeys) {
 ║    Address     : {:<64}║\n\
 ║    Private key : {:<64}║\n\
 ╠══════════════════════════════════════════════════════════════════════════════════╣\n\
-║  Saved to: ~/.btcpc/wallet.key (chmod 600)                                      ║\n\
+║  Saved to: ~/.honemesh/wallet.key (chmod 600)                                      ║\n\
 ║  All public keys registered on-chain — your identity spans every chain.         ║\n\
 ╚══════════════════════════════════════════════════════════════════════════════════╝\n",
         k.mnemonic,
-        k.btcpc_owner_public_key,   k.btcpc_owner_private_key,
-        k.btcpc_active_public_key,  k.btcpc_active_private_key,
-        k.btcpc_public_key,         k.btcpc_private_key,
-        k.btcpc_memo_public_key,    k.btcpc_memo_private_key,
-        k.btcpc_hide_public_key,    k.btcpc_hide_private_key,
-        k.btcpc_seek_public_key,    k.btcpc_seek_private_key,
+        k.hone_owner_public_key,   k.hone_owner_private_key,
+        k.hone_active_public_key,  k.hone_active_private_key,
+        k.hone_public_key,         k.hone_private_key,
+        k.hone_memo_public_key,    k.hone_memo_private_key,
+        k.hone_hide_public_key,    k.hone_hide_private_key,
+        k.hone_seek_public_key,    k.hone_seek_private_key,
         k.bitcoin_pubkey,     k.bitcoin_wif,
         k.ethereum_address,   k.ethereum_private_key,
         k.xrp_address,        k.xrp_private_key,

@@ -24,7 +24,7 @@ impl Config {
             .unwrap_or(6942);
 
         let ipc_socket = env::var("HONE_P2P_IPC_SOCKET")
-            .unwrap_or_else(|_| "/tmp/btcpc-p2p.sock".to_string());
+            .unwrap_or_else(|_| "/tmp/honemesh-p2p.sock".to_string());
 
         let relay_urls = env::var("HONE_RELAY_URLS")
             .map(|s| s.split(',').map(|u| u.trim().to_string()).filter(|u| !u.is_empty()).collect())
@@ -32,7 +32,7 @@ impl Config {
                 env::var("HONE_RELAY_URL")
                     .map(|u| vec![u])
                     .unwrap_or_else(|_| vec![
-                        "wss://btcpc-relay.shindevlin.workers.dev/ws".to_string()
+                        "wss://honemesh-relay.shindevlin.workers.dev/ws".to_string()
                     ])
             });
 
@@ -48,8 +48,8 @@ impl Config {
         let data_dir = env::var("HONE_DATA_DIR")
             .unwrap_or_else(|_| {
                 dirs_next::home_dir()
-                    .map(|h: std::path::PathBuf| h.join(".btcpc").to_string_lossy().to_string())
-                    .unwrap_or_else(|| "/var/lib/btcpc".to_string())
+                    .map(|h: std::path::PathBuf| h.join(".honemesh").to_string_lossy().to_string())
+                    .unwrap_or_else(|| "/var/lib/honemesh".to_string())
             });
 
         Self { node_id, p2p_port, ipc_socket, relay_urls, seed_peers, max_peers, data_dir }
@@ -58,8 +58,8 @@ impl Config {
     #[allow(dead_code)]
     pub fn bootstrap_peers() -> Vec<&'static str> {
         vec![
-            "/dns4/node1.btcpc.network/tcp/6942/wss",
-            "/dns4/node2.btcpc.network/tcp/6942/wss",
+            "/dns4/node1.honemesh.net/tcp/6942/wss",
+            "/dns4/node2.honemesh.net/tcp/6942/wss",
         ]
     }
 }

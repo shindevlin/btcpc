@@ -89,7 +89,7 @@ pub struct JobState {
     /// Epoch when the worker submitted their result (for vote timeout tracking).
     #[serde(default)]
     pub completed_epoch: Option<u64>,
-    /// If true, proof payload is pinned to btcpc-fs permanently (paid opt-in, D1).
+    /// If true, proof payload is pinned to hone-fs permanently (paid opt-in, D1).
     #[serde(default)]
     pub persist_on_fs: bool,
     /// Board verdicts accumulated before quorum: (verifier_account, verdict_string).
@@ -1090,14 +1090,14 @@ mod tests {
 
     fn make_chain(label: &str) -> (Arc<Chain>, tempfile::TempDir) {
         let dir = tempfile::Builder::new()
-            .prefix(&format!("btcpc_infer_{}_", label))
+            .prefix(&format!("hone_infer_{}_", label))
             .tempdir()
             .expect("tempdir");
         let store = crate::store::Store::open(dir.path()).expect("store");
         let chain = Arc::new(Chain::new(
             store,
             format!("infer-{}", label),
-            "btcpc-satoshi".to_string(),
+            "hone-testnet".to_string(),
         ));
         (chain, dir)
     }

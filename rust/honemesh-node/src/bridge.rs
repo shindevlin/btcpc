@@ -5,7 +5,7 @@
 //! BridgeUnlock: custodian signals that wrapped tokens have been burned on the external chain.
 //! BridgeUnwrap: burns on-chain wHONE and queues an unlock in FIFO order.
 //!
-//! Cap enforcement: total wHONE in circulation never exceeds BRIDGE_CAP_DREAMS.
+//! Cap enforcement: total wHONE in circulation never exceeds BRIDGE_CAP_HUNITS.
 //! Unlock queue: BridgeUnwrap entries queue up; custodian processes them in order.
 
 use anyhow::{bail, Result};
@@ -15,10 +15,10 @@ use tracing::info;
 use honemesh_types::{LedgerEntry, NATIVE_TOKEN};
 use crate::chain::Chain;
 
-const BRIDGE_CAP_DREAMS: u64 = 4_200_000 * 100_000_000; // 4.2M HoneMesh in hunits
+const BRIDGE_CAP_HUNITS: u64 = 4_200_000 * 100_000_000; // 4.2M HoneMesh in hunits
 const WHONE_TOKEN: &str = "wHONE";
 const BRIDGE_QUEUE_KEY: &str = "bridge_unlock_queue";
-const BRIDGE_SUPPLY_KEY: &str = "bridge_wbtcpc_supply";
+const BRIDGE_SUPPLY_KEY: &str = "bridge_whone_supply";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UnlockRequest {
@@ -50,8 +50,8 @@ pub fn apply_fund(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
     }
 
     let current_supply = supply()(chain);
-    if current_supply + amount_hunits > BRIDGE_CAP_DREAMS {
-        bail!("bridge cap exceeded: {} + {} > {}", current_supply, amount_hunits, BRIDGE_CAP_DREAMS);
+    if current_supply + amount_hunits > BRIDGE_CAP_HUNITS {
+        bail!("bridge cap exceeded: {} + {} > {}", current_supply, amount_hunits, BRIDGE_CAP_HUNITS);
     }
 
     // Mint wHONE to custodian.
@@ -83,11 +83,11 @@ pub fn apply_wrap(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
     } = entry else { bail!("wrong entry type") };
 
     let current_supply = supply()(chain);
-    if current_supply + amount_hunits > BRIDGE_CAP_DREAMS {
+    if current_supply + amount_hunits > BRIDGE_CAP_HUNITS {
         bail!("bridge cap exceeded");
     }
 
-    // Burn HoneMesh, mint wHONE.
+    // Burn HONE, mint wHONE.
     chain.store.debit(account, NATIVE_TOKEN, *amount_hunits)?;
     chain.store.credit(account, WHONE_TOKEN, *amount_hunits)?;
     let new_supply = current_supply + amount_hunits;
@@ -104,7 +104,7 @@ pub fn apply_wrap(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
         &format!("bridge_wrap:{}:{}", account, epoch),
         &serde_json::to_vec(&record)?,
     )?;
-    info!("[bridge] {} wrapped {} HoneMesh → wHONE (→ {})", account, amount_hunits, external_address);
+    info!("[bridge] {} wrapped {} HONE → wHONE (→ {})", account, amount_hunits, external_address);
     Ok(())
 }
 
@@ -192,7 +192,7 @@ mod tests {
         let dir = tempfile::TempDir::new().unwrap();
         let store = crate::store::Store::open(dir.path()).unwrap();
         let chain = Chain::new(
-            store, "test".to_string(), "btcpc-test".to_string(),
+            store, "test".to_string(), "hone-test".to_string(),
         );
         (chain, dir)
     }
@@ -280,7 +280,7 @@ mod tests {
 
         // Initial state: zero supply, no pending
         let s = status(&chain);
-        assert_eq!(s["wbtcpc_supply_hunits"], 0);
+        assert_eq!(s["whone_supply_hunits"], 0);
         assert_eq!(s["pending_unlock_count"], 0);
 
         // Fund some wHONE
@@ -307,7 +307,7 @@ mod tests {
 
         let s = status(&chain);
         assert_eq!(s["pending_unlock_count"], 1);
-        assert!(s["wbtcpc_supply_hunits"].as_u64().unwrap() > 0);
+        assert!(s["whone_supply_hunits"].as_u64().unwrap() > 0);
     }
 }
 
@@ -319,9 +319,9 @@ pub fn status(chain: &Chain) -> serde_json::Value {
         .unwrap_or_default();
     let pending = queue.iter().filter(|r| !r.fulfilled).count();
     serde_json::json!({
-        "wbtcpc_supply_hunits": supply_hunits,
-        "cap_hunits": BRIDGE_CAP_DREAMS,
+        "whone_supply_hunits": supply_hunits,
+        "cap_hunits": BRIDGE_CAP_HUNITS,
         "pending_unlock_count": pending,
-        "utilization_bps": supply_hunits * 10_000 / BRIDGE_CAP_DREAMS.max(1),
+        "utilization_bps": supply_hunits * 10_000 / BRIDGE_CAP_HUNITS.max(1),
     })
 }

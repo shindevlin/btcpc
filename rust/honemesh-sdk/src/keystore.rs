@@ -228,7 +228,7 @@ mod tests {
 
     #[test]
     fn save_and_load_preserves_and_decrypts() {
-        let dir = std::env::temp_dir().join(format!("btcpc_ks_{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("hone_ks_{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("bullship.keystore.json");
         let ks = Keystore::seal("bullship", MNEMONIC, "pw123").unwrap();

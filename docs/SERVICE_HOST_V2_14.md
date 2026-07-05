@@ -21,10 +21,10 @@ The real substrate is already richer than that prototype implied.
 
 ---
 
-## 0. What already exists (verified in `rust/btcpc-node`)
+## 0. What already exists (verified in `rust/honemesh-node`)
 
 The canonical node ships a **complete runtime job-market lifecycle** — this is
-not greenfield. The `LedgerEntry` variants (`crates/btcpc-types/src/entry.rs`)
+not greenfield. The `LedgerEntry` variants (`crates/honemesh-types/src/entry.rs`)
 and their API routes (`src/api.rs`) already present:
 
 | Entry | Route | Purpose |
@@ -43,7 +43,7 @@ Also present and reusable:
 
 - **Encrypted secrets** — `src/secret_store.rs`: AES-256-GCM at rest
   (`~/.btcpc/secrets.enc`), key from hardware fingerprint or
-  `BTCPC_SECRETS_PASSPHRASE`, RocksDB `secret:` index. Currently used
+  `HONE_SECRETS_PASSPHRASE`, RocksDB `secret:` index. Currently used
   node-locally (e.g. TOTP). **Not yet a deploy-time sealed-secret channel.**
 - **Node hosting market** — `GET/POST /api/service/node-hosting*`: buyers
   purchase hosting capacity from nodes. This is the commercial layer a stateful
@@ -101,9 +101,9 @@ binds a host port; there is no routing/TLS layer.
 
 **Delta:**
 - New entry `IngressRoute { route_id, bundle_id, service, hostname, target_port, tls, epoch, signed_by }`.
-- An **ingress gateway node** (a new node role, opt-in, staked) advertises a wildcard-TLS public hostname (e.g. `*.svc.btcpc.net`) and does **SNI routing** to the current host of the named service, following it across redeploys via the on-chain deployment record. A single gateway node satisfies Bullship day one; multiple gateways = HA later.
-- TLS via ACME on the gateway; per-service subdomain `bullship.svc.btcpc.net`.
-- **Acceptance:** Bullship's gateway gets a stable `https://<name>.svc.btcpc.net` that survives a host migration, with no home-PC tunnel.
+- An **ingress gateway node** (a new node role, opt-in, staked) advertises a wildcard-TLS public hostname (e.g. `*.svc.honemesh.net`) and does **SNI routing** to the current host of the named service, following it across redeploys via the on-chain deployment record. A single gateway node satisfies Bullship day one; multiple gateways = HA later.
+- TLS via ACME on the gateway; per-service subdomain `bullship.svc.honemesh.net`.
+- **Acceptance:** Bullship's gateway gets a stable `https://<name>.svc.honemesh.net` that survives a host migration, with no home-PC tunnel.
 
 ### Gap E — Placement / affinity
 Even with volumes, a database must stay on (or follow) its data.
@@ -183,7 +183,7 @@ This is milestone **M0** and is independent of M1–M6.
 
 ---
 
-*Cross-refs:* `docs/CONTRACTS.md`, `docs/BTCPC_FS_HIVE_EXTERNAL_REPLICA_PLAN.md`,
+*Cross-refs:* `docs/CONTRACTS.md`, `docs/HONE_FS_HIVE_EXTERNAL_REPLICA_PLAN.md`,
 `docs/AGENT_INTEGRATION.md`, and the consumer-facing
-`docs/BTCPC_INTEGRATION_MANIFEST.md` (how a repo like Bullship keeps a
+`docs/HONE_INTEGRATION_MANIFEST.md` (how a repo like Bullship keeps a
 self-updating understanding of this surface).

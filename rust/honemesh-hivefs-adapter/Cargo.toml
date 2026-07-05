@@ -3,7 +3,7 @@ name = "honemesh-hivefs-adapter"
 version = "0.1.0"
 edition = "2021"
 authors = ["Shin Devlin <shindevlin@proton.me>"]
-description = "BTCPC-FS Hive external replica writer and verifier (Phases 2-3)"
+description = "HoneFS Hive external replica writer and verifier (Phases 2-3)"
 
 # Stand-alone crate — not part of the honemesh-node workspace.
 [workspace]

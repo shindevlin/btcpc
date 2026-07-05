@@ -69,10 +69,10 @@ module.** Do NOT reinvent it — lift the proven pattern.
 ## 4. Where the node calls inference today (the seams to replace)
 All call `POST {OLLAMA_URL}/api/chat` or `/api/generate` over HTTP, each doing
 its own `std::env::var("OLLAMA_URL")`:
-- `rust/btcpc-node/src/agent_session.rs:146,175` — chat; parses
+- `rust/honemesh-node/src/agent_session.rs:146,175` — chat; parses
   `response["message"]["content"]`.
-- `rust/btcpc-node/src/agent_worker.rs:292,302,321` — /api/generate + /api/chat.
-- `rust/btcpc-node/src/api.rs:1436` (has_ollama / node info),
+- `rust/honemesh-node/src/agent_worker.rs:292,302,321` — /api/generate + /api/chat.
+- `rust/honemesh-node/src/api.rs:1436` (has_ollama / node info),
   `:3752,3775` (a chat call), `:7670,7697,7754,7798` (the
   `/v1/chat/completions` STREAMING path — SSE, parses streamed chunks).
 - `api.rs:1300` — `has_ollama` capability flag → becomes `has_inference`.
@@ -81,7 +81,7 @@ Two response shapes to preserve: **non-streaming** (`message.content`) and
 **streaming** (SSE token chunks for /v1/chat/completions).
 
 ## 5. The design (unified module + embedded backend)
-- New `rust/btcpc-node/src/inference.rs` — THE single entry point:
+- New `rust/honemesh-node/src/inference.rs` — THE single entry point:
   `chat()`, `chat_stream()`, `available()`. Every caller in §4 uses it; none know
   about Ollama/URLs anymore. (Consolidation alone removes the scattered-dup
   fragility — do it FIRST, no behavior change.)
@@ -146,7 +146,7 @@ but note it — don't build new things on tract-onnx.
   currently works by pointing at Grouchly's node (Ollama+models) as a stopgap.
 - **2026-07-04 (build started):** Shin said "just do candle, no wasted cycles" —
   building directly, not the phased hedge.
-  - **NAME COLLISION CAUGHT:** `rust/btcpc-node/src/inference.rs` ALREADY EXISTS
+  - **NAME COLLISION CAUGHT:** `rust/honemesh-node/src/inference.rs` ALREADY EXISTS
     and is the inference-JOB-MARKETPLACE state machine (bid/award/verify/dispute,
     80KB) — NOT the model runner. Do NOT touch it. The model engine went into a
     NEW file `inference_engine.rs`. `inference.rs` = marketplace,

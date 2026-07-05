@@ -85,7 +85,7 @@ pub async fn run_swarm(
     ).expect("gossipsub");
 
     // Subscribe to all chain topics.
-    for topic_str in &["btcpc/entries", "btcpc/seals", "btcpc/blocks", "btcpc/consensus"] {
+    for topic_str in &["hone/entries", "hone/seals", "hone/blocks", "hone/consensus"] {
         let topic = gossipsub::IdentTopic::new(*topic_str);
         gossipsub.subscribe(&topic).ok();
     }
@@ -97,7 +97,7 @@ pub async fn run_swarm(
 
     // Identify so peers learn our observed address.
     let identify = identify::Behaviour::new(identify::Config::new(
-        format!("/btcpc/{}/1.0.0", cfg.chain_id),
+        format!("/hone/{}/1.0.0", cfg.chain_id),
         keypair.public(),
     ));
 
@@ -127,12 +127,12 @@ pub async fn run_swarm(
         }
     }
 
-    // Fetch peers from Hive and btcpc.net concurrently.
-    let (hive_peers, btcpc_net_peers) = tokio::join!(
+    // Fetch peers from Hive and honemesh.net concurrently.
+    let (hive_peers, hone_net_peers) = tokio::join!(
         fetch_hive_peers(&cfg.chain_id),
-        fetch_btcpc_net_peers(&cfg.chain_id),
+        fetch_hone_net_peers(&cfg.chain_id),
     );
-    for peers in [hive_peers.unwrap_or_default(), btcpc_net_peers.unwrap_or_default()] {
+    for peers in [hive_peers.unwrap_or_default(), hone_net_peers.unwrap_or_default()] {
         for addr in peers {
             if let Ok(ma) = addr.parse::<Multiaddr>() {
                 swarm.dial(ma).ok();
@@ -241,15 +241,15 @@ fn load_or_create_keypair(data_dir: &str) -> Keypair {
     kp
 }
 
-// ── btcpc.net peer discovery ──────────────────────────────────────────────────
+// ── honemesh.net peer discovery ──────────────────────────────────────────────────
 
-async fn fetch_btcpc_net_peers(chain_id: &str) -> Result<Vec<String>> {
+async fn fetch_hone_net_peers(chain_id: &str) -> Result<Vec<String>> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
         .build()?;
 
     let resp: serde_json::Value = client
-        .get("https://btcpc.net/api/peers/bootstrap")
+        .get("https://honemesh.net/api/peers/bootstrap")
         .query(&[("chain_id", chain_id)])
         .send().await?
         .json().await?;
@@ -266,15 +266,15 @@ async fn fetch_btcpc_net_peers(chain_id: &str) -> Result<Vec<String>> {
 
 async fn fetch_hive_peers(chain_id: &str) -> Result<Vec<String>> {
     let key = if chain_id == honemesh_types::TESTNET_CHAIN_ID {
-        "btcpc_satoshi_peers"
+        "hone_satoshi_peers"
     } else {
-        "btcpc_peers"
+        "hone_peers"
     };
 
     let body = serde_json::json!({
         "jsonrpc": "2.0",
         "method": "condenser_api.get_accounts",
-        "params": [["btcpc"]],
+        "params": [["hone"]],
         "id": 1,
     });
 

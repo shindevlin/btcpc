@@ -3,7 +3,7 @@ name = "honemesh-market"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
-description = "BTCPC Market — commerce HTTP service (stores, products, orders, reputation)"
+description = "HoneMesh Market — commerce HTTP service (stores, products, orders, reputation)"
 
 [[bin]]
 name = "honemesh-market"

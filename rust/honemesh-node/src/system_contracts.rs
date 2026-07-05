@@ -1,7 +1,7 @@
 //! System contract bootstrap — deploys built-in contracts on first node startup.
 //!
 //! Currently deployed:
-//!   - HoneMesh Registry (btcpc-registry) — on-chain key-value store
+//!   - HoneMesh Registry (hone-registry) — on-chain key-value store
 //!
 //! Each contract is deployed exactly once: the contract_id is stored at
 //! `system_contract:{name}` in the chain state. If that key exists, the
@@ -16,7 +16,7 @@ use crate::chain::Chain;
 use crate::contracts::ContractEngine;
 
 /// WASM bytecode for the on-chain registry contract.
-/// Built from `btcpc-contract-sdk/examples/registry` targeting wasm32-unknown-unknown.
+/// Built from `honemesh-contract-sdk/examples/registry` targeting wasm32-unknown-unknown.
 static REGISTRY_WASM: &[u8] = include_bytes!("../contracts/registry.wasm");
 
 const REGISTRY_DEPLOYER: &str = "shindevlin";

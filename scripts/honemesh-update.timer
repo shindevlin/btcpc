@@ -1,6 +1,6 @@
 [Unit]
-Description=BTCPC node auto-update timer
-Requires=btcpc-update.service
+Description=HoneMesh node auto-update timer
+Requires=honemesh-update.service
 
 [Timer]
 # Check for updates every 10 minutes.

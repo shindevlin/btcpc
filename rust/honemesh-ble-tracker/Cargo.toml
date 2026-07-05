@@ -3,7 +3,7 @@ name = "honemesh-ble-tracker"
 version = "1.0.0"
 edition = "2021"
 authors = ["Shin Devlin <shindevlin@proton.me>"]
-description = "BTCPC BLE tracker scanner — passive detection of AirTags, Find My Device tags, Tile, Samsung SmartTags, with acoustic ownership challenge"
+description = "HoneMesh BLE tracker scanner — passive detection of AirTags, Find My Device tags, Tile, Samsung SmartTags, with acoustic ownership challenge"
 
 [[bin]]
 name = "honemesh-ble-tracker"
@@ -14,6 +14,9 @@ default = []
 # Enable acoustic challenge listener (requires ALSA/PulseAudio + USB microphone).
 acoustic = ["dep:cpal", "dep:rustfft"]
 
+
+# Standalone crate — not a member of rust/Cargo.toml workspace.
+[workspace]
 [dependencies]
 # BLE passive scanning
 btleplug = "0.11"

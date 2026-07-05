@@ -34,26 +34,26 @@ jobs:
       - name: Build node binaries
         run: |
           cd rust
-          cargo build --release -p btcpc-node
+          cargo build --release -p honemesh-node
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
-            cargo build --release -p btcpc-node --target aarch64-unknown-linux-gnu
-          cp target/release/btcpc-node                              ../btcpc-node-linux-x86_64
-          cp target/aarch64-unknown-linux-gnu/release/btcpc-node    ../btcpc-node-aarch64-linux
+            cargo build --release -p honemesh-node --target aarch64-unknown-linux-gnu
+          cp target/release/honemesh-node                              ../honemesh-node-x86_64-linux
+          cp target/aarch64-unknown-linux-gnu/release/honemesh-node    ../honemesh-node-aarch64-linux
 
       - name: Build CLI binaries
         run: |
           cd rust
-          cargo build --release -p btcpc-cli
+          cargo build --release -p honemesh-cli
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
-            cargo build --release -p btcpc-cli --target aarch64-unknown-linux-gnu
-          cp target/release/btcpc-cli                              ../btcpc-linux-x86_64
-          cp target/aarch64-unknown-linux-gnu/release/btcpc-cli    ../btcpc-linux-aarch64
+            cargo build --release -p honemesh-cli --target aarch64-unknown-linux-gnu
+          cp target/release/honemesh-cli                              ../hone-x86_64-linux
+          cp target/aarch64-unknown-linux-gnu/release/honemesh-cli    ../hone-aarch64-linux
 
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            btcpc-node-linux-x86_64
-            btcpc-node-aarch64-linux
-            btcpc-linux-x86_64
-            btcpc-linux-aarch64
+            honemesh-node-x86_64-linux
+            honemesh-node-aarch64-linux
+            hone-x86_64-linux
+            hone-aarch64-linux

@@ -16,14 +16,14 @@
 //!
 //!   1. **Generated** by [`generate::generate_manifest`] from the source tree —
 //!      never hand-maintained, so it cannot drift from what the node serves.
-//!   2. **Committed** to the btcpc repo as `btcpc-manifest.json`. A CI check
-//!      (`btcpc manifest check`) fails the build if the committed manifest and
+//!   2. **Committed** to the hone repo as `honemesh-manifest.json`. A CI check
+//!      (`hone manifest check`) fails the build if the committed manifest and
 //!      the freshly-generated one disagree — so every commit that changes the
 //!      API surface MUST update the manifest in the same commit. "What changed"
 //!      is therefore a real `git diff`.
 //!   3. **Diffable** by [`diff::diff_manifests`], which classifies every change
 //!      as ADDED / REMOVED / DEPRECATED / CHANGED (breaking vs. compatible).
-//!   4. **Consumed** by `btcpc sync` (see [`sync`]), which regenerates a
+//!   4. **Consumed** by `hone sync` (see [`sync`]), which regenerates a
 //!      consumer repo's `HoneMesh.md` + `HoneMesh.lock` and prints the changelog,
 //!      exiting non-zero on breaking changes so the consumer's CI catches them.
 //!
@@ -55,8 +55,8 @@ pub use diff::{ManifestDiff, Change, ChangeKind, Severity};
 /// to know they can parse a manifest at all.
 pub const MANIFEST_SCHEMA_VERSION: u32 = 1;
 
-/// Canonical filename for the in-repo generated manifest (btcpc repo root).
-pub const MANIFEST_FILENAME: &str = "btcpc-manifest.json";
+/// Canonical filename for the in-repo generated manifest (hone repo root).
+pub const MANIFEST_FILENAME: &str = "honemesh-manifest.json";
 
 /// Canonical filenames a consumer repo carries.
 pub const CONSUMER_DOC: &str = "HoneMesh.md";

@@ -18,7 +18,7 @@ use honemesh_types::{LedgerEntry, NATIVE_TOKEN, RECYCLE_FUND_ACCOUNT};
 use crate::chain::Chain;
 
 const MAX_HISTORY_TURNS: usize = 50;
-const SESSION_FEE_PER_TURN_DREAMS: u64 = 500;
+const SESSION_FEE_PER_TURN_HUNITS: u64 = 500;
 const SESSION_EXPIRY_EPOCHS: u64 = 2_880; // ~24h
 #[allow(dead_code)]
 const TOOL_TIMEOUT_SECS: u64 = 30;
@@ -109,7 +109,7 @@ pub fn apply_close(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
     anyhow::ensure!(session.status == SessionStatus::Open, "session is not open");
 
     // Calculate fees for turns used, refund remainder.
-    let fees_used = (session.turn_count as u64).saturating_mul(SESSION_FEE_PER_TURN_DREAMS);
+    let fees_used = (session.turn_count as u64).saturating_mul(SESSION_FEE_PER_TURN_HUNITS);
     let refund = session.fee_escrow.saturating_sub(fees_used);
     if refund > 0 {
         chain.store.credit(client, NATIVE_TOKEN, refund)?;
@@ -139,7 +139,7 @@ pub async fn execute_turn(
 
     anyhow::ensure!(session.status == SessionStatus::Open, "session is not open");
     anyhow::ensure!(
-        session.fee_escrow >= SESSION_FEE_PER_TURN_DREAMS,
+        session.fee_escrow >= SESSION_FEE_PER_TURN_HUNITS,
         "insufficient fee escrow for another turn"
     );
 
@@ -210,7 +210,7 @@ pub async fn execute_turn(
     }
 
     // Deduct fee.
-    session.fee_escrow = session.fee_escrow.saturating_sub(SESSION_FEE_PER_TURN_DREAMS);
+    session.fee_escrow = session.fee_escrow.saturating_sub(SESSION_FEE_PER_TURN_HUNITS);
 
     chain.store.state_set(&session_key(session_id), &serde_json::to_vec(&session)?)?;
     Ok(assistant_content)

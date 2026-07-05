@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use teloxide::{prelude::*, utils::command::BotCommands};
 
-use crate::api::{dreams_to_btcpc, BtcpcClient};
+use crate::api::{hunits_to_hone, HoneClient};
 
 #[derive(BotCommands, Clone, Debug)]
 #[command(rename_rule = "lowercase", description = "HoneMesh Bot commands:")]
@@ -21,14 +21,14 @@ pub enum Command {
     Network,
     #[command(description = "Unsigned transfer info — /transfer <to> <amount>")]
     Transfer(String),
-    #[command(description = "Testnet faucet — /faucet <account> (btcpc-satoshi only)")]
+    #[command(description = "Testnet faucet — /faucet <account> (hone-testnet only)")]
     Faucet(String),
     #[command(description = "Full command reference")]
     Help,
 }
 
 pub struct HandlerState {
-    pub api: Arc<BtcpcClient>,
+    pub api: Arc<HoneClient>,
     pub default_account: Option<String>,
 }
 
@@ -63,7 +63,7 @@ fn handle_start() -> String {
     /block [epoch] — Block details\n\
     /network — Network status\n\
     /transfer <to> <amount> — Transfer info\n\
-    /faucet <account> — Request testnet HoneMesh (btcpc-satoshi only)\n\
+    /faucet <account> — Request testnet HONE (hone-testnet only)\n\
     /help — Full command reference\n\n\
     Set HONE_ACCOUNT env var to use a default account for balance/stake."
         .to_string()
@@ -77,7 +77,7 @@ fn handle_help() -> String {
     /block [epoch] — Block info (latest if epoch omitted)\n\
     /network — Latest epoch, node health\n\
     /transfer <to> <amount> — Unsigned transfer info (explains signing)\n\
-    /faucet <account> — Request testnet HoneMesh (btcpc-satoshi only, 10 HONE, 1hr cooldown)\n\
+    /faucet <account> — Request testnet HONE (hone-testnet only, 10 HONE, 1hr cooldown)\n\
     /help — This message\n\n\
     Units: 1 HONE = 10,000,000,000 hunits"
         .to_string()
@@ -92,15 +92,15 @@ async fn handle_balance(arg: String, state: &Arc<HandlerState>) -> String {
 
     match state.api.get_balance(&account).await {
         Ok(resp) => {
-            let btcpc = match resp.hunits {
-                Some(d) => dreams_to_btcpc(d),
+            let hone = match resp.hunits {
+                Some(d) => hunits_to_hone(d),
                 None => resp.balance.unwrap_or(0.0) / 10_000_000_000.0,
             };
-            let token = resp.token.unwrap_or_else(|| "HoneMesh".to_string());
+            let token = resp.token.unwrap_or_else(|| "HONE".to_string());
             format!(
                 "Balance for {}:\n{:.4} {}\n({} hunits)",
                 account,
-                btcpc,
+                hone,
                 token,
                 resp.hunits.unwrap_or(0)
             )
@@ -118,14 +118,14 @@ async fn handle_stake(arg: String, state: &Arc<HandlerState>) -> String {
 
     match state.api.get_stake(&account).await {
         Ok(resp) => {
-            let btcpc = match resp.hunits {
-                Some(d) => dreams_to_btcpc(d),
+            let hone = match resp.hunits {
+                Some(d) => hunits_to_hone(d),
                 None => resp.stake.unwrap_or(0.0) / 10_000_000_000.0,
             };
             format!(
-                "Stake for {}:\n{:.4} HoneMesh\n({} hunits)",
+                "Stake for {}:\n{:.4} HONE\n({} hunits)",
                 account,
-                btcpc,
+                hone,
                 resp.hunits.unwrap_or(0)
             )
         }
@@ -222,9 +222,9 @@ fn handle_transfer(arg: String) -> String {
     format!(
         "Transfer details (unsigned):\n\
         To: {}\n\
-        Amount: {:.4} HoneMesh ({} hunits)\n\n\
+        Amount: {:.4} HONE ({} hunits)\n\n\
         HoneMesh transactions must be signed with your private key.\n\
-        Use the btcpc-cli or wallet app to submit signed transactions to the node.\n\
+        Use the honemesh-cli or wallet app to submit signed transactions to the node.\n\
         API endpoint: POST /api/transfer",
         to, amount, hunits
     )

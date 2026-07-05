@@ -5,8 +5,8 @@ use honemesh_types::{AccountId, MAINNET_CHAIN_ID};
 /// Cloudflare DNS seeds — update the A record when a machine changes, no code change needed.
 /// Add more entries here as the network grows.
 pub const DEFAULT_BOOTSTRAP_PEERS: &[&str] = &[
-    "/dns4/bootstrap1.btcpc.net/tcp/6942",
-    "/dns4/bootstrap2.btcpc.net/tcp/6942",
+    "/dns4/bootstrap1.honemesh.net/tcp/6942",
+    "/dns4/bootstrap2.honemesh.net/tcp/6942",
 ];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -40,7 +40,7 @@ impl Config {
             .unwrap_or_else(|_| {
                 dirs_next::home_dir()
                     .unwrap_or_else(|| PathBuf::from("/tmp"))
-                    .join(".btcpc")
+                    .join(".honemesh")
             });
 
         Self {
@@ -81,7 +81,7 @@ impl Config {
                 .map(|v| v == "true" || v == "1").unwrap_or(false),
             genesis_file: std::env::var("HONE_GENESIS_FILE").ok().map(PathBuf::from),
             log_level: std::env::var("HONE_LOG_LEVEL")
-                .unwrap_or_else(|_| "btcpc_node=info".to_string()),
+                .unwrap_or_else(|_| "hone_node=info".to_string()),
             chain_id: std::env::var("HONE_CHAIN_ID")
                 .unwrap_or_else(|_| MAINNET_CHAIN_ID.to_string()),
             genesis_timestamp: Some(

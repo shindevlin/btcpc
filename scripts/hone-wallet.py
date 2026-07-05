@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-btcpc-wallet.py — offline BIP39 multi-chain wallet generator
+hone-wallet.py — offline BIP39 multi-chain wallet generator
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 NO NETWORK CALLS. Every function is shown in plain Python so you can read
 exactly what happens to your mnemonic. Run this air-gapped if you want.
-Produces output byte-for-byte identical to the Rust btcpc-node wallet.rs.
+Produces output byte-for-byte identical to the Rust honemesh-node wallet.rs.
 
 Standards implemented — read the linked specs to verify this code yourself:
   BIP-39  https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki
@@ -15,7 +15,7 @@ Standards implemented — read the linked specs to verify this code yourself:
   EIP-55  https://eips.ethereum.org/EIPS/eip-55
 
 Derivation map (mirrors wallet.rs exactly):
-  BTCPC    ed25519   seed[0:32]  (raw BIP-39 seed — no HD path)
+  HoneMesh    ed25519   seed[0:32]  (raw BIP-39 seed — no HD path)
   Bitcoin  secp256k1 BIP-44  m/44'/0'/0'/0/0
   Ethereum secp256k1 BIP-44  m/44'/60'/0'/0/0  (same addr: Polygon/BSC/Avax/Arb/Op/Base)
   XRP      secp256k1 BIP-44  m/44'/144'/0'/0/0
@@ -32,10 +32,10 @@ Install dependencies (one-time):
   pip install mnemonic ecdsa cryptography base58 bech32 pycryptodome
 
 Usage:
-  python3 btcpc-wallet.py generate              # new random 12-word wallet
-  python3 btcpc-wallet.py derive                # enter your existing mnemonic
-  python3 btcpc-wallet.py show    [wallet.key]  # display a saved wallet.key
-  python3 btcpc-wallet.py verify  [wallet.key]  # prove mnemonic matches wallet.key
+  python3 hone-wallet.py generate              # new random 12-word wallet
+  python3 hone-wallet.py derive                # enter your existing mnemonic
+  python3 hone-wallet.py show    [wallet.key]  # display a saved wallet.key
+  python3 hone-wallet.py verify  [wallet.key]  # prove mnemonic matches wallet.key
 """
 
 import sys
@@ -325,12 +325,12 @@ def derive_all(words: str) -> dict:
     """
     Derive every chain key from a BIP-39 mnemonic.
     Returns a dict matching the WalletKeys struct in wallet.rs — drop this
-    directly into ~/.btcpc/wallet.key and the Rust node will load it.
+    directly into ~/.honemesh/wallet.key and the Rust node will load it.
     """
     seed = mnemonic_to_seed(words)
 
-    # BTCPC role keys: SLIP-10 m/44'/6942'/role'/0'
-    # coin 6942 = BTCPC. role 0=owner,1=active,2=posting,3=memo,4=hide,5=seek
+    # HoneMesh role keys: SLIP-10 m/44'/6942'/role'/0'
+    # coin 6942 = HoneMesh. role 0=owner,1=active,2=posting,3=memo,4=hide,5=seek
     BTCPC_COIN = 6942
     owner_priv,   owner_pub   = slip10(seed, [44, BTCPC_COIN, 0, 0])
     active_priv,  active_pub  = slip10(seed, [44, BTCPC_COIN, 1, 0])
@@ -357,19 +357,19 @@ def derive_all(words: str) -> dict:
     return {
         "mnemonic":            words,
 
-        # BTCPC role keys (SLIP-10 m/44'/6942'/role'/0')
-        "btcpc_owner_private_key":   owner_priv.hex(),
-        "btcpc_owner_public_key":    owner_pub.hex(),
-        "btcpc_active_private_key":  active_priv.hex(),
-        "btcpc_active_public_key":   active_pub.hex(),
-        "btcpc_private_key":         post_priv.hex(),   # posting (back-compat field name)
-        "btcpc_public_key":          post_pub.hex(),
-        "btcpc_memo_private_key":    memo_priv.hex(),
-        "btcpc_memo_public_key":     memo_pub.hex(),
-        "btcpc_hide_private_key":    hide_priv.hex(),
-        "btcpc_hide_public_key":     hide_pub.hex(),
-        "btcpc_seek_private_key":    seek_priv.hex(),
-        "btcpc_seek_public_key":     seek_pub.hex(),
+        # HoneMesh role keys (SLIP-10 m/44'/6942'/role'/0')
+        "hone_owner_private_key":   owner_priv.hex(),
+        "hone_owner_public_key":    owner_pub.hex(),
+        "hone_active_private_key":  active_priv.hex(),
+        "hone_active_public_key":   active_pub.hex(),
+        "hone_private_key":         post_priv.hex(),   # posting (back-compat field name)
+        "hone_public_key":          post_pub.hex(),
+        "hone_memo_private_key":    memo_priv.hex(),
+        "hone_memo_public_key":     memo_pub.hex(),
+        "hone_hide_private_key":    hide_priv.hex(),
+        "hone_hide_public_key":     hide_pub.hex(),
+        "hone_seek_private_key":    seek_priv.hex(),
+        "hone_seek_public_key":     seek_pub.hex(),
 
         "bitcoin_wif":         _btc_wif(btc),
         "bitcoin_pubkey":      _btc_pubkey(btc),
@@ -409,7 +409,7 @@ def derive_all(words: str) -> dict:
 # Save / load wallet.key
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-DEFAULT_PATH = os.path.expanduser("~/.btcpc/wallet.key")
+DEFAULT_PATH = os.path.expanduser("~/.honemesh/wallet.key")
 
 def save_wallet(wallet: dict, path: str) -> None:
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
@@ -431,36 +431,36 @@ def print_wallet(w: dict, show_private: bool = False) -> None:
     priv = lambda v: v if show_private else "(hidden — use --private to show)"
 
     print("\n" + "═" * W)
-    print("  BTCPC WALLET — generated offline, no data left this machine")
+    print("  HoneMesh WALLET — generated offline, no data left this machine")
     print("═" * W)
     print(f"\n  MNEMONIC  ← write these 12 words down. they regenerate everything below.")
     print(f"\n  {w['mnemonic']}\n")
     print("─" * W)
 
     chains = [
-        ("BTCPC OWNER KEY  (SLIP-10 m/44'/6942'/0'/0') — key rotation & governance",
-         [("public key",   w["btcpc_owner_public_key"]),
-          ("private key",  priv(w["btcpc_owner_private_key"]))]),
+        ("HoneMesh OWNER KEY  (SLIP-10 m/44'/6942'/0'/0') — key rotation & governance",
+         [("public key",   w["hone_owner_public_key"]),
+          ("private key",  priv(w["hone_owner_private_key"]))]),
 
-        ("BTCPC ACTIVE KEY  (SLIP-10 m/44'/6942'/1'/0') — transfers & staking",
-         [("public key",   w["btcpc_active_public_key"]),
-          ("private key",  priv(w["btcpc_active_private_key"]))]),
+        ("HoneMesh ACTIVE KEY  (SLIP-10 m/44'/6942'/1'/0') — transfers & staking",
+         [("public key",   w["hone_active_public_key"]),
+          ("private key",  priv(w["hone_active_private_key"]))]),
 
-        ("BTCPC POSTING KEY  (SLIP-10 m/44'/6942'/2'/0') — daily activity",
-         [("public key",   w["btcpc_public_key"]),
-          ("private key",  priv(w["btcpc_private_key"]))]),
+        ("HoneMesh POSTING KEY  (SLIP-10 m/44'/6942'/2'/0') — daily activity",
+         [("public key",   w["hone_public_key"]),
+          ("private key",  priv(w["hone_private_key"]))]),
 
-        ("BTCPC MEMO KEY  (SLIP-10 m/44'/6942'/3'/0') — encrypted messages",
-         [("public key",   w["btcpc_memo_public_key"]),
-          ("private key",  priv(w["btcpc_memo_private_key"]))]),
+        ("HoneMesh MEMO KEY  (SLIP-10 m/44'/6942'/3'/0') — encrypted messages",
+         [("public key",   w["hone_memo_public_key"]),
+          ("private key",  priv(w["hone_memo_private_key"]))]),
 
-        ("BTCPC HIDE KEY  (SLIP-10 m/44'/6942'/4'/0') — private content",
-         [("public key",   w["btcpc_hide_public_key"]),
-          ("private key",  priv(w["btcpc_hide_private_key"]))]),
+        ("HoneMesh HIDE KEY  (SLIP-10 m/44'/6942'/4'/0') — private content",
+         [("public key",   w["hone_hide_public_key"]),
+          ("private key",  priv(w["hone_hide_private_key"]))]),
 
-        ("BTCPC SEEK KEY  (SLIP-10 m/44'/6942'/5'/0') — encrypted delivery",
-         [("public key",   w["btcpc_seek_public_key"]),
-          ("private key",  priv(w["btcpc_seek_private_key"]))]),
+        ("HoneMesh SEEK KEY  (SLIP-10 m/44'/6942'/5'/0') — encrypted delivery",
+         [("public key",   w["hone_seek_public_key"]),
+          ("private key",  priv(w["hone_seek_private_key"]))]),
 
         ("BITCOIN  (BIP-44  m/44'/0'/0'/0/0)",
          [("pubkey",       w["bitcoin_pubkey"]),
@@ -560,9 +560,9 @@ def cmd_verify(path, show_private):
     derived = derive_all(words)
 
     check_keys = [
-        "btcpc_owner_public_key", "btcpc_active_public_key",
-        "btcpc_public_key", "btcpc_memo_public_key",
-        "btcpc_hide_public_key", "btcpc_seek_public_key",
+        "hone_owner_public_key", "hone_active_public_key",
+        "hone_public_key", "hone_memo_public_key",
+        "hone_hide_public_key", "hone_seek_public_key",
         "bitcoin_pubkey", "ethereum_address",
         "solana_address", "near_address", "sui_address", "aptos_address",
     ]
@@ -580,12 +580,12 @@ def cmd_verify(path, show_private):
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 USAGE = """
-  python3 btcpc-wallet.py generate [path]   new random wallet
-  python3 btcpc-wallet.py derive   [path]   derive from existing mnemonic
-  python3 btcpc-wallet.py show     [path]   display a wallet.key file
-  python3 btcpc-wallet.py verify   [path]   check mnemonic matches wallet.key
+  python3 hone-wallet.py generate [path]   new random wallet
+  python3 hone-wallet.py derive   [path]   derive from existing mnemonic
+  python3 hone-wallet.py show     [path]   display a wallet.key file
+  python3 hone-wallet.py verify   [path]   check mnemonic matches wallet.key
 
-  Default path: ~/.btcpc/wallet.key
+  Default path: ~/.honemesh/wallet.key
   Add --private to any command to display private keys and WIF.
 """
 

@@ -9,7 +9,7 @@ use crate::chain::Chain;
 use honemesh_types::NATIVE_TOKEN;
 
 /// Reward per verified phone storage proof in hunits.
-pub const PHONE_STORAGE_REWARD_DREAMS: u64 = 250;
+pub const PHONE_STORAGE_REWARD_HUNITS: u64 = 250;
 
 fn proof_used_key(proof_hash: &str) -> String { format!("phone_store_proof_used:{}", proof_hash) }
 
@@ -48,7 +48,7 @@ pub fn apply_proof(
     chain.store.state_set(&used_key, &epoch.to_le_bytes())?;
 
     // Credit reward
-    chain.store.credit(account, NATIVE_TOKEN, PHONE_STORAGE_REWARD_DREAMS)?;
+    chain.store.credit(account, NATIVE_TOKEN, PHONE_STORAGE_REWARD_HUNITS)?;
 
     // Update device stats
     let stats_key = format!("phone_store_stats:{}:{}", account, device_id);
@@ -76,11 +76,11 @@ mod tests {
 
     fn make_chain(label: &str) -> (Chain, tempfile::TempDir) {
         let dir = tempfile::Builder::new()
-            .prefix(&format!("btcpc_test_{}_", label))
+            .prefix(&format!("hone_test_{}_", label))
             .tempdir()
             .unwrap();
         let store = crate::store::Store::open(dir.path()).unwrap();
-        let chain = Chain::new(store, format!("node-{}", label), "btcpc-test".to_string());
+        let chain = Chain::new(store, format!("node-{}", label), "hone-test".to_string());
         (chain, dir)
     }
 

@@ -8,7 +8,7 @@ use std::path::Path;
 /// Load a keypair from a key file. Understands two formats:
 ///
 /// 1. `wallet.key` — full WalletKeys bundle produced by the node.
-///    Contains `btcpc_active_private_key`, `btcpc_private_key` (posting), etc.
+///    Contains `hone_active_private_key`, `hone_private_key` (posting), etc.
 ///    `role` selects which key to extract: "active", "posting", "owner".
 ///
 /// 2. `key.json` — simple standalone key: `{ "private_key_hex": "..." }`.
@@ -20,10 +20,11 @@ pub fn load_keypair(path: &Path, role: &str) -> Result<KeyPair> {
         .with_context(|| format!("invalid JSON in {}", path.display()))?;
 
     // wallet.key format — pick the private key for the requested role
+    // btcpc_* fallbacks accept pre-rebrand wallet.key files.
     let wallet_fields: &[&str] = match role {
-        "owner"   => &["btcpc_owner_private_key"],
-        "posting" => &["btcpc_private_key", "btcpc_posting_private_key"],
-        _         => &["btcpc_active_private_key"],
+        "owner"   => &["hone_owner_private_key", "btcpc_owner_private_key"],
+        "posting" => &["hone_private_key", "hone_posting_private_key", "btcpc_private_key"],
+        _         => &["hone_active_private_key", "btcpc_active_private_key"],
     };
     for field in wallet_fields {
         if let Some(hex) = v.get(*field).and_then(|h| h.as_str()).filter(|h| !h.is_empty()) {
@@ -39,7 +40,7 @@ pub fn load_keypair(path: &Path, role: &str) -> Result<KeyPair> {
     }
 
     Err(anyhow!(
-        "{}: unrecognised key file — expected wallet.key (btcpc_active_private_key) or key.json (private_key_hex)",
+        "{}: unrecognised key file — expected wallet.key (hone_active_private_key) or key.json (private_key_hex)",
         path.display()
     ))
 }
@@ -75,7 +76,7 @@ pub fn submit_transfer(
     key_file: &Path,
     from: &str,
     to: &str,
-    amount_dreams: u64,
+    amount_hunits: u64,
     memo: &str,
 ) -> Result<String> {
     let keypair = load_keypair(key_file, "active")?;
@@ -88,7 +89,7 @@ pub fn submit_transfer(
         "type": "TRANSFER",
         "from": from,
         "to": to,
-        "amount": amount_dreams,
+        "amount": amount_hunits,
         "token": "HoneMesh",
         "nonce": nonce,
     }))?;
@@ -103,7 +104,7 @@ pub fn submit_transfer(
     let body = json!({
         "from": from,
         "to": to,
-        "amount": amount_dreams,
+        "amount": amount_hunits,
         "token": "HoneMesh",
         "memo": memo_val,
         "signed_by": from,
@@ -130,7 +131,7 @@ pub fn submit_stake(
     base: &str,
     key_file: &Path,
     account: &str,
-    amount_dreams: u64,
+    amount_hunits: u64,
     add: bool,
 ) -> Result<String> {
     let keypair = load_keypair(key_file, "active")?;
@@ -142,7 +143,7 @@ pub fn submit_stake(
         "chain_id": chain_id,
         "type": kind,
         "account": account,
-        "amount": amount_dreams,
+        "amount": amount_hunits,
         "nonce": nonce,
     }))?;
     let sig = keypair.sign_entry_json(&msg);
@@ -150,7 +151,7 @@ pub fn submit_stake(
     let path = if add { "/api/stake" } else { "/api/unstake" };
     let body = json!({
         "account": account,
-        "amount": amount_dreams,
+        "amount": amount_hunits,
         "signed_by": account,
         "nonce": nonce,
         "signature": sig,
@@ -176,7 +177,7 @@ pub fn submit_role_stake(
     staker: &str,
     node: &str,
     role: &str,
-    amount_dreams: u64,
+    amount_hunits: u64,
     add: bool,
 ) -> Result<String> {
     let keypair  = load_keypair(key_file, "active")?;
@@ -194,7 +195,7 @@ pub fn submit_role_stake(
         "node": node,
         "role": role,
         "staker": staker,
-        "amount": amount_dreams,
+        "amount": amount_hunits,
         "nonce": nonce,
     }))?;
     let sig = keypair.sign_entry_json(&msg);
@@ -202,7 +203,7 @@ pub fn submit_role_stake(
         "node": node,
         "role": role,
         "staker": staker,
-        "amount": amount_dreams,
+        "amount": amount_hunits,
         "epoch": epoch,
         "signed_by": staker,
         "nonce": nonce,

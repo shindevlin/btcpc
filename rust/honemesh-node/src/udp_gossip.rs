@@ -256,11 +256,11 @@ mod tests {
 
     fn make_chain() -> (Arc<Chain>, TempDir) {
         let dir = tempfile::Builder::new()
-            .prefix("btcpc_udp_test_")
+            .prefix("hone_udp_test_")
             .tempdir()
             .expect("tempdir");
         let store = crate::store::Store::open(dir.path()).expect("store open");
-        let chain = Arc::new(Chain::new(store, "udp-test-node".into(), "btcpc-satoshi".into()));
+        let chain = Arc::new(Chain::new(store, "udp-test-node".into(), "hone-testnet".into()));
         (chain, dir)
     }
 
@@ -270,7 +270,7 @@ mod tests {
     fn udp_gossip_new_constructs_without_panic() {
         let (chain, _dir) = make_chain();
         let (p2p_tx, _p2p_rx) = tokio::sync::mpsc::channel(64);
-        let (_gossip, handle) = UdpGossip::new(chain, p2p_tx, "btcpc-satoshi".into());
+        let (_gossip, handle) = UdpGossip::new(chain, p2p_tx, "hone-testnet".into());
 
         // The handle must be Clone and the sender must be valid (not closed).
         let _handle2 = handle.clone();
@@ -287,7 +287,7 @@ mod tests {
     fn send_if_light_drops_non_light_entries_silently() {
         let (chain, _dir) = make_chain();
         let (p2p_tx, _p2p_rx) = tokio::sync::mpsc::channel(64);
-        let (_gossip, handle) = UdpGossip::new(chain, p2p_tx, "btcpc-satoshi".into());
+        let (_gossip, handle) = UdpGossip::new(chain, p2p_tx, "hone-testnet".into());
 
         // A Transfer entry is not a light entry — must be dropped, not queued.
         let non_light = LedgerEntry::Transfer {

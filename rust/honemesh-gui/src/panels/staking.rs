@@ -1,5 +1,5 @@
 use super::{
-    AppData, dreams_to_btcpc, parse_btcpc_input,
+    AppData, hunits_to_hone, parse_hone_input,
     not_signed_in, active_key_required, section_heading, card,
     ORANGE, BLUE, GREEN, RED, DIM_TEXT, YELLOW,
 };
@@ -49,14 +49,14 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
         ui.columns(3, |cols| {
             cols[0].vertical_centered(|ui| {
                 ui.label(egui::RichText::new(
-                    data.balance.map(|b| format!("{} HoneMesh", dreams_to_btcpc(b)))
+                    data.balance.map(|b| format!("{} HONE", hunits_to_hone(b)))
                         .unwrap_or_else(|| "—".to_string())
                 ).size(14.0).strong().color(egui::Color32::WHITE));
                 ui.label(egui::RichText::new("Available").size(11.0).color(DIM_TEXT));
             });
             cols[1].vertical_centered(|ui| {
                 ui.label(egui::RichText::new(
-                    data.staked.map(|s| format!("{} HoneMesh", dreams_to_btcpc(s)))
+                    data.staked.map(|s| format!("{} HONE", hunits_to_hone(s)))
                         .unwrap_or_else(|| "—".to_string())
                 ).size(14.0).strong().color(BLUE));
                 ui.label(egui::RichText::new("Staked").size(11.0).color(DIM_TEXT));
@@ -66,7 +66,7 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
                     .filter_map(|p| p.get("amount").and_then(|a| a.as_u64()))
                     .sum();
                 ui.label(egui::RichText::new(
-                    format!("{} HoneMesh", dreams_to_btcpc(role_backed))
+                    format!("{} HONE", hunits_to_hone(role_backed))
                 ).size(14.0).strong().color(ORANGE));
                 ui.label(egui::RichText::new("Backing").size(11.0).color(DIM_TEXT));
             });
@@ -90,10 +90,10 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
                     .spacing([20.0, 4.0])
                     .show(ui, |ui| {
                         for (role, min_val) in map {
-                            let min_dreams = min_val.as_u64().unwrap_or(0);
+                            let min_hunits = min_val.as_u64().unwrap_or(0);
                             ui.label(egui::RichText::new(role).color(ORANGE).small().strong());
                             ui.label(egui::RichText::new(
-                                format!("{} HoneMesh min", dreams_to_btcpc(min_dreams))
+                                format!("{} HONE min", hunits_to_hone(min_hunits))
                             ).small().color(DIM_TEXT));
                             ui.end_row();
                         }
@@ -171,7 +171,7 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
                                     .unwrap_or(0);
                                 if min_d > 0 {
                                     ui.label(egui::RichText::new(
-                                        format!("(min {})", dreams_to_btcpc(min_d))
+                                        format!("(min {})", hunits_to_hone(min_d))
                                     ).size(11.0).color(DIM_TEXT));
                                 }
                             }
@@ -232,7 +232,7 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
                     } else if role.is_empty() {
                         (false, "select a role".into())
                     } else {
-                        match (key_file, parse_btcpc_input(&data.forms.role_stake_amount)) {
+                        match (key_file, parse_hone_input(&data.forms.role_stake_amount)) {
                             (None, _)          => (false, "no key file".into()),
                             (_, None)          => (false, "invalid amount".into()),
                             (Some(kf), Some(d)) => {
@@ -272,7 +272,7 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
                         ui.vertical(|ui| {
                             ui.label(egui::RichText::new(&node_name).strong().color(egui::Color32::WHITE));
                             ui.label(egui::RichText::new(
-                                format!("{} — {} HoneMesh", role_name, dreams_to_btcpc(amount))
+                                format!("{} — {} HONE", role_name, hunits_to_hone(amount))
                             ).small().color(DIM_TEXT));
                         });
 
@@ -283,7 +283,7 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
                                         .fill(egui::Color32::from_rgb(180, 40, 40))
                                         .min_size(egui::vec2(70.0, 24.0))
                                 ).clicked() {
-                                    match parse_btcpc_input(&data.forms.role_unstake_amount) {
+                                    match parse_hone_input(&data.forms.role_unstake_amount) {
                                         Some(d) => unstake_action = Some((node_name.clone(), role_name.clone(), d)),
                                         None    => data.forms.role_unstake_result = Some((false, "invalid amount".into())),
                                     }
@@ -365,7 +365,7 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
                     let base     = data.node_url.clone();
                     let key_file = data.key_file.clone();
                     data.forms.stake_result = Some(
-                        match (key_file, parse_btcpc_input(&data.forms.stake_amount)) {
+                        match (key_file, parse_hone_input(&data.forms.stake_amount)) {
                             (None, _)          => (false, "no key file".into()),
                             (_, None)          => (false, "invalid amount".into()),
                             (Some(kf), Some(d)) => {

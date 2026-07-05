@@ -1,5 +1,5 @@
-//! Testnet simulation daemon — generates fake activity on btcpc-satoshi.
-//! Only spawned when HONE_CHAIN_ID=btcpc-satoshi.
+//! Testnet simulation daemon — generates fake activity on hone-testnet.
+//! Only spawned when HONE_CHAIN_ID=hone-testnet.
 
 use std::sync::Arc;
 use tracing::{info, warn};
@@ -15,7 +15,7 @@ const SIM_ACCOUNTS: &[&str] = &[
 ];
 
 /// 10,000 HONE per sim account — enough for years of activity.
-const SIM_FUND_DREAMS: u64 = 10_000 * 10_000_000_000;
+const SIM_FUND_HUNITS: u64 = 10_000 * 10_000_000_000;
 
 pub async fn run(chain: Arc<Chain>) {
     seed_accounts(&chain);
@@ -44,10 +44,10 @@ fn seed_accounts(chain: &Chain) {
         });
         let _ = chain.apply_entry(&LedgerEntry::GenesisAlloc {
             account: account.to_string(),
-            amount: SIM_FUND_DREAMS,
+            amount: SIM_FUND_HUNITS,
             token: NATIVE_TOKEN.to_string(),
         });
-        info!("sim: seeded account {} with {} hunits", account, SIM_FUND_DREAMS);
+        info!("sim: seeded account {} with {} hunits", account, SIM_FUND_HUNITS);
     }
 }
 

@@ -7,7 +7,7 @@ use anyhow::Result;
 use teloxide::prelude::*;
 use tracing::info;
 
-use api::BtcpcClient;
+use api::HoneClient;
 use commands::{handle_command, Command, HandlerState};
 
 #[tokio::main]
@@ -36,7 +36,7 @@ async fn main() -> Result<()> {
     let bot = Bot::new(bot_token);
 
     let state = Arc::new(HandlerState {
-        api: Arc::new(BtcpcClient::new(api_url)),
+        api: Arc::new(HoneClient::new(api_url)),
         default_account,
     });
 

@@ -159,18 +159,18 @@ fn find_awarded_job(chain: &Chain, miner: &str) -> Option<String> {
 }
 
 /// Build a deterministic prompt for a job. Falls back to job_id hash until
-/// off-chain input fetch (D1/btcpc-fs) is implemented.
+/// off-chain input fetch (D1/hone-fs) is implemented.
 fn job_prompt(chain: &Chain, job_id: &str) -> String {
     let input_hash = crate::inference::get_job(chain, job_id)
         .and_then(|j| j.result_hash.or(Some(j.input_hash)))
         .unwrap_or_else(|| job_id.to_owned());
-    format!("btcpc inference job {} input {}", job_id, input_hash)
+    format!("hone inference job {} input {}", job_id, input_hash)
 }
 
 // ── Inference proof-of-work ───────────────────────────────────────────────────
 
 async fn run_inference(epoch: u64, miner: &str) -> (u64, u64, String) {
-    let prompt = format!("btcpc epoch {} miner {}", epoch, miner);
+    let prompt = format!("hone epoch {} miner {}", epoch, miner);
     run_inference_prompt(epoch, miner, &prompt).await
 }
 

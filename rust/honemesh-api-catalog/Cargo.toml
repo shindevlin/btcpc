@@ -2,8 +2,8 @@
 name = "honemesh-api-catalog"
 version = "0.1.0"
 edition = "2021"
-authors = ["BTCPC contributors"]
-description = "BTCPC public API catalog parser, snapshotter, and link verifier"
+authors = ["HoneMesh contributors"]
+description = "HoneMesh public API catalog parser, snapshotter, and link verifier"
 license = "MIT OR Apache-2.0"
 
 [lib]
@@ -18,6 +18,9 @@ path = "src/main.rs"
 default = ["verify"]
 verify = ["dep:reqwest"]
 
+
+# Standalone crate — not a member of rust/Cargo.toml workspace.
+[workspace]
 [dependencies]
 hex = "0.4"
 serde = { version = "1", features = ["derive"] }

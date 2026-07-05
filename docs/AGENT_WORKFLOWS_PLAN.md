@@ -1,6 +1,6 @@
 ---
 title: BTCPC Agent Workflows — plan & build
-description: What the agent-workflow engine is today, the multi-step-workflow gap, and the plan to make agent workflows run non-fragile on live btcpc-2
+description: What the agent-workflow engine is today, the multi-step-workflow gap, and the plan to make agent workflows run non-fragile on live hone
 author: Shin Devlin
 status: plan → building
 ---
@@ -64,7 +64,7 @@ outputs. Minimal, chain-native design:
   the sum.
 
 ### Build 3 — A reference workflow that EARNS (the proof)
-End-to-end on live btcpc-2: post a 3-step workflow (e.g. `web_search` →
+End-to-end on live hone: post a 3-step workflow (e.g. `web_search` →
 `chain_read`/synthesize → `code_exec`/format), have a worker node execute each
 step on embedded candle, verify, and settle rewards. This proves "agent workflows
 via the engine" is real and earning — the same "vertical earns" bar as the
@@ -79,7 +79,7 @@ scoreboard.
 
 ## 5. Scoreboard milestone
 Add **#7 — Agent workflows earn**: a multi-step agent workflow runs on the
-embedded engine and settles rewards on live btcpc-2. Owner: beastly (build) +
+embedded engine and settles rewards on live hone. Owner: beastly (build) +
 grouchly (live execution).
 
 ## 5b. AgentWorkflow DAG — precise design (Build 2, spec-before-code)
@@ -88,7 +88,7 @@ A workflow is a **DAG over the existing agent-task machinery** — NOT a new
 execution engine. Each step becomes a normal `AgentTaskPost` when its
 dependencies have verified; step outputs substitute into dependent step inputs.
 
-### New ledger entry (crates/btcpc-types/src/entry.rs)
+### New ledger entry (crates/honemesh-types/src/entry.rs)
 ```rust
 AgentWorkflowPost {
     workflow_id:  String,

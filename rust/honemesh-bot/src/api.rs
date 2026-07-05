@@ -43,12 +43,12 @@ pub struct FaucetResponse {
     pub hunits: Option<u64>,
 }
 
-pub struct BtcpcClient {
+pub struct HoneClient {
     client: Client,
     base_url: String,
 }
 
-impl BtcpcClient {
+impl HoneClient {
     pub fn new(base_url: String) -> Self {
         Self {
             client: Client::builder()
@@ -158,8 +158,8 @@ impl BtcpcClient {
     }
 }
 
-/// Convert hunits to HoneMesh (1 HONE = 10^10 hunits)
-pub fn dreams_to_btcpc(hunits: u64) -> f64 {
+/// Convert hunits to HONE (1 HONE = 10^10 hunits)
+pub fn hunits_to_hone(hunits: u64) -> f64 {
     hunits as f64 / 10_000_000_000.0
 }
 

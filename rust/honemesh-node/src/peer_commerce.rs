@@ -89,15 +89,15 @@ mod tests {
 
     fn make_chain(label: &str) -> (Chain, tempfile::TempDir) {
         let dir = tempfile::Builder::new()
-            .prefix(&format!("btcpc_test_{}_", label))
+            .prefix(&format!("hone_test_{}_", label))
             .tempdir()
             .unwrap();
         let store = crate::store::Store::open(dir.path()).unwrap();
-        let chain = Chain::new(store, format!("node-{}", label), "btcpc-test".to_string());
+        let chain = Chain::new(store, format!("node-{}", label), "hone-test".to_string());
         (chain, dir)
     }
 
-    const SF_JSON: &str = r#"{"name":"Alice Shop","description":"sells stuff","contact":"alice@btcpc","catalogue_cid":"bafycat1"}"#;
+    const SF_JSON: &str = r#"{"name":"Alice Shop","description":"sells stuff","contact":"alice@hone","catalogue_cid":"bafycat1"}"#;
 
     #[test]
     fn test_register_stores_storefront() {

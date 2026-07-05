@@ -1,7 +1,7 @@
-//! Auto-updater for the btcpc-node binary.
+//! Auto-updater for the honemesh-node binary.
 //!
 //! Polls HONE_UPDATE_URL every 6h, verifies SHA-256 against X-Binary-Hash header,
-//! writes to ~/.btcpc/btcpc-node.new, chmod +x, then renames to replace the running
+//! writes to ~/.honemesh/honemesh-node.new, chmod +x, then renames to replace the running
 //! binary on next restart. Only active when HONE_AUTO_UPDATE=1.
 
 use std::path::PathBuf;
@@ -86,7 +86,7 @@ async fn attempt_update(
     }
 
     // Write to .new, make executable, rename.
-    let new_path = data_dir.join("btcpc-node.new");
+    let new_path = data_dir.join("honemesh-node.new");
     if let Err(e) = std::fs::write(&new_path, &bytes) {
         warn!("[updater] write failed: {}", e);
         return;

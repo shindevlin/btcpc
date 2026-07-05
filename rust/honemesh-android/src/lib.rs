@@ -36,7 +36,7 @@ fn node_cell() -> &'static Mutex<Option<RunningNode>> {
 //               modelId, modelDir, bootstrapPeers, p2pPort, isMiner, isClock)
 
 #[no_mangle]
-pub extern "C" fn Java_network_btcpc_app_MinerService_nativeStart(
+pub extern "C" fn Java_network_honemesh_app_MinerService_nativeStart(
     mut env:  JNIEnv,
     _class:   JClass,
     account:         JString,
@@ -75,7 +75,7 @@ pub extern "C" fn Java_network_btcpc_app_MinerService_nativeStart(
     let rt = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(3)
         .enable_all()
-        .thread_name("btcpc-node")
+        .thread_name("honemesh-node")
         .build()
         .expect("tokio runtime");
 
@@ -91,7 +91,7 @@ pub extern "C" fn Java_network_btcpc_app_MinerService_nativeStart(
 }
 
 #[no_mangle]
-pub extern "C" fn Java_network_btcpc_app_MinerService_nativeStop(
+pub extern "C" fn Java_network_honemesh_app_MinerService_nativeStop(
     _env: JNIEnv, _class: JClass,
 ) {
     let mut guard = node_cell().lock().unwrap();
@@ -104,7 +104,7 @@ pub extern "C" fn Java_network_btcpc_app_MinerService_nativeStop(
 }
 
 #[no_mangle]
-pub extern "C" fn Java_network_btcpc_app_MinerService_nativeGetStatus(
+pub extern "C" fn Java_network_honemesh_app_MinerService_nativeGetStatus(
     env: JNIEnv, _class: JClass,
 ) -> jstring {
     let s = {
@@ -117,14 +117,14 @@ pub extern "C" fn Java_network_btcpc_app_MinerService_nativeGetStatus(
 }
 
 #[no_mangle]
-pub extern "C" fn Java_network_btcpc_app_MinerService_nativeIsRunning(
+pub extern "C" fn Java_network_honemesh_app_MinerService_nativeIsRunning(
     _env: JNIEnv, _class: JClass,
 ) -> jboolean {
     if node_cell().lock().unwrap().is_some() { JNI_TRUE } else { JNI_FALSE }
 }
 
 #[no_mangle]
-pub extern "C" fn Java_network_btcpc_app_MinerService_nativeGetBalance(
+pub extern "C" fn Java_network_honemesh_app_MinerService_nativeGetBalance(
     mut env: JNIEnv, _class: JClass,
     account: JString,
 ) -> jlong {
@@ -136,7 +136,7 @@ pub extern "C" fn Java_network_btcpc_app_MinerService_nativeGetBalance(
 }
 
 #[no_mangle]
-pub extern "C" fn Java_network_btcpc_app_MinerService_nativeGetEpoch(
+pub extern "C" fn Java_network_honemesh_app_MinerService_nativeGetEpoch(
     _env: JNIEnv, _class: JClass,
 ) -> jlong {
     let guard = node_cell().lock().unwrap();
@@ -154,7 +154,7 @@ fn clock_cell() -> &'static Mutex<Option<RunningNode>> {
 }
 
 #[no_mangle]
-pub extern "C" fn Java_network_btcpc_app_NativeClockService_nativeStart(
+pub extern "C" fn Java_network_honemesh_app_NativeClockService_nativeStart(
     mut env: JNIEnv,
     _class:  JClass,
     account:          JString,
@@ -176,7 +176,7 @@ pub extern "C" fn Java_network_btcpc_app_NativeClockService_nativeStart(
         posting_key:     str!(posting_key),
         chain_id:        str!(chain_id),
         genesis_ts:      genesis_ts as u64,
-        data_dir:        "/data/data/network.btcpc.app/files/btcpc-clock".to_owned(),
+        data_dir:        "/data/data/network.honemesh.app/files/honemesh-clock".to_owned(),
         model_id:        String::new(),
         model_dir:       String::new(),
         bootstrap_peers: str!(bootstrap_peers)
@@ -190,7 +190,7 @@ pub extern "C" fn Java_network_btcpc_app_NativeClockService_nativeStart(
     let rt = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
         .enable_all()
-        .thread_name("btcpc-clock")
+        .thread_name("honemesh-clock")
         .build()
         .expect("tokio runtime");
 
@@ -206,7 +206,7 @@ pub extern "C" fn Java_network_btcpc_app_NativeClockService_nativeStart(
 }
 
 #[no_mangle]
-pub extern "C" fn Java_network_btcpc_app_NativeClockService_nativeStop(
+pub extern "C" fn Java_network_honemesh_app_NativeClockService_nativeStop(
     _env: JNIEnv, _class: JClass,
 ) {
     let mut guard = clock_cell().lock().unwrap();
@@ -217,7 +217,7 @@ pub extern "C" fn Java_network_btcpc_app_NativeClockService_nativeStop(
 }
 
 #[no_mangle]
-pub extern "C" fn Java_network_btcpc_app_NativeClockService_nativeGetStatus(
+pub extern "C" fn Java_network_honemesh_app_NativeClockService_nativeGetStatus(
     env: JNIEnv, _class: JClass,
 ) -> jstring {
     let s = {
@@ -232,7 +232,7 @@ pub extern "C" fn Java_network_btcpc_app_NativeClockService_nativeGetStatus(
 // ── JNI: NativeSensorService ─────────────────────────────────────────────────
 
 #[no_mangle]
-pub extern "C" fn Java_network_btcpc_app_NativeSensorService_nativeSubmitReading(
+pub extern "C" fn Java_network_honemesh_app_NativeSensorService_nativeSubmitReading(
     mut env:        JNIEnv,
     _class:         JClass,
     sensor_id:      JString,

@@ -3,12 +3,15 @@ name = "honemesh-tui"
 version = "0.1.0"
 edition = "2021"
 authors = ["Shin Devlin <shindevlin@proton.me>"]
-description = "BTCPC terminal UI"
+description = "HoneMesh terminal UI"
 
 [[bin]]
 name = "honemesh-tui"
 path = "src/main.rs"
 
+
+# Standalone crate — not a member of rust/Cargo.toml workspace.
+[workspace]
 [dependencies]
 ratatui = "0.28"
 crossterm = "0.28"

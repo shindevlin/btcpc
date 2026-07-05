@@ -1,18 +1,18 @@
 #!/bin/bash
-# btcpc-nebra-update.sh — self-update btcpc-node on Nebra Pi from GitHub releases.
+# honemesh-nebra-update.sh — self-update honemesh-node on Nebra Pi from GitHub releases.
 # Runs via crontab (daily). Checks latest stable release, downloads the
 # aarch64 binary if newer than installed, and hot-swaps the service.
 set -euo pipefail
 
-BINARY_DIR=/home/pi/btcpc-node
-BINARY=$BINARY_DIR/btcpc-node
-VERSION_FILE=$BINARY_DIR/.btcpc-node-version
+BINARY_DIR=/home/pi/honemesh-node
+BINARY=$BINARY_DIR/honemesh-node
+VERSION_FILE=$BINARY_DIR/.honemesh-node-version
 REPO="shindevlin/btcpc"
-ASSET_NAME="btcpc-node-aarch64-linux"
-SERVICE="btcpc-node"
-TMP=/tmp/btcpc-node-update
+ASSET_NAME="honemesh-node-aarch64-linux"
+SERVICE="honemesh-node"
+TMP=/tmp/honemesh-node-update
 
-log() { echo "[btcpc-update] $(date -u +%Y-%m-%dT%H:%M:%SZ) $*"; }
+log() { echo "[honemesh-update] $(date -u +%Y-%m-%dT%H:%M:%SZ) $*"; }
 
 # Current installed version
 CURRENT_VER=""
@@ -59,19 +59,19 @@ fi
 
 log "Downloading $ASSET_URL"
 mkdir -p "$TMP"
-curl -fsSL --max-time 120 -o "$TMP/btcpc-node-new" "$ASSET_URL"
-chmod +x "$TMP/btcpc-node-new"
+curl -fsSL --max-time 120 -o "$TMP/honemesh-node-new" "$ASSET_URL"
+chmod +x "$TMP/honemesh-node-new"
 
 # Sanity check: binary must be ELF aarch64
-if ! file "$TMP/btcpc-node-new" | grep -q "aarch64"; then
+if ! file "$TMP/honemesh-node-new" | grep -q "aarch64"; then
     log "Downloaded file is not an aarch64 ELF binary — aborting"
-    rm -f "$TMP/btcpc-node-new"
+    rm -f "$TMP/honemesh-node-new"
     exit 1
 fi
 
 log "Swapping binary and restarting service"
 systemctl --user stop "$SERVICE" || true
-mv "$TMP/btcpc-node-new" "$BINARY"
+mv "$TMP/honemesh-node-new" "$BINARY"
 echo "$LATEST_VER" > "$VERSION_FILE"
 systemctl --user start "$SERVICE"
 

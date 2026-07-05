@@ -1,9 +1,10 @@
 [package]
 name = "honemesh-sdk"
+autobins = false
 version = "1.0.0"
 edition = "2021"
 authors = ["Shin Devlin <shindevlin@proton.me>"]
-description = "BTCPC chain client SDK"
+description = "HoneMesh chain client SDK"
 
 # Standalone crate — deliberately NOT a member of rust/Cargo.toml's workspace, so
 # it can be published / vendored into consumer CI independently of the node build.

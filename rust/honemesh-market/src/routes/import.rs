@@ -57,7 +57,7 @@ async fn try_camoufox(url: &str) -> anyhow::Result<Vec<Value>> {
 
     let script = dirs_next::home_dir()
         .unwrap_or_default()
-        .join("repos/btcpc/scripts/amazon-scrape.py");
+        .join("repos/honemesh/scripts/amazon-scrape.py");
 
     if !script.exists() {
         anyhow::bail!("amazon-scrape.py not found at {:?}", script);

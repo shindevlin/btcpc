@@ -1,5 +1,5 @@
 use super::{
-    AppData, dreams_to_btcpc, parse_btcpc_input,
+    AppData, hunits_to_hone, parse_hone_input,
     not_signed_in, active_key_required, section_heading, card,
     ORANGE, GREEN, RED, BLUE, YELLOW, DIM_TEXT,
 };
@@ -102,7 +102,7 @@ fn show_ai(ui: &mut egui::Ui, data: &mut AppData) {
                     let base     = data.node_url.clone();
                     let model    = data.forms.job_model.clone();
                     let input    = data.forms.job_input.clone();
-                    let max_fee  = parse_btcpc_input(&data.forms.job_max_fee);
+                    let max_fee  = parse_hone_input(&data.forms.job_max_fee);
                     let deadline = data.forms.job_deadline.trim().parse::<u64>().ok();
 
                     data.forms.job_result = Some(match (key_file, max_fee, deadline) {
@@ -159,7 +159,7 @@ fn show_ai(ui: &mut egui::Ui, data: &mut AppData) {
                 let model  = job.get("model").and_then(|v| v.as_str()).unwrap_or("—");
                 let status = job.get("status").and_then(|v| v.as_str()).unwrap_or("—");
                 let fee    = job.get("max_fee").and_then(|v| v.as_u64())
-                    .map(|f| dreams_to_btcpc(f)).unwrap_or_else(|| "—".to_string());
+                    .map(|f| hunits_to_hone(f)).unwrap_or_else(|| "—".to_string());
                 let epoch  = job.get("deadline_epoch").or_else(|| job.get("epoch"))
                     .and_then(|v| v.as_u64()).map(|e| e.to_string()).unwrap_or_else(|| "—".to_string());
 

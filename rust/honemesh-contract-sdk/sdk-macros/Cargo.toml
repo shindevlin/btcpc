@@ -1,6 +1,6 @@
 [package]
 name = "honemesh-contract-sdk-macros"
-description = "Procedural macros for BTCPC smart contracts"
+description = "Procedural macros for HoneMesh smart contracts"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

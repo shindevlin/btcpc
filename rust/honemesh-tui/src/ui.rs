@@ -10,7 +10,7 @@ use crate::app::{App, Mode, StakeAction, LoginState, STAKE_ROLES};
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-fn btcpc(hunits: u64) -> String {
+fn hone(hunits: u64) -> String {
     let whole = hunits / 10_000_000_000;
     let frac  = hunits % 10_000_000_000;
     if frac == 0 {
@@ -183,8 +183,8 @@ fn render_wallet_tab(f: &mut Frame, app: &App, area: Rect) {
         .split(area);
 
     // ── Balance card ─────────────────────────────────────────────────────────
-    let bal = app.wallet_balance.map(btcpc).unwrap_or_else(|| "—".into());
-    let staked = app.wallet_staked.map(btcpc).unwrap_or_else(|| "—".into());
+    let bal = app.wallet_balance.map(hone).unwrap_or_else(|| "—".into());
+    let staked = app.wallet_staked.map(hone).unwrap_or_else(|| "—".into());
 
     // Build key role line
     let can_spend = session.can_spend_tokens();
@@ -223,10 +223,10 @@ fn render_wallet_tab(f: &mut Frame, app: &App, area: Rect) {
             Span::styled(&session.account, Style::default().fg(Color::White).add_modifier(Modifier::BOLD)),
             Span::raw("     "),
             Span::styled("Balance  ", Style::default().fg(Color::DarkGray)),
-            Span::styled(format!("{} HoneMesh", bal), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+            Span::styled(format!("{} HONE", bal), Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
             Span::raw("     "),
             Span::styled("Staked  ", Style::default().fg(Color::DarkGray)),
-            Span::styled(format!("{} HoneMesh", staked), Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Span::styled(format!("{} HONE", staked), Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
         ]),
         Line::from(""),
         role_line,
@@ -297,8 +297,8 @@ fn render_staking_tab(f: &mut Frame, app: &App, area: Rect) {
     let roles = [("clock", "miner", "storage", "sensor")];
     let req = &app.staking_requirements;
     let mins: Vec<String> = ["clock", "miner", "storage", "sensor"].iter().map(|r| {
-        let v = req_min(req, r).map(btcpc).unwrap_or_else(|| "?".into());
-        format!("{}  {} HoneMesh", r, v)
+        let v = req_min(req, r).map(hone).unwrap_or_else(|| "?".into());
+        format!("{}  {} HONE", r, v)
     }).collect();
 
     let min_line = Line::from(vec![
@@ -340,11 +340,11 @@ fn render_staking_tab(f: &mut Frame, app: &App, area: Rect) {
         let rows: Vec<Row> = app.role_positions.iter().map(|p| {
             let node   = p.get("node").and_then(|v| v.as_str()).unwrap_or("?");
             let role   = p.get("role").and_then(|v| v.as_str()).unwrap_or("?");
-            let amount = p.get("amount").and_then(|v| v.as_u64()).map(btcpc).unwrap_or_else(|| "?".into());
+            let amount = p.get("amount").and_then(|v| v.as_u64()).map(hone).unwrap_or_else(|| "?".into());
             Row::new(vec![
                 Cell::from(node).style(Style::default().fg(Color::White)),
                 Cell::from(role).style(Style::default().fg(Color::Cyan)),
-                Cell::from(format!("{} HoneMesh", amount)).style(Style::default().fg(Color::Yellow)),
+                Cell::from(format!("{} HONE", amount)).style(Style::default().fg(Color::Yellow)),
             ])
         }).collect();
 
@@ -413,7 +413,7 @@ fn render_inference_tab(f: &mut Frame, app: &App, area: Rect) {
         let id     = j.get("job_id").or_else(|| j.get("id")).and_then(|v| v.as_str()).map(|s| truncate(s, 12).to_string()).unwrap_or_else(|| "—".into());
         let model  = j.get("model").and_then(|v| v.as_str()).unwrap_or("—").to_string();
         let status = j.get("status").and_then(|v| v.as_str()).unwrap_or("—").to_string();
-        let fee    = j.get("max_fee").and_then(|v| v.as_u64()).map(btcpc).unwrap_or_else(|| "—".into());
+        let fee    = j.get("max_fee").and_then(|v| v.as_u64()).map(hone).unwrap_or_else(|| "—".into());
         let epoch  = j.get("epoch").or_else(|| j.get("deadline_epoch")).and_then(|v| v.as_u64()).map(|e| e.to_string()).unwrap_or_else(|| "—".into());
         Row::new(vec![id, model, status, fee, epoch])
     }).collect();
@@ -518,7 +518,7 @@ fn render_role_stake_form(
 
     // Build hint with minimum for selected role
     let min_str = req_min(req, state.role())
-        .map(|d| format!("Min for {}: {} HoneMesh   ", state.role(), btcpc(d)))
+        .map(|d| format!("Min for {}: {} HONE   ", state.role(), hone(d)))
         .unwrap_or_default();
     let hint = format!("{}Tab next   Enter submit   Esc cancel", min_str);
 

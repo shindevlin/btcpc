@@ -4,7 +4,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{info, warn};
-use honemesh_types::{LedgerEntry, CLOCK_REWARD_DREAMS, epoch_duration_ms};
+use honemesh_types::{LedgerEntry, CLOCK_REWARD_HUNITS, epoch_duration_ms};
 
 use crate::chain::Chain;
 use crate::inference::{self, JobStatus};
@@ -202,7 +202,7 @@ pub fn distribute_clock_rewards(chain: &Chain, clock_nodes: &[String], epoch: u6
     if clock_nodes.is_empty() {
         return;
     }
-    let per_node = CLOCK_REWARD_DREAMS / clock_nodes.len() as u64;
+    let per_node = CLOCK_REWARD_HUNITS / clock_nodes.len() as u64;
     for node in clock_nodes {
         let reward = LedgerEntry::ClockReward {
             node_id: node.clone(),

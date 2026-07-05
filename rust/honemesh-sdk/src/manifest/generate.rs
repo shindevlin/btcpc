@@ -25,10 +25,10 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::path::Path;
 
-/// Where the surface is defined, relative to the btcpc repo root.
-pub const ENTRY_SRC: &str = "rust/btcpc-node/crates/btcpc-types/src/entry.rs";
-pub const API_SRC: &str = "rust/btcpc-node/src/api.rs";
-pub const TX_SRC: &str = "rust/btcpc-node/src/tx.rs";
+/// Where the surface is defined, relative to the hone repo root.
+pub const ENTRY_SRC: &str = "rust/honemesh-node/crates/honemesh-types/src/entry.rs";
+pub const API_SRC: &str = "rust/honemesh-node/src/api.rs";
+pub const TX_SRC: &str = "rust/honemesh-node/src/tx.rs";
 pub const WORKSPACE_TOML: &str = "rust/Cargo.toml";
 
 /// Hand-curated invariants every consumer must respect. Stable text; changes
@@ -47,7 +47,7 @@ pub fn generate_manifest(repo_root: &Path, chain_id: &str) -> Result<Manifest> {
     let tx_src = read(repo_root, TX_SRC)?;
     let ws_toml = read(repo_root, WORKSPACE_TOML)?;
 
-    let btcpc_version = parse_workspace_version(&ws_toml)
+    let hone_version = parse_workspace_version(&ws_toml)
         .unwrap_or_else(|| "unknown".to_string());
 
     let signing = parse_signing_arms(&tx_src);
@@ -59,7 +59,7 @@ pub fn generate_manifest(repo_root: &Path, chain_id: &str) -> Result<Manifest> {
 
     Ok(Manifest {
         schema_version: crate::manifest::MANIFEST_SCHEMA_VERSION,
-        btcpc_version,
+        hone_version,
         chain_id: chain_id.to_string(),
         surface_hash,
         entries,
@@ -496,7 +496,7 @@ pub fn parse_deprecation(doc: &str) -> Option<Deprecation> {
 // ── Surface hash ────────────────────────────────────────────────────────────
 
 /// Deterministic hash over the surface (entries + routes), independent of the
-/// btcpc_version so a version bump alone doesn't churn the hash. Consumers pin
+/// hone_version so a version bump alone doesn't churn the hash. Consumers pin
 /// this to detect any surface change.
 fn compute_surface_hash(
     entries: &BTreeMap<String, EntrySpec>,
@@ -582,7 +582,7 @@ mod tests {
     /// System reward — consumers cannot submit this.
     SensorReward {
         owner: AccountId,
-        amount: Dreams,
+        amount: Hunits,
         epoch: Epoch,
     },
 "#;

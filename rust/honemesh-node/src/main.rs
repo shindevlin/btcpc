@@ -6,7 +6,7 @@ state machine, block production, contract execution, and HTTP API.
 
 ## Environment Variables
 
-    HONE_DATA_DIR        — RocksDB data directory (default: ~/.btcpc)
+    HONE_DATA_DIR        — RocksDB data directory (default: ~/.honemesh)
     HONE_ACCOUNT         — this node's account name
     HONE_NODE_ID         — libp2p node identity label
     HONE_API_PORT        — HTTP API port (default: 4242)
@@ -15,7 +15,7 @@ state machine, block production, contract execution, and HTTP API.
     HONE_CLOCK               — "true" to participate in clock consensus
     HONE_GENESIS_FILE        — path to genesis.json
     HONE_GENESIS_TIMESTAMP   — Unix ms timestamp for genesis block (MUST match on all nodes)
-    HONE_LOG_LEVEL           — tracing filter (default: btcpc_node=info)
+    HONE_LOG_LEVEL           — tracing filter (default: hone_node=info)
     HONE_BOOTSTRAP_PEERS     — comma-separated multiaddrs for DHT bootstrap
     HONE_CHAIN_ID            — "hone" (mainnet) or "hone-testnet" (testnet)
     HONE_POSTING_KEY         — hex-encoded 32-byte ed25519 seed; node_id is derived from
@@ -127,7 +127,7 @@ use honemesh_types::{
     LAYER_A_SCALAR_DENOM, LAYER_A_POOL_COUNT,
     layer_a_scalar,
     LAYER_C_FEE_BOOST_NUM, LAYER_C_FEE_BOOST_DENOM,
-    entry_weight, compute_next_base_fee, BASE_FEE_INITIAL_DREAMS, EPOCH_TARGET_WEIGHT_UNITS,
+    entry_weight, compute_next_base_fee, BASE_FEE_INITIAL_HUNITS, EPOCH_TARGET_WEIGHT_UNITS,
 };
 
 use chain::Chain;
@@ -196,7 +196,7 @@ async fn main() -> Result<()> {
     let mut wallet_keys = wallet::init(&cfg.data_dir)?;
     // Backfill ton_address if missing (async call to tonapi.io).
     wallet::ensure_ton_address(&cfg.data_dir, &mut wallet_keys).await;
-    // Keep ~/.btcpc/{account}.wallet.key in sync so TUI/CLI can find keys without knowing data_dir.
+    // Keep ~/.honemesh/{account}.wallet.key in sync so TUI/CLI can find keys without knowing data_dir.
     wallet::backup_to_home(&cfg.account, &wallet_keys);
 
     // Open state database
@@ -266,7 +266,7 @@ async fn main() -> Result<()> {
         }
     });
 
-    // ── Self-announce to Hive + btcpc.net (best-effort, fire-and-forget) ───────
+    // ── Self-announce to Hive + honemesh.net (best-effort, fire-and-forget) ───────
     {
         let chain_id = cfg.chain_id.clone();
         let node_id = cfg.node_id.clone();
@@ -274,7 +274,7 @@ async fn main() -> Result<()> {
             tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
             tokio::join!(
                 discovery::announce_to_hive(&chain_id, &node_id),
-                discovery::announce_to_btcpc_net(&chain_id, &node_id),
+                discovery::announce_to_hone_net(&chain_id, &node_id),
             );
         });
     }
@@ -399,7 +399,7 @@ async fn main() -> Result<()> {
                         let current_base_fee: u64 = chain_ref.store.state_get("chain_param:base_fee")
                             .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
                             .and_then(|j| j["fee"].as_u64())
-                            .unwrap_or(BASE_FEE_INITIAL_DREAMS);
+                            .unwrap_or(BASE_FEE_INITIAL_HUNITS);
                         let new_base_fee = compute_next_base_fee(
                             current_base_fee, epoch_total_weight, EPOCH_TARGET_WEIGHT_UNITS
                         );

@@ -161,8 +161,8 @@ pub async fn start(cfg: NodeConfig, status: Arc<PLMutex<String>>) -> anyhow::Res
                 }
                 let epoch = ch.current_epoch();
                 let bal   = ch.store.get_balance(&acct, NATIVE_TOKEN);
-                let btcpc = bal as f64 / 10_000_000_000.0;
-                *st.lock() = format!("epoch {} | {:.4} HoneMesh | {}", epoch, btcpc, acct);
+                let hone = bal as f64 / 10_000_000_000.0;
+                *st.lock() = format!("epoch {} | {:.4} HONE | {}", epoch, hone, acct);
             }
         });
     }
@@ -293,7 +293,7 @@ async fn run_inference_worker(
                     });
                     if let Ok(data) = serde_json::to_vec(&envelope) {
                         let _ = cmd_tx.send(NetCmd::Broadcast {
-                            topic: "btcpc/entries", data,
+                            topic: "hone/entries", data,
                         }).await;
                     }
                     tracing::info!("inference: job {} completed", job_id);
@@ -399,7 +399,7 @@ async fn run_verifier(
                     let envelope = serde_json::json!({ "entry": entry });
                     if let Ok(data) = serde_json::to_vec(&envelope) {
                         let _ = cmd_tx.send(NetCmd::Broadcast {
-                            topic: "btcpc/entries", data,
+                            topic: "hone/entries", data,
                         }).await;
                     }
                     let _ = chain.store.set_meta(&verdict_key, verdict.as_bytes());

@@ -32,7 +32,7 @@ const PROMPT_POOL: &[&str] = &[
     "What is zero-knowledge proof and where is it used?",
 ];
 
-const JOB_FEE_DREAMS: u64 = 5_000; // 0.05 HONE per synthetic job
+const JOB_FEE_HUNITS: u64 = 5_000; // 0.05 HONE per synthetic job
 
 pub async fn run(
     chain: Arc<Chain>,
@@ -53,7 +53,7 @@ pub async fn run(
         last_epoch = epoch;
 
         // Check balance — skip if we'd go negative.
-        if chain.get_balance(&account, NATIVE_TOKEN) < JOB_FEE_DREAMS {
+        if chain.get_balance(&account, NATIVE_TOKEN) < JOB_FEE_HUNITS {
             warn!("[work-gen] insufficient balance to post job, skipping epoch {}", epoch);
             continue;
         }
@@ -78,7 +78,7 @@ pub async fn run(
             model,
             mode: "solo".to_owned(),
             input_hash,
-            max_fee: JOB_FEE_DREAMS,
+            max_fee: JOB_FEE_HUNITS,
             min_reputation: 0,
             bid_window_epochs: 2,
             deadline_epoch: epoch + 10,

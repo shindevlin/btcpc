@@ -2,8 +2,8 @@
 name = "honemesh-orchestrator"
 version = "0.1.0"
 edition = "2021"
-authors = ["BTCPC contributors"]
-description = "Rust-native BTCPC runtime and agent orchestration model"
+authors = ["HoneMesh contributors"]
+description = "Rust-native HoneMesh runtime and agent orchestration model"
 license = "MIT OR Apache-2.0"
 
 [lib]
@@ -14,6 +14,9 @@ path = "src/lib.rs"
 name = "honemesh-orchestratord"
 path = "src/main.rs"
 
+
+# Standalone crate — not a member of rust/Cargo.toml workspace.
+[workspace]
 [dependencies]
 honemesh-api-catalog = { path = "../honemesh-api-catalog" }
 hex = "0.4"

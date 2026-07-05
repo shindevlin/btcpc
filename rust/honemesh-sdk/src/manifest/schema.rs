@@ -1,4 +1,4 @@
-//! The manifest data model. Serialized to `btcpc-manifest.json` with stable
+//! The manifest data model. Serialized to `honemesh-manifest.json` with stable
 //! field ordering (BTreeMap / sorted vecs) so byte-for-byte diffs are meaningful
 //! and CI can compare a committed manifest against a freshly generated one.
 
@@ -44,7 +44,7 @@ pub struct Deprecation {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SigningField {
     pub name: String,
-    /// The Rust type as written in the entry (e.g. "AccountId", "Dreams",
+    /// The Rust type as written in the entry (e.g. "AccountId", "Hunits",
     /// "Option<String>"). Purely informational for consumers.
     pub ty: String,
 }
@@ -105,9 +105,9 @@ pub struct RouteSpec {
 pub struct Manifest {
     /// Schema version of the manifest format itself.
     pub schema_version: u32,
-    /// The btcpc workspace version this manifest was generated from
+    /// The HoneMesh workspace version this manifest was generated from
     /// (`rust/Cargo.toml` `[workspace.package] version`).
-    pub btcpc_version: String,
+    pub hone_version: String,
     pub chain_id: String,
     /// Content hash of the surface (routes + entries), stable across
     /// regenerations of the same source. Consumers pin this.

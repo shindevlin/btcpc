@@ -10,7 +10,7 @@
 //!
 //! Usage:
 //!   HONE_MNEMONIC="word1 ... word12" \
-//!     btcpc-keycheck --account bullship \
+//!     honemesh-keycheck --account bullship \
 //!       --expect-active c9d08bea297d73e6df90868a5800c6342832d88a0db5986d01cf765ccba99a83
 //!
 //! You can pass any subset of --expect-<role> (owner/active/posting/memo/hide/seek);
@@ -48,7 +48,7 @@ fn run() -> Result<()> {
     let roles = ["owner", "active", "posting", "memo", "hide", "seek"];
     let mut any_match = false;
     for role in roles {
-        let kp = match wallet.btcpc_role_keypair(role) {
+        let kp = match wallet.hone_role_keypair(role) {
             Ok(kp) => kp,
             Err(e) => {
                 println!("  {role:8} -> derive error: {e}");

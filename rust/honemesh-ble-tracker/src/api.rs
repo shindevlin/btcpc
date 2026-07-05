@@ -1,4 +1,4 @@
-//! HTTP client for the local btcpc-node API.
+//! HTTP client for the local honemesh-node API.
 
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
@@ -88,7 +88,7 @@ impl NodeClient {
         use sha2::{Digest, Sha256};
         // Stub: derive a deterministic CID from the content hash until HoneMesh-FS is live.
         let hash = hex::encode(Sha256::digest(data.as_bytes()));
-        Ok(format!("btcpcfs:{}", &hash[..32]))
+        Ok(format!("honefs:{}", &hash[..32]))
     }
 
     async fn post(&self, path: &str, body: &serde_json::Value) -> anyhow::Result<()> {

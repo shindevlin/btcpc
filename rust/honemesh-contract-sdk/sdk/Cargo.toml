@@ -1,6 +1,6 @@
 [package]
 name = "honemesh-contract-sdk"
-description = "BTCPC smart contract SDK — write contracts in Rust, deploy as WASM"
+description = "HoneMesh smart contract SDK — write contracts in Rust, deploy as WASM"
 keywords = ["honemesh", "smart-contracts", "blockchain", "wasm"]
 version.workspace = true
 edition.workspace = true

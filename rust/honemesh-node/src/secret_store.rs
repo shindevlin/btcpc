@@ -1,6 +1,6 @@
 //! Encrypted secret store.
 //!
-//! Source of truth: `~/.btcpc/secrets.enc` (AES-256-GCM, key from hw fingerprint or
+//! Source of truth: `~/.honemesh/secrets.enc` (AES-256-GCM, key from hw fingerprint or
 //! `HONE_SECRETS_PASSPHRASE` env var). RocksDB CF_META prefix `secret:` is a runtime
 //! index populated at boot and kept in sync on every write. Deleting the file wipes all
 //! secrets cleanly.
@@ -144,7 +144,7 @@ impl SecretStore {
 
 fn derive_key(material: &[u8]) -> [u8; 32] {
     let mut hasher = Sha256::new();
-    hasher.update(b"btcpc-secret-store-v1:");
+    hasher.update(b"hone-secret-store-v1:");
     hasher.update(material);
     hasher.finalize().into()
 }

@@ -13,7 +13,7 @@ fn main() {
     eframe::run_native(
         "HoneMesh",
         options,
-        Box::new(|cc| Ok(Box::new(app::BtcpcApp::new(cc)))),
+        Box::new(|cc| Ok(Box::new(app::HoneApp::new(cc)))),
     )
     .expect("failed to run app");
 }

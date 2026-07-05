@@ -88,7 +88,7 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
     section_heading(ui, "Bridge");
 
     let mut eth_rpc = data.eth_rpc_url.clone();
-    let mut contract = data.wbtcpc_contract.clone();
+    let mut contract = data.whone_contract.clone();
 
     card(ui, |ui| {
         egui::Grid::new("bridge_grid")
@@ -114,7 +114,7 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
                 .min_size(egui::vec2(80.0, 26.0))
         ).clicked() {
             data.eth_rpc_url = eth_rpc.trim().to_owned();
-            data.wbtcpc_contract = contract.trim().to_owned();
+            data.whone_contract = contract.trim().to_owned();
         }
     });
 

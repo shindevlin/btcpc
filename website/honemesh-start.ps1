@@ -1,13 +1,13 @@
-# BTCPC Windows Starter (PowerShell) - Self-Healing Edition
-# Usage: [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; irm https://btcpc.net/btcpc-start.ps1 | iex
+# HoneMesh Windows Starter (PowerShell) - Self-Healing Edition
+# Usage: [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; irm https://honemesh.net/honemesh-start.ps1 | iex
 
 $ErrorActionPreference = "Continue"
 $PSNativeCommandUseErrorActionPreference = $false
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 function Say($msg, $color = "White") { Write-Host $msg -ForegroundColor $color }
-function Ok($msg)  { Say "[BTCPC] $msg" "Green" }
-function Info($msg) { Say "[BTCPC] $msg" "Yellow" }
+function Ok($msg)  { Say "[HoneMesh] $msg" "Green" }
+function Info($msg) { Say "[HoneMesh] $msg" "Yellow" }
 
 Say ""
 Say "  ######   ######## ######  ######  ######" "Yellow"
@@ -92,7 +92,7 @@ do {
     # ----------------------------------------------------------------
     # Step 3: Working directory
     # ----------------------------------------------------------------
-    $workDir = Join-Path $env:USERPROFILE "btcpc"
+    $workDir = Join-Path $env:USERPROFILE "honemesh"
     if (-not (Test-Path $workDir)) { New-Item -ItemType Directory -Path $workDir | Out-Null }
     Set-Location $workDir
     Ok "Working in $workDir"
@@ -105,7 +105,7 @@ do {
         $dlOk = $false
         while (-not $dlOk) {
             try {
-                Invoke-WebRequest -Uri "https://btcpc.net/docker-compose.yml" -OutFile "docker-compose.yml" -UseBasicParsing -ErrorAction Stop
+                Invoke-WebRequest -Uri "https://honemesh.net/docker-compose.yml" -OutFile "docker-compose.yml" -UseBasicParsing -ErrorAction Stop
                 $dlOk = $true
             } catch {
                 Info "Could not download docker-compose.yml. Retrying in 15 seconds..."
@@ -118,18 +118,18 @@ do {
     }
 
     # ----------------------------------------------------------------
-    # Step 5: Download + load BTCPC image (exponential backoff)
+    # Step 5: Download + load HoneMesh image (exponential backoff)
     # ----------------------------------------------------------------
     $imagesList = docker images --format "{{.Repository}}:{{.Tag}}" 2>$null
     $imagePresent = $false
     if ($imagesList -is [array]) {
-        $imagePresent = $imagesList -contains "btcpc:latest"
+        $imagePresent = $imagesList -contains "honemesh:latest"
     } elseif ($imagesList -is [string]) {
-        $imagePresent = ($imagesList -eq "btcpc:latest") -or ($imagesList -like "*btcpc:latest*")
+        $imagePresent = ($imagesList -eq "honemesh:latest") -or ($imagesList -like "*honemesh:latest*")
     }
 
     if (-not $imagePresent) {
-        Info "BTCPC image not found locally. Downloading (~200 MB)..."
+        Info "HoneMesh image not found locally. Downloading (~200 MB)..."
         $delays = @(5, 15, 45, 120, 300)
         $dlAttempt = 0
         $dlSuccess = $false
@@ -140,11 +140,11 @@ do {
                 Start-Sleep $wait
             }
             $dlAttempt++
-            if (Test-Path "btcpc-image.tar.gz") { Remove-Item "btcpc-image.tar.gz" -Force }
+            if (Test-Path "honemesh-image.tar.gz") { Remove-Item "honemesh-image.tar.gz" -Force }
             Info "Downloading image tarball (attempt $dlAttempt of 5)..."
             try {
                 $ProgressPreference = "SilentlyContinue"
-                Invoke-WebRequest -Uri "https://btcpc.net/btcpc-image.tar.gz" -OutFile "btcpc-image.tar.gz" -UseBasicParsing -ErrorAction Stop
+                Invoke-WebRequest -Uri "https://honemesh.net/honemesh-image.tar.gz" -OutFile "honemesh-image.tar.gz" -UseBasicParsing -ErrorAction Stop
                 $dlSuccess = $true
             } catch {
                 Info "Download failed: $($_.Exception.Message)"
@@ -157,14 +157,14 @@ do {
         }
 
         Info "Loading image into Docker (about a minute)..."
-        docker load -i btcpc-image.tar.gz
+        docker load -i honemesh-image.tar.gz
         if ($LASTEXITCODE -ne 0) {
             Info "docker load failed. Removing tarball and retrying download..."
-            if (Test-Path "btcpc-image.tar.gz") { Remove-Item "btcpc-image.tar.gz" -Force }
+            if (Test-Path "honemesh-image.tar.gz") { Remove-Item "honemesh-image.tar.gz" -Force }
             try {
                 $ProgressPreference = "SilentlyContinue"
-                Invoke-WebRequest -Uri "https://btcpc.net/btcpc-image.tar.gz" -OutFile "btcpc-image.tar.gz" -UseBasicParsing -ErrorAction Stop
-                docker load -i btcpc-image.tar.gz
+                Invoke-WebRequest -Uri "https://honemesh.net/honemesh-image.tar.gz" -OutFile "honemesh-image.tar.gz" -UseBasicParsing -ErrorAction Stop
+                docker load -i honemesh-image.tar.gz
                 if ($LASTEXITCODE -ne 0) {
                     Info "Second load attempt failed. Restarting in 60 seconds..."
                     Start-Sleep 60
@@ -180,28 +180,28 @@ do {
         $imagesAfter = docker images --format "{{.Repository}}:{{.Tag}}" 2>$null
         $loadedOk = $false
         if ($imagesAfter -is [array]) {
-            $loadedOk = $imagesAfter -contains "btcpc:latest"
+            $loadedOk = $imagesAfter -contains "honemesh:latest"
         } elseif ($imagesAfter -is [string]) {
-            $loadedOk = ($imagesAfter -eq "btcpc:latest") -or ($imagesAfter -like "*btcpc:latest*")
+            $loadedOk = ($imagesAfter -eq "honemesh:latest") -or ($imagesAfter -like "*honemesh:latest*")
         }
         if (-not $loadedOk) {
-            Info "Image load reported success but btcpc:latest is missing. Restarting..."
+            Info "Image load reported success but honemesh:latest is missing. Restarting..."
             Start-Sleep 30
             continue
         }
-        Ok "BTCPC image loaded"
+        Ok "HoneMesh image loaded"
     } else {
-        Ok "BTCPC image already present"
+        Ok "HoneMesh image already present"
     }
 
     # ----------------------------------------------------------------
     # Step 6: Username (guest fallback if empty)
     # ----------------------------------------------------------------
-    $miner = $env:BTCPC_MINER
+    $miner = $env:HONE_MINER
     if (-not $miner) {
         Say ""
-        Say "Enter your BTCPC username, or press Enter for a guest name." "Cyan"
-        $miner = Read-Host "Your BTCPC username"
+        Say "Enter your HoneMesh username, or press Enter for a guest name." "Cyan"
+        $miner = Read-Host "Your HoneMesh username"
         if ($null -eq $miner) { $miner = "" }
         $miner = $miner.Trim().ToLower()
     }
@@ -209,13 +209,13 @@ do {
         $miner = "guest-" + [guid]::NewGuid().ToString().Substring(0, 8)
         Info "No username entered. Mining as guest account: $miner"
     }
-    $env:BTCPC_MINER = $miner
+    $env:HONE_MINER = $miner
     Ok "Mining as: $miner"
 
     # ----------------------------------------------------------------
     # Step 7: docker compose up
     # ----------------------------------------------------------------
-    Info "Starting BTCPC node as $miner ..."
+    Info "Starting HoneMesh node as $miner ..."
     docker compose up -d
     if ($LASTEXITCODE -ne 0) {
         Info "docker compose up failed. Retrying in 30 seconds..."
@@ -225,17 +225,17 @@ do {
 
     Say ""
     Say ("=" * 65) "Green"
-    Say "  BTCPC is running as $miner" "Green"
+    Say "  HoneMesh is running as $miner" "Green"
     Say ("=" * 65) "Green"
     Say ""
-    docker ps --filter "name=btcpc"
+    docker ps --filter "name=honemesh"
     Say ""
     Say "  Check balance:  @btcpcbot /balance on Telegram" "Cyan"
-    Say "  View logs:      docker compose logs -f btcpc" "Cyan"
+    Say "  View logs:      docker compose logs -f honemesh" "Cyan"
     Say "  Stop node:      docker compose stop" "Cyan"
     Say ""
     Ok "Mining started. This window can stay open to show logs."
-    docker compose logs -f btcpc
+    docker compose logs -f honemesh
 
     $keepRetrying = $false
 

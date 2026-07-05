@@ -85,6 +85,6 @@ fn resolve_key_path(input: Option<&Path>) -> Result<PathBuf> {
 fn default_key_path() -> Result<PathBuf> {
     let home = std::env::var("HOME")
         .map_err(|_| anyhow!("HOME is not set; pass --key-file explicitly"))?;
-    Ok(PathBuf::from(home).join(".btcpc").join("key.json"))
+    Ok(PathBuf::from(home).join(".honemesh").join("key.json"))
 }
 

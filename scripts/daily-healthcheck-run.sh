@@ -4,14 +4,14 @@
 # health line. Intended to be run once a day by cron / systemd timer / scheduled task.
 #
 # Env:
-#   BTCPC_HEALTHCHECK_URL  — node to probe (default http://127.0.0.1:4242)
+#   HONE_HEALTHCHECK_URL  — node to probe (default http://127.0.0.1:4242)
 #   BRIDGE_DIR             — path to pc-agent-bridge (default /mnt/x/pc-agent-bridge)
 #   CHANNEL_BIN            — channel binary (default /mnt/x/comm-channel/target/release/channel.exe)
-#   REPORTS_DIR            — where to save dated reports (default /mnt/x/btcpc/reports/health)
+#   REPORTS_DIR            — where to save dated reports (default /mnt/x/reports/health)
 set -uo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-URL="${BTCPC_HEALTHCHECK_URL:-http://127.0.0.1:4242}"
+URL="${HONE_HEALTHCHECK_URL:-http://127.0.0.1:4242}"
 REPORTS_DIR="${REPORTS_DIR:-$REPO/reports/health}"
 BRIDGE_DIR="${BRIDGE_DIR:-/mnt/x/pc-agent-bridge}"
 CHANNEL_BIN="${CHANNEL_BIN:-/mnt/x/comm-channel/target/release/channel.exe}"
@@ -35,7 +35,7 @@ echo "report: $MD"
 # Post to the agent channel so both agents + the human see it (broadcast).
 if [ -x "$CHANNEL_BIN" ] && [ -d "$BRIDGE_DIR" ]; then
   ( cd "$BRIDGE_DIR" && "$CHANNEL_BIN" send --to all --type status \
-    "DAILY HEALTHCHECK $DATE — $SUMMARY. Focus: $FOCUS Full report: btcpc/reports/health/healthcheck-$DATE.md $( [ "$CODE" = "2" ] && echo '⛔ CRITICAL breakage — see report' )" ) \
+    "DAILY HEALTHCHECK $DATE — $SUMMARY. Focus: $FOCUS Full report: reports/health/healthcheck-$DATE.md $( [ "$CODE" = "2" ] && echo '⛔ CRITICAL breakage — see report' )" ) \
     2>/dev/null && echo "posted to channel"
 fi
 

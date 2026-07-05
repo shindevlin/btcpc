@@ -1,5 +1,5 @@
 mod bot;
-mod btcpc;
+mod hone;
 mod config;
 mod contract;
 mod db;
@@ -7,7 +7,7 @@ mod oracle;
 
 use anyhow::Result;
 use axum::{routing::get, Json, Router};
-use btcpc::{BtcpcInferenceClient, BtcpcServiceClient};
+use hone::{HoneInferenceClient, HoneServiceClient};
 use config::Config;
 use contract::ContractService;
 use db::DbClient;
@@ -22,8 +22,8 @@ pub struct AppState {
     pub config: Config,
     pub contract: Arc<ContractService>,
     pub db: Result<DbClient, String>,
-    pub btcpc: Option<BtcpcInferenceClient>,
-    pub btcpc_service: Option<BtcpcServiceClient>,
+    pub hone: Option<HoneInferenceClient>,
+    pub hone_service: Option<HoneServiceClient>,
     pub espn: Arc<EspnScraper>,
 }
 
@@ -40,7 +40,7 @@ async fn main() -> Result<()> {
     info!("Starting betchu-bot v{}", env!("CARGO_PKG_VERSION"));
     info!("Contract: {}", config.bet_contract_address);
     info!("RPC: {}", config.rpc_url);
-    info!("HoneMesh: {}", config.btcpc_api_url);
+    info!("HoneMesh: {}", config.hone_api_url);
 
     // ── Contract service ─────────────────────────────────────────────────────
     let contract = Arc::new(
@@ -65,10 +65,10 @@ async fn main() -> Result<()> {
     };
 
     // ── HoneMesh inference client ───────────────────────────────────────────────
-    let btcpc = if !config.btcpc_project_key.is_empty() {
-        Some(BtcpcInferenceClient::new(
-            config.btcpc_api_url.clone(),
-            config.btcpc_project_key.clone(),
+    let hone = if !config.hone_project_key.is_empty() {
+        Some(HoneInferenceClient::new(
+            config.hone_api_url.clone(),
+            config.hone_project_key.clone(),
         ))
     } else {
         warn!("HONE_PROJECT_KEY not set — AI insights disabled");
@@ -76,10 +76,10 @@ async fn main() -> Result<()> {
     };
 
     // ── HoneMesh service client (heartbeat + registration) ──────────────────────
-    let btcpc_service = if !config.btcpc_project_key.is_empty() {
-        Some(BtcpcServiceClient::new(
-            config.btcpc_api_url.clone(),
-            config.btcpc_project_key.clone(),
+    let hone_service = if !config.hone_project_key.is_empty() {
+        Some(HoneServiceClient::new(
+            config.hone_api_url.clone(),
+            config.hone_project_key.clone(),
         ))
     } else {
         None
@@ -93,25 +93,25 @@ async fn main() -> Result<()> {
         config: config.clone(),
         contract: Arc::clone(&contract),
         db,
-        btcpc,
-        btcpc_service,
+        hone,
+        hone_service,
         espn: Arc::clone(&espn),
     });
 
     // ── HoneMesh service registration ───────────────────────────────────────────
-    let service_slug = if let Some(svc) = &state.btcpc_service {
-        match svc.register_service(&config.btcpc_account).await {
+    let service_slug = if let Some(svc) = &state.hone_service {
+        match svc.register_service(&config.hone_account).await {
             Ok(slug) => {
                 info!("Registered as HoneMesh service: {}", slug);
                 slug
             }
             Err(e) => {
                 warn!("Service registration failed: {}", e);
-                format!("{}/betchu-bot", config.btcpc_account)
+                format!("{}/betchu-bot", config.hone_account)
             }
         }
     } else {
-        format!("{}/betchu-bot", config.btcpc_account)
+        format!("{}/betchu-bot", config.hone_account)
     };
 
     // ── Health HTTP server (HoneMesh compliance) ────────────────────────────────
@@ -132,14 +132,14 @@ async fn main() -> Result<()> {
     });
 
     // ── HoneMesh heartbeat loop (every 30s = one epoch) ─────────────────────────
-    if state.btcpc_service.is_some() {
+    if state.hone_service.is_some() {
         let heartbeat_state = Arc::clone(&state);
         let slug = service_slug.clone();
         tokio::spawn(async move {
             let mut ticker = interval(Duration::from_secs(30));
             loop {
                 ticker.tick().await;
-                if let Some(svc) = &heartbeat_state.btcpc_service {
+                if let Some(svc) = &heartbeat_state.hone_service {
                     let _ = svc.heartbeat(&slug, 0).await;
                 }
             }
@@ -191,7 +191,7 @@ async fn root_handler() -> Json<serde_json::Value> {
         "name": "betchu-bot",
         "description": "HoneMesh-native P2P sports betting bot",
         "version": env!("CARGO_PKG_VERSION"),
-        "btcpc_compliant": true,
+        "hone_compliant": true,
         "endpoints": ["/health"],
     }))
 }

@@ -164,7 +164,7 @@ pub async fn accept_offer(
 
         let token = state.products.get(&offer.product_id)
             .map(|p| p.token.clone())
-            .unwrap_or_else(|| "HoneMesh".to_string());
+            .unwrap_or_else(|| "HONE".to_string());
 
         (accept_amount, offer.product_id.clone(), offer.buyer.clone(), offer.seller.clone(), token)
     };

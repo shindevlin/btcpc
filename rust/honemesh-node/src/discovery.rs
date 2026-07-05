@@ -11,7 +11,7 @@
 //!
 //! # Hive setup
 //! Use the @btcpc account.  Set its `posting_json_metadata` to:
-//!   {"btcpc_peers": [...mainnet...], "btcpc_satoshi_peers": [...testnet...]}
+//!   {"hone_peers": [...mainnet...], "hone_testnet_peers": [...testnet...]}
 //! Run scripts/hive-register-peers.py to publish or update peer lists.
 //!
 //! # TON setup (future)
@@ -29,15 +29,15 @@ const HIVE_API: &str = "https://api.hive.blog";
 
 /// Single Hive account that holds peer lists for all chains.
 /// json_metadata format:
-///   { "btcpc_peers": [...mainnet multiaddrs...], "btcpc_satoshi_peers": [...testnet...] }
+///   { "hone_peers": [...mainnet multiaddrs...], "hone_testnet_peers": [...testnet...] }
 pub const HIVE_REGISTRY_ACCOUNT: &str = "btcpc";
 
 /// json_metadata key for the peer list, keyed by chain_id.
 pub fn hive_peers_key(chain_id: &str) -> &'static str {
     if chain_id == TESTNET_CHAIN_ID {
-        "btcpc_satoshi_peers"
+        "hone_testnet_peers"
     } else {
-        "btcpc_peers"
+        "hone_peers"
     }
 }
 
@@ -117,7 +117,7 @@ async fn fetch_ton_peers(client: &Client) -> Result<Vec<String>> {
 //
 // Inscribe a JSON array of multiaddr strings from BTC_REGISTRY_WALLET.
 // Example inscription content:
-//   ["/dns4/node1.btcpc.net/tcp/6942", "/dns4/node2.btcpc.net/tcp/6942"]
+//   ["/dns4/node1.honemesh.net/tcp/6942", "/dns4/node2.honemesh.net/tcp/6942"]
 //
 // To update: inscribe a new JSON file from the same wallet.  The node always
 // reads the most recent application/json inscription from that address.
@@ -179,8 +179,8 @@ async fn fetch_btc_peers(client: &Client) -> Result<Vec<String>> {
 // handles signing on behalf of the btcpc registry account.
 // For operator-signed publishing, set HONE_HIVE_POSTING_KEY.
 //
-// Hive custom_json ID: "btcpc_peer_announce"
-// json payload: {"multiaddr": "/ip4/...", "chain_id": "btcpc-1", "node_id": "..."}
+// Hive custom_json ID: "hone_peer_announce"
+// json payload: {"multiaddr": "/ip4/...", "chain_id": "hone", "node_id": "..."}
 
 /// Announce this node's multiaddr to the Hive peer registry.
 /// Set HONE_ANNOUNCE_ADDR to the multiaddr to publish.
@@ -200,11 +200,11 @@ pub async fn announce_to_hive(chain_id: &str, node_id: &str) {
     };
 
     // Both mainnet and testnet publish to the same "btcpc" Hive account.
-    // The custom_json id encodes the chain: "btcpc_peer_announce" or "btcpc_satoshi_peer_announce".
+    // The custom_json id encodes the chain: "hone_peer_announce" or "hone_satoshi_peer_announce".
     let announce_id = if chain_id == TESTNET_CHAIN_ID {
-        "btcpc_satoshi_peer_announce"
+        "hone_satoshi_peer_announce"
     } else {
-        "btcpc_peer_announce"
+        "hone_peer_announce"
     };
     let payload = serde_json::json!({
         "multiaddr": multiaddr,
@@ -384,17 +384,17 @@ fn sign_hive_tx(
     }))
 }
 
-// ── btcpc.net bootstrap API ───────────────────────────────────────────────────
+// ── honemesh.net bootstrap API ───────────────────────────────────────────────────
 //
-// The genesis node at btcpc.net hosts a lightweight peer registry via its HTTP API.
+// The genesis node at honemesh.net hosts a lightweight peer registry via its HTTP API.
 // Nodes announce themselves on startup and fetch the list at boot.
 //
-// GET  https://btcpc.net/api/peers/bootstrap?chain_id=btcpc-1  → multiaddr list
-// POST https://btcpc.net/api/peers/bootstrap                   → register self
+// GET  https://honemesh.net/api/peers/bootstrap?chain_id=hone  → multiaddr list
+// POST https://honemesh.net/api/peers/bootstrap                   → register self
 
-const HONE_NET_API: &str = "https://btcpc.net";
+const HONE_NET_API: &str = "https://honemesh.net";
 
-async fn fetch_btcpc_net_peers(client: &Client, chain_id: &str) -> Result<Vec<String>> {
+async fn fetch_hone_net_peers(client: &Client, chain_id: &str) -> Result<Vec<String>> {
     let resp = client
         .get(format!("{}/api/peers/bootstrap", HONE_NET_API))
         .query(&[("chain_id", chain_id)])
@@ -411,11 +411,11 @@ async fn fetch_btcpc_net_peers(client: &Client, chain_id: &str) -> Result<Vec<St
     Ok(peers)
 }
 
-/// Announce an explicit multiaddr to btcpc.net (called from net.rs with peer_id built in).
-pub async fn announce_to_btcpc_net_addr(multiaddr: &str, chain_id: &str, node_id: &str) {
+/// Announce an explicit multiaddr to honemesh.net (called from net.rs with peer_id built in).
+pub async fn announce_to_hone_net_addr(multiaddr: &str, chain_id: &str, node_id: &str) {
     let client = match Client::builder().timeout(std::time::Duration::from_secs(10)).build() {
         Ok(c) => c,
-        Err(e) => { warn!("discovery: btcpc.net announce: client error: {}", e); return; }
+        Err(e) => { warn!("discovery: honemesh.net announce: client error: {}", e); return; }
     };
     let payload = serde_json::json!({
         "multiaddr": multiaddr,
@@ -430,9 +430,9 @@ pub async fn announce_to_btcpc_net_addr(multiaddr: &str, chain_id: &str, node_id
     }
 }
 
-/// Announce this node's public multiaddr to btcpc.net.
+/// Announce this node's public multiaddr to honemesh.net.
 /// Reads HONE_ANNOUNCE_ADDR for the multiaddr to publish.
-pub async fn announce_to_btcpc_net(chain_id: &str, node_id: &str) {
+pub async fn announce_to_hone_net(chain_id: &str, node_id: &str) {
     let multiaddr = match std::env::var("HONE_ANNOUNCE_ADDR") {
         Ok(v) if !v.is_empty() => v,
         _ => return,
@@ -440,7 +440,7 @@ pub async fn announce_to_btcpc_net(chain_id: &str, node_id: &str) {
 
     let client = match Client::builder().timeout(std::time::Duration::from_secs(10)).build() {
         Ok(c) => c,
-        Err(e) => { warn!("discovery: btcpc.net announce: client error: {}", e); return; }
+        Err(e) => { warn!("discovery: honemesh.net announce: client error: {}", e); return; }
     };
 
     let payload = serde_json::json!({
@@ -456,16 +456,16 @@ pub async fn announce_to_btcpc_net(chain_id: &str, node_id: &str) {
         .await
     {
         Ok(resp) if resp.status().is_success() => {
-            info!("discovery: announced {} to btcpc.net ({} chain)", multiaddr, chain_id);
+            info!("discovery: announced {} to honemesh.net ({} chain)", multiaddr, chain_id);
         }
-        Ok(resp) => warn!("discovery: btcpc.net announce returned {}", resp.status()),
-        Err(e) => warn!("discovery: btcpc.net announce failed: {}", e),
+        Ok(resp) => warn!("discovery: honemesh.net announce returned {}", resp.status()),
+        Err(e) => warn!("discovery: honemesh.net announce failed: {}", e),
     }
 }
 
 // ── Public entry point ────────────────────────────────────────────────────────
 
-/// Query Hive, TON, Bitcoin Ordinals, and btcpc.net concurrently.
+/// Query Hive, TON, Bitcoin Ordinals, and honemesh.net concurrently.
 /// Returns merged, deduplicated list.  Never fails — any error is logged and
 /// that source returns empty so the node starts regardless.
 pub async fn fetch_all_peers(chain_id: &str) -> Vec<String> {
@@ -480,11 +480,11 @@ pub async fn fetch_all_peers(chain_id: &str) -> Vec<String> {
         }
     };
 
-    let (hive_result, ton_result, btc_result, btcpc_net_result) = tokio::join!(
+    let (hive_result, ton_result, btc_result, hone_net_result) = tokio::join!(
         fetch_hive_peers(&client, chain_id),
         fetch_ton_peers(&client),
         fetch_btc_peers(&client),
-        fetch_btcpc_net_peers(&client, chain_id),
+        fetch_hone_net_peers(&client, chain_id),
     );
 
     let mut peers: Vec<String> = Vec::new();
@@ -516,13 +516,13 @@ pub async fn fetch_all_peers(chain_id: &str) -> Vec<String> {
         Err(e) => warn!("discovery: BTC Ordinals query failed: {}", e),
     }
 
-    match btcpc_net_result {
+    match hone_net_result {
         Ok(p) if !p.is_empty() => {
-            info!("discovery: btcpc.net registry returned {} peers", p.len());
+            info!("discovery: honemesh.net registry returned {} peers", p.len());
             peers.extend(p);
         }
         Ok(_) => {}
-        Err(e) => warn!("discovery: btcpc.net query failed (offline?): {}", e),
+        Err(e) => warn!("discovery: honemesh.net query failed (offline?): {}", e),
     }
 
     peers.sort();

@@ -153,12 +153,12 @@ impl WalletCreateApp {
             ui.add_space(12.0);
 
             labeled_text(ui, "Account name", &mut self.account, "example: alice");
-            labeled_text(ui, "Public wallet file", &mut self.wallet_file, "blank = ~/.btcpc/{account}.wallet.key");
+            labeled_text(ui, "Public wallet file", &mut self.wallet_file, "blank = ~/.honemesh/{account}.wallet.key");
 
             ui.add_space(4.0);
             ui.checkbox(&mut self.export_signer, "Also export current-node signer file (unencrypted, chmod 600)");
             if self.export_signer {
-                labeled_text(ui, "Signer file", &mut self.signer_file, "blank = ~/.btcpc/{account}.signer.key");
+                labeled_text(ui, "Signer file", &mut self.signer_file, "blank = ~/.honemesh/{account}.signer.key");
             }
 
             ui.add_space(12.0);
@@ -249,7 +249,7 @@ fn generate_wallet_files(account: &str, wallet_path: &Path, signer_path: Option<
         None
     };
 
-    let role_map = wallet.btcpc_role_public_keys()?;
+    let role_map = wallet.hone_role_public_keys()?;
     let role_keys = ["owner", "active", "posting", "memo", "hide", "seek"]
         .into_iter()
         .filter_map(|role| role_map.get(role).map(|key| (role.to_string(), key.clone())))
@@ -268,21 +268,21 @@ fn save_signer_file(wallet: &Wallet, path: &Path) -> Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    let owner = wallet.btcpc_role_keypair("owner")?;
-    let active = wallet.btcpc_role_keypair("active")?;
-    let posting = wallet.btcpc_role_keypair("posting")?;
+    let owner = wallet.hone_role_keypair("owner")?;
+    let active = wallet.hone_role_keypair("active")?;
+    let posting = wallet.hone_role_keypair("posting")?;
     let signer = json!({
         "version": 3,
-        "format": "btcpc-local-signer",
+        "format": "hone-local-signer",
         "account": wallet.account,
-        "btcpc_owner_private_key": owner.private_key_hex(),
-        "btcpc_owner_public_key": owner.public_key_hex(),
-        "btcpc_active_private_key": active.private_key_hex(),
-        "btcpc_active_public_key": active.public_key_hex(),
-        "btcpc_posting_private_key": posting.private_key_hex(),
-        "btcpc_posting_public_key": posting.public_key_hex(),
-        "btcpc_private_key": posting.private_key_hex(),
-        "btcpc_public_key_hex": posting.public_key_hex(),
+        "hone_owner_private_key": owner.private_key_hex(),
+        "hone_owner_public_key": owner.public_key_hex(),
+        "hone_active_private_key": active.private_key_hex(),
+        "hone_active_public_key": active.public_key_hex(),
+        "hone_posting_private_key": posting.private_key_hex(),
+        "hone_posting_public_key": posting.public_key_hex(),
+        "hone_private_key": posting.private_key_hex(),
+        "hone_public_key_hex": posting.public_key_hex(),
     });
     std::fs::write(path, serde_json::to_string_pretty(&signer)?)?;
 
@@ -297,8 +297,8 @@ fn save_signer_file(wallet: &Wallet, path: &Path) -> Result<()> {
 
 fn register_account(base: &str, account: &str, mnemonic: &str) -> Result<String> {
     let wallet = Wallet::from_phrase(mnemonic, account)?;
-    let owner = wallet.btcpc_role_keypair("owner")?;
-    let role_keys = wallet.btcpc_role_public_keys()?;
+    let owner = wallet.hone_role_keypair("owner")?;
+    let role_keys = wallet.hone_role_public_keys()?;
     let chain_id = get_chain_id(base)?;
 
     let create_sig = sign_account_create(&owner, &chain_id, account, &role_keys)?;
@@ -316,7 +316,7 @@ fn register_account(base: &str, account: &str, mnemonic: &str) -> Result<String>
     let chains: Vec<Value> = wallet.chain_addresses()
         .into_iter()
         .map(|(chain, address, derivation_path)| {
-            let msg = format!("btcpc-family:{}:{}:{}", account, chain, address);
+            let msg = format!("hone-family:{}:{}:{}", account, chain, address);
             json!({
                 "address": address,
                 "chain": chain,
@@ -446,15 +446,15 @@ fn response_error(v: &Value) -> String {
 }
 
 fn default_wallet_path(account: &str) -> PathBuf {
-    home_btcpc_dir().join(format!("{}.wallet.key", account))
+    home_hone_dir().join(format!("{}.wallet.key", account))
 }
 
 fn default_signer_path(account: &str) -> PathBuf {
-    home_btcpc_dir().join(format!("{}.signer.key", account))
+    home_hone_dir().join(format!("{}.signer.key", account))
 }
 
-fn home_btcpc_dir() -> PathBuf {
-    PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| ".".into())).join(".btcpc")
+fn home_hone_dir() -> PathBuf {
+    PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| ".".into())).join(".honemesh")
 }
 
 fn setup_theme(ctx: &egui::Context) {

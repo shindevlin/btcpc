@@ -10,12 +10,12 @@ use anyhow::{Context, Result};
 use ed25519_dalek::Signer;
 use sha2::{Digest, Sha256};
 
-pub struct BtcpcClient {
+pub struct HoneClient {
     http: reqwest::Client,
     pub api_url: String,
 }
 
-impl BtcpcClient {
+impl HoneClient {
     pub fn new(api_url: impl Into<String>) -> Self {
         Self {
             http: reqwest::Client::new(),
@@ -195,7 +195,7 @@ pub struct HiveVerifyParams {
 /// Sign a JSON body with an ed25519 key (hex-encoded 32-byte seed).
 ///
 /// The signature covers sha256(json_canonical_bytes) — matching the
-/// btcpc-sdk `KeyPair::sign_entry_json` convention.
+/// honemesh-sdk `KeyPair::sign_entry_json` convention.
 pub fn sign_entry_json(body: &serde_json::Value, key_hex: &str) -> Result<String> {
     let key_bytes = hex::decode(key_hex.trim())
         .context("signing key must be 64-char hex")?;

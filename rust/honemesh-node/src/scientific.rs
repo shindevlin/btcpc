@@ -343,14 +343,14 @@ mod tests {
 
     fn make_engine(label: &str) -> (ScientificEngine, tempfile::TempDir) {
         let dir = tempfile::Builder::new()
-            .prefix(&format!("btcpc_sci_{}_", label))
+            .prefix(&format!("hone_sci_{}_", label))
             .tempdir()
             .expect("tempdir");
         let store = crate::store::Store::open(dir.path()).expect("store");
         let chain = Arc::new(crate::chain::Chain::new(
             store,
             format!("sci-{}", label),
-            "btcpc-satoshi".to_string(),
+            "hone-testnet".to_string(),
         ));
         (ScientificEngine::new(chain), dir)
     }

@@ -1,4 +1,4 @@
-//! `btcpc wallet` — recoverable wallet creation and unlock.
+//! `hone wallet` — recoverable wallet creation and unlock.
 //!
 //! Every wallet created here writes an encrypted, recoverable keystore
 //! (`<account>.keystore.json`, Argon2id + AES-256-GCM) into a local vault, AND
@@ -38,15 +38,15 @@ pub fn run(args: &[String]) -> Result<i32> {
         _ => {
             eprintln!(
                 "usage:\n  \
-                 btcpc wallet new    --account NAME --vault DIR\n  \
-                 btcpc wallet import --account NAME --vault DIR   (HONE_WALLET_MNEMONIC=...)\n  \
-                 btcpc wallet unlock --keystore FILE\n  \
-                 btcpc wallet pubkeys --keystore FILE\n  \
-                 btcpc wallet index  --vault DIR                 (writes INDEX.md, public only)\n  \
-                 btcpc wallet backup  --keystore FILE --node URL (Layer 3: upload ciphertext only)\n  \
-                 btcpc wallet restore --account NAME --node URL --vault DIR (fetch ciphertext)\n  \
-                 btcpc wallet verify-vault --vault DIR --genesis genesis.json [--require-accounts FILE]\n  \
-                 btcpc wallet export-node-key --keystore FILE [--role posting] [--out node.env | --print]\n\n\
+                 hone wallet new    --account NAME --vault DIR\n  \
+                 hone wallet import --account NAME --vault DIR   (HONE_WALLET_MNEMONIC=...)\n  \
+                 hone wallet unlock --keystore FILE\n  \
+                 hone wallet pubkeys --keystore FILE\n  \
+                 hone wallet index  --vault DIR                 (writes INDEX.md, public only)\n  \
+                 hone wallet backup  --keystore FILE --node URL (Layer 3: upload ciphertext only)\n  \
+                 hone wallet restore --account NAME --node URL --vault DIR (fetch ciphertext)\n  \
+                 hone wallet verify-vault --vault DIR --genesis genesis.json [--require-accounts FILE]\n  \
+                 hone wallet export-node-key --keystore FILE [--role posting] [--out node.env | --print]\n\n\
                  Password comes from HONE_WALLET_PASSWORD (never a CLI arg)."
             );
             Ok(1)
@@ -73,7 +73,7 @@ fn keystore_path(vault: &str, account: &str) -> PathBuf {
 
 /// Print the wallet's public keys (never private) and the derived genesis entry.
 fn print_public(wallet: &Wallet) -> Result<()> {
-    let roles = wallet.btcpc_role_public_keys()?;
+    let roles = wallet.hone_role_public_keys()?;
     println!("account: {}", wallet.account);
     println!("public keys (roles):");
     // Stable order for readability.
@@ -196,9 +196,9 @@ fn cmd_index(args: &[String]) -> Result<i32> {
         if let Some(account) = name.strip_suffix(".wallet.json") {
             let raw = std::fs::read_to_string(&path).unwrap_or_default();
             let v: serde_json::Value = serde_json::from_str(&raw).unwrap_or(serde_json::Value::Null);
-            let posting = v["btcpc_role_public_keys"]["posting"]
+            let posting = v["hone_role_public_keys"]["posting"]
                 .as_str()
-                .or_else(|| v["btcpc_public_key_hex"].as_str())
+                .or_else(|| v["hone_public_key_hex"].as_str())
                 .map(|s| s.to_string());
             let has_ks = dir.join(format!("{account}.keystore.json")).exists();
             rows.push((account.to_string(), posting, has_ks));
@@ -223,7 +223,7 @@ fn cmd_index(args: &[String]) -> Result<i32> {
     }
     md.push_str(
         "\n---\nRecovery: each account's mnemonic is inside its `*.keystore.json`, unlockable \
-         with `btcpc wallet unlock --keystore <file>` and the account's password. Keep this \
+         with `hone wallet unlock --keystore <file>` and the account's password. Keep this \
          vault backed up; it is gitignored and must never be committed.\n",
     );
 
@@ -292,7 +292,7 @@ fn cmd_backup(args: &[String]) -> Result<i32> {
 /// secret doesn't land in shell history/terminal scrollback. Pass --print to
 /// echo it to stdout instead (use only when piping into a launch).
 ///
-///   HONE_WALLET_PASSWORD=... btcpc wallet export-node-key \
+///   HONE_WALLET_PASSWORD=... hone wallet export-node-key \
 ///     --keystore shindevlin.keystore.json --role posting --out node.env
 fn cmd_export_node_key(args: &[String]) -> Result<i32> {
     let ks_file = flag(args, "--keystore").ok_or_else(|| anyhow!("--keystore FILE required"))?;
@@ -311,7 +311,7 @@ fn cmd_export_node_key(args: &[String]) -> Result<i32> {
 
     let wallet = Wallet::from_phrase(&phrase, &ks.account)?;
     let kp = wallet
-        .btcpc_role_keypair(role)
+        .hone_role_keypair(role)
         .with_context(|| format!("deriving {role} key"))?;
     let priv_hex = kp.private_key_hex(); // 64-hex ed25519 seed
     let pub_hex = kp.public_key_hex();
@@ -351,7 +351,7 @@ fn cmd_export_node_key(args: &[String]) -> Result<i32> {
 /// external-chain keys (EVM / Solana / Bitcoin, public + private). This is the
 /// "never get locked out again" file. Writes to --out (default <account>.keys.txt).
 ///
-///   HONE_WALLET_PASSWORD=... btcpc wallet export-all \
+///   HONE_WALLET_PASSWORD=... hone wallet export-all \
 ///     --keystore shindevlin.keystore.json --out shindevlin.keys.txt
 fn cmd_export_all(args: &[String]) -> Result<i32> {
     let ks_file = flag(args, "--keystore").ok_or_else(|| anyhow!("--keystore FILE required"))?;
@@ -363,7 +363,7 @@ fn cmd_export_all(args: &[String]) -> Result<i32> {
 
     let mut s = String::new();
     s.push_str(&format!("# HoneMesh full key record — account: {}\n", ks.account));
-    s.push_str("# Generated by `btcpc wallet export-all`. KEEP PRIVATE — encrypt this file.\n");
+    s.push_str("# Generated by `hone wallet export-all`. KEEP PRIVATE — encrypt this file.\n");
     s.push_str("# The mnemonic alone regenerates EVERY key below (and any future chain).\n\n");
 
     s.push_str("## Recovery phrase (master backup)\n");
@@ -371,7 +371,7 @@ fn cmd_export_all(args: &[String]) -> Result<i32> {
 
     s.push_str("## HoneMesh role keys (ed25519) — public / private\n");
     for role in ["owner", "active", "posting", "memo", "hide", "seek"] {
-        match w.btcpc_role_keypair(role) {
+        match w.hone_role_keypair(role) {
             Ok(kp) => s.push_str(&format!(
                 "{role:8} pub: {}\n{:8} prv: {}\n",
                 kp.public_key_hex(),
@@ -491,9 +491,9 @@ fn cmd_verify_vault(args: &[String]) -> Result<i32> {
         }
         let id_raw = std::fs::read_to_string(&id_path).unwrap_or_default();
         let id: serde_json::Value = serde_json::from_str(&id_raw).unwrap_or(serde_json::Value::Null);
-        let vault_pk = id["btcpc_role_public_keys"]["posting"]
+        let vault_pk = id["hone_role_public_keys"]["posting"]
             .as_str()
-            .or_else(|| id["btcpc_public_key_hex"].as_str())
+            .or_else(|| id["hone_public_key_hex"].as_str())
             .unwrap_or("");
         if vault_pk != genesis_pk {
             problems.push(format!(
@@ -551,7 +551,7 @@ fn cmd_restore(args: &[String]) -> Result<i32> {
     ks.save(&out)?;
     println!(
         "restored '{}' keystore to {}. Unlock it with:\n  \
-         HONE_WALLET_PASSWORD=... btcpc wallet unlock --keystore {}",
+         HONE_WALLET_PASSWORD=... hone wallet unlock --keystore {}",
         account,
         out.display(),
         out.display()

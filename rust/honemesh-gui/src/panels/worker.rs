@@ -1,4 +1,4 @@
-use super::{AppData, card, section_heading, GREEN, DIM_TEXT, ORANGE, YELLOW, dreams_to_btcpc, not_signed_in};
+use super::{AppData, card, section_heading, GREEN, DIM_TEXT, ORANGE, YELLOW, hunits_to_hone, not_signed_in};
 
 pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
     if data.account.is_none() {
@@ -57,7 +57,7 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
                     .min_size(egui::vec2(64.0, 22.0))
             ).clicked() {
                 let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
-                let start = format!("{}/.btcpc", home);
+                let start = format!("{}/.honemesh", home);
                 let result = std::process::Command::new("zenity")
                     .args(["--file-selection", "--title=Select posting key",
                            &format!("--filename={}/", start)])
@@ -122,7 +122,7 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
                         .size(11.0).monospace()
                         .color(if is_me { GREEN } else { egui::Color32::from_rgb(180, 180, 200) }));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        ui.label(egui::RichText::new(format!("{} HoneMesh", dreams_to_btcpc(amount)))
+                        ui.label(egui::RichText::new(format!("{} HONE", hunits_to_hone(amount)))
                             .size(11.0).color(if is_me { YELLOW } else { DIM_TEXT }).monospace());
                     });
                 });

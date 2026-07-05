@@ -166,7 +166,7 @@ pub enum LedgerEntry {
         /// sha256(chain + ":" + address + ":" + nonce) hex — submitted by user pre-computed.
         /// Node verifies this matches what it recovers from the signature.
         commitment: String,
-        /// The exact message that was signed: "btcpc:link:{account}:{chain}:{nonce}"
+        /// The exact message that was signed: "hone:link:{account}:{chain}:{nonce}"
         signed_message: String,
         /// Hex-encoded raw signature bytes.
         signature: String,
@@ -298,10 +298,10 @@ pub enum LedgerEntry {
         /// Must match an InferenceJobComplete entry with an approved InferenceJobVerify.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         job_id: Option<String>,
-        /// Semver of the btcpc-node binary that produced this entry.
+        /// Semver of the honemesh-node binary that produced this entry.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         node_version: Option<String>,
-        /// SHA-256 of the btcpc-node binary. Governance can enforce approved hashes.
+        /// SHA-256 of the honemesh-node binary. Governance can enforce approved hashes.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         software_hash: Option<String>,
         /// SHA-256 digest of the Ollama model blob (from /api/show). Governance enforces approved digests.
@@ -450,11 +450,11 @@ pub enum LedgerEntry {
         epoch: Epoch,
         nonce: u64,
         signed_by: AccountId,
-        /// If true, pin input+result payload to btcpc-fs permanently after InferenceJobPay.
+        /// If true, pin input+result payload to hone-fs permanently after InferenceJobPay.
         /// Payload is otherwise pruneable 100 epochs after payment (D1).
         #[serde(default, skip_serializing_if = "Option::is_none")]
         persist_on_fs: Option<bool>,
-        /// Fee in hunits for persistent storage on btcpc-fs. Ignored if persist_on_fs=false.
+        /// Fee in hunits for persistent storage on hone-fs. Ignored if persist_on_fs=false.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         fs_fee: Option<u64>,
         /// Minimum verifier board size. 0 or absent = auto-scale from network size.
@@ -1339,7 +1339,7 @@ pub enum LedgerEntry {
         mainnet_account: AccountId,
         /// Identifying label for the testnet node (for logging / dedup).
         testnet_node_id: String,
-        /// Chain ID of the testnet being operated (e.g. "btcpc-satoshi").
+        /// Chain ID of the testnet being operated (e.g. "hone-testnet").
         testnet_chain_id: String,
         epoch: Epoch,
         signed_by: AccountId,
@@ -1380,7 +1380,7 @@ pub enum LedgerEntry {
     /// Claim ownership of a BLE tracker. Fee paid to treasury.
     /// The manufacturer serial never appears on-chain — only a commitment hash.
     TrackerClaim {
-        /// H(manufacturer_serial || claimer_btcpc_pubkey || nonce) — serial stays off-chain.
+        /// H(manufacturer_serial || claimer_hone_pubkey || nonce) — serial stays off-chain.
         serial_commitment: String,
         /// "AirTag" | "AndroidFMD" | "Tile" | "Samsung" | "Unknown"
         tag_type: String,
@@ -1443,7 +1443,7 @@ pub enum LedgerEntry {
         signed_by: AccountId,
     },
     /// Owner publishes current time-window commitment hint so observers can pre-link
-    /// rotating MACs to the claim. Gossiped on btcpc/tracker-hints.
+    /// rotating MACs to the claim. Gossiped on hone/tracker-hints.
     TrackerHint {
         serial_commitment: String,
         /// H(epoch_window || observer_id || rotating_mac) for the current window.
@@ -1641,7 +1641,7 @@ pub enum LedgerEntry {
     /// account.  Addresses are additive-only — once published they cannot be removed.
     /// The `signature` field for each address proves key ownership (optional but
     /// strongly recommended): sign the canonical string
-    /// `"btcpc-family:{account}:{chain}:{address}"` with the corresponding chain key.
+    /// `"hone-family:{account}:{chain}:{address}"` with the corresponding chain key.
     WalletFamilyPublish {
         /// HoneMesh account that owns all derived wallets.
         account: AccountId,
@@ -1840,7 +1840,7 @@ pub enum LedgerEntry {
 
     /// User requests TON wallet activation by paying USDT on another chain.
     TonActivationIntent {
-        btcpc_account:  String,
+        hone_account:  String,
         ton_address:    String,   // EQ... address to activate
         source_chain:   String,   // "tron" | "ethereum" | "solana"
         source_address: String,   // user's address on source chain (must be VerifyChainLinked)
@@ -1853,7 +1853,7 @@ pub enum LedgerEntry {
     /// Emitted by the relay node when a TON wallet has been activated.
     /// System-only entry — not submittable by users.
     TonWalletActivated {
-        btcpc_account:  String,
+        hone_account:  String,
         ton_address:    String,
         source_chain:   String,
         source_address: String,
@@ -2524,13 +2524,13 @@ pub enum LedgerEntry {
 /// A single chain address within a wallet family.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChainAddress {
-    /// Chain identifier: "evm", "bitcoin", "solana", "monero", "btcpc", etc.
+    /// Chain identifier: "evm", "bitcoin", "solana", "monero", "hone", etc.
     pub chain: String,
     /// Address on that chain (format is chain-specific).
     pub address: String,
     /// BIP44 derivation path used (e.g. "m/44'/60'/0'/0/0" for EVM).
     pub derivation_path: Option<String>,
-    /// Signature proving ownership: sign `"btcpc-family:{account}:{chain}:{address}"`.
+    /// Signature proving ownership: sign `"hone-family:{account}:{chain}:{address}"`.
     pub signature: Option<String>,
 }
 

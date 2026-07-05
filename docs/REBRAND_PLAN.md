@@ -18,7 +18,7 @@ status: DRAFT — pending name decision (HONE under IP/crypto research)
 |---|---|---|
 | **Project / brand** | **HoneMesh** | BTCPC |
 | **Token / ticker** | **HONE** | BTCPC |
-| **chain_id** | **`hone`** (no version number) | btcpc-2 |
+| **chain_id** | **`hone`** (no version number) | hone |
 | **Base unit (smallest)** | **hunit** (1 HONE = 10,000,000,000 hunits) | dream |
 | **Domain** | **honemesh.net** (register at registrar) | — |
 | **Genesis timestamp** | 1783191600000 (July 4 2026 noon LA) — unchanged | same |
@@ -26,9 +26,9 @@ status: DRAFT — pending name decision (HONE under IP/crypto research)
 | **Balances** | ZEROED (fresh genesis) — Shin approved | reset |
 
 **Constant renames:**
-- `MAINNET_CHAIN_ID = "btcpc-2"` → `"hone"`
+- `MAINNET_CHAIN_ID = "hone"` → `"hone"`
 - `NATIVE_TOKEN = "BTCPC"` → `"HONE"`
-- `DREAMS_PER_BTCPC` → `HUNITS_PER_HONE` (value unchanged: 10^10)
+- `HUNITS_PER_HONE` → `HUNITS_PER_HONE` (value unchanged: 10^10)
 - the unit string `"dreams"` → `"hunits"`; `"dream"` → `"hunit"`
 - brand literal `BTCPC` → `HoneMesh` (docs/user-facing); keep in historical/changelog context
 
@@ -42,15 +42,15 @@ paytech), Honedata (Hondata sensor-app collision).
 ## Why re-genesis (not live migration)
 The chain is ~1 day old (epoch ~2270). Its only durable state is the 11 founder
 accounts, whose keys are all in the vault and whose pubkeys are known. A live
-`BTCPC_CHAIN_ID_MIGRATION` would work but must be perfectly synchronized across
+`HONE_CHAIN_ID_MIGRATION` would work but must be perfectly synchronized across
 every node (chain_id is in every signature) or the network forks. A fresh genesis
 under the new name, seeded with the SAME account keys, is simpler and gives a
-clean brand break — no residual "btcpc-2" anywhere. Balances reset to genesis
+clean brand break — no residual "hone" anywhere. Balances reset to genesis
 allocation (they were near-zero-earned anyway; founder rewards restart).
 
 ## What stays the same
 - **Genesis timestamp:** `1783191600000` (July 4 2026 noon LA) — the anniversary.
-- **Account keys:** the EXACT keys already in the vault (BTCPC_SECRETS_BACKUP).
+- **Account keys:** the EXACT keys already in the vault (HONE_SECRETS_BACKUP).
   No new keystores, no key handling — the pubkeys are already known and in the
   current genesis.json. shindevlin `c97a9f20…`, natoshisakamoto `29e22bbd…`,
   josh `bcc9d57d…`, bullship `bc52f8fd…`, freeport, linkgit, verasens,
@@ -58,14 +58,14 @@ allocation (they were near-zero-earned anyway; founder rewards restart).
 - The 11 accounts + system funds (__treasury__, __recycle_fund__, __testnet_fund__).
 
 ## What changes
-- **chain_id:** `btcpc-2` → `[new-chain-id]` (in `crates/btcpc-types/src/lib.rs`
+- **chain_id:** `hone` → `[new-chain-id]` (in `crates/honemesh-types/src/lib.rs`
   MAINNET_CHAIN_ID, `genesis.json`, `config.rs` default, `CHAIN_CONSTANTS.md`).
 - **Genesis block payload:** the launch proclamation text (currently "BTCPC v2 …")
   → "[NEW_NAME] …". This changes block-0 hash → a NEW canonical hash (expected;
   it's a new chain). Record it; all nodes must reproduce it.
 - **Project name** everywhere: whitepaper, README, all docs, the node's user-
   facing strings, the ticker/token name if changing.
-- New data dir (fresh genesis needs an empty BTCPC_DATA_DIR).
+- New data dir (fresh genesis needs an empty HONE_DATA_DIR).
 
 ## Execution order
 1. **Confirm the name** (HONE pending research) + the ticker.
@@ -94,7 +94,7 @@ allocation (they were near-zero-earned anyway; founder rewards restart).
 - **Block-0 hash WILL change** (new proclamation + chain_id in payload) — that's
   correct for a new chain, but every node must rebuild + wipe + restart together,
   exactly like the July-4 launch. Reuse GENESIS_LAUNCH_RUNBOOK.md's verify steps.
-- **Balances reset.** If any account earned meaningful BTCPC on btcpc-2 that must
+- **Balances reset.** If any account earned meaningful BTCPC on hone that must
   carry over, note it — a fresh genesis does NOT preserve balances (only keys +
   identities). shindevlin had ~1.3B dreams earned; decide if that matters
   (likely not — rewards restart).
@@ -107,4 +107,4 @@ allocation (they were near-zero-earned anyway; founder rewards restart).
 2. Does the PROJECT rename fully (BTCPC → HONE everywhere) or does the chain get a
    new name while some legacy "btcpc" identifiers stay? (Recommend full rename for
    a clean brand.)
-3. Preserve any btcpc-2 balances, or clean genesis reset (recommend clean)?
+3. Preserve any hone balances, or clean genesis reset (recommend clean)?

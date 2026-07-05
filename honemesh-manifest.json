@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "btcpc_version": "1.2.2",
-  "chain_id": "btcpc-1",
-  "surface_hash": "387ecc004f10d8f17a1c162eecd96a1958d0778376d1899e20bc79811418af43",
+  "hone_version": "1.2.2",
+  "chain_id": "hone",
+  "surface_hash": "2166440ecb19a9418694c7cc12ff3b242228374927fbb234a1de145a17dc758e",
   "entries": {
     "AccountApiKeySet": {
       "name": "AccountApiKeySet",
@@ -187,7 +187,7 @@
     },
     "AgentCreditDeposit": {
       "name": "AgentCreditDeposit",
-      "summary": "User deposits BTCPC into their agent credit balance (pre-paid escrow pool).",
+      "summary": "User deposits HoneMesh into their agent credit balance (pre-paid escrow pool).",
       "fields": [
         {
           "name": "account",
@@ -291,7 +291,7 @@
         },
         {
           "name": "min_fee",
-          "ty": "u64,          // minimum dreams per task"
+          "ty": "u64,          // minimum hunits per task"
         },
         {
           "name": "epoch",
@@ -363,7 +363,7 @@
         },
         {
           "name": "fee_escrow",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -475,7 +475,7 @@
         },
         {
           "name": "max_fee",
-          "ty": "u64,          // dreams reserved from agent_credit"
+          "ty": "u64,          // hunits reserved from agent_credit"
         },
         {
           "name": "min_verifiers",
@@ -555,7 +555,7 @@
         },
         {
           "name": "output_cid",
-          "ty": "String,  // BTCPC-FS CID or \"\" for off-chain delivery"
+          "ty": "String,  // HoneMesh-FS CID or \"\" for off-chain delivery"
         },
         {
           "name": "epoch",
@@ -734,7 +734,7 @@
         },
         {
           "name": "fee",
-          "ty": "Dreams"
+          "ty": "Hunits"
         }
       ],
       "system_only": true,
@@ -742,7 +742,7 @@
     },
     "BridgeFund": {
       "name": "BridgeFund",
-      "summary": "Custodian deposits funds into the bridge, minting wBTCPC up to the 4.2M cap.",
+      "summary": "Custodian deposits funds into the bridge, minting wHONE up to the 4.2M cap.",
       "fields": [
         {
           "name": "bridge_id",
@@ -753,8 +753,8 @@
           "ty": "AccountId"
         },
         {
-          "name": "amount_dreams",
-          "ty": "Dreams"
+          "name": "amount_hunits",
+          "ty": "Hunits"
         },
         {
           "name": "external_tx_hash",
@@ -822,15 +822,15 @@
     },
     "BridgeUnwrap": {
       "name": "BridgeUnwrap",
-      "summary": "Burn wBTCPC and queue an unlock on the external chain (FIFO).",
+      "summary": "Burn wHONE and queue an unlock on the external chain (FIFO).",
       "fields": [
         {
           "name": "account",
           "ty": "AccountId"
         },
         {
-          "name": "amount_dreams",
-          "ty": "Dreams"
+          "name": "amount_hunits",
+          "ty": "Hunits"
         },
         {
           "name": "recipient_external",
@@ -862,15 +862,15 @@
     },
     "BridgeWrap": {
       "name": "BridgeWrap",
-      "summary": "Wrap native BTCPC into wBTCPC for use on external chains.",
+      "summary": "Wrap native HoneMesh into wHONE for use on external chains.",
       "fields": [
         {
           "name": "account",
           "ty": "AccountId"
         },
         {
-          "name": "amount_dreams",
-          "ty": "Dreams"
+          "name": "amount_hunits",
+          "ty": "Hunits"
         },
         {
           "name": "external_address",
@@ -993,7 +993,7 @@
         },
         {
           "name": "stake",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -1021,7 +1021,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -1085,7 +1085,7 @@
         },
         {
           "name": "max_fee",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -1340,7 +1340,7 @@
     },
     "DeviceClaimStake": {
       "name": "DeviceClaimStake",
-      "summary": "Stake BTCPC to claim ownership of a device identified by its hardware serial.",
+      "summary": "Stake HoneMesh to claim ownership of a device identified by its hardware serial.",
       "fields": [
         {
           "name": "device_serial",
@@ -1352,7 +1352,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -1518,7 +1518,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -1551,7 +1551,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -1601,7 +1601,7 @@
         },
         {
           "name": "max_fee",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "n_workers",
@@ -1779,7 +1779,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "token",
@@ -1851,7 +1851,7 @@
         },
         {
           "name": "max_fee",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -1887,7 +1887,7 @@
         },
         {
           "name": "sale_price",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "expires_epoch",
@@ -1930,7 +1930,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -1974,7 +1974,7 @@
         },
         {
           "name": "min_bid",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "end_epoch",
@@ -2078,11 +2078,11 @@
         },
         {
           "name": "sensor_amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "gateway_amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -2101,7 +2101,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "token",
@@ -2261,7 +2261,7 @@
     },
     "HiveReplicaCommit": {
       "name": "HiveReplicaCommit",
-      "summary": "Storage node records a BTCPC-FS replica written to Hive custom_json.",
+      "summary": "Storage node records a HoneMesh-FS replica written to Hive custom_json.",
       "fields": [
         {
           "name": "node_id",
@@ -2425,7 +2425,7 @@
         },
         {
           "name": "fee",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -2449,7 +2449,7 @@
         },
         {
           "name": "fee",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "role",
@@ -2656,27 +2656,27 @@
         },
         {
           "name": "worker_amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "verifier_payments",
-          "ty": "Vec<(AccountId, Dreams)>"
+          "ty": "Vec<(AccountId, Hunits)>"
         },
         {
           "name": "reviewer_payments",
-          "ty": "Vec<(AccountId, Dreams)>"
+          "ty": "Vec<(AccountId, Hunits)>"
         },
         {
           "name": "recycle_amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "refund_amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "dissenter_slashes",
-          "ty": "Vec<(AccountId, Dreams)>"
+          "ty": "Vec<(AccountId, Hunits)>"
         },
         {
           "name": "epoch",
@@ -2712,7 +2712,7 @@
         },
         {
           "name": "max_fee",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "min_reputation",
@@ -2969,7 +2969,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "push_count",
@@ -3523,7 +3523,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "serve_count",
@@ -3559,7 +3559,7 @@
         },
         {
           "name": "fee",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -3587,7 +3587,7 @@
     },
     "LivenessProof": {
       "name": "LivenessProof",
-      "summary": "Prove liveness using a BTCPC key — the cheapest possible \"I'm here\" signal.",
+      "summary": "Prove liveness using a HoneMesh key — the cheapest possible \"I'm here\" signal.",
       "fields": [
         {
           "name": "account",
@@ -3717,7 +3717,7 @@
     },
     "MempoolOperatorRegister": {
       "name": "MempoolOperatorRegister",
-      "summary": "Register as a mempool operator. Operator stakes BTCPC; lowest-latency",
+      "summary": "Register as a mempool operator. Operator stakes HoneMesh; lowest-latency",
       "fields": [
         {
           "name": "operator",
@@ -3725,7 +3725,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -3754,7 +3754,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -3828,7 +3828,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -3852,7 +3852,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -3924,7 +3924,7 @@
         },
         {
           "name": "min_bid",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "end_epoch",
@@ -4084,7 +4084,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -4131,7 +4131,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -4162,7 +4162,7 @@
     },
     "OracleFeedCreate": {
       "name": "OracleFeedCreate",
-      "summary": "Create a new oracle price feed (e.g. \"BTCPC/USD\").",
+      "summary": "Create a new oracle price feed (e.g. \"HoneMesh/USD\").",
       "fields": [
         {
           "name": "feed_id",
@@ -4394,7 +4394,7 @@
         },
         {
           "name": "total_price",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "token",
@@ -4602,7 +4602,7 @@
         },
         {
           "name": "price",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "token",
@@ -4663,7 +4663,7 @@
         },
         {
           "name": "price",
-          "ty": "Option<Dreams>"
+          "ty": "Option<Hunits>"
         },
         {
           "name": "stock",
@@ -4770,7 +4770,7 @@
         },
         {
           "name": "bounty",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "tags",
@@ -4982,7 +4982,7 @@
         },
         {
           "name": "fee",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -5022,7 +5022,7 @@
         },
         {
           "name": "bond",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -5047,7 +5047,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -5075,7 +5075,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "reason",
@@ -5156,7 +5156,7 @@
         },
         {
           "name": "fee_paid",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "contributing_nodes",
@@ -5248,7 +5248,7 @@
         },
         {
           "name": "fee",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -5406,7 +5406,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -5484,7 +5484,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -5571,8 +5571,8 @@
           "ty": "AccountId"
         },
         {
-          "name": "price_dreams",
-          "ty": "Dreams"
+          "name": "price_hunits",
+          "ty": "Hunits"
         },
         {
           "name": "model",
@@ -5725,7 +5725,7 @@
     },
     "SnapshotSave": {
       "name": "SnapshotSave",
-      "summary": "Save a named chain snapshot (slug → BTCPC-FS CID).",
+      "summary": "Save a named chain snapshot (slug → HoneMesh-FS CID).",
       "fields": [
         {
           "name": "account",
@@ -5806,7 +5806,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "evm_tx_hash",
@@ -5835,7 +5835,7 @@
     },
     "SpamGateSet": {
       "name": "SpamGateSet",
-      "summary": "Set a BTCPC fee that any sender must pay to deliver an unapproved token.",
+      "summary": "Set a HoneMesh fee that any sender must pay to deliver an unapproved token.",
       "fields": [
         {
           "name": "account",
@@ -5847,7 +5847,7 @@
         },
         {
           "name": "fee",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "fee_token",
@@ -5887,7 +5887,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -5970,7 +5970,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -6053,7 +6053,7 @@
         },
         {
           "name": "payout",
-          "ty": "Option<Dreams>"
+          "ty": "Option<Hunits>"
         },
         {
           "name": "epoch",
@@ -6223,7 +6223,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -6378,7 +6378,7 @@
       "summary": "User requests TON wallet activation by paying USDT on another chain.",
       "fields": [
         {
-          "name": "btcpc_account",
+          "name": "hone_account",
           "ty": "String"
         },
         {
@@ -6410,7 +6410,7 @@
           "ty": "String"
         }
       ],
-      "signed_by_bound_to": "btcpc_account",
+      "signed_by_bound_to": "hone_account",
       "system_only": false,
       "stability": "stable"
     },
@@ -6419,7 +6419,7 @@
       "summary": "Emitted by the relay node when a TON wallet has been activated.",
       "fields": [
         {
-          "name": "btcpc_account",
+          "name": "hone_account",
           "ty": "String"
         },
         {
@@ -6522,7 +6522,7 @@
         },
         {
           "name": "fee",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -6598,7 +6598,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -6742,8 +6742,8 @@
           "ty": "AccountId"
         },
         {
-          "name": "bounty_dreams",
-          "ty": "Dreams"
+          "name": "bounty_hunits",
+          "ty": "Hunits"
         },
         {
           "name": "expires_epoch",
@@ -6772,7 +6772,7 @@
         "type",
         "serial_commitment",
         "claimer",
-        "bounty_dreams",
+        "bounty_hunits",
         "expires_epoch",
         "contact_encrypted",
         "nonce"
@@ -6875,7 +6875,7 @@
         },
         {
           "name": "fee_per_epoch",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "expires_epoch",
@@ -6921,7 +6921,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "token",
@@ -6970,7 +6970,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -7007,7 +7007,7 @@
         },
         {
           "name": "amount",
-          "ty": "Dreams"
+          "ty": "Hunits"
         },
         {
           "name": "epoch",
@@ -7153,7 +7153,7 @@
     },
     "WalletFamilyPublish": {
       "name": "WalletFamilyPublish",
-      "summary": "Permanently link a set of BIP44-derived addresses across chains to a BTCPC",
+      "summary": "Permanently link a set of BIP44-derived addresses across chains to a HoneMesh",
       "fields": [
         {
           "name": "account",
@@ -7191,7 +7191,7 @@
       "method": "GET",
       "path": "/:owner/:repo/info/refs",
       "handler": "git_info_refs",
-      "summary": "git.btcpc.net/owner/repo  (short form — whole subdomain is the forge)",
+      "summary": "git.honemesh.net/owner/repo  (short form — whole subdomain is the forge)",
       "stability": "stable"
     },
     "GET /agent/:account": {
@@ -7575,14 +7575,14 @@
       "method": "GET",
       "path": "/api/integration/manifest",
       "handler": "get_integration_manifest",
-      "summary": "Integration manifest — self-updating consumer contract (btcpc sync --node)",
+      "summary": "Integration manifest — self-updating consumer contract (hone sync --node)",
       "stability": "stable"
     },
     "GET /api/integration/manifest.md": {
       "method": "GET",
       "path": "/api/integration/manifest.md",
       "handler": "get_integration_manifest_md",
-      "summary": "Integration manifest — self-updating consumer contract (btcpc sync --node)",
+      "summary": "Integration manifest — self-updating consumer contract (hone sync --node)",
       "stability": "stable"
     },
     "GET /api/latest": {
@@ -7624,6 +7624,13 @@
       "path": "/api/linkgit/repo/:owner/:repo/pulls/:id",
       "handler": "get_pull",
       "summary": "LinkGit: Pull Requests (COBs)",
+      "stability": "stable"
+    },
+    "GET /api/linkgit/repos": {
+      "method": "GET",
+      "path": "/api/linkgit/repos",
+      "handler": "get_all_linkgit_repos",
+      "summary": "LinkGit",
       "stability": "stable"
     },
     "GET /api/linkgit/repos/:owner": {
@@ -7889,6 +7896,13 @@
       "handler": "get_sensor",
       "stability": "stable"
     },
+    "GET /api/sensors": {
+      "method": "GET",
+      "path": "/api/sensors",
+      "handler": "get_all_sensors",
+      "summary": "Verasens: Sensors / IoT",
+      "stability": "stable"
+    },
     "GET /api/sensors/:sensor_id/consensus/:epoch": {
       "method": "GET",
       "path": "/api/sensors/:sensor_id/consensus/:epoch",
@@ -7905,14 +7919,14 @@
       "method": "GET",
       "path": "/api/service/node-hosting",
       "handler": "get_node_hosting_listings",
-      "summary": "Node hosting (BTCPC-native cloud deploy)",
+      "summary": "Node hosting (HoneMesh-native cloud deploy)",
       "stability": "stable"
     },
     "GET /api/service/node-hosting/my-nodes": {
       "method": "GET",
       "path": "/api/service/node-hosting/my-nodes",
       "handler": "get_my_hosted_nodes",
-      "summary": "Node hosting (BTCPC-native cloud deploy)",
+      "summary": "Node hosting (HoneMesh-native cloud deploy)",
       "stability": "stable"
     },
     "GET /api/sessions/listing/:id": {
@@ -8086,18 +8100,6 @@
       "handler": "get_app_dashboard",
       "stability": "stable"
     },
-    "GET /btcpcscan": {
-      "method": "GET",
-      "path": "/btcpcscan",
-      "handler": "get_btcpcscan",
-      "stability": "stable"
-    },
-    "GET /btcpcscan.html": {
-      "method": "GET",
-      "path": "/btcpcscan.html",
-      "handler": "get_btcpcscan",
-      "stability": "stable"
-    },
     "GET /download/:filename": {
       "method": "GET",
       "path": "/download/:filename",
@@ -8109,13 +8111,25 @@
       "method": "GET",
       "path": "/git/:owner/:repo/info/refs",
       "handler": "git_info_refs",
-      "summary": "btcpc.net/git/owner/repo  (path-prefixed, also used via api.btcpc.net)",
+      "summary": "honemesh.net/git/owner/repo  (path-prefixed, also used via api.honemesh.net)",
       "stability": "stable"
     },
     "GET /health": {
       "method": "GET",
       "path": "/health",
       "handler": "health",
+      "stability": "stable"
+    },
+    "GET /honescan": {
+      "method": "GET",
+      "path": "/honescan",
+      "handler": "get_honescan",
+      "stability": "stable"
+    },
+    "GET /honescan.html": {
+      "method": "GET",
+      "path": "/honescan.html",
+      "handler": "get_honescan",
       "stability": "stable"
     },
     "GET /install/:account": {
@@ -8201,14 +8215,14 @@
       "method": "POST",
       "path": "/:owner/:repo/git-receive-pack",
       "handler": "git_receive_pack",
-      "summary": "git.btcpc.net/owner/repo  (short form — whole subdomain is the forge)",
+      "summary": "git.honemesh.net/owner/repo  (short form — whole subdomain is the forge)",
       "stability": "stable"
     },
     "POST /:owner/:repo/git-upload-pack": {
       "method": "POST",
       "path": "/:owner/:repo/git-upload-pack",
       "handler": "git_upload_pack",
-      "summary": "git.btcpc.net/owner/repo  (short form — whole subdomain is the forge)",
+      "summary": "git.honemesh.net/owner/repo  (short form — whole subdomain is the forge)",
       "stability": "stable"
     },
     "POST /api/account/api-key": {
@@ -8652,6 +8666,12 @@
       "handler": "post_pr_merge",
       "stability": "stable"
     },
+    "POST /api/linkgit/repo/:owner/:repo/read": {
+      "method": "POST",
+      "path": "/api/linkgit/repo/:owner/:repo/read",
+      "handler": "post_linkgit_repo_read",
+      "stability": "stable"
+    },
     "POST /api/linkgit/repo/:owner/:repo/wallet": {
       "method": "POST",
       "path": "/api/linkgit/repo/:owner/:repo/wallet",
@@ -8674,7 +8694,6 @@
       "method": "POST",
       "path": "/api/linkgit/repo/create",
       "handler": "post_linkgit_repo_create",
-      "summary": "LinkGit",
       "stability": "stable"
     },
     "POST /api/linkgit/repo/ref/update": {
@@ -8876,7 +8895,7 @@
       "method": "POST",
       "path": "/api/runtime/deploy",
       "handler": "post_runtime_deploy",
-      "summary": "Decentralized runtime (BTCPC as AWS)",
+      "summary": "Decentralized runtime (HoneMesh as AWS)",
       "stability": "stable"
     },
     "POST /api/runtime/job/attest": {
@@ -8901,14 +8920,14 @@
       "method": "POST",
       "path": "/api/runtime/register",
       "handler": "post_runtime_register",
-      "summary": "Decentralized runtime (BTCPC as AWS)",
+      "summary": "Decentralized runtime (HoneMesh as AWS)",
       "stability": "stable"
     },
     "POST /api/runtime/undeploy": {
       "method": "POST",
       "path": "/api/runtime/undeploy",
       "handler": "post_runtime_undeploy",
-      "summary": "Decentralized runtime (BTCPC as AWS)",
+      "summary": "Decentralized runtime (HoneMesh as AWS)",
       "stability": "stable"
     },
     "POST /api/science/jobs": {
@@ -8948,14 +8967,13 @@
       "method": "POST",
       "path": "/api/sensor/vouch",
       "handler": "post_sensor_vouch",
-      "summary": "Verasens: Sensors / IoT",
       "stability": "stable"
     },
     "POST /api/service/node-hosting/buy": {
       "method": "POST",
       "path": "/api/service/node-hosting/buy",
       "handler": "post_node_hosting_buy",
-      "summary": "Node hosting (BTCPC-native cloud deploy)",
+      "summary": "Node hosting (HoneMesh-native cloud deploy)",
       "stability": "stable"
     },
     "POST /api/sessions/buy": {
@@ -9011,14 +9029,14 @@
       "method": "POST",
       "path": "/api/storage/hive-replica/commit",
       "handler": "post_hive_replica_commit",
-      "summary": "BTCPC-FS Hive external replicas",
+      "summary": "HoneMesh-FS Hive external replicas",
       "stability": "stable"
     },
     "POST /api/storage/hive-replica/verify": {
       "method": "POST",
       "path": "/api/storage/hive-replica/verify",
       "handler": "post_hive_replica_verify",
-      "summary": "BTCPC-FS Hive external replicas",
+      "summary": "HoneMesh-FS Hive external replicas",
       "stability": "stable"
     },
     "POST /api/task/bid": {
@@ -9195,14 +9213,14 @@
       "method": "POST",
       "path": "/git/:owner/:repo/git-receive-pack",
       "handler": "git_receive_pack",
-      "summary": "btcpc.net/git/owner/repo  (path-prefixed, also used via api.btcpc.net)",
+      "summary": "honemesh.net/git/owner/repo  (path-prefixed, also used via api.honemesh.net)",
       "stability": "stable"
     },
     "POST /git/:owner/:repo/git-upload-pack": {
       "method": "POST",
       "path": "/git/:owner/:repo/git-upload-pack",
       "handler": "git_upload_pack",
-      "summary": "btcpc.net/git/owner/repo  (path-prefixed, also used via api.btcpc.net)",
+      "summary": "honemesh.net/git/owner/repo  (path-prefixed, also used via api.honemesh.net)",
       "stability": "stable"
     },
     "POST /public/agent-chat": {

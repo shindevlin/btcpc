@@ -1,7 +1,7 @@
 use super::{
     AppData, section_heading, card, not_signed_in, active_key_required,
     DIM_TEXT, GREEN, BLUE, YELLOW, ORANGE, RED,
-    parse_btcpc_input, dreams_to_btcpc,
+    parse_hone_input, hunits_to_hone,
 };
 use crate::app::KeyRole;
 
@@ -153,7 +153,7 @@ fn show_browse(ui: &mut egui::Ui, data: &mut AppData, account: &str, can_act: bo
                 });
 
                 if bounty > 0 {
-                    ui.label(egui::RichText::new(format!("Bounty: {} HoneMesh", dreams_to_btcpc(bounty)))
+                    ui.label(egui::RichText::new(format!("Bounty: {} HONE", hunits_to_hone(bounty)))
                         .size(11.0).color(ORANGE));
                 }
                 if !claimant.is_empty() {
@@ -394,7 +394,7 @@ fn show_create_task(ui: &mut egui::Ui, data: &mut AppData, account: &str, can_ac
             let desc  = data.forms.new_task_description.trim().to_owned();
             let ttype = if data.forms.new_task_type.is_empty() { "partial".to_owned() }
                         else { data.forms.new_task_type.clone() };
-            let bounty = parse_btcpc_input(&data.forms.new_task_bounty).unwrap_or(0);
+            let bounty = parse_hone_input(&data.forms.new_task_bounty).unwrap_or(0);
 
             if pid.is_empty() || tid.is_empty() || title.is_empty() {
                 data.forms.new_task_result = Some((false, "project ID, task ID, and title required".into()));

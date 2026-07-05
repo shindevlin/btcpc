@@ -39,14 +39,14 @@ struct CacheEntry {
     inserted_at: Instant,
 }
 
-pub struct BtcpcInferenceClient {
+pub struct HoneInferenceClient {
     client: Client,
     api_url: String,
     project_key: String,
     cache: RwLock<HashMap<String, CacheEntry>>,
 }
 
-impl BtcpcInferenceClient {
+impl HoneInferenceClient {
     pub fn new(api_url: String, project_key: String) -> Self {
         Self {
             client: Client::builder()
@@ -270,13 +270,13 @@ pub struct Heartbeat {
     pub version: String,
 }
 
-pub struct BtcpcServiceClient {
+pub struct HoneServiceClient {
     client: Client,
     api_url: String,
     project_key: String,
 }
 
-impl BtcpcServiceClient {
+impl HoneServiceClient {
     pub fn new(api_url: String, project_key: String) -> Self {
         Self {
             client: Client::builder()

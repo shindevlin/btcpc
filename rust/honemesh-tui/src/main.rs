@@ -121,10 +121,10 @@ fn submit_login(app: &mut app::App) {
         let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
         let data_dir = std::env::var("HONE_DATA_DIR").unwrap_or_default();
         let candidates: Vec<String> = [
-            format!("{}/.btcpc/{}.wallet.key", home, account),
-            format!("{}/.btcpc/wallet.key", home),
+            format!("{}/.honemesh/{}.wallet.key", home, account),
+            format!("{}/.honemesh/wallet.key", home),
             format!("{}/wallet.key", data_dir),
-            format!("{}/.btcpc/key.json", home),
+            format!("{}/.honemesh/key.json", home),
         ]
         .into_iter()
         .filter(|p| !p.starts_with('/') || !p.trim_start_matches('/').is_empty())
@@ -139,7 +139,7 @@ fn submit_login(app: &mut app::App) {
             }
             None => {
                 set_login_error(app, format!(
-                    "No key file found — tried ~/.btcpc/{}.wallet.key, wallet.key, key.json",
+                    "No key file found — tried ~/.honemesh/{}.wallet.key, wallet.key, key.json",
                     account
                 ));
                 return;
@@ -178,7 +178,7 @@ fn submit_login(app: &mut app::App) {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
-        let challenge = format!("btcpc-auth:{}:{}", account, ts);
+        let challenge = format!("hone-auth:{}:{}", account, ts);
 
         use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 
@@ -424,7 +424,7 @@ fn paste_current_field(app: &mut app::App, text: &str) {
 }
 
 /// Parse a HoneMesh decimal string to hunits (u64). 1 HONE = 10^10 hunits.
-fn parse_btcpc_amount(s: &str) -> Result<u64, String> {
+fn parse_hone_amount(s: &str) -> Result<u64, String> {
     let trimmed = s.trim();
     if trimmed.is_empty() {
         return Err("amount is empty".to_string());
@@ -452,7 +452,7 @@ fn submit_form(app: &mut app::App) {
 
     match app.mode.clone() {
         Mode::TransferForm(state) => {
-            let amount_dreams = match parse_btcpc_amount(&state.amount) {
+            let amount_hunits = match parse_hone_amount(&state.amount) {
                 Ok(a) => a,
                 Err(e) => {
                     app.mode = Mode::Result { msg: e, success: false };
@@ -464,7 +464,7 @@ fn submit_form(app: &mut app::App) {
                 session.key_file.as_path(),
                 &session.account,
                 &state.to,
-                amount_dreams,
+                amount_hunits,
                 &state.memo,
             );
             match result {
@@ -479,7 +479,7 @@ fn submit_form(app: &mut app::App) {
         }
 
         Mode::StakeForm(state) => {
-            let amount_dreams = match parse_btcpc_amount(&state.amount) {
+            let amount_hunits = match parse_hone_amount(&state.amount) {
                 Ok(a) => a,
                 Err(e) => {
                     app.mode = Mode::Result { msg: e, success: false };
@@ -491,7 +491,7 @@ fn submit_form(app: &mut app::App) {
                 &base,
                 session.key_file.as_path(),
                 &session.account,
-                amount_dreams,
+                amount_hunits,
                 add,
             );
             match result {
@@ -514,7 +514,7 @@ fn submit_form(app: &mut app::App) {
                 let t = state.node.trim();
                 if t == "self" { session.account.as_str() } else { t }
             };
-            let amount_dreams = match parse_btcpc_amount(&state.amount) {
+            let amount_hunits = match parse_hone_amount(&state.amount) {
                 Ok(a) => a,
                 Err(e) => { app.mode = Mode::Result { msg: e, success: false }; return; }
             };
@@ -524,7 +524,7 @@ fn submit_form(app: &mut app::App) {
                 &session.account,
                 node,
                 state.role(),
-                amount_dreams,
+                amount_hunits,
                 state.add,
             );
             match result {
@@ -534,7 +534,7 @@ fn submit_form(app: &mut app::App) {
         }
 
         Mode::PostJobForm(state) => {
-            let max_fee = match parse_btcpc_amount(&state.max_fee) {
+            let max_fee = match parse_hone_amount(&state.max_fee) {
                 Ok(a) => a,
                 Err(e) => {
                     app.mode = Mode::Result { msg: e, success: false };

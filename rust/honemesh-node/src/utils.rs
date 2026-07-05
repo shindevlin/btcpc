@@ -1,4 +1,4 @@
-//! Shared utilities used across btcpc-node modules.
+//! Shared utilities used across honemesh-node modules.
 
 /// Current time as milliseconds since Unix epoch.
 pub fn now_ms() -> u64 {

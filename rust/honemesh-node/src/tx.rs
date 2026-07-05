@@ -17,7 +17,7 @@
 //! override.
 
 use anyhow::{bail, Result};
-use honemesh_types::{LedgerEntry, NATIVE_TOKEN, HUNITS_PER_HONE, entry_weight, BASE_FEE_INITIAL_DREAMS, RECYCLE_FUND_ACCOUNT, TESTNET_FUND_ACCOUNT, STAKE_EXEMPT_ACCOUNTS};
+use honemesh_types::{LedgerEntry, NATIVE_TOKEN, HUNITS_PER_HONE, entry_weight, BASE_FEE_INITIAL_HUNITS, RECYCLE_FUND_ACCOUNT, TESTNET_FUND_ACCOUNT, STAKE_EXEMPT_ACCOUNTS};
 use ed25519_dalek::{Signature, VerifyingKey};
 
 use crate::chain::Chain;
@@ -26,12 +26,12 @@ use crate::chain::Chain;
 /// Prevents mempool spam from replaying old entries after long network partitions.
 const STALE_WINDOW: u64 = 5;
 
-/// Read the current base fee from sled. Falls back to BASE_FEE_INITIAL_DREAMS on cold start.
+/// Read the current base fee from sled. Falls back to BASE_FEE_INITIAL_HUNITS on cold start.
 fn read_base_fee(chain: &Chain) -> u64 {
     chain.store.state_get("chain_param:base_fee")
         .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
         .and_then(|j| j["fee"].as_u64())
-        .unwrap_or(BASE_FEE_INITIAL_DREAMS)
+        .unwrap_or(BASE_FEE_INITIAL_HUNITS)
 }
 
 /// Return the account that should pay the entry fee.
@@ -207,7 +207,7 @@ pub fn validate_and_apply(
             let bal = chain.get_balance(account, NATIVE_TOKEN);
             if bal < *amount {
                 bail!(
-                    "insufficient balance for stake: {} has {} HoneMesh",
+                    "insufficient balance for stake: {} has {} HONE",
                     account,
                     bal as f64 / HUNITS_PER_HONE as f64,
                 );
@@ -234,7 +234,7 @@ pub fn validate_and_apply(
             let staked = chain.get_stake(account);
             if staked < *amount {
                 bail!(
-                    "insufficient stake: {} has {} HoneMesh staked",
+                    "insufficient stake: {} has {} HONE staked",
                     account,
                     staked as f64 / HUNITS_PER_HONE as f64,
                 );
@@ -630,7 +630,7 @@ pub fn validate_and_apply(
         LedgerEntry::BlobStore { .. }
         | LedgerEntry::ContractDeploy { .. }
         | LedgerEntry::ContractCall { .. }
-        // Freeport orders/escrow — no on-chain balance movement; btcpc-market
+        // Freeport orders/escrow — no on-chain balance movement; honemesh-market
         // sidecar manages the money (EscrowRelease apply is an empty no-op).
         | LedgerEntry::OrderPlace { .. }
         | LedgerEntry::OrderFulfill { .. }
@@ -875,20 +875,20 @@ pub fn validate_and_apply(
         }
 
         // ── TON wallet activation intent ─────────────────────────────────────
-        LedgerEntry::TonActivationIntent { btcpc_account, source_address, nonce, signed_by, .. } => {
-            if signed_by != btcpc_account {
-                bail!("signed_by '{}' must equal btcpc_account '{}'", signed_by, btcpc_account);
+        LedgerEntry::TonActivationIntent { hone_account, source_address, nonce, signed_by, .. } => {
+            if signed_by != hone_account {
+                bail!("signed_by '{}' must equal hone_account '{}'", signed_by, hone_account);
             }
-            require_key(chain, btcpc_account)?;
-            check_nonce(chain, btcpc_account, *nonce)?;
+            require_key(chain, hone_account)?;
+            check_nonce(chain, hone_account, *nonce)?;
             check_signature(chain, signed_by, entry, sig_hex, "posting")?;
-            // Verify source_address is VerifyChainLinked to this btcpc_account.
+            // Verify source_address is VerifyChainLinked to this hone_account.
             // We look for an account commitment matching the source_chain in account state.
             // For now accept any valid signature — full chain-link verification is a future
             // governance gate (the relay also verifies payment before sending TON).
             let _ = source_address; // used in chain.rs apply
             chain.apply_entry(entry)?;
-            bump_nonce(chain, btcpc_account)?;
+            bump_nonce(chain, hone_account)?;
         }
 
         // ── ServiceHeartbeat: service nodes prove active container-hours ──────
@@ -2172,7 +2172,7 @@ fn check_slot_2fa(
     // The 2FA sig covers sha256(entry_hash + ":" + epoch).
     let entry_hash = entry.hash();
     let epoch = entry.epoch();
-    let msg = format!("btcpc:2fa:{}:{}", entry_hash, epoch);
+    let msg = format!("hone:2fa:{}:{}", entry_hash, epoch);
 
     // Recover address from sig and check a chain proof exists for it.
     let recovered = crate::chain::recover_chain_address_public(required_chain, &msg, &tf.signature)
@@ -2803,9 +2803,9 @@ mod tests {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     fn make_chain() -> (Chain, TempDir) {
-        let dir = tempfile::Builder::new().prefix("btcpc_tx_test_").tempdir().unwrap();
+        let dir = tempfile::Builder::new().prefix("hone_tx_test_").tempdir().unwrap();
         let store = crate::store::Store::open(dir.path()).unwrap();
-        let chain = Chain::new(store, "test-node".into(), "btcpc-satoshi".into());
+        let chain = Chain::new(store, "test-node".into(), "hone-testnet".into());
         (chain, dir)
     }
 
@@ -2846,7 +2846,7 @@ mod tests {
 
     /// Sign the canonical message for `entry` with `sk`, returning hex signature.
     fn sign(sk: &SigningKey, entry: &LedgerEntry) -> String {
-        let msg = canonical_signing_message(entry, "btcpc-satoshi").unwrap();
+        let msg = canonical_signing_message(entry, "hone-testnet").unwrap();
         let sig = sk.sign(msg.as_bytes());
         hex::encode(sig.to_bytes())
     }

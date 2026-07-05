@@ -3,7 +3,7 @@ name = "honemesh-p2p"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
-description = "BTCPC P2P sidecar — libp2p Kademlia DHT peer discovery"
+description = "HoneMesh P2P sidecar — libp2p Kademlia DHT peer discovery"
 
 [[bin]]
 name = "honemesh-p2p"

@@ -1,10 +1,10 @@
 //! ENS (Ethereum Name Service) resolution for LinkGit identity.
 //!
 //! Lets users use `name.eth` as their LinkGit owner:
-//!   git clone https://git.btcpc.net/git/vitalik.eth/myrepo
+//!   git clone https://git.honemesh.net/git/vitalik.eth/myrepo
 //!
 //! Resolution order:
-//!   1. ENS `btcpc` text record → HoneMesh account name (explicit, fastest)
+//!   1. ENS `hone` text record → HoneMesh account name (explicit, fastest)
 //!   2. ENS addr record → ETH address → `wallet_addr:eth:{addr}` chain index
 //!
 //! Set `HONE_ETH_RPC` to point at a custom Ethereum JSON-RPC endpoint.
@@ -130,7 +130,7 @@ async fn get_resolver(node: &[u8; 32]) -> Option<String> {
     decode_address(&result)
 }
 
-/// Resolve the `text` record for `key` on `name` (e.g. key = "btcpc").
+/// Resolve the `text` record for `key` on `name` (e.g. key = "hone").
 pub async fn resolve_text(name: &str, key: &str) -> Option<String> {
     let node = namehash(name);
     let resolver = get_resolver(&node).await?;
@@ -164,15 +164,19 @@ pub async fn reverse_resolve(eth_addr: &str) -> Option<String> {
 /// Given an ENS name, find the linked HoneMesh account.
 ///
 /// Resolution order:
-///   1. `btcpc` text record → account name (user sets this on their ENS name)
+///   1. `hone` text record → account name (user sets this on their ENS name)
 ///   2. addr record → ETH address → `wallet_addr:eth:{addr}` chain reverse index
 ///      (populated by WalletFamilyPublish on HoneMesh)
-pub async fn btcpc_account_for_ens(chain: &Chain, ens_name: &str) -> Option<String> {
-    // Fast path: "btcpc" text record directly names the account.
-    if let Some(account) = resolve_text(ens_name, "btcpc").await {
-        let account = account.trim().to_lowercase();
-        if chain.store.state_get(&format!("account:{}", account)).is_some() {
-            return Some(account);
+pub async fn hone_account_for_ens(chain: &Chain, ens_name: &str) -> Option<String> {
+    // Fast path: "hone" text record directly names the account.
+    // "btcpc" is the pre-rebrand record key — ENS records live on Ethereum and
+    // survive the re-genesis, so keep reading it as a fallback.
+    for record_key in &["hone", "btcpc"] {
+        if let Some(account) = resolve_text(ens_name, record_key).await {
+            let account = account.trim().to_lowercase();
+            if chain.store.state_get(&format!("account:{}", account)).is_some() {
+                return Some(account);
+            }
         }
     }
 

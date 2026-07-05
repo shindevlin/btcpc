@@ -18,8 +18,8 @@ use honemesh_types::{LedgerEntry, NATIVE_TOKEN, RECYCLE_FUND_ACCOUNT};
 use crate::chain::Chain;
 
 const OUTLIER_THRESHOLD_BPS: u64 = 500; // 5%
-const REPORTER_REWARD_DREAMS: u64 = 2_000;
-const FEED_CREATION_FEE_DREAMS: u64 = 100_000; // 0.001 HONE
+const REPORTER_REWARD_HUNITS: u64 = 2_000;
+const FEED_CREATION_FEE_HUNITS: u64 = 100_000; // 0.001 HONE
 const MIN_REPORTS: usize = 3;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -65,8 +65,8 @@ pub fn apply_create(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
         bail!("feed '{}' already exists", feed_id);
     }
 
-    chain.store.debit(creator, NATIVE_TOKEN, FEED_CREATION_FEE_DREAMS)?;
-    chain.store.credit(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN, FEED_CREATION_FEE_DREAMS)?;
+    chain.store.debit(creator, NATIVE_TOKEN, FEED_CREATION_FEE_HUNITS)?;
+    chain.store.credit(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN, FEED_CREATION_FEE_HUNITS)?;
 
     let feed = OracleFeed {
         feed_id: feed_id.clone(),
@@ -183,7 +183,7 @@ pub fn apply_finalize(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
         } else {
             rep.score = (rep.score + 1).min(100);
             // Pay accurate reporters.
-            let _ = chain.store.credit(&commit.reporter, NATIVE_TOKEN, REPORTER_REWARD_DREAMS);
+            let _ = chain.store.credit(&commit.reporter, NATIVE_TOKEN, REPORTER_REWARD_HUNITS);
         }
         let _ = chain.store.state_set(&rep_key(&commit.reporter), &serde_json::to_vec(&rep).unwrap_or_default());
     }
@@ -214,7 +214,7 @@ mod tests {
         let dir = tempfile::TempDir::new().unwrap();
         let store = crate::store::Store::open(dir.path()).unwrap();
         let chain = crate::chain::Chain::new(
-            store, "test".to_string(), "btcpc-test".to_string(),
+            store, "test".to_string(), "hone-test".to_string(),
         );
         (chain, dir)
     }
@@ -246,7 +246,7 @@ mod tests {
     #[test]
     fn create_stores_feed() {
         let (chain, _dir) = make_chain();
-        fund(&chain, "alice", FEED_CREATION_FEE_DREAMS * 10);
+        fund(&chain, "alice", FEED_CREATION_FEE_HUNITS * 10);
 
         let entry = LedgerEntry::OracleFeedCreate {
             feed_id: "feed1".to_string(),
@@ -271,7 +271,7 @@ mod tests {
     #[test]
     fn report_stores_reading() {
         let (chain, _dir) = make_chain();
-        fund(&chain, "alice", FEED_CREATION_FEE_DREAMS * 10);
+        fund(&chain, "alice", FEED_CREATION_FEE_HUNITS * 10);
 
         let create = LedgerEntry::OracleFeedCreate {
             feed_id: "feed2".to_string(),
@@ -305,7 +305,7 @@ mod tests {
     #[test]
     fn finalize_updates_price() {
         let (chain, _dir) = make_chain();
-        fund(&chain, "alice", FEED_CREATION_FEE_DREAMS * 10);
+        fund(&chain, "alice", FEED_CREATION_FEE_HUNITS * 10);
         // Also fund reporters for rewards
         fund(&chain, "r1", 0);
         fund(&chain, "r2", 0);
@@ -369,7 +369,7 @@ mod tests {
     #[test]
     fn report_after_deadline_fails() {
         let (chain, _dir) = make_chain();
-        fund(&chain, "alice", FEED_CREATION_FEE_DREAMS * 10);
+        fund(&chain, "alice", FEED_CREATION_FEE_HUNITS * 10);
 
         // interval=3, deadline = epoch 1 + 3 = 4
         let create = LedgerEntry::OracleFeedCreate {

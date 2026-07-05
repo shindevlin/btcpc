@@ -370,6 +370,6 @@ pub async fn quote_capacity(
         "units": units,
         "cost_usd": cost_usd,
         "slots_for_1_usd": slots_for_1,
-        "stake_btcpc_required": stake_needed,
+        "stake_hone_required": stake_needed,
     }))
 }

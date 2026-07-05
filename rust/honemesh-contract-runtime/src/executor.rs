@@ -131,9 +131,9 @@ fn run_wasm(wasm_bytes: Vec<u8>, method: String, ctx: Ctx, gas: u64) -> CallResu
         Err(e) => return error_result(format!("Instantiation failed: {}", e)),
     };
 
-    let dispatch = match instance.get_typed_func::<(), ()>(&mut store, "__btcpc_dispatch") {
+    let dispatch = match instance.get_typed_func::<(), ()>(&mut store, "__hone_dispatch") {
         Ok(f) => f,
-        Err(_) => return error_result(format!("Contract missing __btcpc_dispatch export")),
+        Err(_) => return error_result(format!("Contract missing __hone_dispatch export")),
     };
 
     let exec_result = dispatch.call(&mut store, ());

@@ -27,7 +27,7 @@ pub struct Token {
     pub soulbound: bool,
 }
 
-#[btcpc_contract]
+#[hone_contract]
 pub struct NftCollection {
     pub name: String,
     pub symbol: String,
@@ -39,7 +39,7 @@ pub struct NftCollection {
     pub total_supply: u64,
 }
 
-#[btcpc_impl]
+#[hone_impl]
 impl NftCollection {
     /// Initialize the NFT collection.
     #[init]
