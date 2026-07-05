@@ -1,4 +1,4 @@
-# HoneMesh
+# HONE
 
 ### A Proof-of-Compute Blockchain with Native Commerce, IoT, and Version Control Protocols
 
@@ -9,8 +9,8 @@
 
 ## Abstract
 
-HoneMesh is a blockchain where every token in existence was
-earned by a machine doing useful work. Mining on HoneMesh does not mean burning electricity
+HONE is a blockchain where every token in existence was
+earned by a machine doing useful work. Mining on HONE does not mean burning electricity
 on a hash that disappears the moment it is found. It means running an AI inference job
 that a user submitted, storing a file that someone committed, reporting a sensor reading
 that a subscriber is paying for, or keeping the clock alive that the network depends on.
@@ -22,7 +22,7 @@ permissionless clock nodes that any machine on the network can operate. Emission
 decays over epochs. There is no pre-mine. There is no founder allocation. Every token
 in existence was earned.
 
-Three protocols are native to the HoneMesh chain from genesis block 0: **Freeport**
+Three protocols are native to the HONE chain from genesis block 0: **Freeport**
 (a sovereign peer-to-peer marketplace with built-in escrow), **Verasens** (a decentralized
 IoT sensor network with on-chain data provenance), and **LinkGit** (a decentralized version
 control system that mirrors seamlessly to GitHub). Each protocol is a standalone business
@@ -35,11 +35,11 @@ independently transferable via on-chain key rotation.
 
 ### 1.1 Proof of Compute
 
-HoneMesh replaces the arbitrary SHA-256 puzzle with a requirement that miners produce
+HONE replaces the arbitrary SHA-256 puzzle with a requirement that miners produce
 output that someone requested. The principle is simple: **mining should produce output
 that someone wanted.**
 
-HoneMesh uses a fully dynamic reward model. Every epoch, the chain measures actual proven
+HONE uses a fully dynamic reward model. Every epoch, the chain measures actual proven
 work across six categories: inference/compute, storage, sensors/IoT, verifiers,
 services (decentralized compute), and clock nodes. The share each category receives
 from the epoch reward is proportional to its actual utilization against a calibrated
@@ -94,7 +94,7 @@ with no exception. The smallest unit is one **hunit**: 1 HONE = 10,000,000,000 h
 (10^10, ten decimal places). All on-chain accounting is denominated in hunits; the
 HONE display unit is a human convenience.
 
-**Design intent:** HoneMesh's new-supply emission is explicitly designed to end on the same day and at the same hour as Bitcoin's last mined satoshi. Both chains will exhaust their initial coin issuance simultaneously — two sovereign monetary networks converging at the same moment. This is not approximate; the chain's self-calibrating epoch schedule (described in §1.2.1) tracks Bitcoin's projected last-coin timestamp continuously and narrows to within minutes of precision by the time the final era arrives.
+**Design intent:** HONE's new-supply emission is explicitly designed to end on the same day and at the same hour as Bitcoin's last mined satoshi. Both chains will exhaust their initial coin issuance simultaneously — two sovereign monetary networks converging at the same moment. This is not approximate; the chain's self-calibrating epoch schedule (described in §1.2.1) tracks Bitcoin's projected last-coin timestamp continuously and narrows to within minutes of precision by the time the final era arrives.
 
 Emission is structured in four layers that combine each epoch:
 
@@ -137,7 +137,7 @@ at genesis carry preserved keys — not pre-allocated balances.
 
 ### 1.2.1 Bitcoin Supply Alignment
 
-HoneMesh's 42,000,000-coin supply is designed to be fully mined at the same moment Bitcoin's last satoshi is mined — the two sovereign monetary networks converging at the same hour, by design.
+HONE's 42,000,000-coin supply is designed to be fully mined at the same moment Bitcoin's last satoshi is mined — the two sovereign monetary networks converging at the same hour, by design.
 
 **Era schedule and epoch scaling**
 
@@ -173,7 +173,7 @@ Each subsequent era recalibration absorbs any drift that accumulated in the prev
 
 **Bitcoin block oracle (precision layer)**
 
-Any HoneMesh node that also operates a Bitcoin full node may submit `BtcHeightReport` entries to the chain. These reports carry the current Bitcoin block height and the average block interval over the most recent 2016-block difficulty window. The chain maintains a 7-entry rolling median of recent reports and derives a continuously-refined `btc_end_ms` estimate from them:
+Any HONE node that also operates a Bitcoin full node may submit `BtcHeightReport` entries to the chain. These reports carry the current Bitcoin block height and the average block interval over the most recent 2016-block difficulty window. The chain maintains a 7-entry rolling median of recent reports and derives a continuously-refined `btc_end_ms` estimate from them:
 
 ```
 btc_end_ms = report_timestamp + (6,930,000 − reported_height) × recent_avg_block_ms
@@ -187,7 +187,7 @@ Report validity rules (enforced on-chain):
 - Implied block rate must be within ±10% of 10 minutes (540–660 s).
 - Reports older than 720 epochs are ignored in the median calculation.
 
-**Result:** HoneMesh's new supply ends within minutes of Bitcoin's last coin, automatically, converging tighter with each passing era as the oracle accumulates more data.
+**Result:** HONE's new supply ends within minutes of Bitcoin's last coin, automatically, converging tighter with each passing era as the oracle accumulates more data.
 
 ### 1.2.2 Perpetual Tail Emission — The Recycle Era
 
@@ -242,11 +242,11 @@ of existing supply, not the creation of new supply.
 
 ### 1.3 Account Model
 
-Every HoneMesh account is derived from a single BIP-39 mnemonic seed phrase using
+Every HONE account is derived from a single BIP-39 mnemonic seed phrase using
 BIP-44 derivation with coin type **8888**. From one seed, a node generates six
-HoneMesh role keys and four external chain wallets:
+HONE role keys and four external chain wallets:
 
-**HoneMesh role keys:**
+**HONE role keys:**
 
 | Key | Purpose |
 |-----|---------|
@@ -275,11 +275,11 @@ grantee's `hide` key.
 | TON | standard TON path |
 
 This means a single seed phrase controls a user's entire multi-chain identity.
-HoneMesh does not take custody of external chain assets — the derivation is
+HONE does not take custody of external chain assets — the derivation is
 deterministic and happens client-side.
 
 **Recoverable key storage (sovereignty guarantee).** Self-custody is only real
-if the user can actually recover their keys. Every wallet created on HoneMesh writes
+if the user can actually recover their keys. Every wallet created on HONE writes
 a **recoverable encrypted keystore** — `<account>.keystore.json` — that seals the
 BIP-39 mnemonic with **Argon2id** (a memory-hard password KDF) and
 **AES-256-GCM** (authenticated encryption). The password is set by the user and
@@ -290,7 +290,7 @@ up. Recovery has three layers, so no single loss is fatal:
 2. **Recovery phrase** — the mnemonic is displayed once at creation, with a
    write-it-down confirmation gate; it recovers the account even with no file.
 3. **Optional encrypted relay backup** — the user may store the *ciphertext*
-   blob on a HoneMesh relay so the account survives losing the local file. The
+   blob on a HONE relay so the account survives losing the local file. The
    password never leaves the device; the relay holds only data it cannot decrypt.
 
 Wallet creation cannot complete without producing a recoverable keystore — you
@@ -305,7 +305,7 @@ in the wallet tooling (`hone wallet new`), not left to user discipline.
 | Testnet | `hone-testnet` |
 
 **Genesis: July 4th, 2026 — noon Los Angeles (`1783191600000` ms, 19:00 UTC).**
-HoneMesh launches on America's 250th anniversary. It is freedom tech for a
+HONE launches on America's 250th anniversary. It is freedom tech for a
 freedom-based country: a sovereign chain with self-custody, no gatekeepers, and
 — from this genesis forward — no silent loss of keys (§1.3).
 
@@ -328,7 +328,7 @@ identity from block 0.
 
 ### 1.5 P2P Network
 
-HoneMesh uses **libp2p** for peer-to-peer communication. The primary transport is
+HONE uses **libp2p** for peer-to-peer communication. The primary transport is
 **QUIC** for its low-latency connection establishment and multiplexing. The fallback
 is **TCP with Noise_XX** handshake for environments where UDP is restricted. Maximum
 peer connections per node: **MAX_PEERS = 50**.
@@ -350,19 +350,19 @@ the five layers is not network-connected.
 
 ## 2. Native Protocol Businesses
 
-Three protocols are native to HoneMesh from genesis block 0. They are not plugins, not
+Three protocols are native to HONE from genesis block 0. They are not plugins, not
 sidechains, not smart contracts compiled to bytecode and deployed after the fact.
-They are native ledger entry types processed by every node — as native to HoneMesh as
+They are native ledger entry types processed by every node — as native to HONE as
 a token transfer is native to Bitcoin. Each is a standalone business with its own
 revenue model, owned initially by the protocol founder (shindevlin on both GitHub and
-the HoneMesh chain) and independently transferable via on-chain key rotation plus GitHub
+the HONE chain) and independently transferable via on-chain key rotation plus GitHub
 repository ownership transfer.
 
 ### 2.1 Freeport — Sovereign Marketplace
 
-Freeport is a peer-to-peer commerce protocol built directly into the HoneMesh ledger.
+Freeport is a peer-to-peer commerce protocol built directly into the HONE ledger.
 Any account can open a storefront, list physical goods, digital products, or services,
-and transact with buyers using HoneMesh-native escrow — no intermediary, no platform
+and transact with buyers using HONE-native escrow — no intermediary, no platform
 that can ban a seller, no payment processor that can reverse a charge. The chain
 enforces escrow lockup at `OrderPlace`, releases funds to the seller after
 `OrderFulfill` plus timeout, and routes disputes to the protocol's resolution layer.
@@ -387,14 +387,14 @@ revenue comes from storage fees for product blob hosting (images, digital delive
 payloads) and dispute resolution fees charged to the losing party. All fees accrue
 to the `freeport` protocol account in HONE.
 
-**Ownership:** Protocol account `freeport` on the HoneMesh chain. Owner: shindevlin.
+**Ownership:** Protocol account `freeport` on the HONE chain. Owner: shindevlin.
 GitHub: github.com/shindevlin. Transfer mechanism: on-chain `AccountUpdateKey` to
 rotate owner and active keys to the buyer, combined with GitHub repository transfer.
 
 ### 2.2 Verasens — IoT Sensor Network
 
-Verasens is a decentralized sensor data network that uses the HoneMesh chain as its
-immutable ledger and the HoneMesh emission schedule as its incentive layer for data
+Verasens is a decentralized sensor data network that uses the HONE chain as its
+immutable ledger and the HONE emission schedule as its incentive layer for data
 quality. Sensor operators register their devices on-chain, stake HONE to signal
 commitment to uptime, and earn IoT pool emissions pro-rata to verified readings
 submitted. Data consumers query the Verasens API and pay per-query access fees in
@@ -421,14 +421,14 @@ data API, payable in HONE. Sensor registration requires a HONE stake, providing
 Sybil resistance and protocol revenue. Gateway uptime rewards are funded by the
 IoT pool within each epoch's emission.
 
-**Ownership:** Protocol account `verasens` on the HoneMesh chain. Owner: shindevlin.
+**Ownership:** Protocol account `verasens` on the HONE chain. Owner: shindevlin.
 Transfer mechanism: same as Freeport — on-chain key rotation plus GitHub transfer.
 
 ### 2.3 LinkGit — Decentralized Version Control
 
-LinkGit brings Git-compatible version control to the HoneMesh chain. Repositories are
+LinkGit brings Git-compatible version control to the HONE chain. Repositories are
 registered as on-chain objects, with branch and tag references stored as ledger entries
-and the underlying Git objects (blobs, trees, commits) stored by the HoneMesh storage
+and the underlying Git objects (blobs, trees, commits) stored by the HONE storage
 node network. Private repositories use the `hide`/`seek` key pair for access control:
 the repo encryption key is distributed to granted accounts as an `OrderFulfill`-style
 encrypted payload committed at `LinkGitAccessGrant`. Storage nodes that perform
@@ -449,7 +449,7 @@ for developers who want GitHub's collaboration UI.
 **Mirror protocol:** A `.linkgit/mirrors` config file tracked inside the repository
 defines mirror targets. After configuring a mirror with
 `linkgit mirror add github https://github.com/owner/repo`, running
-`linkgit mirror apply` causes every subsequent push to go to both the HoneMesh chain
+`linkgit mirror apply` causes every subsequent push to go to both the HONE chain
 and the GitHub remote simultaneously. The developer's workflow is unchanged. The
 repository gains a censorship-resistant backup with cryptographic provenance at
 no additional step cost.
@@ -459,7 +459,7 @@ account taking a percentage cut. Private repository fees at creation and renewal
 `LinkGitStorageExtend` fees charged when repository owners elect to retain orphaned
 blobs past the default garbage collection window.
 
-**Ownership:** Protocol account `linkgit` on the HoneMesh chain. Owner: shindevlin.
+**Ownership:** Protocol account `linkgit` on the HONE chain. Owner: shindevlin.
 Transfer mechanism: same as Freeport — on-chain key rotation plus GitHub transfer.
 
 ---
@@ -471,7 +471,7 @@ Transfer mechanism: same as Freeport — on-chain key rotation plus GitHub trans
 All three protocol accounts — `freeport`, `verasens`, and `linkgit` — were seeded at
 genesis with posting keys controlled by shindevlin. The seed phrases for each protocol
 account are held by shindevlin. shindevlin is also the GitHub user at
-github.com/shindevlin and holds the canonical HoneMesh repository. This concentration
+github.com/shindevlin and holds the canonical HONE repository. This concentration
 of initial control is intentional: protocol parameters (fee rates, timeout windows,
 storage pricing) must be tunable during the network's early period, and a single
 responsible party provides accountability. The chain's design explicitly contemplates
@@ -480,7 +480,7 @@ transfer of each protocol to independent operators.
 ### 3.2 Transfer Mechanism
 
 Each protocol can be transferred independently of the others and independently of the
-HoneMesh chain itself. A full transfer has two required components:
+HONE chain itself. A full transfer has two required components:
 
 **On-chain:** The current owner submits `AccountUpdateKey` entries rotating the
 protocol account's `owner` and `active` keys to the buyer's keys. Once this is
@@ -513,7 +513,7 @@ Each protocol generates independent, compounding revenue streams denominated in 
   network of registered sensors grows, so does the value of the query API. The
   protocol benefits from network effects in sensor density.
 
-- **LinkGit** earns on storage operations and private repository fees. As HoneMesh
+- **LinkGit** earns on storage operations and private repository fees. As HONE
   adoption increases and developers route repositories through the network, the
   storage fee revenue scales with usage.
 
@@ -529,8 +529,8 @@ account, and operates under the brand in that context.
 
 ## 4. Key Management
 
-HoneMesh accounts use a role-based key architecture derived from a single BIP-39 mnemonic.
-The derivation standard is BIP-44 with coin type **8888** (HoneMesh). The six role keys
+HONE accounts use a role-based key architecture derived from a single BIP-39 mnemonic.
+The derivation standard is BIP-44 with coin type **8888** (HONE). The six role keys
 serve distinct operational security tiers: the `owner` key signs infrequently and
 should be stored offline or in cold hardware; the `active` key signs financial
 operations and should be protected at the same level as a bank password; the `posting`
@@ -546,13 +546,13 @@ It should not be stored on internet-connected servers in plaintext.
 
 The four external chain wallets (EVM, Bitcoin, Solana, TON) use standard BIP-44
 derivation paths appropriate to each chain, derived from the same master seed. This
-allows a hardware wallet holding the HoneMesh seed to also sign transactions on any of
+allows a hardware wallet holding the HONE seed to also sign transactions on any of
 these chains, giving users a single physical device for their entire on-chain identity.
 
 At account creation, the node displays all keys in the following format:
 
 ```
-HoneMesh Account Keys — [account_name]
+HONE Account Keys — [account_name]
 
   owner:   [key]   — store offline
   active:  [key]   — financial operations
@@ -585,7 +585,7 @@ block-producing nodes adopt the new version simultaneously.
 This is not a gap to be filled later. It is a deliberate choice. Formal on-chain
 governance systems tend to be captured by large token holders, reducing them to
 plutocracies that replicate the centralization problems they were meant to solve.
-HoneMesh's launch design ensures that no governance token, no council, and no multisig
+HONE's launch design ensures that no governance token, no council, and no multisig
 can modify the chain's fundamental parameters. The chain's rules are its constitution.
 Changes require rough consensus among the operators who run the network — the same
 mechanism that has governed Bitcoin's protocol changes for sixteen years.
@@ -609,4 +609,4 @@ by a founding team.
 
 ---
 
-*HoneMesh v1.0 — April 2026 — Shin Devlin*
+*HONE v1.0 — April 2026 — Shin Devlin*
