@@ -8,7 +8,7 @@ use sha2::{Sha256, Digest};
 use crate::chain::Chain;
 use btcpc_types::NATIVE_TOKEN;
 
-/// Reward per verified blob serve proof in dreams (0.01 BTCPC).
+/// Reward per verified blob serve proof in hunits (0.01 BTCPC).
 pub const BLOB_SERVE_REWARD_DREAMS: u64 = 1_000_000;
 
 /// Maximum bytes_served per proof (prevents overclaiming).

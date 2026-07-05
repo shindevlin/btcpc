@@ -8,7 +8,7 @@
 //!   }
 //! }
 //! keys: role->pubkey map. public_key (legacy) is treated as the posting key.
-//! balance: dreams (1 BTCPC = 10_000_000_000). Omit or 0 for no allocation.
+//! balance: hunits (1 BTCPC = 10_000_000_000). Omit or 0 for no allocation.
 
 use std::path::Path;
 use anyhow::Result;
@@ -71,7 +71,7 @@ pub fn init_genesis(chain: &Chain, genesis_file: Option<&Path>, genesis_timestam
 
             if let Some(accounts) = cfg.get("accounts").and_then(|v| v.as_object()) {
                 for (account, val) in accounts {
-                    let (keys, dreams) = if val.is_object() {
+                    let (keys, hunits) = if val.is_object() {
                         // Support new "keys" map or legacy "public_key" as shorthand for posting key.
                         let mut km: std::collections::BTreeMap<String, String> = val
                             .get("keys")
@@ -88,10 +88,10 @@ pub fn init_genesis(chain: &Chain, genesis_file: Option<&Path>, genesis_timestam
                         let bal = val.get("balance").and_then(|v| v.as_u64()).unwrap_or(0);
                         (km, bal)
                     } else {
-                        let dreams = val.as_u64().ok_or_else(|| anyhow::anyhow!(
+                        let hunits = val.as_u64().ok_or_else(|| anyhow::anyhow!(
                             "genesis: account '{}' must be an object or integer", account
                         ))?;
-                        (std::collections::BTreeMap::new(), dreams)
+                        (std::collections::BTreeMap::new(), hunits)
                     };
 
                     entries.push(LedgerEntry::AccountCreate {
@@ -102,10 +102,10 @@ pub fn init_genesis(chain: &Chain, genesis_file: Option<&Path>, genesis_timestam
                         funded_by:           None,
                         machine_fingerprint: None,
                     });
-                    if dreams > 0 {
+                    if hunits > 0 {
                         entries.push(LedgerEntry::GenesisAlloc {
                             account: account.clone(),
-                            amount: dreams,
+                            amount: hunits,
                             token: NATIVE_TOKEN.to_string(),
                         });
                     }
@@ -154,7 +154,7 @@ pub fn init_genesis(chain: &Chain, genesis_file: Option<&Path>, genesis_timestam
         "output_hashes": [],
         "chain_id": chain.chain_id,
         "launch": {
-            "proclamation": "BTCPC v2 launched at noon, Los Angeles, 2026-07-04 12:00:00 PDT (America's 250th — freedom tech for a free people)",
+            "proclamation": "HoneMesh launched at noon, Los Angeles, 2026-07-04 12:00:00 PDT (America's 250th — freedom tech for a free people)",
             "timestamp_tz": "2026-07-04T12:00:00-07:00",
             "timestamp_utc": "2026-07-04T19:00:00Z",
             "genesis_ms": 1783191600000u64,
@@ -165,7 +165,7 @@ pub fn init_genesis(chain: &Chain, genesis_file: Option<&Path>, genesis_timestam
     chain.store.write_block(0, &block.to_bytes())?;
     chain.store.set_meta("genesis_hash", block.header.hash_hex().as_bytes())?;
     chain.store.set_meta("chain_id", chain.chain_id.as_bytes())?;
-    chain.store.set_meta("launch_proclamation", b"BTCPC v2 - noon Los Angeles, 2026-07-04 (America's 250th)")?;
+    chain.store.set_meta("launch_proclamation", b"HoneMesh - noon Los Angeles, 2026-07-04 (America's 250th)")?;
 
     // Seed governance council on-chain (D5). 2-of-3 required for parameter changes.
     let gov_keys: Vec<&str> = vec!["shindevlin", "natoshisakamoto", "josh"];

@@ -27,7 +27,7 @@ pub async fn run_service_node(
     // Advertise hosting capability in node meta so the network can discover it
     let listing = serde_json::json!({
         "node": account,
-        "price_dreams": HOSTING_PRICE_DREAMS,
+        "price_hunits": HOSTING_PRICE_DREAMS,
         "duration_epochs": HOSTING_DURATION_EPOCHS,
         "docker_available": check_docker(),
         "updated_ms": now_ms(),
@@ -194,7 +194,7 @@ pub fn place_hosting_request(
         "request_id": request_id,
         "buyer": buyer,
         "service_node": service_node,
-        "price_dreams": HOSTING_PRICE_DREAMS,
+        "price_hunits": HOSTING_PRICE_DREAMS,
         "duration_epochs": HOSTING_DURATION_EPOCHS,
         "status": "pending",
         "created_ms": now_ms(),

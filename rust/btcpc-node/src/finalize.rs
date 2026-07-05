@@ -141,7 +141,7 @@ fn redirect_unearned_rewards(chain: &Arc<Chain>, prev_finalized: u64, boundary: 
         if let Err(e) = chain.store.credit(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN, reward) {
             warn!("[finalize] recycle credit failed for skipped epoch {}: {}", ep, e);
         } else {
-            info!("[finalize] epoch {} had no block — {} dreams → recycle fund", ep, reward);
+            info!("[finalize] epoch {} had no block — {} hunits → recycle fund", ep, reward);
         }
     }
 }

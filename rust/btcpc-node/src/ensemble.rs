@@ -148,7 +148,7 @@ fn finalize_job(chain: &Chain, job: &mut EnsembleJob, winner_hash: String) -> Re
 
     job.status = EnsembleStatus::Finalized;
     job.winner_output_hash = Some(winner_hash);
-    info!("[ensemble] job {} finalized — {} winner(s), {} dreams each",
+    info!("[ensemble] job {} finalized — {} winner(s), {} hunits each",
         &job.job_id[..12], winners.len(), per_worker);
     Ok(())
 }

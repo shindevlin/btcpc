@@ -8,7 +8,7 @@ use sha2::{Sha256, Digest};
 use crate::chain::Chain;
 use btcpc_types::NATIVE_TOKEN;
 
-/// Reward per verified phone storage proof in dreams.
+/// Reward per verified phone storage proof in hunits.
 pub const PHONE_STORAGE_REWARD_DREAMS: u64 = 250;
 
 fn proof_used_key(proof_hash: &str) -> String { format!("phone_store_proof_used:{}", proof_hash) }

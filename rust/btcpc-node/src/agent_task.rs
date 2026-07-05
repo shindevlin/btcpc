@@ -112,7 +112,7 @@ pub fn apply_credit_deposit(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
     chain.store.debit(account, NATIVE_TOKEN, *amount)?;
     let new_credit = get_credit(chain, account).saturating_add(*amount);
     set_credit(chain, account, new_credit)?;
-    info!("[agent-task] credit deposit: {} += {} dreams", account, amount);
+    info!("[agent-task] credit deposit: {} += {} hunits", account, amount);
     Ok(())
 }
 
@@ -124,7 +124,7 @@ pub fn apply_credit_withdraw(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
     anyhow::ensure!(credit >= *amount, "insufficient agent credit (have {}, need {})", credit, amount);
     set_credit(chain, account, credit - amount)?;
     chain.store.credit(account, NATIVE_TOKEN, *amount)?;
-    info!("[agent-task] credit withdraw: {} -= {} dreams", account, amount);
+    info!("[agent-task] credit withdraw: {} -= {} hunits", account, amount);
     Ok(())
 }
 
@@ -181,7 +181,7 @@ pub fn apply_task_bid(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
 
     chain.store.state_set(&bid_key(task_id, agent), &serde_json::to_vec(proposed_fee)?)
         .map_err(|e| anyhow::anyhow!(e))?;
-    info!("[agent-task] bid: {} on task {} for {} dreams", agent, task_id, proposed_fee);
+    info!("[agent-task] bid: {} on task {} for {} hunits", agent, task_id, proposed_fee);
     Ok(())
 }
 

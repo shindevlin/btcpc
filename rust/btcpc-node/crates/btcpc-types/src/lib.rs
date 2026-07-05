@@ -8,22 +8,22 @@ pub use block::*;
 pub use emission::*;
 pub use entry::*;
 
-/// 1 BTCPC = 10_000_000_000 dreams (10^10)
-pub const DREAMS_PER_BTCPC: u64 = 10_000_000_000;
-#[deprecated = "use DREAMS_PER_BTCPC"]
-pub const SATOSHIS_PER_BTCPC: u64 = DREAMS_PER_BTCPC;
+/// 1 HONE = 10_000_000_000 hunits (10^10). hunit = the smallest unit (H-units).
+pub const HUNITS_PER_HONE: u64 = 10_000_000_000;
+#[deprecated = "use HUNITS_PER_HONE"]
+pub const SATOSHIS_PER_BTCPC: u64 = HUNITS_PER_HONE;
 /// Native token symbol
-pub const NATIVE_TOKEN: &str = "BTCPC";
+pub const NATIVE_TOKEN: &str = "HONE";
 /// Initial epoch duration in milliseconds (era 0).  Use epoch_duration_ms(epoch) for the actual value.
 pub const EPOCH_MS: u64 = 30_000;
 
 /// Chain identifiers — used in canonical signing messages and gossip validation.
-pub const MAINNET_CHAIN_ID: &str = "btcpc-2";
-pub const TESTNET_CHAIN_ID: &str = "btcpc-satoshi";
+pub const MAINNET_CHAIN_ID: &str = "hone";
+pub const TESTNET_CHAIN_ID: &str = "hone-testnet";
 
 /// Name registration stake: locked in the account on creation, released only if the
 /// account is dissolved. Prevents squatting. = 10 BTCPC.
-pub const NAME_REGISTRATION_STAKE: u64 = 10 * DREAMS_PER_BTCPC;
+pub const NAME_REGISTRATION_STAKE: u64 = 10 * HUNITS_PER_HONE;
 
 /// Accounts that are exempt from paying the name registration stake (genesis operators,
 /// shindevlin's reserved namespace). These are created at genesis or via GenesisAlloc.

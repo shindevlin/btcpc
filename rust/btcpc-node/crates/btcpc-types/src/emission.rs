@@ -22,7 +22,7 @@
 //!
 //! # Blob capacity
 //!
-//! Blobs carry a `fee: Dreams` field, so spam is economically constrained.
+//! Blobs carry a `fee: Hunits` field, so spam is economically constrained.
 //! There is no hard per-epoch blob count cap.  Daily blob throughput stays
 //! constant because miners accumulate more entries per longer epoch.
 
@@ -98,12 +98,12 @@ pub const BTC_PROJECTED_END_MS: u64 =
 // = 1_231_006_505_000 + 6_930_000 × 600_000 = 5_389_006_505_000
 // ≈ Unix 5_389_006_505 s ≈ 2140-10-01 18:15 UTC
 
-/// Per-epoch block reward in dreams during the new-supply phase (eras 0-4).
-/// 2 BTCPC × 10^10 dreams/BTCPC = 20_000_000_000 dreams.
+/// Per-epoch block reward in hunits during the new-supply phase (eras 0-4).
+/// 2 BTCPC × 10^10 hunits/BTCPC = 20_000_000_000 hunits.
 pub const BLOCK_REWARD_DREAMS: u64 = 2 * 10_000_000_000;
 
-/// Total new-supply cap in dreams.
-/// 42_000_000 BTCPC × 10^10 dreams/BTCPC.
+/// Total new-supply cap in hunits.
+/// 42_000_000 BTCPC × 10^10 hunits/BTCPC.
 pub const SUPPLY_CAP_DREAMS: u64 = 42_000_000 * 10_000_000_000;
 
 /// First era whose rewards come entirely from recycled tokens (no new supply).
@@ -396,7 +396,7 @@ pub const CRITICAL_MASS_RUNTIME:   u64 = 3;
 
 /// Minimum bond a runtime owner must post on RuntimeRegister (5 BTCPC).
 /// Held in escrow while the runtime is active; partially or fully slashed on misbehaviour.
-pub const RUNTIME_MIN_BOND: u64 = 5 * 10_000_000_000; // 5 BTCPC in dreams
+pub const RUNTIME_MIN_BOND: u64 = 5 * 10_000_000_000; // 5 BTCPC in hunits
 
 /// Calibration target for the runtime pool — weighted completed jobs per epoch.
 /// ≈ 3 hosts × 1 job each = 3 completions per epoch at network bootstrap.
@@ -417,7 +417,7 @@ pub const CALIBRATION_TRACKER: u64 = 2_000;
 
 /// Minimum stake for a non-trivial stake multiplier (100 BTCPC).
 /// stake_weight = min(isqrt(stake / MIN_STAKE), 10); bootstrap floor = 1.
-pub const MIN_STAKE: u64 = 100 * 10_000_000_000; // 100 BTCPC in dreams
+pub const MIN_STAKE: u64 = 100 * 10_000_000_000; // 100 BTCPC in hunits
 
 // ── Device claim overbid ──────────────────────────────────────────────────────
 
@@ -506,7 +506,7 @@ pub const INFERENCE_PRUNE_WINDOW_EPOCHS: u64 = 100;
 // ── Phase 5: Fee Market ───────────────────────────────────────────────────────
 
 /// Processing weight class for fee calculation (T3-1, T3-2).
-/// Fee per entry = base_fee_dreams × entry_weight.
+/// Fee per entry = base_fee_hunits × entry_weight.
 /// System entries (ENTRY_WEIGHT_SYSTEM = 0) are always free.
 pub const ENTRY_WEIGHT_SYSTEM:       u64 = 0;
 pub const ENTRY_WEIGHT_MICRO:        u64 = 1;  // Transfer, LivenessProof
@@ -515,7 +515,7 @@ pub const ENTRY_WEIGHT_HEAVY:        u64 = 5;  // InferenceJobPost, StorageHeart
 pub const ENTRY_WEIGHT_BULK:         u64 = 10; // BlobStore, LinkGitRefUpdate
 pub const ENTRY_WEIGHT_REGISTRATION: u64 = 20; // AccountCreate, ClockNodeRegister
 
-/// Starting base fee per weight unit in dreams (0.001 BTCPC at era-0).
+/// Starting base fee per weight unit in hunits (0.001 BTCPC at era-0).
 /// Adjusts ±10% per epoch toward EPOCH_TARGET_WEIGHT_UNITS (EIP-1559-style).
 pub const BASE_FEE_INITIAL_DREAMS: u64 = 10_000_000; // 0.001 BTCPC per weight unit
 
@@ -698,10 +698,10 @@ pub fn epoch_duration_ms(epoch: u64) -> u64 {
     INITIAL_EPOCH_MS << shift
 }
 
-/// Block reward in dreams for the given epoch number.
+/// Block reward in hunits for the given epoch number.
 ///
 /// Returns `BLOCK_REWARD_DREAMS` until the supply cap would be exceeded, then
-/// returns the remaining dreams (may be less than a full reward), then 0 for
+/// returns the remaining hunits (may be less than a full reward), then 0 for
 /// all epochs in era 5+.  Era 5 rewards are distributed from the recycled-token
 /// fund managed separately.
 pub fn block_reward_at(epoch: u64) -> u64 {

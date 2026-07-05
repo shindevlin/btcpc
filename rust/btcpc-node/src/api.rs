@@ -19,7 +19,7 @@ use serde::{Deserialize, Deserializer};
 use tower_http::cors::CorsLayer;
 use tokio::sync::broadcast;
 use tokio_stream::wrappers::ReceiverStream;
-use btcpc_types::{Block, ChainAddress, ChainProof, LedgerEntry, NATIVE_TOKEN, DREAMS_PER_BTCPC, TESTNET_CHAIN_ID, EPOCH_MS};
+use btcpc_types::{Block, ChainAddress, ChainProof, LedgerEntry, NATIVE_TOKEN, HUNITS_PER_HONE, TESTNET_CHAIN_ID, EPOCH_MS};
 
 /// Gossip envelope: entry JSON + out-of-band signature so peers can re-verify.
 pub type GossipEntry = (LedgerEntry, Option<String>);
@@ -521,8 +521,8 @@ async fn get_balance(
     let balance = s.chain.get_balance(&account, NATIVE_TOKEN);
     Json(serde_json::json!({
         "account": account,
-        "balance": balance as f64 / DREAMS_PER_BTCPC as f64,
-        "dreams": balance,
+        "balance": balance as f64 / HUNITS_PER_HONE as f64,
+        "hunits": balance,
         "token": NATIVE_TOKEN,
     }))
 }
@@ -533,13 +533,13 @@ async fn get_all_balances(
     Path(account): Path<String>,
 ) -> Json<serde_json::Value> {
     let balances = s.chain.store.scan_balances(&account);
-    // Return dreams as integers to avoid f64 precision loss.
+    // Return hunits as integers to avoid f64 precision loss.
     // Include a display string for convenience.
     let entries: Vec<serde_json::Value> = balances.into_iter()
-        .map(|(token, dreams)| serde_json::json!({
+        .map(|(token, hunits)| serde_json::json!({
             "token": token,
-            "dreams": dreams,
-            "display": format!("{:.10}", dreams as f64 / DREAMS_PER_BTCPC as f64),
+            "hunits": hunits,
+            "display": format!("{:.10}", hunits as f64 / HUNITS_PER_HONE as f64),
         }))
         .collect();
     Json(serde_json::json!({ "account": account, "balances": entries }))
@@ -964,8 +964,8 @@ async fn get_stake(
     let stake = s.chain.get_stake(&account);
     Json(serde_json::json!({
         "account": account,
-        "stake": stake as f64 / DREAMS_PER_BTCPC as f64,
-        "dreams": stake,
+        "stake": stake as f64 / HUNITS_PER_HONE as f64,
+        "hunits": stake,
     }))
 }
 
@@ -1090,7 +1090,7 @@ async fn get_node_hosting_listings(State(s): State<AppState>) -> Json<serde_json
     let listings = crate::services::list_hosting_nodes(&s.chain);
     Json(serde_json::json!({
         "listings": listings,
-        "price_dreams": crate::services::HOSTING_PRICE_DREAMS,
+        "price_hunits": crate::services::HOSTING_PRICE_DREAMS,
         "price_btcpc": crate::services::HOSTING_PRICE_DREAMS as f64 / 100_000_000.0,
         "duration_epochs": crate::services::HOSTING_DURATION_EPOCHS,
         "note": "Pay BTCPC to a service node to get a hosted clock node on the BTCPC network."
@@ -1116,8 +1116,8 @@ async fn post_node_hosting_buy(
     if bal < price {
         return Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({
             "error": "insufficient balance",
-            "balance_dreams": bal,
-            "required_dreams": price,
+            "balance_hunits": bal,
+            "required_hunits": price,
         }))));
     }
 
@@ -1167,7 +1167,7 @@ async fn post_node_hosting_buy(
         "request_id": request_id,
         "buyer": body.buyer,
         "service_node": body.service_node,
-        "price_dreams": price,
+        "price_hunits": price,
         "status": "pending",
         "note": "Your node will be provisioned within 30 seconds by the service node."
     })))
@@ -1569,13 +1569,13 @@ async fn post_bootstrap_peer(
 // ── Amount deserializer ───────────────────────────────────────────────────────
 //
 // Accepts three wire formats to eliminate f64 precision loss on large amounts:
-//   integer  → treated as dreams directly          e.g. 15_000_000_000
-//   float    → BTCPC × DREAMS_PER_BTCPC, rounded   e.g. 1.5   (only safe < ~900k BTCPC)
+//   integer  → treated as hunits directly          e.g. 15_000_000_000
+//   float    → BTCPC × HUNITS_PER_HONE, rounded   e.g. 1.5   (only safe < ~900k BTCPC)
 //   string   → decimal BTCPC, integer arithmetic   e.g. "1.5" (always safe)
 //
 // String form is preferred for any amount that might exceed 900_000 BTCPC.
 
-fn deserialize_amount_dreams<'de, D>(d: D) -> Result<u64, D::Error>
+fn deserialize_amount_hunits<'de, D>(d: D) -> Result<u64, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -1588,7 +1588,7 @@ where
         type Value = u64;
 
         fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            f.write_str("a numeric amount (BTCPC as float/string, or dreams as integer)")
+            f.write_str("a numeric amount (BTCPC as float/string, or hunits as integer)")
         }
 
         fn visit_u64<E: de::Error>(self, v: u64) -> Result<u64, E> {
@@ -1607,7 +1607,7 @@ where
             if v < 0.0 {
                 return Err(E::invalid_value(Unexpected::Float(v), &self));
             }
-            Ok((v * DREAMS_PER_BTCPC as f64).round() as u64)
+            Ok((v * HUNITS_PER_HONE as f64).round() as u64)
         }
 
         fn visit_str<E: de::Error>(self, v: &str) -> Result<u64, E> {
@@ -1618,7 +1618,7 @@ where
     d.deserialize_any(AmountVisitor)
 }
 
-/// Parse a decimal BTCPC string to dreams using integer arithmetic only.
+/// Parse a decimal BTCPC string to hunits using integer arithmetic only.
 fn parse_btcpc_str(s: &str) -> Result<u64, ()> {
     let s = s.trim();
     let (int_str, frac_str) = match s.find('.') {
@@ -1639,7 +1639,7 @@ fn parse_btcpc_str(s: &str) -> Result<u64, ()> {
     };
     let frac_val = frac_digits * 10u64.pow((10 - frac_len) as u32);
     int_val
-        .checked_mul(DREAMS_PER_BTCPC)
+        .checked_mul(HUNITS_PER_HONE)
         .and_then(|v| v.checked_add(frac_val))
         .ok_or(())
 }
@@ -1650,8 +1650,8 @@ fn parse_btcpc_str(s: &str) -> Result<u64, ()> {
 struct TransferBody {
     from: String,
     to: String,
-    /// Amount: BTCPC as float/string, or dreams as integer.
-    #[serde(deserialize_with = "deserialize_amount_dreams")]
+    /// Amount: BTCPC as float/string, or hunits as integer.
+    #[serde(deserialize_with = "deserialize_amount_hunits")]
     amount: u64,
     #[serde(default = "default_token")]
     token: String,
@@ -1665,8 +1665,8 @@ struct TransferBody {
 #[derive(Debug, Deserialize)]
 struct StakeBody {
     account: String,
-    /// Amount: BTCPC as float/string, or dreams as integer.
-    #[serde(deserialize_with = "deserialize_amount_dreams")]
+    /// Amount: BTCPC as float/string, or hunits as integer.
+    #[serde(deserialize_with = "deserialize_amount_hunits")]
     amount: u64,
     nonce: u64,
     signed_by: String,
@@ -1677,8 +1677,8 @@ struct StakeBody {
 #[derive(Debug, Deserialize)]
 struct UnstakeBody {
     account: String,
-    /// Amount: BTCPC as float/string, or dreams as integer.
-    #[serde(deserialize_with = "deserialize_amount_dreams")]
+    /// Amount: BTCPC as float/string, or hunits as integer.
+    #[serde(deserialize_with = "deserialize_amount_hunits")]
     amount: u64,
     nonce: u64,
     signed_by: String,
@@ -2058,7 +2058,7 @@ struct ContractCallBody {
     #[serde(default)]
     args: serde_json::Value,
     signer: String,
-    #[serde(deserialize_with = "deserialize_amount_dreams", default)]
+    #[serde(deserialize_with = "deserialize_amount_hunits", default)]
     deposit: u64,
     #[serde(default = "default_gas")]
     gas: u64,
@@ -2158,7 +2158,7 @@ struct InferencePostBody {
     /// If omitted, only hash-based bookkeeping is possible.
     #[serde(default)]
     input_text: String,
-    #[serde(deserialize_with = "deserialize_amount_dreams")]
+    #[serde(deserialize_with = "deserialize_amount_hunits")]
     max_fee: u64,
     #[serde(default)]
     min_reputation: u64,
@@ -2174,7 +2174,7 @@ struct InferencePostBody {
 struct InferenceBidBody {
     job_id: String,
     bidder: String,
-    #[serde(deserialize_with = "deserialize_amount_dreams")]
+    #[serde(deserialize_with = "deserialize_amount_hunits")]
     fee: u64,
     #[serde(default = "default_worker_role")]
     role: String,
@@ -2536,13 +2536,13 @@ const FAUCET_MIN_ACCOUNT_AGE_EPOCHS: u64 = 120; // ~1 hour at 30 s/epoch
 /// Epochs before an account can claim again (even if balance is zero).
 const FAUCET_RECLAIM_COOLDOWN_EPOCHS: u64 = 720; // ~6 hours
 
-fn faucet_amount_dreams(epoch: u64) -> u64 {
+fn faucet_amount_hunits(epoch: u64) -> u64 {
     if epoch <= 1_000     { 10_000_000_000 }  // 1 BTCPC
     else if epoch <= 10_000 { 1_000_000_000 } // 0.1 BTCPC
     else                   { 100_000_000 }    // 0.01 BTCPC
 }
 fn faucet_amount_btcpc(epoch: u64) -> f64 {
-    faucet_amount_dreams(epoch) as f64 / 10_000_000_000.0
+    faucet_amount_hunits(epoch) as f64 / 10_000_000_000.0
 }
 
 #[derive(Debug, Deserialize)]
@@ -2639,7 +2639,7 @@ async fn post_faucet_claim(
 
     // Faucet reserve must have funds
     let faucet_balance = s.chain.store.get_balance(FAUCET_ACCOUNT, NATIVE_TOKEN);
-    let amount = faucet_amount_dreams(current_epoch);
+    let amount = faucet_amount_hunits(current_epoch);
     if faucet_balance < amount {
         return (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({
             "error": "Faucet reserve is empty. Check back later.",
@@ -2658,7 +2658,7 @@ async fn post_faucet_claim(
             "success": true,
             "type": "transfer",
             "amount_btcpc": faucet_amount_btcpc(current_epoch),
-            "amount_dreams": amount,
+            "amount_hunits": amount,
             "message": format!(
                 "Welcome to BTCPC — {:.4} BTCPC sent to {}. Earn more by mining, running sensors, or storing data.",
                 faucet_amount_btcpc(current_epoch), account
@@ -2679,9 +2679,9 @@ async fn get_faucet_status(State(s): State<AppState>) -> Json<serde_json::Value>
         "testnet_only": true,
         "available": s.chain.chain_id == TESTNET_CHAIN_ID,
         "reserve_btcpc": reserve as f64 / 10_000_000_000.0,
-        "reserve_dreams": reserve,
+        "reserve_hunits": reserve,
         "claim_amount_btcpc": faucet_amount_btcpc(epoch),
-        "claim_amount_dreams": faucet_amount_dreams(epoch),
+        "claim_amount_hunits": faucet_amount_hunits(epoch),
         "cooldown_hours": FAUCET_RECLAIM_COOLDOWN_EPOCHS * 30 / 3600,
         "ip_limit_per_day": FAUCET_IP_MAX_PER_DAY,
         "min_account_age_epochs": FAUCET_MIN_ACCOUNT_AGE_EPOCHS,
@@ -2793,7 +2793,7 @@ async fn get_explorer_status(State(s): State<AppState>) -> Json<serde_json::Valu
         "genesis_timestamp_ms": GENESIS_TS_MS,
         "accounts": account_ids.len(),
         "circulating_btcpc": circulating as f64 / 10_000_000_000.0,
-        "circulating_dreams": circulating,
+        "circulating_hunits": circulating,
         "max_supply_btcpc": 42_000_000,
         "active_nodes_last_100": by_account.len(),
         "miners": roles.get("miner").copied().unwrap_or(0),
@@ -2820,16 +2820,16 @@ async fn get_explorer_supply(State(s): State<AppState>) -> Json<serde_json::Valu
             holders.push(serde_json::json!({
                 "account": id,
                 "btcpc": bal as f64 / 10_000_000_000.0,
-                "dreams": bal,
+                "hunits": bal,
             }));
         }
     }
-    holders.sort_by(|a, b| b["dreams"].as_u64().cmp(&a["dreams"].as_u64()));
+    holders.sort_by(|a, b| b["hunits"].as_u64().cmp(&a["hunits"].as_u64()));
 
     Json(serde_json::json!({
         "max_supply_btcpc": 42_000_000,
         "circulating_btcpc": total as f64 / 10_000_000_000.0,
-        "circulating_dreams": total,
+        "circulating_hunits": total,
         "holders": holders.len(),
         "balances": holders,
         "chain_height": s.chain.store.latest_epoch().unwrap_or(0),
@@ -2992,7 +2992,7 @@ async fn get_staking_network(State(s): State<AppState>) -> Json<serde_json::Valu
     let avg_stake = if stakers > 0 { total_staked / stakers } else { 0 };
     Json(serde_json::json!({
         "total_staked_btcpc": total_staked as f64 / 10_000_000_000.0,
-        "total_staked_dreams": total_staked,
+        "total_staked_hunits": total_staked,
         "stakers": stakers,
         "avg_stake_btcpc": avg_stake as f64 / 10_000_000_000.0,
         "chain_height": s.chain.current_epoch(),
@@ -3006,7 +3006,7 @@ async fn get_staking_requirements(State(s): State<AppState>) -> Json<serde_json:
             .and_then(|b| serde_json::from_slice::<u64>(&b).ok())
             .unwrap_or(default)
     };
-    // Per-role minimum stake in dreams (1 BTCPC = 10_000_000_000 dreams).
+    // Per-role minimum stake in hunits (1 BTCPC = 10_000_000_000 hunits).
     // Defaults are intentionally low for launch — governance can raise them as the
     // network grows.  Each role has a distinct minimum reflecting its scarcity and
     // infrastructure value.
@@ -3029,13 +3029,13 @@ async fn get_staking_requirements(State(s): State<AppState>) -> Json<serde_json:
             "verifier": verifier,
             "mempool":  mempool,
         },
-        "clock":    { "dreams": clock,    "btcpc": clock    as f64 / 10_000_000_000.0 },
-        "miner":    { "dreams": miner,    "btcpc": miner    as f64 / 10_000_000_000.0 },
-        "storage":  { "dreams": storage,  "btcpc": storage  as f64 / 10_000_000_000.0 },
-        "sensor":   { "dreams": sensor,   "btcpc": sensor   as f64 / 10_000_000_000.0 },
-        "service":  { "dreams": service,  "btcpc": service  as f64 / 10_000_000_000.0 },
-        "verifier": { "dreams": verifier, "btcpc": verifier as f64 / 10_000_000_000.0 },
-        "mempool":  { "dreams": mempool,  "btcpc": mempool  as f64 / 10_000_000_000.0 },
+        "clock":    { "hunits": clock,    "btcpc": clock    as f64 / 10_000_000_000.0 },
+        "miner":    { "hunits": miner,    "btcpc": miner    as f64 / 10_000_000_000.0 },
+        "storage":  { "hunits": storage,  "btcpc": storage  as f64 / 10_000_000_000.0 },
+        "sensor":   { "hunits": sensor,   "btcpc": sensor   as f64 / 10_000_000_000.0 },
+        "service":  { "hunits": service,  "btcpc": service  as f64 / 10_000_000_000.0 },
+        "verifier": { "hunits": verifier, "btcpc": verifier as f64 / 10_000_000_000.0 },
+        "mempool":  { "hunits": mempool,  "btcpc": mempool  as f64 / 10_000_000_000.0 },
         "loyalty_slope_bps":      loyalty_slope_bps,
         "stake_increase_cap_bps": stake_increase_cap_bps,
     }))
@@ -5912,7 +5912,7 @@ async fn post_clock_register(
 
 /// POST /api/clock/self-register — self-register this node as a clock node using
 /// the node's own posting key. No caller signature needed; the node signs internally.
-/// Optional body: { "stake": <dreams> }  — defaults to clock_min_stake (5 BTCPC).
+/// Optional body: { "stake": <hunits> }  — defaults to clock_min_stake (5 BTCPC).
 async fn post_clock_self_register(
     State(s): State<AppState>,
     body: Option<Json<serde_json::Value>>,
@@ -6330,7 +6330,7 @@ async fn get_role_backers(
         "max_backers": max_backers,
         "current_backers": backers.len(),
         "backers": backers,
-        "total_backed_dreams": total_backed,
+        "total_backed_hunits": total_backed,
         "total_backed_btcpc": total_backed as f64 / 10_000_000_000.0,
     }))
 }
@@ -6347,7 +6347,7 @@ async fn get_account_positions(
     Json(serde_json::json!({
         "account": account,
         "positions": positions,
-        "total_role_staked_dreams": total_staked,
+        "total_role_staked_hunits": total_staked,
         "total_role_staked_btcpc": total_staked as f64 / 10_000_000_000.0,
     }))
 }
@@ -6657,8 +6657,8 @@ async fn get_node_role_stakes_by_role(
     Json(serde_json::json!({
         "node": node,
         "role": role,
-        "total_dreams": total,
-        "total_btcpc": total as f64 / btcpc_types::DREAMS_PER_BTCPC as f64,
+        "total_hunits": total,
+        "total_btcpc": total as f64 / btcpc_types::HUNITS_PER_HONE as f64,
         "backers": entries,
     }))
 }
@@ -7707,8 +7707,8 @@ async fn get_ens_repos(
 //       Fee of V1_INFERENCE_FEE_DREAMS is debited per request and credited to this node.
 // Rate: 60 req/60s per IP
 
-/// Dreams charged per token (input + output) for /v1/chat/completions.
-/// 100 dreams/token means a 100-token exchange costs 10,000 dreams (0.0001 BTCPC).
+/// Hunits charged per token (input + output) for /v1/chat/completions.
+/// 100 hunits/token means a 100-token exchange costs 10,000 hunits (0.0001 BTCPC).
 const DREAMS_PER_TOKEN: u64 = 100;
 /// Minimum fee per request regardless of token count.
 const MIN_INFERENCE_FEE_DREAMS: u64 = 1_000;
@@ -7810,7 +7810,7 @@ async fn post_v1_chat_completions(
                 return (StatusCode::PAYMENT_REQUIRED, Json(serde_json::json!({
                     "error": {
                         "message": format!(
-                            "Insufficient balance. Need at least {} dreams, have {}. Get tokens via @btcpcbot or POST /api/faucet/claim.",
+                            "Insufficient balance. Need at least {} hunits, have {}. Get tokens via @btcpcbot or POST /api/faucet/claim.",
                             MIN_INFERENCE_FEE_DREAMS, balance
                         ),
                         "type": "insufficient_quota"
@@ -7941,7 +7941,7 @@ async fn post_v1_chat_completions(
                         "prompt_tokens": prompt_tokens,
                         "completion_tokens": completion_tokens,
                         "total_tokens": total_tokens,
-                        "fee_dreams": actual_fee,
+                        "fee_hunits": actual_fee,
                     }
                 });
                 Json(completion).into_response()
@@ -7996,12 +7996,12 @@ async fn get_v1_pricing(State(s): State<AppState>) -> Json<serde_json::Value> {
     let active_model = s.current_model.read().await.clone();
     let tokens_per_btcpc = 100_000_000u64 / DREAMS_PER_TOKEN;
     Json(serde_json::json!({
-        "currency": "dreams",
-        "dreams_per_btcpc": 100_000_000u64,
+        "currency": "hunits",
+        "hunits_per_btcpc": 100_000_000u64,
         "tokens_per_btcpc": tokens_per_btcpc,
         "inference": {
-            "dreams_per_token": DREAMS_PER_TOKEN,
-            "min_fee_dreams": MIN_INFERENCE_FEE_DREAMS,
+            "hunits_per_token": DREAMS_PER_TOKEN,
+            "min_fee_hunits": MIN_INFERENCE_FEE_DREAMS,
             "price_per_1k_tokens_btcpc": (DREAMS_PER_TOKEN * 1000) as f64 / 100_000_000.0,
             "active_model": active_model
         },
@@ -8119,7 +8119,7 @@ async fn post_inference_stream(
     let model = body.model
         .unwrap_or_else(|| s.current_model.try_read().map(|m| m.clone()).unwrap_or_default());
 
-    // Deduct inference fee (1000 dreams) before streaming.
+    // Deduct inference fee (1000 hunits) before streaming.
     let fee: u64 = 1_000;
     if s.chain.get_balance(&body.account, NATIVE_TOKEN) < fee {
         let (tx, rx) = tokio::sync::mpsc::channel::<Result<Event, Infallible>>(1);
@@ -8315,7 +8315,7 @@ async fn get_fee_estimate(State(s): State<AppState>) -> Json<serde_json::Value> 
     let suggested_priority = base_fee / 10; // 10% tip suggestion
     Json(serde_json::json!({
         "base_fee": base_fee,
-        "base_fee_btcpc": base_fee as f64 / DREAMS_PER_BTCPC as f64,
+        "base_fee_btcpc": base_fee as f64 / HUNITS_PER_HONE as f64,
         "suggested_priority": suggested_priority,
         "epoch": s.chain.current_epoch(),
     }))
@@ -8548,7 +8548,7 @@ async fn get_slashes(State(s): State<AppState>) -> Json<serde_json::Value> {
 struct BridgeFundRequest {
     bridge_id: String,
     custodian: String,
-    amount_dreams: u64,
+    amount_hunits: u64,
     external_tx_hash: String,
     chain: String,
     #[serde(default)]
@@ -8564,7 +8564,7 @@ async fn post_bridge_fund(
     let epoch = s.chain.current_epoch();
     let entry = btcpc_types::LedgerEntry::BridgeFund {
         bridge_id: body.bridge_id, custodian: body.custodian.clone(),
-        amount_dreams: body.amount_dreams, external_tx_hash: body.external_tx_hash,
+        amount_hunits: body.amount_hunits, external_tx_hash: body.external_tx_hash,
         chain: body.chain, epoch, nonce,
         signed_by: body.custodian.clone(), signature: body.signature.clone(),
     };
@@ -8576,7 +8576,7 @@ async fn post_bridge_fund(
 #[derive(Deserialize)]
 struct BridgeWrapRequest {
     account: String,
-    amount_dreams: u64,
+    amount_hunits: u64,
     external_address: String,
     chain: String,
     #[serde(default)]
@@ -8591,7 +8591,7 @@ async fn post_bridge_wrap(
         .and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or(0);
     let epoch = s.chain.current_epoch();
     let entry = btcpc_types::LedgerEntry::BridgeWrap {
-        account: body.account.clone(), amount_dreams: body.amount_dreams,
+        account: body.account.clone(), amount_hunits: body.amount_hunits,
         external_address: body.external_address, chain: body.chain,
         epoch, nonce, signed_by: body.account.clone(), signature: body.signature.clone(),
     };
@@ -8603,7 +8603,7 @@ async fn post_bridge_wrap(
 #[derive(Deserialize)]
 struct BridgeUnwrapRequest {
     account: String,
-    amount_dreams: u64,
+    amount_hunits: u64,
     recipient_external: String,
     chain: String,
     #[serde(default)]
@@ -8618,7 +8618,7 @@ async fn post_bridge_unwrap(
         .and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or(0);
     let epoch = s.chain.current_epoch();
     let entry = btcpc_types::LedgerEntry::BridgeUnwrap {
-        account: body.account.clone(), amount_dreams: body.amount_dreams,
+        account: body.account.clone(), amount_hunits: body.amount_hunits,
         recipient_external: body.recipient_external, chain: body.chain,
         epoch, nonce, signed_by: body.account.clone(), signature: body.signature.clone(),
     };
@@ -8669,7 +8669,7 @@ async fn get_bridge_queue(State(s): State<AppState>) -> Json<serde_json::Value> 
 /// POST /api/bridge/claim-proof
 ///
 /// Issues a secp256k1-signed EIP-191 proof that authorises `eth_address` to call
-/// `wBTCPC.claim()` on the target EVM chain and mint `amount_dreams * 100` raw
+/// `wBTCPC.claim()` on the target EVM chain and mint `amount_hunits * 100` raw
 /// wBTCPC units (10-decimal token, 1 BTCPC = 10^10 raw).
 ///
 /// The BTCPC is burned from the account's on-chain balance via a BridgeWrap entry.
@@ -8678,7 +8678,7 @@ async fn get_bridge_queue(State(s): State<AppState>) -> Json<serde_json::Value> 
 struct BridgeClaimProofRequest {
     btcpc_account: String,
     eth_address: String,
-    amount_dreams: u64,
+    amount_hunits: u64,
     chain_id: Option<u64>,
     #[serde(default)]
     signature: Option<String>,
@@ -8706,11 +8706,11 @@ async fn post_bridge_claim_proof(
 
     // Check balance
     let balance: u64 = s.chain.store.get_balance(&body.btcpc_account, NATIVE_TOKEN);
-    if balance < body.amount_dreams {
+    if balance < body.amount_hunits {
         return Err((StatusCode::BAD_REQUEST, Json(serde_json::json!({
             "error": "insufficient balance",
-            "balance_dreams": balance,
-            "requested_dreams": body.amount_dreams,
+            "balance_hunits": balance,
+            "requested_hunits": body.amount_hunits,
         }))));
     }
 
@@ -8725,14 +8725,14 @@ async fn post_bridge_claim_proof(
     let acct = body.btcpc_account.as_bytes();
     account_b32[..acct.len().min(32)].copy_from_slice(&acct[..acct.len().min(32)]);
 
-    // amount in wBTCPC raw units: 1 dream = 100 raw units (10 decimals vs 8)
-    let amount_raw: u128 = body.amount_dreams as u128 * 100;
+    // amount in wBTCPC raw units: 1 hunit = 100 raw units (10 decimals vs 8)
+    let amount_raw: u128 = body.amount_hunits as u128 * 100;
 
     // Generate unique bytes32 nonce from account + amount + nanosecond timestamp
     let chain_id = body.chain_id.unwrap_or(8453u64);
     let ts_ns = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos();
-    let nonce_input = format!("btcpc_claim:{}:{}:{}:{}", body.btcpc_account, body.amount_dreams, chain_id, ts_ns);
+    let nonce_input = format!("btcpc_claim:{}:{}:{}:{}", body.btcpc_account, body.amount_hunits, chain_id, ts_ns);
     let nonce_b32: [u8; 32] = Keccak256::digest(nonce_input.as_bytes()).into();
     let nonce_hex = hex::encode(&nonce_b32);
     let nonce_key = format!("cc_nonce:{}", &nonce_hex);
@@ -8780,7 +8780,7 @@ async fn post_bridge_claim_proof(
     let epoch = s.chain.current_epoch();
     let wrap_entry = btcpc_types::LedgerEntry::BridgeWrap {
         account: body.btcpc_account.clone(),
-        amount_dreams: body.amount_dreams,
+        amount_hunits: body.amount_hunits,
         external_address: format!("0x{}", hex::encode(&eth_bytes)),
         chain: format!("eip155:{}", chain_id),
         epoch,
@@ -8794,7 +8794,7 @@ async fn post_bridge_claim_proof(
     Ok(Json(serde_json::json!({
         "btcpc_account": body.btcpc_account,
         "eth_address": format!("0x{}", hex::encode(&eth_bytes)),
-        "amount_dreams": body.amount_dreams,
+        "amount_hunits": body.amount_hunits,
         "amount_wbtcpc_raw": amount_raw.to_string(),
         "chain_id": chain_id,
         "nonce": format!("0x{}", nonce_hex),
@@ -9836,7 +9836,7 @@ async fn get_oracle_reputation(
 struct SessionListRequest {
     seller: String,
     model: String,
-    price_dreams: u64,
+    price_hunits: u64,
     turn_count: u32,
     summary_hash: String,
     nonce: u64,
@@ -9854,7 +9854,7 @@ async fn post_session_list(
         listing_id: listing_id.clone(),
         seller: body.seller.clone(),
         model: body.model,
-        price_dreams: body.price_dreams,
+        price_hunits: body.price_hunits,
         summary_hash: body.summary_hash,
         turn_count: body.turn_count,
         epoch,
@@ -10245,7 +10245,7 @@ async fn get_agent_credit(
     Path(account): Path<String>,
 ) -> Json<serde_json::Value> {
     let credit = crate::agent_task::get_credit(&s.chain, &account);
-    Json(serde_json::json!({ "account": account, "agent_credit_dreams": credit }))
+    Json(serde_json::json!({ "account": account, "agent_credit_hunits": credit }))
 }
 
 #[derive(Deserialize)]

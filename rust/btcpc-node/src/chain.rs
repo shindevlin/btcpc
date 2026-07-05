@@ -768,7 +768,7 @@ impl Chain {
                 }
                 let node_credit = self.distribute_role_backer_reward("miner", miner, *amount)?;
                 self.store.credit(miner, NATIVE_TOKEN, node_credit)?;
-                info!("mine reward: {} dreams → {} (epoch {})", amount, miner, epoch);
+                info!("mine reward: {} hunits → {} (epoch {})", amount, miner, epoch);
             }
 
             LedgerEntry::EpochSeal { node_id, epoch, seal_hash, timestamp, .. } => {
@@ -1602,7 +1602,7 @@ impl Chain {
                     "amount": prev + amount,
                     "staked_epoch": epoch,
                 }))?)?;
-                info!("[role_stake] '{}' staked {} dreams on '{}' role '{}'",
+                info!("[role_stake] '{}' staked {} hunits on '{}' role '{}'",
                     staker, amount, node, role);
             }
 
@@ -1614,7 +1614,7 @@ impl Chain {
                     .unwrap_or(0);
                 anyhow::ensure!(
                     current >= *amount,
-                    "cannot unstake {} dreams: only {} staked on '{}' role '{}'",
+                    "cannot unstake {} hunits: only {} staked on '{}' role '{}'",
                     amount, current, node, role
                 );
                 let remaining = current - amount;
@@ -1627,7 +1627,7 @@ impl Chain {
                     }))?)?;
                 }
                 self.store.credit(staker, NATIVE_TOKEN, *amount)?;
-                info!("[role_stake] '{}' unstaked {} dreams from '{}' role '{}'",
+                info!("[role_stake] '{}' unstaked {} hunits from '{}' role '{}'",
                     staker, amount, node, role);
             }
 
@@ -2411,14 +2411,14 @@ impl Chain {
             }
 
             LedgerEntry::TrackerLostMode { serial_commitment, claimer,
-                bounty_dreams, expires_epoch, contact_encrypted, epoch, nonce, .. } => {
-                if *bounty_dreams > 0 {
-                    self.store.debit(claimer, btcpc_types::NATIVE_TOKEN, *bounty_dreams)?;
+                bounty_hunits, expires_epoch, contact_encrypted, epoch, nonce, .. } => {
+                if *bounty_hunits > 0 {
+                    self.store.debit(claimer, btcpc_types::NATIVE_TOKEN, *bounty_hunits)?;
                     let escrow_key = format!("tracker_lost_escrow:{}:{}", claimer, serial_commitment);
                     self.store.state_set(&escrow_key, &serde_json::to_vec(&serde_json::json!({
                         "serial_commitment": serial_commitment,
                         "claimer": claimer,
-                        "bounty_dreams": bounty_dreams,
+                        "bounty_hunits": bounty_hunits,
                         "expires_epoch": expires_epoch,
                         "contact_encrypted": contact_encrypted,
                         "epoch": epoch,
@@ -2461,7 +2461,7 @@ impl Chain {
                 let escrow_key = format!("tracker_lost_escrow:{}:{}", claimer, serial_commitment);
                 if let Some(bytes) = self.store.state_get(&escrow_key) {
                     let rec: serde_json::Value = serde_json::from_slice(&bytes).unwrap_or_default();
-                    let bounty = rec["bounty_dreams"].as_u64().unwrap_or(0);
+                    let bounty = rec["bounty_hunits"].as_u64().unwrap_or(0);
                     if bounty > 0 {
                         let finder_share   = bounty * 70 / 100;
                         let treasury_share = bounty - finder_share - (bounty * 20 / 100);
@@ -2671,7 +2671,7 @@ impl Chain {
                         .unwrap_or(5 * 10_000_000_000); // 5 BTCPC default
                     anyhow::ensure!(
                         *stake >= min,
-                        "ClockNodeRegister: stake {} dreams is below minimum {} dreams",
+                        "ClockNodeRegister: stake {} hunits is below minimum {} hunits",
                         stake, min
                     );
                     self.store.debit(node_id, NATIVE_TOKEN, *stake)?;
@@ -2756,7 +2756,7 @@ impl Chain {
 
                 self.store.state_set(&slash_guard, b"1")?;
                 warn!(
-                    "[clock] double-sign slash: '{}' slashed {} dreams at epoch {} (submitter='{}' hashes={}/{})",
+                    "[clock] double-sign slash: '{}' slashed {} hunits at epoch {} (submitter='{}' hashes={}/{})",
                     offender, reg_stake, epoch, submitter,
                     &seal_hash_a[..seal_hash_a.len().min(12)],
                     &seal_hash_b[..seal_hash_b.len().min(12)],
@@ -3024,7 +3024,7 @@ impl Chain {
                 self.touch_alive(account, *epoch);
                 self.ensure_account(account, *epoch)?;
 
-                // Reward: 500 dreams per valid proof.
+                // Reward: 500 hunits per valid proof.
                 const PHONE_MINE_REWARD: u64 = 500;
                 self.store.credit(account, btcpc_types::NATIVE_TOKEN, PHONE_MINE_REWARD)?;
 
@@ -3181,7 +3181,7 @@ impl Chain {
         self.store.get_stake(account)
     }
 
-    /// Distribute the backer share of `total` dreams to role stakers for `node`+`role`.
+    /// Distribute the backer share of `total` hunits to role stakers for `node`+`role`.
     /// Returns the amount remaining for the node itself (total minus backer payouts).
     /// If the node has not opted in, or there are no stakers, returns `total` unchanged.
     fn distribute_role_backer_reward(&self, role: &str, node_id: &str, total: u64) -> Result<u64> {
@@ -4381,7 +4381,7 @@ mod tests {
     // ── Economic / fee market tests (Phase 5) ────────────────────────────────
 
     /// Fee is deducted from the economic actor and credited to __recycle_fund__.
-    /// A Transfer costs ENTRY_WEIGHT_MICRO × base_fee dreams from the sender.
+    /// A Transfer costs ENTRY_WEIGHT_MICRO × base_fee hunits from the sender.
     #[test]
     fn test_fee_routes_to_recycle_fund() {
         use crate::tx;

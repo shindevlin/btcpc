@@ -10,7 +10,7 @@ drifts from the value in source code.
 
 | Constant | Value | Source |
 |----------|-------|--------|
-| Mainnet chain ID | `btcpc-2` | `btcpc-types/src/lib.rs:MAINNET_CHAIN_ID` |
+| Mainnet chain ID | `hone` | `btcpc-types/src/lib.rs:MAINNET_CHAIN_ID` |
 | Testnet chain ID | `btcpc-satoshi` | `btcpc-types/src/lib.rs:TESTNET_CHAIN_ID` |
 | Native token symbol | `BTCPC` | `btcpc-types/src/lib.rs:NATIVE_TOKEN` |
 | HTTP API port | `4242` | `src/config.rs` default |
@@ -23,7 +23,7 @@ drifts from the value in source code.
 | Constant | Value | Notes | Source |
 |----------|-------|-------|--------|
 | Total supply cap | 42,000,000 BTCPC | Hard maximum, never burned | `emission.rs:SUPPLY_CAP_DREAMS` |
-| Smallest unit | 1 dream | | `lib.rs:DREAMS_PER_BTCPC` |
+| Smallest unit | 1 hunit | | `lib.rs:DREAMS_PER_BTCPC` |
 | Dreams per BTCPC | 10,000,000,000 | 10^10 | `lib.rs:DREAMS_PER_BTCPC` |
 | Block reward (era 0) | 2 BTCPC per epoch | Constant within era | `emission.rs:BLOCK_REWARD_DREAMS` |
 | Era 0 epoch duration | 30 seconds | | `emission.rs:INITIAL_EPOCH_MS` |
@@ -65,7 +65,7 @@ drifts from the value in source code.
 
 | Constant | Value | Source |
 |----------|-------|--------|
-| Clock reward base (era 0) | 0.001 BTCPC / epoch | `emission.rs:CLOCK_REWARD_DREAMS` |
+| Clock reward base (era 0) | 0.001 HONE / epoch | `emission.rs:CLOCK_REWARD_DREAMS` |
 | Clock reward scaling | Doubles each era (constant daily income) | `emission.rs:clock_reward_at()` |
 | Active clock nodes | Top 25 by stake | Phase 2 — D6 |
 | Standby pool | Nodes 26–100 | Phase 2 — D6 |

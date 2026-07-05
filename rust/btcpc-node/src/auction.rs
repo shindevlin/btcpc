@@ -7,7 +7,7 @@ use crate::chain::Chain;
 use btcpc_types::NATIVE_TOKEN;
 
 /// Name length tier for gating auction opens.
-/// Returns the minimum bid in dreams based on character length.
+/// Returns the minimum bid in hunits based on character length.
 pub fn name_min_bid(name: &str) -> u64 {
     match name.len() {
         1        => 10_000_000 * 100_000_000, // 10 M BTCPC — ultra-rare

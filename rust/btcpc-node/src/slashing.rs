@@ -97,7 +97,7 @@ pub fn apply_slash(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
         appeal_votes: vec![],
     };
     chain.store.state_set(&slash_key(slash_id), &serde_json::to_vec(&record)?)?;
-    info!("[slash] {} slashed {} dreams from '{}' (reporter: '{}')",
+    info!("[slash] {} slashed {} hunits from '{}' (reporter: '{}')",
         slash_id, slash_amount, accused, reporter);
     Ok(())
 }

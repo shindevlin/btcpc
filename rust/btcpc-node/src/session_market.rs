@@ -21,7 +21,7 @@ const SESSION_EXPIRY_EPOCHS: u64 = 720; // ~6 hours at 30s epochs
 pub struct SessionListing {
     pub listing_id: String,
     pub seller: String,
-    pub price_dreams: u64,
+    pub price_hunits: u64,
     pub model: String,
     pub summary_hash: String, // SHA-256 of summary (summary stored off-chain)
     pub turn_count: u32,
@@ -45,7 +45,7 @@ fn listing_key(listing_id: &str) -> String { format!("session_listing:{}", listi
 
 pub fn apply_create(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
     let LedgerEntry::SessionListingCreate {
-        listing_id, seller, price_dreams, model, summary_hash, turn_count, epoch, ..
+        listing_id, seller, price_hunits, model, summary_hash, turn_count, epoch, ..
     } = entry else { bail!("wrong entry type") };
 
     if chain.store.state_get(&listing_key(listing_id)).is_some() {
@@ -55,7 +55,7 @@ pub fn apply_create(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
     let listing = SessionListing {
         listing_id: listing_id.clone(),
         seller: seller.clone(),
-        price_dreams: *price_dreams,
+        price_hunits: *price_hunits,
         model: model.clone(),
         summary_hash: summary_hash.clone(),
         turn_count: *turn_count,
@@ -66,7 +66,7 @@ pub fn apply_create(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
         session_key_encrypted: None,
     };
     chain.store.state_set(&listing_key(listing_id), &serde_json::to_vec(&listing)?)?;
-    info!("[session-market] listing '{}' created by '{}' ({}d)", listing_id, seller, price_dreams);
+    info!("[session-market] listing '{}' created by '{}' ({}d)", listing_id, seller, price_hunits);
     Ok(())
 }
 
@@ -83,16 +83,16 @@ pub fn apply_buy(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
     anyhow::ensure!(*epoch <= listing.expires_epoch, "listing '{}' has expired", listing_id);
     anyhow::ensure!(buyer != &listing.seller, "cannot buy your own listing");
 
-    chain.store.debit(buyer, NATIVE_TOKEN, listing.price_dreams)?;
-    let fee = listing.price_dreams * MARKETPLACE_FEE_BPS / 10_000;
-    let seller_cut = listing.price_dreams.saturating_sub(fee);
+    chain.store.debit(buyer, NATIVE_TOKEN, listing.price_hunits)?;
+    let fee = listing.price_hunits * MARKETPLACE_FEE_BPS / 10_000;
+    let seller_cut = listing.price_hunits.saturating_sub(fee);
     chain.store.credit(&listing.seller, NATIVE_TOKEN, seller_cut)?;
     if fee > 0 { chain.store.credit(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN, fee)?; }
 
     listing.status = ListingStatus::Sold;
     listing.buyer = Some(buyer.clone());
     chain.store.state_set(&listing_key(listing_id), &serde_json::to_vec(&listing)?)?;
-    info!("[session-market] '{}' bought listing '{}' for {}d", buyer, listing_id, listing.price_dreams);
+    info!("[session-market] '{}' bought listing '{}' for {}d", buyer, listing_id, listing.price_hunits);
     Ok(())
 }
 

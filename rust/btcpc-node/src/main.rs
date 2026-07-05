@@ -574,7 +574,7 @@ async fn main() -> Result<()> {
                     ),
                 }
             } else {
-                warn!("[clock] '{}' has {} dreams, needs {} to register as clock node",
+                warn!("[clock] '{}' has {} hunits, needs {} to register as clock node",
                     cfg.node_id, balance, min_stake);
             }
         }
@@ -1532,7 +1532,7 @@ async fn emit_epoch_rewards(
             }
             broadcast_entry_desktop(&entry, cmd_tx).await;
         }
-        info!("clock: epoch {} testnet: {} ops × {} dreams", epoch, testnet_ops.len(), actual);
+        info!("clock: epoch {} testnet: {} ops × {} hunits", epoch, testnet_ops.len(), actual);
     }
 
     if activity_pool == 0 { return; }

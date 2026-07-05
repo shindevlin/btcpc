@@ -2,7 +2,7 @@
 //! Every state change is an entry. Entries are included in blocks, replayed for sync.
 
 use serde::{Deserialize, Serialize};
-use crate::account::{AccountId, Dreams, Epoch};
+use crate::account::{AccountId, Hunits, Epoch};
 
 /// A cryptographic commitment to an external-chain address.
 ///
@@ -200,7 +200,7 @@ pub enum LedgerEntry {
     Transfer {
         from: AccountId,
         to: AccountId,
-        amount: Dreams,
+        amount: Hunits,
         token: String,
         memo: Option<String>,
         epoch: Epoch,
@@ -214,14 +214,14 @@ pub enum LedgerEntry {
     // ── Staking ──────────────────────────────────────────────────────────────
     Stake {
         account: AccountId,
-        amount: Dreams,
+        amount: Hunits,
         epoch: Epoch,
         nonce: u64,
         signed_by: AccountId,
     },
     Unstake {
         account: AccountId,
-        amount: Dreams,
+        amount: Hunits,
         epoch: Epoch,
         nonce: u64,
         signed_by: AccountId,
@@ -259,7 +259,7 @@ pub enum LedgerEntry {
         node: AccountId,
         role: String,
         staker: AccountId,
-        amount: Dreams,
+        amount: Hunits,
         epoch: Epoch,
         nonce: u64,
         signed_by: AccountId,
@@ -269,7 +269,7 @@ pub enum LedgerEntry {
         node: AccountId,
         role: String,
         staker: AccountId,
-        amount: Dreams,
+        amount: Hunits,
         epoch: Epoch,
         nonce: u64,
         signed_by: AccountId,
@@ -310,7 +310,7 @@ pub enum LedgerEntry {
     },
     MineReward {
         miner: AccountId,
-        amount: Dreams,
+        amount: Hunits,
         epoch: Epoch,
     },
 
@@ -340,7 +340,7 @@ pub enum LedgerEntry {
     ClockNodeRegister {
         node_id: AccountId,
         /// Stake to lock — must meet CLOCK_MIN_STAKE (read from chain_param:clock_min_stake).
-        stake: Dreams,
+        stake: Hunits,
         epoch: Epoch,
         /// Ed25519 public key hex (64 chars). Required for double-sign slash verification.
         #[serde(default)]
@@ -439,8 +439,8 @@ pub enum LedgerEntry {
         mode: String,
         /// SHA-256 hex of the actual input (input stored off-chain or in request body).
         input_hash: String,
-        /// Maximum fee in dreams. Held in escrow. Actual fee ≤ max_fee.
-        max_fee: Dreams,
+        /// Maximum fee in hunits. Held in escrow. Actual fee ≤ max_fee.
+        max_fee: Hunits,
         /// Minimum node reputation score required (0 = any node).
         min_reputation: u64,
         /// Bid window in epochs before auto-award (default 2).
@@ -454,7 +454,7 @@ pub enum LedgerEntry {
         /// Payload is otherwise pruneable 100 epochs after payment (D1).
         #[serde(default, skip_serializing_if = "Option::is_none")]
         persist_on_fs: Option<bool>,
-        /// Fee in dreams for persistent storage on btcpc-fs. Ignored if persist_on_fs=false.
+        /// Fee in hunits for persistent storage on btcpc-fs. Ignored if persist_on_fs=false.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         fs_fee: Option<u64>,
         /// Minimum verifier board size. 0 or absent = auto-scale from network size.
@@ -471,7 +471,7 @@ pub enum LedgerEntry {
         job_id: String,
         bidder: AccountId,
         /// Fee the bidder will accept (must be ≤ job max_fee).
-        fee: Dreams,
+        fee: Hunits,
         /// "worker" | "verifier" | "reviewer"
         role: String,
         epoch: Epoch,
@@ -483,7 +483,7 @@ pub enum LedgerEntry {
         job_id: String,
         winner: AccountId,
         role: String,
-        fee: Dreams,
+        fee: Hunits,
         epoch: Epoch,
     },
     /// Worker submits proof of completion with result hash.
@@ -560,17 +560,17 @@ pub enum LedgerEntry {
     InferenceJobPay {
         job_id: String,
         worker: AccountId,
-        worker_amount: Dreams,
+        worker_amount: Hunits,
         /// (account, amount) pairs for consensus verifiers only.
-        verifier_payments: Vec<(AccountId, Dreams)>,
+        verifier_payments: Vec<(AccountId, Hunits)>,
         /// (account, amount) pairs for human reviewers (non-empty only on disputed path).
-        reviewer_payments: Vec<(AccountId, Dreams)>,
-        recycle_amount: Dreams,
-        refund_amount: Dreams,
+        reviewer_payments: Vec<(AccountId, Hunits)>,
+        recycle_amount: Hunits,
+        refund_amount: Hunits,
         /// (account, stake_slash) for verifiers who dissented from board consensus.
         /// Slashed from staked balance, credited to recycle fund.
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
-        dissenter_slashes: Vec<(AccountId, Dreams)>,
+        dissenter_slashes: Vec<(AccountId, Hunits)>,
         epoch: Epoch,
     },
     /// Job cancelled by requester or expired; escrow refunded.
@@ -587,37 +587,37 @@ pub enum LedgerEntry {
     /// Layer D base reward to clock nodes (always fires, era-scaled).
     ClockReward {
         node_id: AccountId,
-        amount: Dreams,
+        amount: Hunits,
         epoch: Epoch,
     },
     /// Layer B pool reward to storage nodes (proportional to bytes_proven × query bonus).
     StorageReward {
         node_id: AccountId,
-        amount: Dreams,
+        amount: Hunits,
         epoch: Epoch,
     },
     /// Layer B pool reward to sensor owners (type-aware sensor_score weighting).
     SensorReward {
         node_id: AccountId,
-        amount: Dreams,
+        amount: Hunits,
         epoch: Epoch,
     },
     /// Layer B pool reward to verifiers (proportional to value_score_total this epoch).
     VerifierReward {
         node_id: AccountId,
-        amount: Dreams,
+        amount: Hunits,
         epoch: Epoch,
     },
     /// Layer B pool reward to service hosts (proportional to container_hours this epoch).
     ServiceReward {
         node_id: AccountId,
-        amount: Dreams,
+        amount: Hunits,
         epoch: Epoch,
     },
     /// Layer B pool reward to mempool operators (inversely weighted by propagation latency).
     MempoolReward {
         operator: AccountId,
-        amount: Dreams,
+        amount: Hunits,
         epoch: Epoch,
     },
 
@@ -628,7 +628,7 @@ pub enum LedgerEntry {
     MempoolOperatorRegister {
         operator: AccountId,
         /// Stake to lock — must meet MEMPOOL_MIN_STAKE.
-        amount: Dreams,
+        amount: Hunits,
         epoch: Epoch,
         nonce: u64,
         signed_by: AccountId,
@@ -652,7 +652,7 @@ pub enum LedgerEntry {
         /// Hardware-burned unique identifier (IMEI, CPU serial, TPM endorsement key).
         device_serial: String,
         owner: AccountId,
-        amount: Dreams,
+        amount: Hunits,
         epoch: Epoch,
         nonce: u64,
         signed_by: AccountId,
@@ -672,7 +672,7 @@ pub enum LedgerEntry {
         uploader: AccountId,
         size_bytes: u64,
         epoch: Epoch,
-        fee: Dreams,
+        fee: Hunits,
     },
 
     // ── Freeport: Commerce ────────────────────────────────────────────────────
@@ -693,7 +693,7 @@ pub enum LedgerEntry {
         product_id: String,
         store_id: String,
         title: String,
-        price: Dreams,
+        price: Hunits,
         token: String,
         /// "physical" | "digital" | "service"
         product_type: String,
@@ -708,7 +708,7 @@ pub enum LedgerEntry {
     ProductUpdate {
         seller: AccountId,
         product_id: String,
-        price: Option<Dreams>,
+        price: Option<Hunits>,
         stock: Option<u64>,
         active: Option<bool>,
         metadata: Option<serde_json::Value>,
@@ -722,7 +722,7 @@ pub enum LedgerEntry {
         seller: AccountId,
         product_id: String,
         quantity: u64,
-        total_price: Dreams,
+        total_price: Hunits,
         token: String,
         /// Buyer's public key for encrypting digital delivery.
         buyer_pubkey: Option<String>,
@@ -762,7 +762,7 @@ pub enum LedgerEntry {
     EscrowRelease {
         order_id: String,
         seller: AccountId,
-        amount: Dreams,
+        amount: Hunits,
         token: String,
         epoch: Epoch,
     },
@@ -770,7 +770,7 @@ pub enum LedgerEntry {
     FlashSale {
         seller: AccountId,
         product_id: String,
-        sale_price: Dreams,
+        sale_price: Hunits,
         expires_epoch: Epoch,
         epoch: Epoch,
         signed_by: AccountId,
@@ -824,8 +824,8 @@ pub enum LedgerEntry {
     GatewayRewardSplit {
         sensor_account: AccountId,
         gateway_account: AccountId,
-        sensor_amount: Dreams,
-        gateway_amount: Dreams,
+        sensor_amount: Hunits,
+        gateway_amount: Hunits,
         epoch: Epoch,
     },
     /// Register a hardware IoT device key. Signed by owner's posting key.
@@ -842,7 +842,7 @@ pub enum LedgerEntry {
     DeviceYieldStake {
         device_serial: String,
         staker: AccountId,
-        amount: Dreams,
+        amount: Hunits,
         epoch: Epoch,
         nonce: u64,
         signed_by: AccountId,
@@ -851,7 +851,7 @@ pub enum LedgerEntry {
     DeviceYieldUnstake {
         device_serial: String,
         staker: AccountId,
-        amount: Dreams,
+        amount: Hunits,
         epoch: Epoch,
         nonce: u64,
         signed_by: AccountId,
@@ -948,8 +948,8 @@ pub enum LedgerEntry {
         manifest_cid: String,
         runtime_class: String,
         nonce: String,
-        /// Bond in dreams locked from owner's balance into escrow.
-        bond: Dreams,
+        /// Bond in hunits locked from owner's balance into escrow.
+        bond: Hunits,
         epoch: Epoch,
         signed_by: AccountId,
     },
@@ -977,8 +977,8 @@ pub enum LedgerEntry {
         job_class: String,
         due_epoch: Epoch,
         payload_cid: Option<String>,
-        /// Fee in dreams debited from caller and escrowed until job completion.
-        fee: Dreams,
+        /// Fee in hunits debited from caller and escrowed until job completion.
+        fee: Hunits,
         epoch: Epoch,
         signed_by: AccountId,
     },
@@ -1021,7 +1021,7 @@ pub enum LedgerEntry {
         slash_id: String,
         runtime_id: String,
         host_id: AccountId,
-        amount: Dreams,
+        amount: Hunits,
         reason: String,
         epoch: Epoch,
         signed_by: AccountId,
@@ -1029,7 +1029,7 @@ pub enum LedgerEntry {
     /// System entry: credit a host for completed runtime work (emitted by the epoch seal handler).
     RuntimeReward {
         host_id: AccountId,
-        amount: Dreams,
+        amount: Hunits,
         epoch: Epoch,
     },
     /// Buyer purchases a sensor data batch from a sensor owner.
@@ -1040,7 +1040,7 @@ pub enum LedgerEntry {
         /// SHA-256 of the batch being purchased.
         batch_hash: String,
         /// Fee paid by buyer; split: owner majority + storage contract rate + recycle.
-        fee: Dreams,
+        fee: Hunits,
         epoch: Epoch,
         nonce: u64,
         signed_by: AccountId,
@@ -1114,7 +1114,7 @@ pub enum LedgerEntry {
         cids: Vec<String>,
         /// Keep until this epoch.
         keep_until_epoch: Epoch,
-        fee: Dreams,
+        fee: Hunits,
         epoch: Epoch,
         signed_by: AccountId,
     },
@@ -1140,7 +1140,7 @@ pub enum LedgerEntry {
     LinkGitServeReward {
         repo_id: String,
         owner: AccountId,
-        amount: Dreams,
+        amount: Hunits,
         /// Number of unique fetchers this epoch (for explorer display).
         serve_count: u64,
         epoch: Epoch,
@@ -1150,7 +1150,7 @@ pub enum LedgerEntry {
     /// one ref update this epoch.  Amount drawn from the linkgit build pool.
     LinkGitBuildReward {
         builder: AccountId,
-        amount: Dreams,
+        amount: Hunits,
         /// Number of ref-update pushes this epoch (for explorer display).
         push_count: u64,
         epoch: Epoch,
@@ -1273,8 +1273,8 @@ pub enum LedgerEntry {
         description: String,
         /// "partial" | "full"
         task_type: String,
-        /// Bounty in dreams for partial tasks; 0 for full collaboration.
-        bounty: Dreams,
+        /// Bounty in hunits for partial tasks; 0 for full collaboration.
+        bounty: Hunits,
         /// Tags e.g. ["rust", "gui", "p2p"].
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         tags: Vec<String>,
@@ -1323,7 +1323,7 @@ pub enum LedgerEntry {
         recipient: AccountId,
         /// Override payout (≤ task bounty). None = pay full bounty.
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        payout: Option<Dreams>,
+        payout: Option<Hunits>,
         epoch: Epoch,
         nonce: u64,
         signed_by: AccountId,
@@ -1356,7 +1356,7 @@ pub enum LedgerEntry {
     TestnetReward {
         mainnet_account: AccountId,
         testnet_node_id: String,
-        amount: Dreams,
+        amount: Hunits,
         epoch: Epoch,
     },
 
@@ -1385,7 +1385,7 @@ pub enum LedgerEntry {
         /// "AirTag" | "AndroidFMD" | "Tile" | "Samsung" | "Unknown"
         tag_type: String,
         claimer: AccountId,
-        fee: Dreams,
+        fee: Hunits,
         epoch: Epoch,
         nonce: u64,
         signed_by: AccountId,
@@ -1418,8 +1418,8 @@ pub enum LedgerEntry {
     TrackerSubscription {
         serial_commitment: String,
         claimer: AccountId,
-        /// Dreams burned per epoch from claimer's balance.
-        fee_per_epoch: Dreams,
+        /// Hunits burned per epoch from claimer's balance.
+        fee_per_epoch: Hunits,
         /// Subscription auto-expires at this epoch.
         expires_epoch: Epoch,
         epoch: Epoch,
@@ -1459,7 +1459,7 @@ pub enum LedgerEntry {
         serial_commitment: String,
         claimer: AccountId,
         /// BTCPC escrowed on-chain, released to finder on confirmation.
-        bounty_dreams: Dreams,
+        bounty_hunits: Hunits,
         expires_epoch: Epoch,
         /// Contact info encrypted to claimer's own memo key (off-chain recovery).
         contact_encrypted: Option<String>,
@@ -1491,14 +1491,14 @@ pub enum LedgerEntry {
     /// Per-epoch coverage reward minted to a BLE tracker observer node.
     TrackerCoverageReward {
         observer_id: AccountId,
-        amount: Dreams,
+        amount: Hunits,
         epoch: Epoch,
     },
 
     // ── Genesis ───────────────────────────────────────────────────────────────
     GenesisAlloc {
         account: AccountId,
-        amount: Dreams,
+        amount: Hunits,
         token: String,
     },
 
@@ -1555,7 +1555,7 @@ pub enum LedgerEntry {
         account: AccountId,
         /// Token being gated ("*" = all custom tokens).
         token: String,
-        fee: Dreams,
+        fee: Hunits,
         /// Token the fee must be paid in (e.g. "BTCPC", "USDC", "USDT", "DAI").
         /// Set to "EVM" to require off-chain EVM payment instead (see evm_address / evm_chain_id).
         fee_token: String,
@@ -1576,7 +1576,7 @@ pub enum LedgerEntry {
         from: AccountId,
         to: AccountId,
         token: String,
-        amount: Dreams,
+        amount: Hunits,
         /// EVM transaction hash proving the fee was paid to the recipient's EVM address.
         evm_tx_hash: String,
         evm_chain_id: u64,
@@ -1755,7 +1755,7 @@ pub enum LedgerEntry {
         result_hash: String,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         result_blob_cid: Option<String>,
-        fee_paid: Dreams,
+        fee_paid: Hunits,
         contributing_nodes: Vec<AccountId>,
         epoch: Epoch,
         signed_by: AccountId,
@@ -1785,7 +1785,7 @@ pub enum LedgerEntry {
         requester: AccountId,
         model: String,
         input_hash: String,
-        max_fee: Dreams,
+        max_fee: Hunits,
         n_workers: u64,
         epoch: Epoch,
         nonce: u64,
@@ -1891,7 +1891,7 @@ pub enum LedgerEntry {
         requester:      String,
         description:    String,       // plaintext task description
         tools_allowed:  Vec<String>,  // e.g. ["web_search","chain_read","code_exec"]
-        max_fee:        u64,          // dreams reserved from agent_credit
+        max_fee:        u64,          // hunits reserved from agent_credit
         min_verifiers:  u32,          // how many verifiers must agree (e.g. 2)
         bid_window_epochs: u64,
         deadline_epoch: u64,
@@ -1972,7 +1972,7 @@ pub enum LedgerEntry {
         description: String,
         tools:       Vec<String>,  // e.g. ["web_search","chain_read","code_exec"]
         model:       String,       // preferred Ollama model
-        min_fee:     u64,          // minimum dreams per task
+        min_fee:     u64,          // minimum hunits per task
         epoch:       u64,
         nonce:       u64,
         signed_by:   String,
@@ -1992,7 +1992,7 @@ pub enum LedgerEntry {
     BridgeFund {
         bridge_id: String,
         custodian: AccountId,
-        amount_dreams: Dreams,
+        amount_hunits: Hunits,
         external_tx_hash: String,
         chain: String,
         epoch: Epoch,
@@ -2005,7 +2005,7 @@ pub enum LedgerEntry {
     /// Wrap native BTCPC into wBTCPC for use on external chains.
     BridgeWrap {
         account: AccountId,
-        amount_dreams: Dreams,
+        amount_hunits: Hunits,
         external_address: String,
         chain: String,
         epoch: Epoch,
@@ -2018,7 +2018,7 @@ pub enum LedgerEntry {
     /// Burn wBTCPC and queue an unlock on the external chain (FIFO).
     BridgeUnwrap {
         account: AccountId,
-        amount_dreams: Dreams,
+        amount_hunits: Hunits,
         recipient_external: String,
         chain: String,
         epoch: Epoch,
@@ -2087,7 +2087,7 @@ pub enum LedgerEntry {
     SessionListingCreate {
         listing_id: String,
         seller: AccountId,
-        price_dreams: Dreams,
+        price_hunits: Hunits,
         model: String,
         summary_hash: String,
         turn_count: u32,
@@ -2128,7 +2128,7 @@ pub enum LedgerEntry {
         client: AccountId,
         client_pubkey: String,
         model: String,
-        fee_escrow: Dreams,
+        fee_escrow: Hunits,
         epoch: Epoch,
         nonce: u64,
         signed_by: AccountId,
@@ -2258,8 +2258,8 @@ pub enum LedgerEntry {
         auction_id: String,
         name: String,
         opener: AccountId,
-        /// Minimum bid in dreams.
-        min_bid: Dreams,
+        /// Minimum bid in hunits.
+        min_bid: Hunits,
         /// Epoch at which bidding closes.
         end_epoch: Epoch,
         epoch: Epoch,
@@ -2273,8 +2273,8 @@ pub enum LedgerEntry {
     NameAuctionBid {
         auction_id: String,
         bidder: AccountId,
-        /// Bid amount in dreams (must exceed current high bid).
-        amount: Dreams,
+        /// Bid amount in hunits (must exceed current high bid).
+        amount: Hunits,
         epoch: Epoch,
         nonce: u64,
         signed_by: AccountId,
@@ -2312,7 +2312,7 @@ pub enum LedgerEntry {
         item_type: String,
         item_id: String,
         seller: AccountId,
-        min_bid: Dreams,
+        min_bid: Hunits,
         end_epoch: Epoch,
         epoch: Epoch,
         nonce: u64,
@@ -2325,7 +2325,7 @@ pub enum LedgerEntry {
     FreeportAuctionBid {
         auction_id: String,
         bidder: AccountId,
-        amount: Dreams,
+        amount: Hunits,
         epoch: Epoch,
         nonce: u64,
         signed_by: AccountId,
@@ -2439,8 +2439,8 @@ pub enum LedgerEntry {
         requester: AccountId,
         base_model: String,
         dataset_cid: String,
-        /// Maximum fee in dreams the requester will pay.
-        max_fee: Dreams,
+        /// Maximum fee in hunits the requester will pay.
+        max_fee: Hunits,
         epoch: Epoch,
         nonce: u64,
         signed_by: AccountId,
@@ -2469,7 +2469,7 @@ pub enum LedgerEntry {
         requester: AccountId,
         /// JSON-serialized task description.
         task_json: String,
-        max_fee: Dreams,
+        max_fee: Hunits,
         epoch: Epoch,
         nonce: u64,
         signed_by: AccountId,
@@ -2739,7 +2739,7 @@ impl LedgerEntry {
 
 /// Entry processing weight for the dynamic fee market (T3-1, Phase 5).
 ///
-/// Fee = `base_fee_dreams × entry_weight(entry)`.
+/// Fee = `base_fee_hunits × entry_weight(entry)`.
 /// System entries always return 0 — they are never fee-charged.
 pub fn entry_weight(entry: &LedgerEntry) -> u64 {
     use crate::emission::{

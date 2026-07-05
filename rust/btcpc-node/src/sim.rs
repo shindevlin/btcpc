@@ -47,7 +47,7 @@ fn seed_accounts(chain: &Chain) {
             amount: SIM_FUND_DREAMS,
             token: NATIVE_TOKEN.to_string(),
         });
-        info!("sim: seeded account {} with {} dreams", account, SIM_FUND_DREAMS);
+        info!("sim: seeded account {} with {} hunits", account, SIM_FUND_DREAMS);
     }
 }
 

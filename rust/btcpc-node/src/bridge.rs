@@ -1,7 +1,7 @@
 //! Cross-chain bridge registry (wBTCPC).
 //!
 //! BridgeFund: a custodian deposits ETH/BTC into a registered bridge contract.
-//! BridgeWrap: mints wBTCPC on-chain (1:1 BTCPC dreams), up to the 4.2M BTCPC cap.
+//! BridgeWrap: mints wBTCPC on-chain (1:1 BTCPC hunits), up to the 4.2M BTCPC cap.
 //! BridgeUnlock: custodian signals that wrapped tokens have been burned on the external chain.
 //! BridgeUnwrap: burns on-chain wBTCPC and queues an unlock in FIFO order.
 //!
@@ -15,7 +15,7 @@ use tracing::info;
 use btcpc_types::{LedgerEntry, NATIVE_TOKEN};
 use crate::chain::Chain;
 
-const BRIDGE_CAP_DREAMS: u64 = 4_200_000 * 100_000_000; // 4.2M BTCPC in dreams
+const BRIDGE_CAP_DREAMS: u64 = 4_200_000 * 100_000_000; // 4.2M BTCPC in hunits
 const WBTCPC_TOKEN: &str = "wBTCPC";
 const BRIDGE_QUEUE_KEY: &str = "bridge_unlock_queue";
 const BRIDGE_SUPPLY_KEY: &str = "bridge_wbtcpc_supply";
@@ -24,7 +24,7 @@ const BRIDGE_SUPPLY_KEY: &str = "bridge_wbtcpc_supply";
 pub struct UnlockRequest {
     pub request_id: String,
     pub recipient_external: String,
-    pub amount_dreams: u64,
+    pub amount_hunits: u64,
     pub queued_epoch: u64,
     pub chain: String,
     pub fulfilled: bool,
@@ -40,7 +40,7 @@ fn supply() -> impl Fn(&Chain) -> u64 {
 
 pub fn apply_fund(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
     let LedgerEntry::BridgeFund {
-        bridge_id, custodian, amount_dreams, external_tx_hash, chain: ext_chain, epoch, ..
+        bridge_id, custodian, amount_hunits, external_tx_hash, chain: ext_chain, epoch, ..
     } = entry else { bail!("wrong entry type") };
 
     // Idempotency: reject duplicate external tx hashes.
@@ -50,13 +50,13 @@ pub fn apply_fund(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
     }
 
     let current_supply = supply()(chain);
-    if current_supply + amount_dreams > BRIDGE_CAP_DREAMS {
-        bail!("bridge cap exceeded: {} + {} > {}", current_supply, amount_dreams, BRIDGE_CAP_DREAMS);
+    if current_supply + amount_hunits > BRIDGE_CAP_DREAMS {
+        bail!("bridge cap exceeded: {} + {} > {}", current_supply, amount_hunits, BRIDGE_CAP_DREAMS);
     }
 
     // Mint wBTCPC to custodian.
-    chain.store.credit(custodian, WBTCPC_TOKEN, *amount_dreams)?;
-    let new_supply = current_supply + amount_dreams;
+    chain.store.credit(custodian, WBTCPC_TOKEN, *amount_hunits)?;
+    let new_supply = current_supply + amount_hunits;
     chain.store.state_set(BRIDGE_SUPPLY_KEY, &serde_json::to_vec(&new_supply)?)?;
     chain.store.state_set(&dedup_key, &serde_json::to_vec(epoch)?)?;
 
@@ -64,7 +64,7 @@ pub fn apply_fund(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
     let record = serde_json::json!({
         "bridge_id": bridge_id,
         "custodian": custodian,
-        "amount_dreams": amount_dreams,
+        "amount_hunits": amount_hunits,
         "external_tx_hash": external_tx_hash,
         "chain": ext_chain,
         "epoch": epoch,
@@ -73,29 +73,29 @@ pub fn apply_fund(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
         &format!("bridge_fund:{}:{}", epoch, external_tx_hash),
         &serde_json::to_vec(&record)?,
     )?;
-    info!("[bridge] funded {} wBTCPC for '{}' (supply now {})", amount_dreams, custodian, new_supply);
+    info!("[bridge] funded {} wBTCPC for '{}' (supply now {})", amount_hunits, custodian, new_supply);
     Ok(())
 }
 
 pub fn apply_wrap(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
     let LedgerEntry::BridgeWrap {
-        account, amount_dreams, external_address, chain: ext_chain, epoch, ..
+        account, amount_hunits, external_address, chain: ext_chain, epoch, ..
     } = entry else { bail!("wrong entry type") };
 
     let current_supply = supply()(chain);
-    if current_supply + amount_dreams > BRIDGE_CAP_DREAMS {
+    if current_supply + amount_hunits > BRIDGE_CAP_DREAMS {
         bail!("bridge cap exceeded");
     }
 
     // Burn BTCPC, mint wBTCPC.
-    chain.store.debit(account, NATIVE_TOKEN, *amount_dreams)?;
-    chain.store.credit(account, WBTCPC_TOKEN, *amount_dreams)?;
-    let new_supply = current_supply + amount_dreams;
+    chain.store.debit(account, NATIVE_TOKEN, *amount_hunits)?;
+    chain.store.credit(account, WBTCPC_TOKEN, *amount_hunits)?;
+    let new_supply = current_supply + amount_hunits;
     chain.store.state_set(BRIDGE_SUPPLY_KEY, &serde_json::to_vec(&new_supply)?)?;
 
     let record = serde_json::json!({
         "account": account,
-        "amount_dreams": amount_dreams,
+        "amount_hunits": amount_hunits,
         "external_address": external_address,
         "chain": ext_chain,
         "epoch": epoch,
@@ -104,18 +104,18 @@ pub fn apply_wrap(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
         &format!("bridge_wrap:{}:{}", account, epoch),
         &serde_json::to_vec(&record)?,
     )?;
-    info!("[bridge] {} wrapped {} BTCPC → wBTCPC (→ {})", account, amount_dreams, external_address);
+    info!("[bridge] {} wrapped {} BTCPC → wBTCPC (→ {})", account, amount_hunits, external_address);
     Ok(())
 }
 
 pub fn apply_unwrap(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
     let LedgerEntry::BridgeUnwrap {
-        account, amount_dreams, recipient_external, chain: ext_chain, epoch, ..
+        account, amount_hunits, recipient_external, chain: ext_chain, epoch, ..
     } = entry else { bail!("wrong entry type") };
 
     // Burn wBTCPC from account.
-    chain.store.debit(account, WBTCPC_TOKEN, *amount_dreams)?;
-    let new_supply = supply()(chain).saturating_sub(*amount_dreams);
+    chain.store.debit(account, WBTCPC_TOKEN, *amount_hunits)?;
+    let new_supply = supply()(chain).saturating_sub(*amount_hunits);
     chain.store.state_set(BRIDGE_SUPPLY_KEY, &serde_json::to_vec(&new_supply)?)?;
 
     // Queue unlock request (FIFO).
@@ -128,7 +128,7 @@ pub fn apply_unwrap(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
     let req = UnlockRequest {
         request_id: request_id.clone(),
         recipient_external: recipient_external.clone(),
-        amount_dreams: *amount_dreams,
+        amount_hunits: *amount_hunits,
         queued_epoch: *epoch,
         chain: ext_chain.clone(),
         fulfilled: false,
@@ -142,7 +142,7 @@ pub fn apply_unwrap(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
     chain.store.state_set(BRIDGE_QUEUE_KEY, &serde_json::to_vec(&queue)?)?;
 
     info!("[bridge] {} unwrapped {} wBTCPC → {} (request {})",
-        account, amount_dreams, recipient_external, &request_id[..12]);
+        account, amount_hunits, recipient_external, &request_id[..12]);
     Ok(())
 }
 
@@ -217,7 +217,7 @@ mod tests {
         LedgerEntry::BridgeFund {
             bridge_id: bridge_id.to_string(),
             custodian: custodian.to_string(),
-            amount_dreams: amount,
+            amount_hunits: amount,
             external_tx_hash: ext_tx.to_string(),
             chain: "ethereum".to_string(),
             epoch: 1,
@@ -240,7 +240,7 @@ mod tests {
         // Fund record should be stored
         let rec = chain.store.state_get(&format!("bridge_fund:1:0xabc123")).unwrap();
         let j: serde_json::Value = serde_json::from_slice(&rec).unwrap();
-        assert_eq!(j["amount_dreams"], 1_000_000);
+        assert_eq!(j["amount_hunits"], 1_000_000);
     }
 
     #[test]
@@ -250,7 +250,7 @@ mod tests {
 
         let wrap = LedgerEntry::BridgeWrap {
             account: "user".to_string(),
-            amount_dreams: 5_000_000,
+            amount_hunits: 5_000_000,
             external_address: "0xdeadbeef".to_string(),
             chain: "ethereum".to_string(),
             epoch: 1,
@@ -280,7 +280,7 @@ mod tests {
 
         // Initial state: zero supply, no pending
         let s = status(&chain);
-        assert_eq!(s["wbtcpc_supply_dreams"], 0);
+        assert_eq!(s["wbtcpc_supply_hunits"], 0);
         assert_eq!(s["pending_unlock_count"], 0);
 
         // Fund some wBTCPC
@@ -295,7 +295,7 @@ mod tests {
 
         let unwrap = LedgerEntry::BridgeUnwrap {
             account: "holder".to_string(),
-            amount_dreams: 1_000_000,
+            amount_hunits: 1_000_000,
             recipient_external: "0xrecipient".to_string(),
             chain: "ethereum".to_string(),
             epoch: 2,
@@ -307,21 +307,21 @@ mod tests {
 
         let s = status(&chain);
         assert_eq!(s["pending_unlock_count"], 1);
-        assert!(s["wbtcpc_supply_dreams"].as_u64().unwrap() > 0);
+        assert!(s["wbtcpc_supply_hunits"].as_u64().unwrap() > 0);
     }
 }
 
 /// Get current wBTCPC supply and pending unlock queue.
 pub fn status(chain: &Chain) -> serde_json::Value {
-    let supply_dreams = supply()(chain);
+    let supply_hunits = supply()(chain);
     let queue: Vec<UnlockRequest> = chain.store.state_get(BRIDGE_QUEUE_KEY)
         .and_then(|b| serde_json::from_slice(&b).ok())
         .unwrap_or_default();
     let pending = queue.iter().filter(|r| !r.fulfilled).count();
     serde_json::json!({
-        "wbtcpc_supply_dreams": supply_dreams,
-        "cap_dreams": BRIDGE_CAP_DREAMS,
+        "wbtcpc_supply_hunits": supply_hunits,
+        "cap_hunits": BRIDGE_CAP_DREAMS,
         "pending_unlock_count": pending,
-        "utilization_bps": supply_dreams * 10_000 / BRIDGE_CAP_DREAMS.max(1),
+        "utilization_bps": supply_hunits * 10_000 / BRIDGE_CAP_DREAMS.max(1),
     })
 }

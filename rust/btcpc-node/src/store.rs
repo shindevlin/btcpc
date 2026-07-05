@@ -113,7 +113,7 @@ impl Store {
     }
 
     // ── Balances ─────────────────────────────────────────────────────────────
-    // Key format: "account\0token" → u64 LE dreams
+    // Key format: "account\0token" → u64 LE hunits
 
     pub fn get_balance(&self, account: &str, token: &str) -> u64 {
         let Some(cf) = self.db.cf_handle(CF_BALANCES) else { return 0 };
@@ -515,7 +515,7 @@ impl Store {
     }
 
     /// All balance entries sorted lexicographically by "account\0token" key.
-    /// Value is 8 LE bytes (u64 dreams).
+    /// Value is 8 LE bytes (u64 hunits).
     fn sorted_balance_entries(&self) -> Vec<(String, Vec<u8>)> {
         let Some(cf) = self.db.cf_handle(CF_BALANCES) else { return vec![] };
         let mut entries: Vec<(Vec<u8>, Vec<u8>)> = self.db

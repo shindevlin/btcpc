@@ -2,10 +2,10 @@ use serde::{Deserialize, Serialize};
 
 pub type AccountId = String;
 pub type TokenSymbol = String;
-/// Balance in dreams (1 BTCPC = 10_000_000_000 dreams)
-pub type Dreams = u64;
-#[deprecated = "use Dreams"]
-pub type Satoshis = Dreams;
+/// Balance in hunits (1 BTCPC = 10_000_000_000 hunits)
+pub type Hunits = u64;
+#[deprecated = "use Hunits"]
+pub type Satoshis = Hunits;
 pub type Epoch = u64;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -14,7 +14,7 @@ pub struct AccountState {
     pub created_epoch: Epoch,
     pub keys: std::collections::HashMap<String, String>,
     pub nonce: u64,
-    pub stake: Dreams,
+    pub stake: Hunits,
     pub delegated_to: Option<AccountId>,
 }
 

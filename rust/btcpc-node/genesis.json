@@ -1,6 +1,6 @@
 {
   "genesis_timestamp": 1783191600000,
-  "chain_id": "btcpc-2",
+  "chain_id": "hone",
   "accounts": {
     "shindevlin":      { "keys": { "posting": "c97a9f209e465c1593d2783e85d1cbf7ddf00c8097ee4259eef88aee55d85bd6" } },
     "natoshisakamoto": { "keys": { "posting": "29e22bbd0253cbc792ef186708e38c99e6b866782daf2f85901f1e967a5e63f9" } },

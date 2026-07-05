@@ -33,7 +33,7 @@ pub struct AgentSession {
     pub opened_epoch: u64,
     pub expires_epoch: u64,
     pub turn_count: u32,
-    pub fee_escrow: u64,         // dreams held for session fees
+    pub fee_escrow: u64,         // hunits held for session fees
     pub status: SessionStatus,
     pub system_prompt: Option<String>,
     pub history: Vec<Turn>,      // rolling window — older turns summarised

@@ -17,7 +17,7 @@
 //! override.
 
 use anyhow::{bail, Result};
-use btcpc_types::{LedgerEntry, NATIVE_TOKEN, DREAMS_PER_BTCPC, entry_weight, BASE_FEE_INITIAL_DREAMS, RECYCLE_FUND_ACCOUNT, TESTNET_FUND_ACCOUNT, STAKE_EXEMPT_ACCOUNTS};
+use btcpc_types::{LedgerEntry, NATIVE_TOKEN, HUNITS_PER_HONE, entry_weight, BASE_FEE_INITIAL_DREAMS, RECYCLE_FUND_ACCOUNT, TESTNET_FUND_ACCOUNT, STAKE_EXEMPT_ACCOUNTS};
 use ed25519_dalek::{Signature, VerifyingKey};
 
 use crate::chain::Chain;
@@ -147,8 +147,8 @@ pub fn validate_and_apply(
                 let bal = chain.get_balance(&payer, NATIVE_TOKEN);
                 if bal < total_fee {
                     bail!(
-                        "insufficient balance for entry fee: {} dreams required (weight {}×{}), \
-                         '{}' has {} dreams",
+                        "insufficient balance for entry fee: {} hunits required (weight {}×{}), \
+                         '{}' has {} hunits",
                         total_fee, fee_weight, base_fee, payer, bal
                     );
                 }
@@ -180,9 +180,9 @@ pub fn validate_and_apply(
                 bail!(
                     "insufficient balance: {} has {} {} (need {})",
                     from,
-                    bal as f64 / DREAMS_PER_BTCPC as f64,
+                    bal as f64 / HUNITS_PER_HONE as f64,
                     token,
-                    *amount as f64 / DREAMS_PER_BTCPC as f64,
+                    *amount as f64 / HUNITS_PER_HONE as f64,
                 );
             }
             chain.apply_entry(entry)?;
@@ -209,7 +209,7 @@ pub fn validate_and_apply(
                 bail!(
                     "insufficient balance for stake: {} has {} BTCPC",
                     account,
-                    bal as f64 / DREAMS_PER_BTCPC as f64,
+                    bal as f64 / HUNITS_PER_HONE as f64,
                 );
             }
             chain.apply_entry(entry)?;
@@ -236,7 +236,7 @@ pub fn validate_and_apply(
                 bail!(
                     "insufficient stake: {} has {} BTCPC staked",
                     account,
-                    staked as f64 / DREAMS_PER_BTCPC as f64,
+                    staked as f64 / HUNITS_PER_HONE as f64,
                 );
             }
             chain.apply_entry(entry)?;
@@ -278,13 +278,13 @@ pub fn validate_and_apply(
                     let funder = funded_by.as_deref()
                         .filter(|s| !s.is_empty())
                         .ok_or_else(|| anyhow::anyhow!(
-                            "name registration requires a funded_by account with {} dreams",
+                            "name registration requires a funded_by account with {} hunits",
                             stake_amount
                         ))?;
                     let bal = chain.store.get_balance(funder, btcpc_types::NATIVE_TOKEN);
                     anyhow::ensure!(
                         bal >= stake_amount,
-                        "funded_by '{}' has {} dreams, need {} for name registration",
+                        "funded_by '{}' has {} hunits, need {} for name registration",
                         funder, bal, stake_amount
                     );
                 }
@@ -909,7 +909,7 @@ pub fn validate_and_apply(
             require_key(chain, owner)?;
             check_signature(chain, signed_by, entry, sig_hex, "posting")?;
             if *bond < btcpc_types::RUNTIME_MIN_BOND {
-                bail!("bond {} is below minimum {} dreams", bond, btcpc_types::RUNTIME_MIN_BOND);
+                bail!("bond {} is below minimum {} hunits", bond, btcpc_types::RUNTIME_MIN_BOND);
             }
             let bal = chain.store.get_balance(owner, NATIVE_TOKEN);
             if bal < *bond {
@@ -1234,7 +1234,7 @@ pub fn validate_and_apply(
             }
             let bal = chain.get_balance(staker, NATIVE_TOKEN);
             if bal < *amount {
-                bail!("insufficient balance for role stake: {} has {} dreams", staker, bal);
+                bail!("insufficient balance for role stake: {} has {} hunits", staker, bal);
             }
             // Minimum enforcement is at quorum membership time (registered_clock_nodes),
             // not at stake submission. Users stake from their account onto any device.
@@ -1263,7 +1263,7 @@ pub fn validate_and_apply(
                 .unwrap_or(0);
             if current < *amount {
                 bail!(
-                    "cannot unstake {} dreams: only {} staked on '{}' role '{}'",
+                    "cannot unstake {} hunits: only {} staked on '{}' role '{}'",
                     amount, current, node, role
                 );
             }
@@ -2462,11 +2462,11 @@ pub fn canonical_signing_message(entry: &LedgerEntry, chain_id: &str) -> Result<
                 "serial_commitment": serial_commitment, "claimer": claimer,
                 "fee_per_epoch": fee_per_epoch, "expires_epoch": expires_epoch, "nonce": nonce,
             }),
-        LedgerEntry::TrackerLostMode { serial_commitment, claimer, bounty_dreams, expires_epoch, contact_encrypted, nonce, .. } =>
+        LedgerEntry::TrackerLostMode { serial_commitment, claimer, bounty_hunits, expires_epoch, contact_encrypted, nonce, .. } =>
             serde_json::json!({
                 "chain_id": chain_id, "type": "TRACKER_LOST_MODE",
                 "serial_commitment": serial_commitment, "claimer": claimer,
-                "bounty_dreams": bounty_dreams, "expires_epoch": expires_epoch,
+                "bounty_hunits": bounty_hunits, "expires_epoch": expires_epoch,
                 "contact_encrypted": contact_encrypted, "nonce": nonce,
             }),
         LedgerEntry::TrackerFoundConfirm { serial_commitment, finder, claimer, nonce, .. } =>
@@ -3297,7 +3297,7 @@ mod tests {
         let entry = LedgerEntry::TrackerLostMode {
             serial_commitment: "tag-1".into(),
             claimer: "victim".into(),
-            bounty_dreams: 500_000_000_000,
+            bounty_hunits: 500_000_000_000,
             expires_epoch: 100,
             contact_encrypted: None,
             epoch: 0, nonce: 1,
