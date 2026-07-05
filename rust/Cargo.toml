@@ -1,9 +1,9 @@
 [workspace]
 members = [
-    "btcpc-node",
-    "btcpc-node/crates/btcpc-types",
-    "btcpc-p2p",
-    "btcpc-market",
+    "honemesh-node",
+    "honemesh-node/crates/honemesh-types",
+    "honemesh-p2p",
+    "honemesh-market",
     "linkgit",
 ]
 resolver = "2"

@@ -40,7 +40,7 @@ async fn main() -> Result<()> {
     info!("Starting betchu-bot v{}", env!("CARGO_PKG_VERSION"));
     info!("Contract: {}", config.bet_contract_address);
     info!("RPC: {}", config.rpc_url);
-    info!("BTCPC: {}", config.btcpc_api_url);
+    info!("HoneMesh: {}", config.btcpc_api_url);
 
     // ── Contract service ─────────────────────────────────────────────────────
     let contract = Arc::new(
@@ -64,18 +64,18 @@ async fn main() -> Result<()> {
         }
     };
 
-    // ── BTCPC inference client ───────────────────────────────────────────────
+    // ── HoneMesh inference client ───────────────────────────────────────────────
     let btcpc = if !config.btcpc_project_key.is_empty() {
         Some(BtcpcInferenceClient::new(
             config.btcpc_api_url.clone(),
             config.btcpc_project_key.clone(),
         ))
     } else {
-        warn!("BTCPC_PROJECT_KEY not set — AI insights disabled");
+        warn!("HONE_PROJECT_KEY not set — AI insights disabled");
         None
     };
 
-    // ── BTCPC service client (heartbeat + registration) ──────────────────────
+    // ── HoneMesh service client (heartbeat + registration) ──────────────────────
     let btcpc_service = if !config.btcpc_project_key.is_empty() {
         Some(BtcpcServiceClient::new(
             config.btcpc_api_url.clone(),
@@ -98,11 +98,11 @@ async fn main() -> Result<()> {
         espn: Arc::clone(&espn),
     });
 
-    // ── BTCPC service registration ───────────────────────────────────────────
+    // ── HoneMesh service registration ───────────────────────────────────────────
     let service_slug = if let Some(svc) = &state.btcpc_service {
         match svc.register_service(&config.btcpc_account).await {
             Ok(slug) => {
-                info!("Registered as BTCPC service: {}", slug);
+                info!("Registered as HoneMesh service: {}", slug);
                 slug
             }
             Err(e) => {
@@ -114,7 +114,7 @@ async fn main() -> Result<()> {
         format!("{}/betchu-bot", config.btcpc_account)
     };
 
-    // ── Health HTTP server (BTCPC compliance) ────────────────────────────────
+    // ── Health HTTP server (HoneMesh compliance) ────────────────────────────────
     let health_state = Arc::clone(&state);
     let app = Router::new()
         .route("/health", get(health_handler))
@@ -131,7 +131,7 @@ async fn main() -> Result<()> {
         axum::serve(listener, app).await.expect("Health server failed");
     });
 
-    // ── BTCPC heartbeat loop (every 30s = one epoch) ─────────────────────────
+    // ── HoneMesh heartbeat loop (every 30s = one epoch) ─────────────────────────
     if state.btcpc_service.is_some() {
         let heartbeat_state = Arc::clone(&state);
         let slug = service_slug.clone();
@@ -144,7 +144,7 @@ async fn main() -> Result<()> {
                 }
             }
         });
-        info!("BTCPC heartbeat started (30s interval) for {}", service_slug);
+        info!("HoneMesh heartbeat started (30s interval) for {}", service_slug);
     }
 
     // ── ESPN score resolution cron (every 15 min) ────────────────────────────
@@ -189,7 +189,7 @@ async fn health_handler() -> Json<serde_json::Value> {
 async fn root_handler() -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "name": "betchu-bot",
-        "description": "BTCPC-native P2P sports betting bot",
+        "description": "HoneMesh-native P2P sports betting bot",
         "version": env!("CARGO_PKG_VERSION"),
         "btcpc_compliant": true,
         "endpoints": ["/health"],

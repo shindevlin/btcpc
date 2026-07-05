@@ -14,14 +14,14 @@ pub struct Config {
     pub player_registry_address: String,
     pub loyalty_token_address: String,
 
-    // BTCPC inference
+    // HoneMesh inference
     pub btcpc_api_url: String,
     pub btcpc_project_key: String,
 
     // MongoDB
     pub mongodb_uri: String,
 
-    // BTCPC service identity
+    // HoneMesh service identity
     pub btcpc_account: String,
     pub service_port: u16,
 
@@ -32,7 +32,7 @@ pub struct Config {
 
 impl Config {
     pub fn from_env() -> Result<Self> {
-        // Load .envbtcpc first so BTCPC credentials override any parent-process env.
+        // Load .envbtcpc first so HoneMesh credentials override any parent-process env.
         // Then load .env for betchu-specific vars.
         let _ = dotenvy::from_filename(".envbtcpc");
         let _ = dotenvy::dotenv();
@@ -48,12 +48,12 @@ impl Config {
             player_registry_address: optional("PLAYER_REGISTRY_ADDRESS", ""),
             loyalty_token_address: optional("LOYALTY_TOKEN_ADDRESS", ""),
 
-            btcpc_api_url: optional("BTCPC_API_URL", "https://btcpc.net"),
-            btcpc_project_key: optional("BTCPC_PROJECT_KEY", ""),
+            btcpc_api_url: optional("HONE_API_URL", "https://btcpc.net"),
+            btcpc_project_key: optional("HONE_PROJECT_KEY", ""),
 
             mongodb_uri: optional("MONGODB_URI", "mongodb://localhost:27018/betchu"),
 
-            btcpc_account: optional("BTCPC_HIVE_ACCOUNT", "betchu-bot"),
+            btcpc_account: optional("HONE_HIVE_ACCOUNT", "betchu-bot"),
             service_port: std::env::var("SERVICE_PORT")
                 .ok()
                 .and_then(|s| s.parse().ok())

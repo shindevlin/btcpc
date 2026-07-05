@@ -708,137 +708,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "btcpc-contract-runtime"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "base64 0.22.1",
- "hex",
- "serde",
- "serde_json",
- "sha2",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "wasmtime",
-]
-
-[[package]]
-name = "btcpc-market"
-version = "1.2.2"
-dependencies = [
- "anyhow",
- "axum",
- "btcpc-types",
- "chrono",
- "dirs-next",
- "hex",
- "hmac",
- "jsonwebtoken",
- "once_cell",
- "parking_lot",
- "regex",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "sha2",
- "tokio",
- "tokio-util",
- "tower-http 0.5.2",
- "tracing",
- "tracing-subscriber",
- "uuid",
-]
-
-[[package]]
-name = "btcpc-node"
-version = "1.2.2"
-dependencies = [
- "aes-gcm",
- "anyhow",
- "axum",
- "base64 0.22.1",
- "bech32 0.9.1",
- "bip39",
- "blake2",
- "borsh",
- "bs58",
- "btcpc-contract-runtime",
- "btcpc-types",
- "candle-core",
- "candle-nn",
- "candle-transformers",
- "chrono",
- "dirs-next",
- "ed25519-dalek",
- "everscale-types",
- "flate2",
- "hex",
- "hf-hub",
- "hmac",
- "libc",
- "libp2p",
- "matrix-sdk",
- "nostr-sdk",
- "openssl",
- "parking_lot",
- "proptest",
- "rand 0.8.6",
- "reqwest 0.12.28",
- "ripemd",
- "rocksdb",
- "rustls",
- "secp256k1",
- "serde",
- "serde_json",
- "sha1",
- "sha2",
- "sha3",
- "socket2 0.5.10",
- "tempfile",
- "tokenizers 0.20.4",
- "tokio",
- "tokio-stream",
- "toml 0.8.23",
- "tower-http 0.5.2",
- "tracing",
- "tracing-subscriber",
- "urlencoding",
- "wasmtime",
-]
-
-[[package]]
-name = "btcpc-p2p"
-version = "1.2.2"
-dependencies = [
- "anyhow",
- "btcpc-types",
- "bytes",
- "dirs-next",
- "futures",
- "hex",
- "libp2p",
- "rand 0.8.6",
- "serde",
- "serde_json",
- "tokio",
- "tokio-util",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
-name = "btcpc-types"
-version = "1.2.2"
-dependencies = [
- "borsh",
- "hex",
- "serde",
- "serde_json",
- "sha2",
-]
-
-[[package]]
 name = "bumpalo"
 version = "3.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2641,6 +2510,137 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c49c37c09c17a53d937dfbb742eb3a961d65a994e6bcdcf37e7399d0cc8ab5e"
 dependencies = [
  "digest",
+]
+
+[[package]]
+name = "honemesh-contract-runtime"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "base64 0.22.1",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "wasmtime",
+]
+
+[[package]]
+name = "honemesh-market"
+version = "1.2.2"
+dependencies = [
+ "anyhow",
+ "axum",
+ "chrono",
+ "dirs-next",
+ "hex",
+ "hmac",
+ "honemesh-types",
+ "jsonwebtoken",
+ "once_cell",
+ "parking_lot",
+ "regex",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "tokio-util",
+ "tower-http 0.5.2",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+]
+
+[[package]]
+name = "honemesh-node"
+version = "1.2.2"
+dependencies = [
+ "aes-gcm",
+ "anyhow",
+ "axum",
+ "base64 0.22.1",
+ "bech32 0.9.1",
+ "bip39",
+ "blake2",
+ "borsh",
+ "bs58",
+ "candle-core",
+ "candle-nn",
+ "candle-transformers",
+ "chrono",
+ "dirs-next",
+ "ed25519-dalek",
+ "everscale-types",
+ "flate2",
+ "hex",
+ "hf-hub",
+ "hmac",
+ "honemesh-contract-runtime",
+ "honemesh-types",
+ "libc",
+ "libp2p",
+ "matrix-sdk",
+ "nostr-sdk",
+ "openssl",
+ "parking_lot",
+ "proptest",
+ "rand 0.8.6",
+ "reqwest 0.12.28",
+ "ripemd",
+ "rocksdb",
+ "rustls",
+ "secp256k1",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2",
+ "sha3",
+ "socket2 0.5.10",
+ "tempfile",
+ "tokenizers 0.20.4",
+ "tokio",
+ "tokio-stream",
+ "toml 0.8.23",
+ "tower-http 0.5.2",
+ "tracing",
+ "tracing-subscriber",
+ "urlencoding",
+ "wasmtime",
+]
+
+[[package]]
+name = "honemesh-p2p"
+version = "1.2.2"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "dirs-next",
+ "futures",
+ "hex",
+ "honemesh-types",
+ "libp2p",
+ "rand 0.8.6",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "honemesh-types"
+version = "1.2.2"
+dependencies = [
+ "borsh",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2",
 ]
 
 [[package]]

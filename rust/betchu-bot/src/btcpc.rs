@@ -65,7 +65,7 @@ impl BtcpcInferenceClient {
             let cache = self.cache.read();
             if let Some(entry) = cache.get(&cache_key) {
                 if entry.inserted_at.elapsed() < CACHE_TTL {
-                    debug!("BTCPC inference cache hit for key {}", &cache_key[..8]);
+                    debug!("HoneMesh inference cache hit for key {}", &cache_key[..8]);
                     return Ok(entry.value.clone());
                 }
             }
@@ -99,18 +99,18 @@ impl BtcpcInferenceClient {
             .json(&body)
             .send()
             .await
-            .map_err(|e| anyhow!("BTCPC inference request failed: {}", e))?;
+            .map_err(|e| anyhow!("HoneMesh inference request failed: {}", e))?;
 
         if !resp.status().is_success() {
             let status = resp.status();
             let body = resp.text().await.unwrap_or_default();
-            return Err(anyhow!("BTCPC inference error {}: {}", status, body));
+            return Err(anyhow!("HoneMesh inference error {}: {}", status, body));
         }
 
         let inference: InferenceResponse = resp
             .json()
             .await
-            .map_err(|e| anyhow!("Failed to parse BTCPC inference response: {}", e))?;
+            .map_err(|e| anyhow!("Failed to parse HoneMesh inference response: {}", e))?;
 
         let content = inference
             .choices
@@ -172,7 +172,7 @@ impl BtcpcInferenceClient {
         self.ask(&prompt, Some("You are a sports betting commentator. Write exciting, celebratory messages.")).await
     }
 
-    /// Ask BTCPC to match a user's freeform description to a specific ESPN game.
+    /// Ask HoneMesh to match a user's freeform description to a specific ESPN game.
     /// Returns the index into `games` if matched, else None.
     pub async fn match_game_description(
         &self,
@@ -240,7 +240,7 @@ fn md5_hash(s: &str) -> u64 {
     h.finish()
 }
 
-/// BTCPC service registration payload
+/// HoneMesh service registration payload
 #[derive(Debug, Serialize)]
 pub struct ServiceRegistration {
     pub name: String,
@@ -291,7 +291,7 @@ impl BtcpcServiceClient {
     pub async fn register_service(&self, account: &str) -> Result<String> {
         let reg = ServiceRegistration {
             name: "betchu-bot".to_string(),
-            description: "BTCPC-native P2P sports betting Telegram bot on Base Sepolia".to_string(),
+            description: "HoneMesh-native P2P sports betting Telegram bot on Base Sepolia".to_string(),
             deployer: account.to_string(),
             runtime: ServiceRuntime {
                 r#type: "http".to_string(),
@@ -328,7 +328,7 @@ impl BtcpcServiceClient {
                 Ok(format!("{}/betchu-bot", account))
             }
             Err(e) => {
-                warn!("Service registration failed (BTCPC node may be offline): {}", e);
+                warn!("Service registration failed (HoneMesh node may be offline): {}", e);
                 Ok(format!("{}/betchu-bot", account))
             }
         }
@@ -365,7 +365,7 @@ impl BtcpcServiceClient {
                 Ok(())
             }
             Err(e) => {
-                warn!("Heartbeat failed (BTCPC node offline?): {}", e);
+                warn!("Heartbeat failed (HoneMesh node offline?): {}", e);
                 Ok(())
             }
         }
