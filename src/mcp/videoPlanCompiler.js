@@ -109,6 +109,9 @@ function compilePlan(presets, input) {
       sceneCount,
     }),
     preset: preset.id,
+    // Video presets compile to the "video" render modality. The job schema
+    // reads this to generalize across image/audio/3D/composite renders (Wiiv).
+    modality: "video",
     compiler_version: 1,
     title: makeTitle(preset, topic),
     brief: {

@@ -92,6 +92,8 @@ const DELIVERABLE_KINDS = Object.freeze([
   "storyboard",
   "shot_list",
   "generated_scene",
+  "generated_image",
+  "generated_model",
   "voiceover",
   "music",
   "sound_design",
@@ -103,6 +105,10 @@ const DELIVERABLE_KINDS = Object.freeze([
   "project_bundle",
   "provenance",
 ]);
+
+// Wiiv render modalities. A job targets one; the protocol is identical across
+// them (see docs/WIIV_PROTOCOL.md). Kept in sync with rust/wiiv RenderModality.
+const RENDER_MODALITIES = Object.freeze(["image", "video", "audio", "threed", "composite"]);
 
 // ── Construction ────────────────────────────────────────────────────────────
 
@@ -154,6 +160,10 @@ function createMediaJob(opts) {
     status: JOB_STATES.DRAFTED,
     dry_run: dryRun,
     buyer: args.buyer || null,
+    // Render modality — a video preset compiles to modality "video"; the field
+    // generalizes the job to image/audio/3D/composite renders (Wiiv). Defaults to
+    // the plan's modality, else video for back-compat with the first slice.
+    modality: RENDER_MODALITIES.includes(plan.modality) ? plan.modality : "video",
     preset: plan.preset,
     title: plan.title || "Untitled HONE media job",
     plan,
@@ -212,6 +222,9 @@ function validateMediaJob(job) {
     problems.push(`status '${job.status}' is not a known job state`);
   }
   if (typeof job.dry_run !== "boolean") problems.push("dry_run must be a boolean");
+  if (job.modality !== undefined && !RENDER_MODALITIES.includes(job.modality)) {
+    problems.push(`modality '${job.modality}' is not a known render modality`);
+  }
   if (!job.plan || typeof job.plan !== "object") problems.push("plan is required");
 
   const budget = job.budget || {};
@@ -389,6 +402,7 @@ module.exports = {
   MILESTONE_STATES,
   MILESTONE_TRANSITIONS,
   DELIVERABLE_KINDS,
+  RENDER_MODALITIES,
   createMediaJob,
   validateMediaJob,
   transitionJob,

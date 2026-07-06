@@ -189,3 +189,30 @@ describe("MCP server lifecycle integration", () => {
     expect(names).toContain("hone_video_job_advance");
   });
 });
+
+describe("Wiiv render modality generalization", () => {
+  test("video presets compile to modality 'video' and the job carries it", () => {
+    const { plan } = planFor("simple_commercial");
+    expect(plan.modality).toBe("video");
+    const { job } = schema.createMediaJob({ plan, now: fixedNow });
+    expect(job.modality).toBe("video");
+  });
+
+  test("RENDER_MODALITIES covers image/video/audio/3D/composite", () => {
+    expect(schema.RENDER_MODALITIES).toEqual(
+      expect.arrayContaining(["image", "video", "audio", "threed", "composite"])
+    );
+  });
+
+  test("validation rejects an unknown modality", () => {
+    const { plan } = planFor("tiktok_short");
+    const { job } = schema.createMediaJob({ plan, now: fixedNow });
+    const bad = Object.assign({}, job, { modality: "hologram" });
+    expect(schema.validateMediaJob(bad).join(" ")).toMatch(/not a known render modality/);
+  });
+
+  test("deliverable vocabulary includes image and 3D kinds for non-video renders", () => {
+    expect(schema.DELIVERABLE_KINDS).toContain("generated_image");
+    expect(schema.DELIVERABLE_KINDS).toContain("generated_model");
+  });
+});
