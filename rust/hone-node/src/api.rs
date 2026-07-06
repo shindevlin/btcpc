@@ -1473,16 +1473,21 @@ struct NodeConfigPatch {
 // PATCH /api/node/config — update runtime node config (currently: model selection)
 async fn patch_node_config(
     State(s): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     Json(body): Json<NodeConfigPatch>,
-) -> Json<serde_json::Value> {
+) -> axum::response::Response {
+    // Operator-only: changes this node's runtime config (e.g. active model).
+    if let Err(resp) = local_only(&addr) {
+        return resp;
+    }
     if let Some(model) = body.model {
         let m = model.trim().to_owned();
         if !m.is_empty() {
             *s.current_model.write().await = m.clone();
-            return Json(serde_json::json!({ "ok": true, "model": m }));
+            return Json(serde_json::json!({ "ok": true, "model": m })).into_response();
         }
     }
-    Json(serde_json::json!({ "ok": false, "error": "no valid field to update" }))
+    Json(serde_json::json!({ "ok": false, "error": "no valid field to update" })).into_response()
 }
 
 // GET /app  /app.html — self-contained node dashboard (also loaded by the Tauri desktop app)
@@ -6719,8 +6724,15 @@ struct PurchaseConfigBody {
 
 async fn post_purchase_config(
     State(s): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     Json(b): Json<PurchaseConfigBody>,
-) -> Json<serde_json::Value> {
+) -> axum::response::Response {
+    // Operator-only: sets the OTC desk's receiving address, price, and enabled
+    // state. A remote party must NEVER be able to point the payout address at
+    // themselves — local access required.
+    if let Err(resp) = local_only(&addr) {
+        return resp;
+    }
     let existing = s.chain.store.state_get(PURCHASE_CONFIG_KEY)
         .and_then(|v| serde_json::from_slice::<serde_json::Value>(&v).ok())
         .unwrap_or_else(|| serde_json::json!({}));
@@ -6732,7 +6744,7 @@ async fn post_purchase_config(
     if let Ok(bytes) = serde_json::to_vec(&cfg) {
         let _ = s.chain.store.state_set(PURCHASE_CONFIG_KEY, &bytes);
     }
-    Json(serde_json::json!({ "ok": true, "config": cfg }))
+    Json(serde_json::json!({ "ok": true, "config": cfg })).into_response()
 }
 
 async fn get_purchase_quote(
@@ -7500,6 +7512,48 @@ fn git_auth(headers: &HeaderMap) -> Option<String> {
         .map(|s| s.trim().to_owned())
 }
 
+/// Resolve `Authorization: Bearer <token>` to a HONE account, or return an
+/// auth-error response. The token is first looked up as a registered API key
+/// (the secure path, `AccountApiKeySet`); failing that it is accepted as a
+/// direct account name only if that account exists (back-compat). This is the
+/// single authenticated-identity gate reused by paid/account-scoped endpoints
+/// so there is one auth path to audit — do NOT trust an `account` field from a
+/// request body without checking it against this.
+fn bearer_account(headers: &HeaderMap, s: &AppState) -> Result<String, axum::response::Response> {
+    let unauth = |msg: &str| {
+        (StatusCode::UNAUTHORIZED, Json(serde_json::json!({
+            "error": { "message": msg, "type": "authentication_error" }
+        }))).into_response()
+    };
+    let token = headers.get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .map(|s| s.trim().to_owned())
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| unauth("Authorization required: Bearer <api_key or account>"))?;
+    if let Some(acct) = s.chain.store.get_account_by_api_key(&token) {
+        return Ok(acct);
+    }
+    match s.chain.store.get_account(&token) {
+        Ok(Some(_)) => Ok(token),
+        _ => Err(unauth("Invalid API key or unknown account")),
+    }
+}
+
+/// Guard for OPERATOR-only endpoints (node/purchase config): the request must
+/// originate from the local machine (loopback). These mutate the node
+/// operator's own configuration and are not user/account actions, so they must
+/// never be callable by a remote party. Returns an error response if not local.
+fn local_only(addr: &SocketAddr) -> Result<(), axum::response::Response> {
+    if addr.ip().is_loopback() {
+        Ok(())
+    } else {
+        Err((StatusCode::FORBIDDEN, Json(serde_json::json!({
+            "error": "operator-only endpoint: local access required"
+        }))).into_response())
+    }
+}
+
 /// Resolve the HONE account for `owner`: if it looks like an ENS name (contains '.')
 /// resolve it via ENS → HONE; otherwise use it as-is.
 async fn resolve_owner(s: &AppState, owner: &str) -> String {
@@ -8012,10 +8066,20 @@ async fn get_v1_pricing(State(s): State<AppState>) -> Json<serde_json::Value> {
 #[derive(Deserialize)]
 struct TotpSetupRequest { account: String }
 
+/// A caller may only manage TOTP for the account they authenticated as.
+/// Returns the authenticated account, or FORBIDDEN if it doesn't match the
+/// requested account (closes the cross-account TOTP hijack).
+fn totp_authz(headers: &HeaderMap, s: &AppState, account: &str) -> Result<(), StatusCode> {
+    let authed = bearer_account(headers, s).map_err(|_| StatusCode::UNAUTHORIZED)?;
+    if authed == account { Ok(()) } else { Err(StatusCode::FORBIDDEN) }
+}
+
 async fn post_totp_setup(
     State(s): State<AppState>,
+    headers: HeaderMap,
     Json(body): Json<TotpSetupRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
+    totp_authz(&headers, &s, &body.account)?;
     let secret = crate::totp::generate_secret();
     let uri = crate::totp::otpauth_uri(&body.account, &secret);
     // Store pending (not yet enabled) secret.
@@ -8029,8 +8093,10 @@ struct TotpEnableRequest { account: String, code: u32 }
 
 async fn post_totp_enable(
     State(s): State<AppState>,
+    headers: HeaderMap,
     Json(body): Json<TotpEnableRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
+    totp_authz(&headers, &s, &body.account)?;
     let pending_key = format!("totp_pending:{}", body.account);
     let secret = s.secret_store.get(&pending_key).ok_or(StatusCode::NOT_FOUND)?;
     if !crate::totp::verify(&secret, body.code) {
@@ -8062,8 +8128,10 @@ struct TotpDisableRequest { account: String, code: u32 }
 
 async fn post_totp_disable(
     State(s): State<AppState>,
+    headers: HeaderMap,
     Json(body): Json<TotpDisableRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
+    totp_authz(&headers, &s, &body.account)?;
     let secret = s.secret_store.get(&format!("totp_active:{}", body.account))
         .ok_or(StatusCode::NOT_FOUND)?;
     if !crate::totp::verify(&secret, body.code) {
@@ -8078,8 +8146,10 @@ struct TotpBackupRequest { account: String, code: u32 }
 
 async fn post_totp_backup_codes(
     State(s): State<AppState>,
+    headers: HeaderMap,
     Json(body): Json<TotpBackupRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
+    totp_authz(&headers, &s, &body.account)?;
     let secret = s.secret_store.get(&format!("totp_active:{}", body.account))
         .ok_or(StatusCode::NOT_FOUND)?;
     if !crate::totp::verify(&secret, body.code) {
@@ -8107,10 +8177,19 @@ struct InferenceStreamRequest {
 
 async fn post_inference_stream(
     State(s): State<AppState>,
+    headers: HeaderMap,
     Json(body): Json<InferenceStreamRequest>,
 ) -> impl axum::response::IntoResponse {
     use axum::response::sse::KeepAlive;
     use tokio_stream::StreamExt;
+
+    // AUTH: the caller must present a funded account (Bearer api-key/account).
+    // The account is DEBITED, so it must be the caller's — never trust
+    // body.account. Resolve identity from the header and debit THAT account.
+    let account = match bearer_account(&headers, &s) {
+        Ok(a) => a,
+        Err(resp) => return resp,
+    };
 
     let ollama_url = std::env::var("OLLAMA_URL")
         .unwrap_or_else(|_| "http://localhost:11434".to_owned());
@@ -8119,14 +8198,14 @@ async fn post_inference_stream(
 
     // Deduct inference fee (1000 hunits) before streaming.
     let fee: u64 = 1_000;
-    if s.chain.get_balance(&body.account, NATIVE_TOKEN) < fee {
+    if s.chain.get_balance(&account, NATIVE_TOKEN) < fee {
         let (tx, rx) = tokio::sync::mpsc::channel::<Result<Event, Infallible>>(1);
         let _ = tx.try_send(Ok(Event::default().data("{\"error\":\"insufficient balance\"}")));
         return Sse::new(tokio_stream::wrappers::ReceiverStream::new(rx))
             .keep_alive(KeepAlive::default())
             .into_response();
     }
-    let _ = s.chain.store.debit(&body.account, NATIVE_TOKEN, fee);
+    let _ = s.chain.store.debit(&account, NATIVE_TOKEN, fee);
     let _ = s.chain.store.credit("treasury", NATIVE_TOKEN, fee);
 
     let (tx, rx) = tokio::sync::mpsc::channel::<Result<Event, Infallible>>(32);
