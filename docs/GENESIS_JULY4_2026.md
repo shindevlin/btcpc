@@ -1,12 +1,12 @@
 ---
-title: BTCPC Genesis v2 — July 4th, 2026 (Freedom Tech Relaunch)
+title: HONE Genesis — July 4th, 2026 (Freedom Tech Relaunch)
 description: Plan for review — why we reset the chain, the recoverable-keystore fix, and the wallet recreation for every project
 author: Shin Devlin
 status: DRAFT — for review before any build
 supersedes_genesis: 1783191600000 (May 1 2026, "Mayday")
 ---
 
-# BTCPC Genesis v2 — July 4th, 2026
+# HONE Genesis — July 4th, 2026
 
 > **This is a plan for you to review. Nothing is built or changed yet.** It lays
 > out *what* we do, *why*, and *in what order*. Approve it (or edit it) and then
@@ -40,7 +40,7 @@ fixes the deepest structural gap we have.
 
 ## 2. Why July 4th, 2026
 
-America's **250th anniversary** (Semiquincentennial). BTCPC is freedom tech for a
+America's **250th anniversary** (Semiquincentennial). HONE is freedom tech for a
 freedom-based country — a sovereign chain, self-custody, no gatekeepers. Anchoring
 genesis to July 4 2026 makes the mission the launch.
 
@@ -79,7 +79,7 @@ so a single lost thing never means a lost account:
 
 ### Layer 3 — Optional encrypted relay backup (opt-in)
 - User may opt to upload the **encrypted keystore blob** (ciphertext only) to a
-  BTCPC relay/service, so the account survives losing the local file.
+  HONE relay/service, so the account survives losing the local file.
 - The password never leaves the device; the relay only ever holds ciphertext it
   cannot decrypt.
 - Off by default — sovereignty first; convenience is a choice.
@@ -90,7 +90,7 @@ so a single lost thing never means a lost account:
 - The public-only `save_to_file` stays (for publishing identity), but the wallet
   **creation flow always writes a keystore too** — you cannot create a wallet
   that leaves no recoverable file.
-- New deps in `btcpc-sdk`: `argon2`, `aes-gcm` (already used by the node).
+- New deps in `hone-sdk`: `argon2`, `aes-gcm` (already used by the node).
 
 ## 4. Wallets to recreate (kept locally, this time)
 
@@ -102,13 +102,13 @@ gitignored `wallets/` vault) so you can always refer back to it. Proposed set:
 |---|---|---|
 | `shindevlin` | **Protocol founder / root owner** | HIGHEST value — the whitepaper makes this account the owner of `freeport`, `verasens`, `linkgit` (holds their seed phrases). If any wallet must be recoverable, it is this one. All three backup layers on. |
 | `natoshisakamoto` | The node / founder account | Node signing key; highest value — keystore + phrase + relay backup all on. |
-| `bullship` | Bullship inference billing | The account this whole thread needed. Fresh key, recoverable. You have its **Hive** key already — this is its **BTCPC** key. |
+| `bullship` | Bullship inference billing | The account this whole thread needed. Fresh key, recoverable. You have its **Hive** key already — this is its **HONE** key. |
 | `__treasury__`, `__recycle_fund__`, `__testnet_fund__` | System funds | Defined in genesis, not user wallets — no keystore, but documented. |
 | `freeport` | Freeport marketplace service | Per-vertical service account. Owner: `shindevlin`. |
 | `linkgit` | LinkGit identity layer | Per-vertical service account. Owner: `shindevlin`. |
 | `verasens` | Verasens sensor layer | Per-vertical service account. Owner: `shindevlin`. |
-| `btcpc-market`, `btcpc-relay` | Service accounts | As needed by each running service. |
-| (bots) `btcpcbot`, `btcpcwalletbot` | Telegram bots | If they hold accounts. |
+| `hone-market`, `hone-relay` | Service accounts | As needed by each running service. |
+| (bots) `honebot`, `honewalletbot` | Telegram bots | If they hold accounts. |
 
 **Deliverable:** a local `wallets/` directory with one `*.keystore.json` per
 account + an index (`wallets/INDEX.md`, public info only — account name,
@@ -131,7 +131,7 @@ to git (the vault is gitignored).
 ## 6. Execution order (after you approve this plan)
 
 1. **Keystore engine** — Argon2id + AES-256-GCM `save_keystore`/`load_keystore`
-   in `btcpc-sdk`, with tests (round-trip, wrong-password rejection, tamper
+   in `hone-sdk`, with tests (round-trip, wrong-password rejection, tamper
    detection). *No chain changes yet.*
 2. **Wallet-creation flow** — make keystore-writing mandatory; add the
    mnemonic-shown-once confirmation gate; add `hone wallet new` / `import` /
@@ -156,7 +156,7 @@ to git (the vault is gitignored).
 ## 8. Open questions for your review
 1. Genesis time: **noon EDT (recommended)** vs midnight EDT?
 2. Any accounts missing from the §4 list that you want wallets for?
-3. Should the local `wallets/` vault live in the btcpc repo (gitignored) or a
+3. Should the local `wallets/` vault live in the hone repo (gitignored) or a
    separate path you name?
 4. Keep chain IDs (`hone` mainnet / `hone-testnet` testnet), or new IDs to
    cleanly separate v2 from v1?

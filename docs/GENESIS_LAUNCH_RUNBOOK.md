@@ -1,5 +1,5 @@
 ---
-title: BTCPC Genesis v2 — Launch-Day Runbook (July 4 2026, noon LA)
+title: HONE Genesis — Launch-Day Runbook (July 4 2026, noon LA)
 description: The mechanical go/no-go checklist for launching the recoverable chain
 author: Shin Devlin
 ---
@@ -27,11 +27,11 @@ fifth time. `verify-vault` (step 4) is the hard gate. Do not skip it.**
 For each account, with a strong password you SAVE:
 ```
 HONE_WALLET_PASSWORD='<strong password — SAVE IT>' \
-  btcpc wallet new --account <name> --vault wallets
+  hone wallet new --account <name> --vault wallets
 ```
 Accounts: `shindevlin` (founder / root owner — the MOST important to recover, it
 owns freeport/verasens/linkgit), `natoshisakamoto`, `bullship`, `freeport`,
-`linkgit`, `verasens`, `btcpc-market`, `btcpc-relay`.
+`linkgit`, `verasens`, `hone-market`, `hone-relay`.
 
 **For EACH one: write down the recovery phrase it prints (shown once).** This is
 the layer-2 backup. If you skip it and later lose the password, that account is
@@ -39,7 +39,7 @@ gone — the exact failure we are ending.
 
 ### 2. Build the index and eyeball it
 ```
-btcpc wallet index --vault wallets
+hone wallet index --vault wallets
 cat wallets/INDEX.md
 ```
 Every account must show **✓ yes** under "Recoverable keystore". Any ✗ = stop.
@@ -59,7 +59,7 @@ Update the timestamp constant in ALL THREE (CI gate check-constants.yml enforces
 
 ### 4. ★ THE GATE — verify-vault ★
 ```
-btcpc wallet verify-vault --vault wallets --genesis rust/hone-node/genesis.json \
+hone wallet verify-vault --vault wallets --genesis rust/hone-node/genesis.json \
     --require-accounts rust/hone-node/genesis-required-accounts.txt
 ```
 - **Exit 0 / "Safe to launch"** → proceed.
@@ -80,12 +80,12 @@ Recoverability is worthless if it lives on one disk that can die.
   for relay backup — but the off-machine copy above is the must-have for launch.
 
 ### 6. Build + stage the node binaries (do NOT start yet if before 19:00)
-- x86_64 primary node: `cargo +1.90.0 build --release -p btcpc-node`
+- x86_64 primary node: `cargo +1.90.0 build --release -p hone-node`
 - Nebra aarch64:
   ```
   rustup target add aarch64-unknown-linux-gnu
   CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \
-    cargo build --release -p btcpc-node --target aarch64-unknown-linux-gnu
+    cargo build --release -p hone-node --target aarch64-unknown-linux-gnu
   ```
   scp the binary + genesis.json to the Nebra.
 
@@ -94,7 +94,7 @@ Recoverability is worthless if it lives on one disk that can die.
 HONE_DATA_DIR=/tmp/gv2-smoke HONE_CHAIN_ID=hone \
   HONE_GENESIS_FILE=$PWD/rust/hone-node/genesis.json \
   HONE_GENESIS_TIMESTAMP=1783191600000 HONE_API_PORT=4299 HONE_P2P_PORT=6999 \
-  ./target/release/btcpc-node &
+  ./target/release/hone-node &
 sleep 8
 curl -s http://localhost:4299/api/block/0 | grep -o '"hash":"[^"]*"'
 ```
