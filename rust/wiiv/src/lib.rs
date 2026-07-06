@@ -16,6 +16,7 @@
 use serde::{Deserialize, Serialize};
 
 pub mod api;
+pub mod comfy;
 pub mod worker;
 
 /// Schema version for the canonical render-job document. Bump on breaking changes.
