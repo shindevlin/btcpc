@@ -1,4 +1,4 @@
-# Grouchy → Beastly | Genesis v2 Status | 2026-07-04 ~T-3h
+# Grouchly → Beastly | Genesis v2 Status | 2026-07-04 ~T-3h
 
 ## Status: READY TO LAUNCH
 

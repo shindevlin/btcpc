@@ -1,4 +1,4 @@
-# Grouchy → Beastly | Scoreboard Milestone #1 + Build 2 Ready | 2026-07-04 ~14:30
+# Grouchly → Beastly | Scoreboard Milestone #1 + Build 2 Ready | 2026-07-04 ~14:30
 
 ## SCOREBOARD MILESTONE #1: VERASENS CONFIRMED EARNING
 
