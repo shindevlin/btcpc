@@ -252,18 +252,84 @@ mod candle_backend {
         Ok(ChatResponse { content })
     }
 
+    /// A loaded quantized model, dispatched by GGUF architecture. Each variant
+    /// wraps the per-architecture `ModelWeights` from candle-transformers; the
+    /// generation loop only ever touches `forward`, so adding an architecture is
+    /// (a) a new variant, (b) a load arm, (c) a `forward` arm — nothing else.
+    ///
+    /// Why this exists: `quantized_llama::ModelWeights::from_gguf` reads `llama.*`
+    /// metadata keys and hard-fails on a Qwen GGUF ("cannot find
+    /// llama.attention.head_count in metadata"), because Qwen GGUFs carry
+    /// `qwen2.*` / `qwen3.*` keys. candle ships a matching loader per family; we
+    /// pick it from `general.architecture`.
+    enum LoadedModel {
+        Llama(candle_transformers::models::quantized_llama::ModelWeights),
+        Qwen2(candle_transformers::models::quantized_qwen2::ModelWeights),
+        Qwen3(candle_transformers::models::quantized_qwen3::ModelWeights),
+    }
+
+    impl LoadedModel {
+        /// Shared forward signature across families: `(input, index_pos) ->
+        /// logits`. Each candle loader exposes exactly this, so the generation
+        /// loop stays architecture-agnostic.
+        fn forward(
+            &mut self,
+            input: &candle_core::Tensor,
+            index_pos: usize,
+        ) -> candle_core::Result<candle_core::Tensor> {
+            match self {
+                LoadedModel::Llama(m) => m.forward(input, index_pos),
+                LoadedModel::Qwen2(m) => m.forward(input, index_pos),
+                LoadedModel::Qwen3(m) => m.forward(input, index_pos),
+            }
+        }
+    }
+
     /// The candle generate loop — ported from hone-android/src/llm.rs. Greedy.
     fn generate_sync(model_path: &Path, prompt: &str, max_tokens: usize) -> Result<String> {
         use candle_core::quantized::gguf_file;
         use candle_core::{Device, Tensor};
-        use candle_transformers::models::quantized_llama::{ModelWeights, MAX_SEQ_LEN};
+        // Shared sequence-length cap. candle's Qwen loaders expose no MAX_SEQ_LEN
+        // constant; llama's 4096 is a safe general bound across the families here.
+        use candle_transformers::models::quantized_llama::MAX_SEQ_LEN;
         use tokenizers::Tokenizer;
 
         let device = Device::Cpu;
 
         let mut file = std::fs::File::open(model_path)?;
         let gguf = gguf_file::Content::read(&mut file)?;
-        let mut model = ModelWeights::from_gguf(gguf, &mut file, &device)?;
+
+        // Detect the architecture from GGUF metadata and dispatch to the matching
+        // candle loader. `gguf` is moved into `from_gguf`, so read the arch first.
+        let arch = gguf
+            .metadata
+            .get("general.architecture")
+            .and_then(|v| v.to_string().ok())
+            .map(|s| s.to_owned())
+            .unwrap_or_default();
+        let mut model = match arch.as_str() {
+            "qwen2" => LoadedModel::Qwen2(
+                candle_transformers::models::quantized_qwen2::ModelWeights::from_gguf(
+                    gguf, &mut file, &device,
+                )?,
+            ),
+            "qwen3" => LoadedModel::Qwen3(
+                candle_transformers::models::quantized_qwen3::ModelWeights::from_gguf(
+                    gguf, &mut file, &device,
+                )?,
+            ),
+            // "llama" and, for back-compat, any GGUF that omits the arch key (the
+            // pre-dispatch behaviour) go through the proven llama loader.
+            "llama" | "" => LoadedModel::Llama(
+                candle_transformers::models::quantized_llama::ModelWeights::from_gguf(
+                    gguf, &mut file, &device,
+                )?,
+            ),
+            other => bail!(
+                "unsupported GGUF architecture {other:?}: embedded candle backend supports \
+                 llama, qwen2, qwen3 (add a LoadedModel variant to extend)"
+            ),
+        };
 
         // Tokenizer must live in the store next to the model (no auto-download).
         // Accept either "<model-stem>.tokenizer.json" or a shared "tokenizer.json".
