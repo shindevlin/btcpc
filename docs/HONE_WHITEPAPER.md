@@ -1,9 +1,9 @@
 # HONE
 
-### A Proof-of-Compute Blockchain with Native Commerce, IoT, and Version Control Protocols
+### A Proof-of-Compute Blockchain with Native Commerce, IoT, Version Control, and Rendering Protocols
 
 **Shin Devlin**
-**Version 1.0 — April 2026**
+**Version 1.1 — July 2026**
 
 ---
 
@@ -22,12 +22,19 @@ permissionless clock nodes that any machine on the network can operate. Emission
 decays over epochs. There is no pre-mine. There is no founder allocation. Every token
 in existence was earned.
 
-Three protocols are native to the HONE chain from genesis block 0: **Freeport**
+Four protocols are native to the HONE chain from genesis block 0: **Freeport**
 (a sovereign peer-to-peer marketplace with built-in escrow), **Verasens** (a decentralized
-IoT sensor network with on-chain data provenance), and **LinkGit** (a decentralized version
-control system that mirrors seamlessly to GitHub). Each protocol is a standalone business
-with its own revenue model, owned initially by the protocol founder (shindevlin) and
-independently transferable via on-chain key rotation.
+IoT sensor network with on-chain data provenance), **LinkGit** (a decentralized version
+control system that mirrors seamlessly to GitHub), and **Wiiv** (a decentralized rendering
+marketplace that turns a creative brief into a finished image, video, audio, or 3D
+deliverable). Each protocol is a standalone business with its own revenue model, owned
+initially by the protocol founder (shindevlin) and independently transferable via on-chain
+key rotation.
+
+HONE is **model-agnostic** and runs inference **in-process**: the node ships with no
+default model and never auto-downloads one, and the compute that earns rewards is
+performed by the trusted node binary itself — not a supervised external engine — so that
+verifier nodes can re-run a job and confirm the work was real.
 
 ---
 
@@ -50,7 +57,9 @@ the majority. If inference dominates, inference earns the majority. The market d
 
 - **Inference/Compute:** Nodes completing AI inference jobs requested by users.
   Rewarded proportional to verified value score — output tokens multiplied by hardware
-  tier weight, model weight, and complexity factor — as assessed by verifiers.
+  tier weight, model weight, and complexity factor — as assessed by verifiers. Inference
+  runs **embedded in the node binary** (in-process candle GGUF), never delegated to a
+  supervised external engine (see §1.1.1).
 
 - **Storage:** Nodes storing committed chain data, proven via `StorageHeartbeat`.
   Rewarded proportional to bytes proven multiplied by query activity. Also earns
@@ -86,6 +95,54 @@ allocation from the epoch pool.
 A pool with no claimants does not accumulate — surplus recycles via the
 `hone_recycle` system account. Tokens are never burned. The supply ceiling of
 42,000,000 HONE is a hard limit, not a target that gets compressed by burning.
+
+### 1.1.1 Embedded Inference, the Model Registry, and Capability Provisioning
+
+A chain that pays for compute has to be able to check that the compute happened. HONE
+solves this at the foundation: **inference runs inside the trusted node binary** — an
+in-process candle GGUF engine — rather than being handed off to a separately-supervised
+external server. This is a chain-integrity property, not an implementation convenience.
+Because the node decodes deterministically (greedy decode), any **verifier node can
+re-run the same job against the same model and reproduce the same output** to confirm a
+worker did the work it claims. An external, operator-controlled engine is a cheating
+surface — it can return fabricated or cached output the chain cannot reproduce — so HONE
+does the compute itself.
+
+**Model-agnostic by design.** HONE has no hardcoded default model and never
+auto-downloads one. There is no `DEFAULT_MODEL` the network picks for you. The operator
+chooses which model(s) their machine serves, from a local model store, based on what the
+hardware can actually run. A node with nothing enabled simply reports inference
+unavailable until the operator enables a model — the network guesses nothing. This is a
+sovereignty property: your machine runs what *you* chose, from weights *you* already hold.
+
+**The on-chain model registry — analyze once, share to all.** Every node facing a model
+needs the same objective facts to decide whether it can run it: minimum VRAM, quantization,
+context length, file size, architecture. Having each machine independently analyze every
+model is wasteful, so HONE makes model analysis a chain primitive. The first node to
+analyze a given model publishes a `ModelManifestPublish` entry — keyed by the model's
+**content hash** (sha256 of the weights), not its name — recording those objective facts
+and the source. Every other node reads that manifest for free. The original analyzer earns
+a small, usage-weighted, per-epoch-capped `ModelAnalysisReward` — drawn from the
+**existing** reward pool, not new issuance, so cataloging useful models reallocates a
+sliver of reward toward a public good rather than inflating supply. Reward is proportional
+to a model's **attested usage in settled paid jobs**: `ModelUsageAttest` is a
+system-emitted entry that fires only when a model is actually used in a settled paid job,
+so usage is unfakeable — you cannot inflate a model's popularity without paying for real
+jobs. Only the first valid manifest per content hash earns, so there is no incentive to
+spam-publish, and a manifest that lies about its hardware requirements is slashable when a
+real load contradicts it. Cataloging a model everyone runs earns; cataloging junk nobody
+runs earns nothing.
+
+**One uniform opt-in path — the capability provisioner.** A machine does not silently
+become an inference, storage, sensor, or render node. A node-wide capability provisioner
+gives every role the same "autopilot" onboarding: the machine **discovers** what it is
+capable of, **hardware-gates** each capability against detected VRAM/RAM/disk, and then
+the **operator explicitly enables** the roles it wants to serve. Auto-detection may
+*suggest* what a machine could do; suggesting is never enabling. This is what makes large
+render models safe to support without surprise multi-gigabyte downloads (see §2.4): nothing
+heavy is fetched until an operator opts into a specific capability that clears its hardware
+gate. The registry is the discovery input to this provisioner — "which models fit this
+machine" is answered by gating the chain's published manifests against the local hardware.
 
 ### 1.2 Supply and Emission
 
@@ -242,9 +299,44 @@ of existing supply, not the creation of new supply.
 
 ### 1.3 Account Model
 
-Every HONE account is derived from a single BIP-39 mnemonic seed phrase using
-BIP-44 derivation with coin type **8888**. From one seed, a node generates six
-HONE role keys and four external chain wallets:
+**Names are the primary identity.** A HONE account is, first and foremost, a
+human-readable name — `bullship`, written `@bullship` — in the ENS/Hive tradition, not a
+hex blob. A person is a name. Names are claimed identities backed by stake, so the handle
+you read is the handle you can trust. System accounts (`__treasury__`, `__recycle_fund__`)
+have names but no key-derived address.
+
+**Typed, checksummed addresses for machines.** Alongside names, HONE defines a typed
+address format for tooling, QR codes, interop, and hardware confirmation — anywhere a raw
+entity reference is needed instead of a claimed name. An address is **bech32**-encoded
+(BIP-173) with a two-letter human-readable prefix that encodes *what kind of entity* it
+refers to. Every HONE address begins with `h`:
+
+| Entity | Prefix | Example |
+|--------|--------|---------|
+| Account / user | `hh` | `hh1…` |
+| Contract | `hk` | `hk1…` |
+| Token | `ht` | `ht1…` |
+| Device / sensor | `hd` | `hd1…` |
+| Vault | `hv` | `hv1…` |
+| Escrow | `he` | `he1…` |
+
+Because the prefix is folded into a checksummed encoding, a mistyped address — or one of
+the wrong type — is **rejected at parse time, before any value moves**. You cannot send a
+token to a contract by fat-fingering the recipient. This is a safety guarantee a bare hex
+string cannot make, and it is deliberately *not* an `0x…` scheme: hex fights HONE's
+name-based identity and echoes Ethereum. A claimed name (`@bullship`) and its typed
+address (`hh1…`) resolve to the same account; resolvers accept either.
+
+**Hardware-wallet compatible by construction.** HONE keys are **ed25519 on the SLIP-10
+hardened path `m/44'/6942'/role'/0'`** (6942 is HONE's coin index; `role` selects the key
+below). This is the same curve and derivation Ledger, Trezor, and Keystone already support
+natively for Cosmos, Solana, and Stellar, and the `hh1…` bech32 address is the same
+Cosmos-style bech32-over-ed25519-pubkey pattern those devices already display and sign for.
+A future HONE Ledger app is therefore a build, not a redesign: nothing in the key or
+address scheme obstructs on-device signing where the private key never leaves the device.
+
+From one BIP-39 mnemonic seed phrase, a node derives six HONE role keys and four external
+chain wallets:
 
 **HONE role keys:**
 
@@ -350,7 +442,7 @@ the five layers is not network-connected.
 
 ## 2. Native Protocol Businesses
 
-Three protocols are native to HONE from genesis block 0. They are not plugins, not
+Four protocols are native to HONE from genesis block 0. They are not plugins, not
 sidechains, not smart contracts compiled to bytecode and deployed after the fact.
 They are native ledger entry types processed by every node — as native to HONE as
 a token transfer is native to Bitcoin. Each is a standalone business with its own
@@ -462,13 +554,80 @@ blobs past the default garbage collection window.
 **Ownership:** Protocol account `linkgit` on the HONE chain. Owner: shindevlin.
 Transfer mechanism: same as Freeport — on-chain key rotation plus GitHub transfer.
 
+### 2.4 Wiiv — Decentralized Rendering
+
+Wiiv is HONE's rendering marketplace: a buyer arrives with rough creative intent and
+leaves with a finished deliverable. It is **modality-agnostic** — image, video, audio,
+3D, and composite renders are all first-class, served by the same job and settlement
+machinery — and it is an **A-to-Z production supply chain**, not a single model call.
+Wiiv coordinates local models, distributed GPU workers, human specialists, storage nodes,
+and reviewers as one pipeline: it drafts the brief, compiles a plan of milestones, takes
+worker bids, escrows the budget, delivers artifacts milestone by milestone, and settles
+against the buyer's acceptance. Like the other three protocols, Wiiv is native ledger
+entry types processed by every node, not a smart contract or sidechain. Its reserved
+accounts, `wiiv` and `wiiv-escrow`, are seeded at block 0.
+
+The foundational rule is that **subjective quality is never a consensus input**. The
+chain records *facts* — a job was posted, a bid was made, an artifact CID was delivered,
+the buyer accepted, escrow was released. Whether a render is *good* is decided by the
+buyer, a reviewer market, and reputation — never by chain validators. Nodes do not vote
+on aesthetics. This is the boundary that lets a creative marketplace live on a chain
+without corrupting consensus: HONE settles the transaction, it does not grade the art.
+
+| Entry | Signed by | What it does |
+|-------|-----------|-------------|
+| `WiivWorkerRegister` | posting | Advertise a worker's capabilities, modalities, price hints, and hardware attestation — emitted only after a local self-test render passes |
+| `WiivWorkerHeartbeat` | posting | Keep a worker's listing live and update availability |
+| `WiivRenderJobPost` | posting | Post a job: modality, milestone plan, required capabilities, budget cap, revision and retention policy |
+| `WiivJobFund` | active | Commit escrow up to the job's budget cap |
+| `WiivRenderBid` | memo | A worker bids on a job or milestone: price, ETA, capabilities |
+| `WiivBidAward` | posting | Award a job/milestone to a worker; lock that tranche of escrow |
+| `WiivMilestoneDeliver` | posting | Submit a milestone's artifact CIDs plus a provenance record |
+| `WiivArtifactDeliver` | seek | Attach the final artifact bundle, encrypted to the buyer's hide key |
+| `WiivMilestoneAccept` | posting | Accept a milestone; release its escrow tranche |
+| `WiivRevisionRequest` | posting | Return a delivered milestone with notes, bounded by revision policy |
+| `WiivJobAccept` | posting | Accept the full deliverable; trigger final settlement |
+| `WiivJobSettle` | system | Release remaining escrow and mark the job settled |
+| `WiivDisputeOpen` | posting | Open a dispute; freeze settlement and engage the reviewer market |
+| `WiivDisputeResolve` | posting | Record the reviewer market's reputation-weighted outcome |
+| `WiivStorageExtend` | posting | Pay to retain specific artifact CIDs past the default window |
+
+**Milestones and piecewise settlement.** Long-form work (a multi-shot video, a scored
+episode) is broken into milestones with dependency edges, each carrying its deliverable
+kinds and required capabilities. Accepting a milestone releases its escrow tranche to the
+awarded worker, so a job pays out as it progresses instead of all-or-nothing at the end.
+Every delivered artifact is a content-addressed blob in HONE-FS carrying an append-only
+**provenance record** — which worker produced it, which capability and model were used,
+and the input CIDs it derived from — so a finished deliverable travels with a verifiable
+chain of custody from brief to final render. Private-job artifacts are encrypted to the
+buyer's `hide` key before storage; no storage node can read them.
+
+**Opt-in render workers, no surprise downloads.** A base node ships with only the small
+embedded text model. Render models and runtimes are large — a video diffusion model is
+many gigabytes — so they are pulled **only when an operator opts into a specific render
+capability** through the capability provisioner (§1.1.1). Enabling is explicit and
+per-capability, hardware-gated *before* any download (a capability the machine can't meet
+is refused with the shortfall reported), and a node only advertises a capability after the
+model is resident and a local self-test render succeeds. Registrations carry a hardware
+attestation and a slashable stake, so one machine can't sybil many workers and advertising
+work a node can't deliver forfeits stake.
+
+**Revenue model:** Wiiv earns a settlement fee on job escrow release and a dispute fee
+funding the reviewer market, plus `WiivStorageExtend` fees for extended artifact
+retention. Reviewers are paid from the dispute fee, not the epoch pool; bad-faith
+reviewing is slashable. All fees accrue to the `wiiv` protocol account in HONE.
+
+**Ownership:** Protocol account `wiiv` on the HONE chain (escrow held by `wiiv-escrow`).
+Owner: shindevlin. Transfer mechanism: same as Freeport — on-chain key rotation plus
+GitHub transfer.
+
 ---
 
 ## 3. Protocol Ownership and Transfer
 
 ### 3.1 Initial Ownership
 
-All three protocol accounts — `freeport`, `verasens`, and `linkgit` — were seeded at
+All four protocol accounts — `freeport`, `verasens`, `linkgit`, and `wiiv` — were seeded at
 genesis with posting keys controlled by shindevlin. The seed phrases for each protocol
 account are held by shindevlin. shindevlin is also the GitHub user at
 github.com/shindevlin and holds the canonical HONE repository. This concentration
@@ -517,22 +676,29 @@ Each protocol generates independent, compounding revenue streams denominated in 
   adoption increases and developers route repositories through the network, the
   storage fee revenue scales with usage.
 
+- **Wiiv** earns a settlement fee on every render job that clears escrow, plus dispute
+  and artifact-retention fees. As the network's render capacity grows across modalities,
+  larger and more numerous jobs settle through the protocol, and fee revenue scales with
+  the total value of production routed through it.
+
 A buyer acquiring a protocol receives four things: the **protocol account** (controls
 fee parameters and receives fee revenue), the **on-chain state** (all registered
-stores, sensors, or repositories accumulated since genesis), the **codebase** (the
-GitHub repository), and the **brand** (the protocol name and its established user
-base). Protocols can also be licensed rather than acquired outright — a buyer deploys
-a fork on another chain, pays a license fee to the `freeport`/`verasens`/`linkgit`
-account, and operates under the brand in that context.
+stores, sensors, repositories, or render jobs accumulated since genesis), the
+**codebase** (the GitHub repository), and the **brand** (the protocol name and its
+established user base). Protocols can also be licensed rather than acquired outright — a
+buyer deploys a fork on another chain, pays a license fee to the
+`freeport`/`verasens`/`linkgit`/`wiiv` account, and operates under the brand in that
+context.
 
 ---
 
 ## 4. Key Management
 
 HONE accounts use a role-based key architecture derived from a single BIP-39 mnemonic.
-The derivation standard is BIP-44 with coin type **8888** (HONE). The six role keys
-serve distinct operational security tiers: the `owner` key signs infrequently and
-should be stored offline or in cold hardware; the `active` key signs financial
+HONE keys are **ed25519 on the SLIP-10 hardened path `m/44'/6942'/role'/0'`** (6942 is
+HONE's coin index) — the curve and derivation hardware wallets already sign natively (§1.3).
+The six role keys serve distinct operational security tiers: the `owner` key signs
+infrequently and should be stored offline or in cold hardware; the `active` key signs financial
 operations and should be protected at the same level as a bank password; the `posting`
 key signs chain entries and can be stored in a hot wallet appropriate for frequent use.
 
@@ -606,7 +772,10 @@ by a founding team.
 - **Explorer:** [scan.honemesh.net](https://scan.honemesh.net)
 - **Freeport Whitepaper:** [FREEPORT_PROTOCOL_WHITEPAPER.md](FREEPORT_PROTOCOL_WHITEPAPER.md)
 - **Native Protocols Overview:** [NATIVE_PROTOCOLS.md](NATIVE_PROTOCOLS.md)
+- **Wiiv Protocol:** [WIIV_PROTOCOL.md](WIIV_PROTOCOL.md)
+- **Model Registry Protocol:** [MODEL_REGISTRY_PROTOCOL.md](MODEL_REGISTRY_PROTOCOL.md)
+- **Address Scheme:** [ADDRESS_SCHEME.md](ADDRESS_SCHEME.md)
 
 ---
 
-*HONE v1.0 — April 2026 — Shin Devlin*
+*HONE v1.1 — July 2026 — Shin Devlin*
