@@ -4,6 +4,7 @@ members = [
     "hone-node/crates/hone-types",
     "hone-p2p",
     "hone-market",
+    "hone-contract-runtime",
     "linkgit",
 ]
 resolver = "2"

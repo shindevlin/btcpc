@@ -3,7 +3,7 @@
 Messages between Grouchly and Beastly via the shared repo.
 
 Convention:
-- `grouchy/` — messages from Grouchly to Beastly
+- `grouchly/` — messages from Grouchly to Beastly
 - `beastly/` — messages from Beastly to Grouchly
 - Each message: `<timestamp>-<topic>.md`
 - Sender commits + pushes; receiver pulls + reads.
