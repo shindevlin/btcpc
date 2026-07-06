@@ -19,6 +19,8 @@ name = "wiiv"
 path = "src/main.rs"
 
 [dependencies]
+# Wiiv render workers are one consumer of the node-wide capability provisioner.
+hone-provision = { path = "../hone-provision" }
 tokio = { version = "1", features = ["full"] }
 reqwest = { version = "0.12", features = ["json"] }
 serde = { version = "1", features = ["derive"] }

@@ -239,6 +239,98 @@ pub fn provision_capability<P: RenderProvider>(
     }
 }
 
+// ── Bridge to the node-wide provisioner ─────────────────────────────────────
+//
+// Wiiv render workers are one *consumer* of the general capability provisioner
+// (`hone_provision`). This bridge maps a Wiiv `RenderProvider` into the general
+// `CapabilityProvider` and routes through `hone_provision::provision`, so a
+// render capability flows through the exact same gate→acquire→self-test→ready
+// path the node uses for inference / storage / sensor roles. `provision_capability`
+// above stays as the Wiiv-native convenience wrapper.
+
+/// Map a Wiiv capability to the general capability name.
+fn wiiv_capability_name(cap: Capability) -> &'static str {
+    match cap {
+        Capability::VideoGeneration => "video_generation",
+        Capability::ImageGeneration => "image_generation",
+        Capability::ThreedGeneration => "threed_generation",
+        Capability::VoiceSynthesis => "voice_synthesis",
+        Capability::MusicGeneration => "music_generation",
+        Capability::EditingAssembly => "editing_assembly",
+        Capability::Upscaling => "upscaling",
+        Capability::Subtitles => "subtitles",
+        Capability::TextInference => "text_inference",
+        Capability::Storage => "blob_serving",
+        Capability::Review => "review",
+    }
+}
+
+/// Build a general `ResourceManifest` (Render role) from a Wiiv provider manifest.
+pub fn to_general_manifest(m: &ProviderManifest) -> hone_provision::ResourceManifest {
+    hone_provision::ResourceManifest {
+        capability: hone_provision::Capability::new(
+            hone_provision::NodeRole::Render,
+            wiiv_capability_name(m.capability),
+        ),
+        provider_id: m.provider_id.clone(),
+        version: m.version.clone(),
+        requirements: hone_provision::Requirements {
+            vram_mb: m.min_hardware.vram_mb,
+            ram_mb: m.min_hardware.ram_mb,
+            disk_mb: m.min_hardware.disk_mb,
+            cpu_cores: 0,
+            requires_gpu: m.min_hardware.requires_gpu,
+        },
+        resources: m
+            .models
+            .iter()
+            .map(|a| hone_provision::Resource {
+                kind: "model".to_string(),
+                name: a.path.clone(),
+                cid: a.cid.clone(),
+                url: a.url.clone(),
+                sha256: Some(a.sha256.clone()),
+                size_mb: a.size_mb,
+            })
+            .collect(),
+    }
+}
+
+/// Adapter so a Wiiv `RenderProvider` satisfies the general `CapabilityProvider`.
+pub struct GeneralProviderAdapter<'a, P: RenderProvider> {
+    inner: &'a P,
+    manifest: hone_provision::ResourceManifest,
+}
+
+impl<'a, P: RenderProvider> GeneralProviderAdapter<'a, P> {
+    pub fn new(inner: &'a P) -> Self {
+        let manifest = to_general_manifest(inner.manifest());
+        Self { inner, manifest }
+    }
+}
+
+impl<'a, P: RenderProvider> hone_provision::CapabilityProvider for GeneralProviderAdapter<'a, P> {
+    fn manifest(&self) -> &hone_provision::ResourceManifest {
+        &self.manifest
+    }
+    fn acquire(&self) -> Result<u64, String> {
+        self.inner.ensure_models()
+    }
+    fn self_test(&self) -> Result<(), String> {
+        self.inner.self_test()
+    }
+}
+
+/// Provision a Wiiv render capability THROUGH the node-wide provisioner. Returns
+/// the general `Enablement`, proving render is one role among the node's roles.
+pub fn provision_via_node<P: RenderProvider>(
+    provider: &P,
+    hw: &hone_provision::Hardware,
+) -> hone_provision::Enablement {
+    let adapter = GeneralProviderAdapter::new(provider);
+    hone_provision::provision(&adapter, hw)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -343,5 +435,23 @@ mod tests {
         let e = provision_capability(&p, &beefy());
         assert_eq!(e.state, ProvisionState::Refused);
         assert!(e.notes.iter().any(|n| n.contains("self-test")));
+    }
+
+    #[test]
+    fn render_provisions_through_the_node_wide_provisioner() {
+        // A Wiiv render capability flows through hone_provision::provision, proving
+        // render is one role among the node's roles (inference/storage/sensor/...).
+        let p = StubProvider { m: video_manifest(), pull_ok: true, test_ok: true };
+        let hw = hone_provision::Hardware {
+            vram_mb: 24000,
+            ram_mb: 32000,
+            free_disk_mb: 100_000,
+            cpu_cores: 16,
+            has_gpu: true,
+        };
+        let e = provision_via_node(&p, &hw);
+        assert_eq!(e.state, hone_provision::ProvisionState::Ready);
+        assert_eq!(e.capability.role, hone_provision::NodeRole::Render);
+        assert_eq!(e.capability.name, "video_generation");
     }
 }
