@@ -6,7 +6,7 @@ use anyhow::{Context, Result};
 use parking_lot::{Mutex, RwLock};
 use sha2::{Sha256, Digest as Sha256Digest};
 use tracing::{info, warn};
-use honemesh_types::{AccountId, LedgerEntry, NATIVE_TOKEN, CLOCK_REWARD_HUNITS, era, RECYCLE_ERA, RECYCLE_FUND_ACCOUNT, TESTNET_FUND_ACCOUNT, DEVICE_CLAIM_OVERBID_NUM, DEVICE_CLAIM_OVERBID_DENOM, OVERCLAIM_STAKER_SHARE_BPS, MAX_SIGHTINGS_PER_OBSERVER_PER_EPOCH, STORAGE_CHALLENGE_CHUNK_BYTES, SENSOR_GNSS_MAX_SPEED_M_S, EPOCH_DURATION_S, COVERAGE_GRID_RESOLUTION, COVERAGE_MAX_REPORTS_PER_EPOCH, COVERAGE_DEAD_SPOT_DBM_THRESHOLD, COVERAGE_CORROBORATION_MIN_REPORTERS, COVERAGE_MAX_CORROBORATING_REPORTERS, RUNTIME_FEE_HOST_BPS, RUNTIME_FEE_RECYCLE_BPS};
+use hone_types::{AccountId, LedgerEntry, NATIVE_TOKEN, CLOCK_REWARD_HUNITS, era, RECYCLE_ERA, RECYCLE_FUND_ACCOUNT, TESTNET_FUND_ACCOUNT, DEVICE_CLAIM_OVERBID_NUM, DEVICE_CLAIM_OVERBID_DENOM, OVERCLAIM_STAKER_SHARE_BPS, MAX_SIGHTINGS_PER_OBSERVER_PER_EPOCH, STORAGE_CHALLENGE_CHUNK_BYTES, SENSOR_GNSS_MAX_SPEED_M_S, EPOCH_DURATION_S, COVERAGE_GRID_RESOLUTION, COVERAGE_MAX_REPORTS_PER_EPOCH, COVERAGE_DEAD_SPOT_DBM_THRESHOLD, COVERAGE_CORROBORATION_MIN_REPORTERS, COVERAGE_MAX_CORROBORATING_REPORTERS, RUNTIME_FEE_HOST_BPS, RUNTIME_FEE_RECYCLE_BPS};
 
 use crate::inference;
 use crate::store::Store;
@@ -233,7 +233,7 @@ fn spam_gate(store: &Store, to: &str, token: &str) -> Option<SpamGate> {
 ///   3. The Merkle path walks from `leaf_hash` up to `merkle_root`
 fn verify_storage_proof(
     store: &crate::store::Store,
-    proof: &honemesh_types::MerkleRangeProof,
+    proof: &hone_types::MerkleRangeProof,
     node_id: &str,
     epoch: u64,
     bytes_proven: u64,
@@ -364,11 +364,11 @@ impl Chain {
     /// Chain reference (e.g. the types crate).
     #[allow(dead_code)]
     pub fn epoch_duration_ms_dynamic(&self, epoch: u64) -> u64 {
-        let e = honemesh_types::era(epoch);
+        let e = hone_types::era(epoch);
         let key = format!("chain_param:era_epoch_ms:{}", e);
         self.store.state_get(&key)
             .and_then(|b| serde_json::from_slice::<u64>(&b).ok())
-            .unwrap_or_else(|| honemesh_types::epoch_duration_ms(epoch))
+            .unwrap_or_else(|| hone_types::epoch_duration_ms(epoch))
     }
 
     /// Wall-clock offset in milliseconds from genesis for the start of `epoch`,
@@ -376,22 +376,22 @@ impl Chain {
     #[allow(dead_code)]
     pub fn epoch_start_ms_dynamic(&self, epoch: u64, genesis_ms: u64) -> u64 {
         if epoch == 0 { return genesis_ms; }
-        let e = honemesh_types::era(epoch);
+        let e = hone_types::era(epoch);
         let mut ms = genesis_ms;
         // Sum fully-completed eras
         for k in 0..e {
             let key = format!("chain_param:era_epoch_ms:{}", k);
             let era_epoch_ms = self.store.state_get(&key)
                 .and_then(|b| serde_json::from_slice::<u64>(&b).ok())
-                .unwrap_or_else(|| honemesh_types::epoch_duration_ms(k * honemesh_types::DOUBLING_INTERVAL));
-            ms = ms.saturating_add(honemesh_types::DOUBLING_INTERVAL.saturating_mul(era_epoch_ms));
+                .unwrap_or_else(|| hone_types::epoch_duration_ms(k * hone_types::DOUBLING_INTERVAL));
+            ms = ms.saturating_add(hone_types::DOUBLING_INTERVAL.saturating_mul(era_epoch_ms));
         }
         // Remaining epochs in current era
-        let epoch_in_era = epoch - e * honemesh_types::DOUBLING_INTERVAL;
+        let epoch_in_era = epoch - e * hone_types::DOUBLING_INTERVAL;
         let cur_key = format!("chain_param:era_epoch_ms:{}", e);
         let cur_epoch_ms = self.store.state_get(&cur_key)
             .and_then(|b| serde_json::from_slice::<u64>(&b).ok())
-            .unwrap_or_else(|| honemesh_types::epoch_duration_ms(epoch));
+            .unwrap_or_else(|| hone_types::epoch_duration_ms(epoch));
         ms.saturating_add(epoch_in_era.saturating_mul(cur_epoch_ms))
     }
 
@@ -469,7 +469,7 @@ impl Chain {
     /// Build and persist a sealed block from the txglobal index for the given epoch.
     /// Safe to call after all entries for the epoch have been applied.
     pub fn write_sealed_block(&self, epoch: u64, seal_hash: &str, timestamp_ms: u64) {
-        use honemesh_types::{Block, BlockHeader, merkle_root};
+        use hone_types::{Block, BlockHeader, merkle_root};
 
         let prefix = format!("txglobal:{:016x}:", epoch);
         let entries: Vec<serde_json::Value> = self.store
@@ -537,7 +537,7 @@ impl Chain {
                 if self.store.get_account(account)?.is_some() {
                     return Ok(()); // idempotent
                 }
-                let exempt = honemesh_types::STAKE_EXEMPT_ACCOUNTS.contains(&account.as_str());
+                let exempt = hone_types::STAKE_EXEMPT_ACCOUNTS.contains(&account.as_str());
                 if !exempt {
                     let stake_enabled = self.store.state_get("chain_param:name_stake_enabled")
                         .and_then(|bytes| String::from_utf8(bytes).ok())
@@ -547,7 +547,7 @@ impl Chain {
                         let stake_amount = self.store.state_get("chain_param:name_stake_amount")
                             .and_then(|bytes| String::from_utf8(bytes).ok())
                             .and_then(|s| s.trim().parse::<u64>().ok())
-                            .unwrap_or(honemesh_types::NAME_REGISTRATION_STAKE);
+                            .unwrap_or(hone_types::NAME_REGISTRATION_STAKE);
                         if let Some(funder) = funded_by {
                             self.store.debit(funder, NATIVE_TOKEN, stake_amount)?;
                         }
@@ -568,7 +568,7 @@ impl Chain {
                     "chain_proofs": proofs_json,
                     "nonce": 0,
                     "stake": 0,
-                    "name_stake_locked": honemesh_types::NAME_REGISTRATION_STAKE,
+                    "name_stake_locked": hone_types::NAME_REGISTRATION_STAKE,
                 });
                 if let Some(fp) = machine_fingerprint.as_deref().filter(|s| !s.is_empty()) {
                     state["machine_fingerprint"] = serde_json::Value::String(fp.to_owned());
@@ -701,7 +701,7 @@ impl Chain {
                     {
                         if !semver_gte(ver, &min_ver) {
                             anyhow::bail!(
-                                "node version '{}' is below minimum required '{}' — upgrade honemesh-node",
+                                "node version '{}' is below minimum required '{}' — upgrade hone-node",
                                 ver, min_ver.trim()
                             );
                         }
@@ -716,7 +716,7 @@ impl Chain {
                             .unwrap_or_default();
                         if !approved_sw.is_empty() && !approved_sw.iter().any(|h| h == sw_hash) {
                             anyhow::bail!(
-                                "software hash '{}' is not on the approved list — upgrade to an official honemesh-node release",
+                                "software hash '{}' is not on the approved list — upgrade to an official hone-node release",
                                 sw_hash
                             );
                         }
@@ -802,7 +802,7 @@ impl Chain {
                 // At each era boundary, recompute the epoch duration for all
                 // remaining new-supply eras so supply exhaustion tracks Bitcoin's
                 // last-coin timestamp.  No governance required — fires automatically.
-                use honemesh_types::{era, RECYCLE_ERA, calibrate_era_epoch_ms, BTC_PROJECTED_END_MS};
+                use hone_types::{era, RECYCLE_ERA, calibrate_era_epoch_ms, BTC_PROJECTED_END_MS};
                 let new_era = era(ep);
                 let prev_era = if ep > 0 { era(ep - 1) } else { 0 };
                 if new_era > prev_era && new_era < RECYCLE_ERA {
@@ -1472,7 +1472,7 @@ impl Chain {
                 self.store.credit(host_id, NATIVE_TOKEN, *amount)?;
             }
 
-            // Freeport commerce — recorded on-chain, state managed by honemesh-market sidecar
+            // Freeport commerce — recorded on-chain, state managed by hone-market sidecar
             LedgerEntry::StoreUpdate { .. }
             | LedgerEntry::ProductCreate { .. }
             | LedgerEntry::ProductUpdate { .. }
@@ -1716,12 +1716,12 @@ impl Chain {
             }
 
             LedgerEntry::LinkGitServeReward { repo_id, owner, amount, serve_count, epoch } => {
-                self.store.credit(owner, honemesh_types::NATIVE_TOKEN, *amount)?;
+                self.store.credit(owner, hone_types::NATIVE_TOKEN, *amount)?;
                 info!("linkgit serve reward: repo={} owner={} fetchers={} amount={} epoch={}", repo_id, owner, serve_count, amount, epoch);
             }
 
             LedgerEntry::LinkGitBuildReward { builder, amount, push_count, epoch } => {
-                self.store.credit(builder, honemesh_types::NATIVE_TOKEN, *amount)?;
+                self.store.credit(builder, hone_types::NATIVE_TOKEN, *amount)?;
                 info!("linkgit build reward: builder={} pushes={} amount={} epoch={}", builder, push_count, amount, epoch);
             }
 
@@ -2321,8 +2321,8 @@ impl Chain {
                 fee, epoch, nonce, .. } => {
                 // Debit fee to treasury.
                 if *fee > 0 {
-                    self.store.debit(claimer, honemesh_types::NATIVE_TOKEN, *fee)?;
-                    self.store.credit("treasury", honemesh_types::NATIVE_TOKEN, *fee)?;
+                    self.store.debit(claimer, hone_types::NATIVE_TOKEN, *fee)?;
+                    self.store.credit("treasury", hone_types::NATIVE_TOKEN, *fee)?;
                 }
                 let key = format!("tracker_claim:{}:{}", claimer, serial_commitment);
                 let val = serde_json::json!({
@@ -2377,7 +2377,7 @@ impl Chain {
                 let duration = expires_epoch.saturating_sub(*epoch);
                 let total_fee = fee_per_epoch.saturating_mul(duration);
                 if total_fee > 0 {
-                    self.store.debit(claimer, honemesh_types::NATIVE_TOKEN, total_fee)?;
+                    self.store.debit(claimer, hone_types::NATIVE_TOKEN, total_fee)?;
                     let escrow_key = format!("tracker_sub_escrow:{}:{}", claimer, serial_commitment);
                     self.store.state_set(&escrow_key, &serde_json::to_vec(&serde_json::json!({
                         "serial_commitment": serial_commitment,
@@ -2396,7 +2396,7 @@ impl Chain {
                 // Index CID reference for route reconstruction.
                 // Key: tracker_route:{serial_commitment}:{epoch:016x}
                 // Storing per-commitment (not per-claimer) so any node can relay,
-                // but only the memo-key holder can decrypt the blob via HoneMesh-FS.
+                // but only the memo-key holder can decrypt the blob via HONE-FS.
                 let route_key = format!("tracker_route:{}:{:016x}", serial_commitment, epoch);
                 self.store.state_set(&route_key, &serde_json::to_vec(&serde_json::json!({
                     "epoch": epoch,
@@ -2413,7 +2413,7 @@ impl Chain {
             LedgerEntry::TrackerLostMode { serial_commitment, claimer,
                 bounty_hunits, expires_epoch, contact_encrypted, epoch, nonce, .. } => {
                 if *bounty_hunits > 0 {
-                    self.store.debit(claimer, honemesh_types::NATIVE_TOKEN, *bounty_hunits)?;
+                    self.store.debit(claimer, hone_types::NATIVE_TOKEN, *bounty_hunits)?;
                     let escrow_key = format!("tracker_lost_escrow:{}:{}", claimer, serial_commitment);
                     self.store.state_set(&escrow_key, &serde_json::to_vec(&serde_json::json!({
                         "serial_commitment": serial_commitment,
@@ -2452,7 +2452,7 @@ impl Chain {
             }
 
             LedgerEntry::TrackerCoverageReward { observer_id, amount, .. } => {
-                self.store.credit(observer_id, honemesh_types::NATIVE_TOKEN, *amount)?;
+                self.store.credit(observer_id, hone_types::NATIVE_TOKEN, *amount)?;
             }
 
             LedgerEntry::TrackerFoundConfirm { serial_commitment, finder,
@@ -2466,10 +2466,10 @@ impl Chain {
                         let finder_share   = bounty * 70 / 100;
                         let treasury_share = bounty - finder_share - (bounty * 20 / 100);
                         let observer_share = bounty * 20 / 100;
-                        self.store.credit(finder, honemesh_types::NATIVE_TOKEN, finder_share)?;
-                        self.store.credit("treasury", honemesh_types::NATIVE_TOKEN, treasury_share)?;
+                        self.store.credit(finder, hone_types::NATIVE_TOKEN, finder_share)?;
+                        self.store.credit("treasury", hone_types::NATIVE_TOKEN, treasury_share)?;
                         // Observer share goes to the sensor pool for epoch distribution.
-                        self.store.credit("sensor_pool", honemesh_types::NATIVE_TOKEN, observer_share)?;
+                        self.store.credit("sensor_pool", hone_types::NATIVE_TOKEN, observer_share)?;
                     }
                     // Close escrow and lost mode.
                     let mut escrow = rec;
@@ -2561,7 +2561,7 @@ impl Chain {
                 let stake = self.get_stake(voter);
                 anyhow::ensure!(
                     stake > 0,
-                    "account '{}' has no stake — stake HoneMesh to vote", voter
+                    "account '{}' has no stake — stake HONE to vote", voter
                 );
                 // Idempotency: reject double-votes.
                 let vote_key = format!("governance:vote:{}:{}", proposal_id, voter);
@@ -3026,7 +3026,7 @@ impl Chain {
 
                 // Reward: 500 hunits per valid proof.
                 const PHONE_MINE_REWARD: u64 = 500;
-                self.store.credit(account, honemesh_types::NATIVE_TOKEN, PHONE_MINE_REWARD)?;
+                self.store.credit(account, hone_types::NATIVE_TOKEN, PHONE_MINE_REWARD)?;
 
                 // Increment proof counter.
                 let proofs_key = format!("phone_proofs:{}", account);
@@ -3378,7 +3378,7 @@ fn haversine_m(lat1: f64, lon1: f64, lat2: f64, lon2: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use honemesh_types::{LedgerEntry, NATIVE_TOKEN};
+    use hone_types::{LedgerEntry, NATIVE_TOKEN};
     use tempfile::TempDir;
 
     fn make_chain(label: &str) -> (Chain, TempDir) {
@@ -4213,7 +4213,7 @@ mod tests {
     /// After grace period, unlinked Mine produces zero effective score.
     #[test]
     fn test_mine_grace_period_score() {
-        use honemesh_types::{MINE_GRACE_PERIOD_EPOCHS, MINE_GRACE_REWARD_BPS};
+        use hone_types::{MINE_GRACE_PERIOD_EPOCHS, MINE_GRACE_REWARD_BPS};
 
         let (chain, _dir) = make_chain("mine-grace");
         fund(&chain, "miner", 100 * 10_000_000_000);
@@ -4252,7 +4252,7 @@ mod tests {
     /// Mine with a job_id pointing to a job the miner didn't win is rejected.
     #[test]
     fn test_mine_linked_with_approved_verify() {
-        use honemesh_types::RECYCLE_FUND_ACCOUNT as RECYCLE;
+        use hone_types::RECYCLE_FUND_ACCOUNT as RECYCLE;
         let (chain, _dir) = make_chain("mine-linked");
         fund(&chain, "miner", 100 * 10_000_000_000);
         fund(&chain, "requester", 100 * 10_000_000_000);
@@ -4313,7 +4313,7 @@ mod tests {
     #[test]
     fn test_verifier_suspension_on_rubber_stamp() {
         use crate::inference::{apply_post, apply_verify};
-        use honemesh_types::RECYCLE_FUND_ACCOUNT as RECYCLE;
+        use hone_types::RECYCLE_FUND_ACCOUNT as RECYCLE;
 
         let (chain, _dir) = make_chain("verifier-suspend");
         // Requester needs enough balance to post 13 jobs × 1_000_000_000 each.
@@ -4385,7 +4385,7 @@ mod tests {
     #[test]
     fn test_fee_routes_to_recycle_fund() {
         use crate::tx;
-        use honemesh_types::{BASE_FEE_INITIAL_HUNITS, ENTRY_WEIGHT_MICRO, RECYCLE_FUND_ACCOUNT};
+        use hone_types::{BASE_FEE_INITIAL_HUNITS, ENTRY_WEIGHT_MICRO, RECYCLE_FUND_ACCOUNT};
 
         let (chain, _dir) = make_chain("fee-recycle");
         // Credit alice's balance directly (no account record) so require_key
@@ -4420,7 +4420,7 @@ mod tests {
     #[test]
     fn test_entry_rejected_when_fee_unaffordable() {
         use crate::tx;
-        use honemesh_types::{BASE_FEE_INITIAL_HUNITS, ENTRY_WEIGHT_MICRO};
+        use hone_types::{BASE_FEE_INITIAL_HUNITS, ENTRY_WEIGHT_MICRO};
 
         let (chain, _dir) = make_chain("fee-reject");
         let fee = BASE_FEE_INITIAL_HUNITS * ENTRY_WEIGHT_MICRO;
@@ -4454,7 +4454,7 @@ mod tests {
     #[test]
     fn test_account_create_subsidized_from_testnet_fund() {
         use crate::tx;
-        use honemesh_types::{BASE_FEE_INITIAL_HUNITS, ENTRY_WEIGHT_REGISTRATION, TESTNET_FUND_ACCOUNT, RECYCLE_FUND_ACCOUNT};
+        use hone_types::{BASE_FEE_INITIAL_HUNITS, ENTRY_WEIGHT_REGISTRATION, TESTNET_FUND_ACCOUNT, RECYCLE_FUND_ACCOUNT};
         use ed25519_dalek::{Signer, SigningKey};
         use rand::rngs::OsRng;
 
@@ -4501,8 +4501,8 @@ mod tests {
     /// Fee scales proportionally with entry weight: a Heavy entry costs 5× a Micro entry.
     #[test]
     fn test_fee_proportional_to_entry_weight() {
-        use honemesh_types::{BASE_FEE_INITIAL_HUNITS, ENTRY_WEIGHT_MICRO, ENTRY_WEIGHT_HEAVY, entry_weight};
-        use honemesh_types::LedgerEntry as LE;
+        use hone_types::{BASE_FEE_INITIAL_HUNITS, ENTRY_WEIGHT_MICRO, ENTRY_WEIGHT_HEAVY, entry_weight};
+        use hone_types::LedgerEntry as LE;
 
         let transfer = LE::Transfer {
             from: "a".to_string(), to: "b".to_string(),
@@ -4530,7 +4530,7 @@ mod tests {
     /// compute_next_base_fee is tested for both directions.
     #[test]
     fn test_base_fee_adjusts_with_epoch_load() {
-        use honemesh_types::{compute_next_base_fee, BASE_FEE_INITIAL_HUNITS, EPOCH_TARGET_WEIGHT_UNITS};
+        use hone_types::{compute_next_base_fee, BASE_FEE_INITIAL_HUNITS, EPOCH_TARGET_WEIGHT_UNITS};
 
         let initial = BASE_FEE_INITIAL_HUNITS;
         let target  = EPOCH_TARGET_WEIGHT_UNITS;
@@ -4610,7 +4610,7 @@ mod tests {
     /// Inference proof pruning: prune_ready key written on InferenceJobPay.
     #[test]
     fn test_inference_prune_key_written_on_pay() {
-        use honemesh_types::INFERENCE_PRUNE_WINDOW_EPOCHS;
+        use hone_types::INFERENCE_PRUNE_WINDOW_EPOCHS;
 
         let (chain, _dir) = make_chain("prune-key");
         fund(&chain, "requester", 100 * 10_000_000_000);
@@ -4871,7 +4871,7 @@ mod tests {
     #[test]
     fn test_storage_proof_valid() {
         use sha2::{Sha256, Digest};
-        use honemesh_types::{MerkleRangeProof, STORAGE_CHALLENGE_CHUNK_BYTES};
+        use hone_types::{MerkleRangeProof, STORAGE_CHALLENGE_CHUNK_BYTES};
 
         let (chain, _dir) = make_chain("storage-proof-valid");
 
@@ -4925,7 +4925,7 @@ mod tests {
     /// A proof with a wrong challenge hash is rejected.
     #[test]
     fn test_storage_proof_wrong_challenge() {
-        use honemesh_types::{MerkleRangeProof, STORAGE_CHALLENGE_CHUNK_BYTES};
+        use hone_types::{MerkleRangeProof, STORAGE_CHALLENGE_CHUNK_BYTES};
 
         let (chain, _dir) = make_chain("storage-proof-bad-challenge");
         seal_epoch(&chain, 0);
@@ -4947,7 +4947,7 @@ mod tests {
     /// StorageHeartbeat without a proof stores proof_valid=false.
     #[test]
     fn test_storage_heartbeat_no_proof_scores_reduced() {
-        use honemesh_types::STORAGE_CHALLENGE_CHUNK_BYTES;
+        use hone_types::STORAGE_CHALLENGE_CHUNK_BYTES;
 
         let (chain, _dir) = make_chain("storage-heartbeat-noproof");
         seal_epoch(&chain, 0);
@@ -4970,7 +4970,7 @@ mod tests {
     /// StorageHeartbeat with no prior seal hash stores proof_valid=false (cannot verify).
     #[test]
     fn test_storage_proof_no_prior_seal_rejected() {
-        use honemesh_types::{MerkleRangeProof, STORAGE_CHALLENGE_CHUNK_BYTES};
+        use hone_types::{MerkleRangeProof, STORAGE_CHALLENGE_CHUNK_BYTES};
 
         let (chain, _dir) = make_chain("storage-proof-no-seal");
         // Do NOT seal epoch 0 — no epoch_seal_hash:0 in state.
@@ -5126,7 +5126,7 @@ mod tests {
     fn test_board_leaky_bucket_rejects_decrement() {
         let (chain, _dir) = make_chain("leaky-bucket");
         seal_epoch(&chain, 0);
-        use honemesh_types::VERIFIER_APPROVAL_WINDOW_EPOCHS;
+        use hone_types::VERIFIER_APPROVAL_WINDOW_EPOCHS;
 
         // Fill to steady state with all approvals.
         for _ in 0..VERIFIER_APPROVAL_WINDOW_EPOCHS {
@@ -5311,7 +5311,7 @@ mod tests {
     /// T2-4: Storage bytes_proven replaced by proven_chunks × chunk_size when proof valid.
     #[test]
     fn test_storage_effective_bytes_from_proof() {
-        use honemesh_types::STORAGE_CHALLENGE_CHUNK_BYTES;
+        use hone_types::STORAGE_CHALLENGE_CHUNK_BYTES;
 
         let (chain, _dir) = make_chain("storage-effective-bytes");
         seal_epoch(&chain, 0);
@@ -5375,7 +5375,7 @@ mod tests {
         seal_epoch(&chain, 0);
         fund(&chain, "storer", 1_000_000_000_000);
 
-        let bad_proof = honemesh_types::MerkleRangeProof {
+        let bad_proof = hone_types::MerkleRangeProof {
             challenge_hash: "deadbeef".repeat(8),   // wrong — doesn't match any seal
             range_start: 0,
             range_end: STORAGE_CHALLENGE_CHUNK_BYTES,
@@ -5480,7 +5480,7 @@ mod tests {
 mod property_tests {
     use super::*;
     use proptest::prelude::*;
-    use honemesh_types::{LedgerEntry, NATIVE_TOKEN};
+    use hone_types::{LedgerEntry, NATIVE_TOKEN};
     use tempfile::TempDir;
 
     fn prop_chain() -> (Chain, TempDir) {
@@ -5616,7 +5616,7 @@ mod property_tests {
                 seed(&chain, &name, amount);
             }
 
-            // Sum all HoneMesh balances across every account.
+            // Sum all HONE balances across every account.
             let total_on_chain: u64 = (0..allocs.len())
                 .map(|i| chain.get_balance(&format!("acc{}", i), NATIVE_TOKEN))
                 .sum();

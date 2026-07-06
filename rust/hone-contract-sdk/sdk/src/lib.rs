@@ -1,13 +1,13 @@
 /*!
-# HoneMesh Contract SDK
+# HONE Contract SDK
 
-Write smart contracts for the HoneMesh chain in Rust. Contracts compile to
+Write smart contracts for the HONE chain in Rust. Contracts compile to
 `wasm32-unknown-unknown` and are stored and executed on-chain.
 
 ## Quick Start
 
 ```rust
-use honemesh_contract_sdk::*;
+use hone_contract_sdk::*;
 
 #[hone_contract]
 pub struct Counter {
@@ -54,7 +54,7 @@ pub mod collections;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod mock;
 
-pub use honemesh_contract_sdk_macros::{hone_contract, hone_impl, init, call, view, private, callback};
+pub use hone_contract_sdk_macros::{hone_contract, hone_impl, init, call, view, private, callback};
 
 pub use types::{AccountId, Balance, Epoch, ContractId};
 pub use storage::{StorageKey, LookupMap, UnorderedMap, Vector, LazyOption};

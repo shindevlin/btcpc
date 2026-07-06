@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 use tracing::{info, warn};
-use honemesh_types::{LedgerEntry, NATIVE_TOKEN};
+use hone_types::{LedgerEntry, NATIVE_TOKEN};
 
 use crate::chain::Chain;
 

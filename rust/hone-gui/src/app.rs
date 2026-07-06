@@ -40,7 +40,7 @@ impl Session {
 
 fn load_session() -> Option<Session> {
     let home = std::env::var("HOME").ok()?;
-    let path = std::path::PathBuf::from(home).join(".honemesh").join("session.json");
+    let path = std::path::PathBuf::from(home).join(".hone").join("session.json");
     serde_json::from_slice(&std::fs::read(path).ok()?).ok()
 }
 
@@ -77,7 +77,7 @@ fn query_erc20_balance(rpc_url: &str, contract: &str, address: &str) -> Option<u
 
 fn save_session(s: &Session) -> anyhow::Result<()> {
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
-    let dir  = std::path::PathBuf::from(home).join(".honemesh");
+    let dir  = std::path::PathBuf::from(home).join(".hone");
     std::fs::create_dir_all(&dir)?;
     std::fs::write(dir.join("session.json"), serde_json::to_string_pretty(s)?)?;
     Ok(())
@@ -97,10 +97,10 @@ fn discover_wallet(account: &str) -> Option<String> {
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
     let data_dir = std::env::var("HONE_DATA_DIR").unwrap_or_default();
     let candidates = [
-        format!("{}/.honemesh/{}.wallet.key", home, account),
-        format!("{}/.honemesh/wallet.key", home),
+        format!("{}/.hone/{}.wallet.key", home, account),
+        format!("{}/.hone/wallet.key", home),
         format!("{}/wallet.key", data_dir),
-        format!("{}/.honemesh/key.json", home),
+        format!("{}/.hone/key.json", home),
     ];
     candidates.iter()
         .find(|p| !p.starts_with("/wallet.key") && std::path::Path::new(p.as_str()).exists())
@@ -126,7 +126,7 @@ fn try_login(login: &mut LoginState) -> Option<Session> {
             Some(p) => { login.key_file = p.clone(); p }
             None => {
                 login.error = Some(format!(
-                    "No key file found — tried ~/.honemesh/{}.wallet.key, wallet.key, key.json",
+                    "No key file found — tried ~/.hone/{}.wallet.key, wallet.key, key.json",
                     account
                 ));
                 return None;
@@ -206,7 +206,7 @@ fn try_login(login: &mut LoginState) -> Option<Session> {
 
 fn layout_path() -> std::path::PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-    std::path::PathBuf::from(home).join(".honemesh").join("gui-layout.json")
+    std::path::PathBuf::from(home).join(".hone").join("gui-layout.json")
 }
 
 fn default_tree() -> egui_tiles::Tree<PaneKind> {
@@ -455,7 +455,7 @@ impl HoneApp {
 
                 // Branding header
                 ui.vertical_centered(|ui| {
-                    ui.label(egui::RichText::new("₿ HoneMesh")
+                    ui.label(egui::RichText::new("₿ HONE")
                         .size(28.0)
                         .color(orange)
                         .strong());
@@ -482,7 +482,7 @@ impl HoneApp {
 
                         ui.label("Key file");
                         ui.add(egui::TextEdit::singleline(&mut self.login.key_file)
-                            .hint_text("blank = auto-discover ~/.honemesh/{account}.wallet.key")
+                            .hint_text("blank = auto-discover ~/.hone/{account}.wallet.key")
                             .desired_width(280.0));
                         ui.end_row();
 
@@ -555,7 +555,7 @@ impl eframe::App for HoneApp {
             .show(&ctx, |ui| {
                 ui.horizontal(|ui| {
                     let orange = egui::Color32::from_rgb(247, 147, 26);
-                    ui.label(egui::RichText::new("₿ HoneMesh").color(orange).strong());
+                    ui.label(egui::RichText::new("₿ HONE").color(orange).strong());
                     ui.separator();
 
                     ui.menu_button("File", |ui| {
@@ -571,7 +571,7 @@ impl eframe::App for HoneApp {
                             let _ = std::fs::remove_file(
                                 std::path::PathBuf::from(
                                     std::env::var("HOME").unwrap_or_else(|_| ".".into())
-                                ).join(".honemesh").join("session.json")
+                                ).join(".hone").join("session.json")
                             );
                             ui.close_menu();
                         }

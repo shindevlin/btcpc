@@ -7,7 +7,7 @@ use parking_lot::Mutex as PLMutex;
 use tokio::sync::{broadcast, mpsc};
 use tracing::{info, warn};
 
-use honemesh_types::{LedgerEntry, NATIVE_TOKEN, TESTNET_CHAIN_ID};
+use hone_types::{LedgerEntry, NATIVE_TOKEN, TESTNET_CHAIN_ID};
 
 use crate::chain::Chain;
 use crate::clock::{self, ClockConfig, ClockConsensus};
@@ -383,7 +383,7 @@ async fn run_verifier(
 
                     let output_tokens = (output_text.split_whitespace().count() as u64).max(1);
                     let model_str = job["model"].as_str().unwrap_or("");
-                    let value_score = honemesh_types::inference_score(output_tokens, 0, model_str);
+                    let value_score = hone_types::inference_score(output_tokens, 0, model_str);
 
                     let entry = LedgerEntry::InferenceJobVerify {
                         job_id:      job_id.clone(),

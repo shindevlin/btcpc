@@ -20,7 +20,7 @@ use std::time::Duration;
 
 use sha2::{Digest, Sha256};
 use tracing::{info, warn};
-use honemesh_types::LedgerEntry;
+use hone_types::LedgerEntry;
 
 use crate::chain::Chain;
 use crate::inference::{self, JobStatus};

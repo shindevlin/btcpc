@@ -12,7 +12,7 @@ use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use tracing::warn;
 
-use honemesh_types::EPOCH_MS;
+use hone_types::EPOCH_MS;
 use crate::chain::Chain;
 
 const ALERT_HISTORY: usize = 20;
@@ -126,7 +126,7 @@ async fn fire_alert(
 
     if let Some(url) = webhook {
         let payload = serde_json::json!({
-            "text": format!("[honemesh-node] {} — {}", kind, message),
+            "text": format!("[hone-node] {} — {}", kind, message),
             "event": event,
         });
         let _ = http.post(url).json(&payload).send().await;

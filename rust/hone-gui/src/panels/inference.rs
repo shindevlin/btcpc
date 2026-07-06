@@ -52,7 +52,7 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
                             ui.add(egui::TextEdit::singleline(&mut data.forms.job_max_fee)
                                 .hint_text("0.01")
                                 .desired_width(100.0));
-                            ui.label(egui::RichText::new("HoneMesh").color(ORANGE).size(12.0));
+                            ui.label(egui::RichText::new("HONE").color(ORANGE).size(12.0));
                         });
                         ui.end_row();
 

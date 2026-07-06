@@ -1,6 +1,6 @@
 //! keycheck — SAFE key-location finder.
 //!
-//! Given a HoneMesh mnemonic (via HONE_MNEMONIC env var), derive each role keypair
+//! Given a HONE mnemonic (via HONE_MNEMONIC env var), derive each role keypair
 //! and print ONLY the PUBLIC keys, comparing them against an account's on-chain
 //! keys. This answers "does this seed control account X" WITHOUT ever printing
 //! a private key.
@@ -10,14 +10,14 @@
 //!
 //! Usage:
 //!   HONE_MNEMONIC="word1 ... word12" \
-//!     honemesh-keycheck --account bullship \
+//!     hone-keycheck --account bullship \
 //!       --expect-active c9d08bea297d73e6df90868a5800c6342832d88a0db5986d01cf765ccba99a83
 //!
 //! You can pass any subset of --expect-<role> (owner/active/posting/memo/hide/seek);
 //! each is compared to the derived public key for that role.
 
 use anyhow::{anyhow, Result};
-use honemesh_sdk::Wallet;
+use hone_sdk::Wallet;
 
 fn arg(args: &[String], name: &str) -> Option<String> {
     args.iter().position(|a| a == name).and_then(|i| args.get(i + 1).cloned())

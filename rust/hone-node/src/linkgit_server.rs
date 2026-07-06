@@ -581,8 +581,8 @@ pub fn receive_pack_response(updates: &[(String, String, String)], errors: &Hash
 //   git_hook:{owner}/{repo}:{uuid}     → HookMeta JSON
 //   git_token:{token_id}               → TokenMeta JSON (token stored as sha256 hash)
 //
-// Authentication: write operations require X-HoneMesh-Account + X-HoneMesh-Signature
-// + X-HoneMesh-Timestamp headers.  The signature is ed25519 over the message
+// Authentication: write operations require X-HONE-Account + X-HONE-Signature
+// + X-HONE-Timestamp headers.  The signature is ed25519 over the message
 // "linkgit:{account}:{timestamp}" using the account's posting key.
 // Timestamp must be within 300 seconds of server time to prevent replay.
 
@@ -601,9 +601,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-/// Extract the requesting account from X-HoneMesh-Account header.
+/// Extract the requesting account from X-HONE-Account header.
 fn req_account(headers: &HeaderMap) -> Option<String> {
-    headers.get("X-HoneMesh-Account")
+    headers.get("X-HONE-Account")
         .and_then(|v| v.to_str().ok())
         .map(str::trim)
         .filter(|s| !s.is_empty())
@@ -611,13 +611,13 @@ fn req_account(headers: &HeaderMap) -> Option<String> {
 }
 
 /// Check that the account header is present, the account has a registered key,
-/// and — when X-HoneMesh-Signature is provided — the ed25519 signature is valid.
+/// and — when X-HONE-Signature is provided — the ed25519 signature is valid.
 ///
 /// Signing message: "linkgit:{account}:{timestamp}" (timestamp = Unix seconds).
-/// X-HoneMesh-Timestamp must be within 300 seconds of server time.
+/// X-HONE-Timestamp must be within 300 seconds of server time.
 fn require_auth(headers: &HeaderMap, state: &AppState) -> Result<String, (StatusCode, Json<serde_json::Value>)> {
     let account = req_account(headers)
-        .ok_or_else(|| (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error": "X-HoneMesh-Account header required"}))))?;
+        .ok_or_else(|| (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error": "X-HONE-Account header required"}))))?;
 
     // Verify account exists and has a key.
     let acct_state = state.chain.store.get_account(&account).ok().flatten();
@@ -628,17 +628,17 @@ fn require_auth(headers: &HeaderMap, state: &AppState) -> Result<String, (Status
     }
 
     // Verify signature when provided.
-    if let Some(sig_hex) = headers.get("X-HoneMesh-Signature").and_then(|v| v.to_str().ok()) {
-        let ts_str = headers.get("X-HoneMesh-Timestamp")
+    if let Some(sig_hex) = headers.get("X-HONE-Signature").and_then(|v| v.to_str().ok()) {
+        let ts_str = headers.get("X-HONE-Timestamp")
             .and_then(|v| v.to_str().ok())
-            .ok_or_else(|| (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error": "X-HoneMesh-Timestamp required with X-HoneMesh-Signature"}))))?;
+            .ok_or_else(|| (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error": "X-HONE-Timestamp required with X-HONE-Signature"}))))?;
 
         let ts: u64 = ts_str.parse().map_err(|_| {
-            (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error": "invalid X-HoneMesh-Timestamp"})))
+            (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error": "invalid X-HONE-Timestamp"})))
         })?;
         let now = SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0);
         if now.saturating_sub(ts) > 300 || ts.saturating_sub(now) > 30 {
-            return Err((StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error": "X-HoneMesh-Timestamp out of acceptable window"}))));
+            return Err((StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error": "X-HONE-Timestamp out of acceptable window"}))));
         }
 
         // Resolve posting key: prefer account state keys.posting, fall back to key:{account}:active.
@@ -668,10 +668,10 @@ fn require_auth(headers: &HeaderMap, state: &AppState) -> Result<String, (Status
         })?;
 
         let sig_bytes = hex::decode(sig_hex).map_err(|_| {
-            (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error": "X-HoneMesh-Signature is not valid hex"})))
+            (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error": "X-HONE-Signature is not valid hex"})))
         })?;
         let sig_array: [u8; 64] = sig_bytes.try_into().map_err(|_| {
-            (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error": "X-HoneMesh-Signature must be 64 bytes"})))
+            (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error": "X-HONE-Signature must be 64 bytes"})))
         })?;
         let signature = ed25519_dalek::Signature::from_bytes(&sig_array);
 

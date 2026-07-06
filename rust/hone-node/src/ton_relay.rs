@@ -266,7 +266,7 @@ async fn handle_activation(
     let _ = chain.store.state_set(&activated_key, b"1");
 
     // Emit TonWalletActivated entry
-    let entry = honemesh_types::LedgerEntry::TonWalletActivated {
+    let entry = hone_types::LedgerEntry::TonWalletActivated {
         hone_account:  config.account.clone(),
         ton_address:    ton_address.clone(),
         source_chain:   source_chain.to_string(),

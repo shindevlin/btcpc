@@ -10,7 +10,7 @@ use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use honemesh_types::{LedgerEntry, NATIVE_TOKEN, RECYCLE_FUND_ACCOUNT};
+use hone_types::{LedgerEntry, NATIVE_TOKEN, RECYCLE_FUND_ACCOUNT};
 use crate::chain::Chain;
 
 const VOTE_WINDOW_EPOCHS: u64 = 3;
@@ -156,7 +156,7 @@ fn finalize_job(chain: &Chain, job: &mut EnsembleJob, winner_hash: String) -> Re
 #[cfg(test)]
 mod tests {
     use super::*;
-    use honemesh_types::LedgerEntry;
+    use hone_types::LedgerEntry;
     use tempfile::TempDir;
 
     fn make_chain() -> (Chain, TempDir) {
@@ -180,7 +180,7 @@ mod tests {
         chain.apply_entry(&LedgerEntry::GenesisAlloc {
             account: account.to_string(),
             amount,
-            token: honemesh_types::NATIVE_TOKEN.to_string(),
+            token: hone_types::NATIVE_TOKEN.to_string(),
         }).unwrap();
     }
 

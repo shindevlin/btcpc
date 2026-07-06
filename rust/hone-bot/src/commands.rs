@@ -5,11 +5,11 @@ use teloxide::{prelude::*, utils::command::BotCommands};
 use crate::api::{hunits_to_hone, HoneClient};
 
 #[derive(BotCommands, Clone, Debug)]
-#[command(rename_rule = "lowercase", description = "HoneMesh Bot commands:")]
+#[command(rename_rule = "lowercase", description = "HONE Bot commands:")]
 pub enum Command {
     #[command(description = "Welcome message and command list")]
     Start,
-    #[command(description = "Check HoneMesh balance — /balance [account]")]
+    #[command(description = "Check HONE balance — /balance [account]")]
     Balance(String),
     #[command(description = "Check staked amount — /stake [account]")]
     Stake(String),
@@ -55,9 +55,9 @@ pub async fn handle_command(
 }
 
 fn handle_start() -> String {
-    "Welcome to the HoneMesh Bot!\n\n\
-    HoneMesh is a proof-of-compute blockchain. Use the commands below to interact:\n\n\
-    /balance [account] — Check your HoneMesh balance\n\
+    "Welcome to the HONE Bot!\n\n\
+    HONE is a proof-of-compute blockchain. Use the commands below to interact:\n\n\
+    /balance [account] — Check your HONE balance\n\
     /stake [account] — Check staked amount\n\
     /epoch — Current epoch info\n\
     /block [epoch] — Block details\n\
@@ -71,7 +71,7 @@ fn handle_start() -> String {
 
 fn handle_help() -> String {
     "/start — Welcome message and command list\n\
-    /balance [account] — HoneMesh balance (uses HONE_ACCOUNT if no arg)\n\
+    /balance [account] — HONE balance (uses HONE_ACCOUNT if no arg)\n\
     /stake [account] — Staked amount (uses HONE_ACCOUNT if no arg)\n\
     /epoch — Current epoch number and timestamp\n\
     /block [epoch] — Block info (latest if epoch omitted)\n\
@@ -203,7 +203,7 @@ async fn handle_network(state: &Arc<HandlerState>) -> String {
         Err(_) => "Node health: offline".to_string(),
     };
 
-    format!("HoneMesh Network\n{}\n{}", epoch_line, health_line)
+    format!("HONE Network\n{}\n{}", epoch_line, health_line)
 }
 
 fn handle_transfer(arg: String) -> String {
@@ -223,8 +223,8 @@ fn handle_transfer(arg: String) -> String {
         "Transfer details (unsigned):\n\
         To: {}\n\
         Amount: {:.4} HONE ({} hunits)\n\n\
-        HoneMesh transactions must be signed with your private key.\n\
-        Use the honemesh-cli or wallet app to submit signed transactions to the node.\n\
+        HONE transactions must be signed with your private key.\n\
+        Use the hone-cli or wallet app to submit signed transactions to the node.\n\
         API endpoint: POST /api/transfer",
         to, amount, hunits
     )
@@ -248,7 +248,7 @@ async fn handle_faucet(arg: String, state: &Arc<HandlerState>) -> String {
         }
         Err(e) => {
             if e.to_string().contains("403") || e.to_string().contains("Forbidden") {
-                "Faucet not available on mainnet. Acquire HoneMesh by mining or transfers.".to_string()
+                "Faucet not available on mainnet. Acquire HONE by mining or transfers.".to_string()
             } else {
                 offline_or_error(&e.to_string())
             }

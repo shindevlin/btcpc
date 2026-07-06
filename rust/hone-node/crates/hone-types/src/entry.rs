@@ -84,7 +84,7 @@ pub struct OracleReveal {
 pub struct OwnerAuth {
     /// 2FA sig from the wallet linked to the owner slot (if any).
     pub owner_2fa: Option<TwoFactor>,
-    /// A corroborating HoneMesh role: "active" | "posting" — signing key sig.
+    /// A corroborating HONE role: "active" | "posting" — signing key sig.
     pub corroborant_key: Option<String>,
     /// ed25519 hex sig from the corroborant key over the entry canonical message.
     pub corroborant_sig: Option<String>,
@@ -96,7 +96,7 @@ pub enum LedgerEntry {
     // ── Account ──────────────────────────────────────────────────────────────
     AccountCreate {
         account: AccountId,
-        /// HoneMesh protocol keys — public, required for transaction verification.
+        /// HONE protocol keys — public, required for transaction verification.
         /// Roles: "posting" (daily use), "owner" (key rotation), "memo" (encrypted msgs).
         keys: std::collections::BTreeMap<String, String>,
         /// Cross-chain address commitments — no plaintext addresses stored.
@@ -298,10 +298,10 @@ pub enum LedgerEntry {
         /// Must match an InferenceJobComplete entry with an approved InferenceJobVerify.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         job_id: Option<String>,
-        /// Semver of the honemesh-node binary that produced this entry.
+        /// Semver of the hone-node binary that produced this entry.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         node_version: Option<String>,
-        /// SHA-256 of the honemesh-node binary. Governance can enforce approved hashes.
+        /// SHA-256 of the hone-node binary. Governance can enforce approved hashes.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         software_hash: Option<String>,
         /// SHA-256 digest of the Ollama model blob (from /api/show). Governance enforces approved digests.
@@ -622,7 +622,7 @@ pub enum LedgerEntry {
     },
 
     // ── Mempool: staked relay node type ──────────────────────────────────────
-    /// Register as a mempool operator. Operator stakes HoneMesh; lowest-latency
+    /// Register as a mempool operator. Operator stakes HONE; lowest-latency
     /// nodes earn the most.  Slashable for censorship, double-inclusion, or
     /// fee front-running (slashing conditions enforced by governance + evidence entries).
     MempoolOperatorRegister {
@@ -645,7 +645,7 @@ pub enum LedgerEntry {
     },
 
     // ── Device claim stake ────────────────────────────────────────────────────
-    /// Stake HoneMesh to claim ownership of a device identified by its hardware serial.
+    /// Stake HONE to claim ownership of a device identified by its hardware serial.
     /// First staker of a serial wins.  Previous owner must DeviceClaimUnstake before
     /// a new owner can claim.  Stake is slashable for fraudulent claims.
     DeviceClaimStake {
@@ -882,7 +882,7 @@ pub enum LedgerEntry {
         tier: Option<u8>,
         signed_by: AccountId,
     },
-    /// Storage node records a HoneMesh-FS replica written to Hive custom_json.
+    /// Storage node records a HONE-FS replica written to Hive custom_json.
     ///
     /// This is an external decentralized storage-domain commitment. It is not counted as
     /// local disk capacity and does not earn storage rewards until a separate verifier
@@ -908,7 +908,7 @@ pub enum LedgerEntry {
         signature: Option<String>,
     },
     /// Independent verifier attests that a Hive replica commitment is retrievable and
-    /// matches the HoneMesh-FS CID/Merkle metadata. This creates the second storage-domain
+    /// matches the HONE-FS CID/Merkle metadata. This creates the second storage-domain
     /// reward slot for the storage node.
     HiveReplicaVerify {
         verifier: AccountId,
@@ -1427,13 +1427,13 @@ pub enum LedgerEntry {
         signed_by: AccountId,
     },
     /// Encrypted sighting reference pushed by an observer node.
-    /// The encrypted payload is stored in HoneMesh-FS; only the CID is gossiped.
+    /// The encrypted payload is stored in HONE-FS; only the CID is gossiped.
     /// Plaintext of the blob: { lat, lon, rssi, timestamp, accuracy_m, observer_id }
     /// Only the subscriber's memo private key can decrypt the blob.
     TrackerSightingData {
         serial_commitment: String,
         observer_id: String,
-        /// HoneMesh-FS content ID of the encrypted sighting blob.
+        /// HONE-FS content ID of the encrypted sighting blob.
         cid: String,
         /// SHA-256 of the plaintext (before encryption) so subscriber can verify
         /// integrity after decryption without re-fetching.
@@ -1458,7 +1458,7 @@ pub enum LedgerEntry {
     TrackerLostMode {
         serial_commitment: String,
         claimer: AccountId,
-        /// HoneMesh escrowed on-chain, released to finder on confirmation.
+        /// HONE escrowed on-chain, released to finder on confirmation.
         bounty_hunits: Hunits,
         expires_epoch: Epoch,
         /// Contact info encrypted to claimer's own memo key (off-chain recovery).
@@ -1547,7 +1547,7 @@ pub enum LedgerEntry {
     },
 
     // ── Permissive Token Model ────────────────────────────────────────────────
-    /// Set a HoneMesh fee that any sender must pay to deliver an unapproved token.
+    /// Set a HONE fee that any sender must pay to deliver an unapproved token.
     /// The fee is deducted from the sender's NATIVE_TOKEN balance and credited
     /// to the recipient before the token lands.  Use token="*" to gate all tokens.
     /// Pre-approved tokens (TokenApprove) bypass the gate entirely.
@@ -1556,7 +1556,7 @@ pub enum LedgerEntry {
         /// Token being gated ("*" = all custom tokens).
         token: String,
         fee: Hunits,
-        /// Token the fee must be paid in (e.g. "HoneMesh", "USDC", "USDT", "DAI").
+        /// Token the fee must be paid in (e.g. "HONE", "USDC", "USDT", "DAI").
         /// Set to "EVM" to require off-chain EVM payment instead (see evm_address / evm_chain_id).
         fee_token: String,
         /// Optional EVM wallet address for off-chain fee payment (e.g. USDC on Ethereum).
@@ -1637,13 +1637,13 @@ pub enum LedgerEntry {
     },
 
     // ── Wallet Family ─────────────────────────────────────────────────────────
-    /// Permanently link a set of BIP44-derived addresses across chains to a HoneMesh
+    /// Permanently link a set of BIP44-derived addresses across chains to a HONE
     /// account.  Addresses are additive-only — once published they cannot be removed.
     /// The `signature` field for each address proves key ownership (optional but
     /// strongly recommended): sign the canonical string
     /// `"hone-family:{account}:{chain}:{address}"` with the corresponding chain key.
     WalletFamilyPublish {
-        /// HoneMesh account that owns all derived wallets.
+        /// HONE account that owns all derived wallets.
         account: AccountId,
         /// Initial set of chain addresses to link.
         chains: Vec<ChainAddress>,
@@ -1679,10 +1679,10 @@ pub enum LedgerEntry {
 
     // ── Chain Entropy Protocol ────────────────────────────────────────────────
 
-    /// Prove liveness using a HoneMesh key — the cheapest possible "I'm here" signal.
+    /// Prove liveness using a HONE key — the cheapest possible "I'm here" signal.
     ///
     /// No external chain involvement. The signer must hold one of the account's
-    /// six HoneMesh role keys (owner, active, posting, memo, hide, seek). Accepted
+    /// six HONE role keys (owner, active, posting, memo, hide, seek). Accepted
     /// entries reset `last_alive_epoch`, stopping half-life decay.
     ///
     /// This is the only user-initiated way to reset the entropy clock without
@@ -1701,7 +1701,7 @@ pub enum LedgerEntry {
 
     /// Reset the liveness clock from observed external-chain activity.
     ///
-    /// Any HoneMesh node that detects a transaction on a published wallet-family
+    /// Any HONE node that detects a transaction on a published wallet-family
     /// address (WalletFamilyPublish / WalletFamilyAdd) can submit this entry.
     /// The account owner doesn't need to be online — their published cross-chain
     /// addresses are the proof. Once accepted, `last_alive_epoch` resets and
@@ -1711,7 +1711,7 @@ pub enum LedgerEntry {
     /// independently submit witnesses for the same activity — all are idempotent
     /// (decay clock resets to max of current and witnessed epoch).
     EntropyWitness {
-        /// HoneMesh account whose liveness is being attested.
+        /// HONE account whose liveness is being attested.
         /// Must have a published wallet-family entry for `chain`:`address`.
         account: AccountId,
         /// External chain: "ethereum", "bitcoin", "solana", "base", etc.
@@ -1723,7 +1723,7 @@ pub enum LedgerEntry {
         /// External chain block height at which the activity occurred.
         block_height: u64,
         epoch: Epoch,
-        /// HoneMesh node submitting this witness (must sign with their posting key).
+        /// HONE node submitting this witness (must sign with their posting key).
         signed_by: AccountId,
     },
     /// Bind a hardware fingerprint to an account.
@@ -1867,7 +1867,7 @@ pub enum LedgerEntry {
 
     // ── Agentic task marketplace ──────────────────────────────────────────────
 
-    /// User deposits HoneMesh into their agent credit balance (pre-paid escrow pool).
+    /// User deposits HONE into their agent credit balance (pre-paid escrow pool).
     AgentCreditDeposit {
         account:   String,
         amount:    u64,
@@ -1925,7 +1925,7 @@ pub enum LedgerEntry {
         task_id:     String,
         agent:       String,
         result_hash: String,  // hex SHA-256
-        output_cid:  String,  // HoneMesh-FS CID or "" for off-chain delivery
+        output_cid:  String,  // HONE-FS CID or "" for off-chain delivery
         epoch:       u64,
         nonce:       u64,
         signed_by:   String,
@@ -2002,7 +2002,7 @@ pub enum LedgerEntry {
         signature: Option<String>,
     },
 
-    /// Wrap native HoneMesh into wHONE for use on external chains.
+    /// Wrap native HONE into wHONE for use on external chains.
     BridgeWrap {
         account: AccountId,
         amount_hunits: Hunits,
@@ -2042,7 +2042,7 @@ pub enum LedgerEntry {
 
     // ── Oracle price feeds ───────────────────────────────────────────────────
 
-    /// Create a new oracle price feed (e.g. "HoneMesh/USD").
+    /// Create a new oracle price feed (e.g. "HONE/USD").
     OracleFeedCreate {
         feed_id: String,
         creator: AccountId,
@@ -2508,7 +2508,7 @@ pub enum LedgerEntry {
 
     // ── Snapshot replication ──────────────────────────────────────────────────
 
-    /// Save a named chain snapshot (slug → HoneMesh-FS CID).
+    /// Save a named chain snapshot (slug → HONE-FS CID).
     SnapshotSave {
         account: AccountId,
         slug: String,

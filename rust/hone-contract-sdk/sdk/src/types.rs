@@ -6,7 +6,7 @@ use alloc::{string::String, vec::Vec};
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 
-/// A HoneMesh account identifier (username or honead… address).
+/// A HONE account identifier (username or honead… address).
 pub type AccountId = String;
 
 /// A contract address (honesc… prefix).
@@ -21,7 +21,7 @@ pub type Epoch = u64;
 /// Gas for metered execution within a single call.
 pub type Gas = u64;
 
-/// 1 full HoneMesh expressed in hunits (10^10).
+/// 1 full HONE expressed in hunits (10^10).
 pub const HUNITS_PER_HONE: Balance = 10_000_000_000;
 
 #[deprecated = "use HUNITS_PER_HONE"]

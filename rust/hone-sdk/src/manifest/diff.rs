@@ -1,6 +1,6 @@
 //! Diff two manifests and classify every change by kind and severity.
 //!
-//! This is what turns "HoneMesh shipped a commit" into an actionable answer for a
+//! This is what turns "HONE shipped a commit" into an actionable answer for a
 //! consumer repo: **what is new, what is gone, what still works but is
 //! deprecated, and — critically — what changed shape in a way that will break
 //! me.**

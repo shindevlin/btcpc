@@ -1,30 +1,30 @@
 name: Integration Manifest Check
 
-# The honemesh-manifest.json committed at the repo root is the ecosystem's source
+# The hone-manifest.json committed at the repo root is the ecosystem's source
 # of truth for the chain's surface (routes + ledger-entry signing shapes). It is
 # generated from the node source by `hone manifest generate`. This gate fails
 # the build if the surface changed but the manifest wasn't regenerated in the
 # same commit — so consumer repos can always trust the committed manifest to
 # match what the node actually serves.
 #
-# If this fails: run `cargo run -p honemesh-sdk --bin hone -- manifest generate`
-# (from rust/honemesh-sdk) and commit the updated honemesh-manifest.json.
+# If this fails: run `cargo run -p hone-sdk --bin hone -- manifest generate`
+# (from rust/hone-sdk) and commit the updated hone-manifest.json.
 
 on:
   push:
     paths:
-      - 'rust/honemesh-node/src/api.rs'
-      - 'rust/honemesh-node/src/tx.rs'
-      - 'rust/honemesh-node/crates/honemesh-types/src/entry.rs'
-      - 'rust/honemesh-sdk/**'
-      - 'honemesh-manifest.json'
+      - 'rust/hone-node/src/api.rs'
+      - 'rust/hone-node/src/tx.rs'
+      - 'rust/hone-node/crates/hone-types/src/entry.rs'
+      - 'rust/hone-sdk/**'
+      - 'hone-manifest.json'
   pull_request:
     paths:
-      - 'rust/honemesh-node/src/api.rs'
-      - 'rust/honemesh-node/src/tx.rs'
-      - 'rust/honemesh-node/crates/honemesh-types/src/entry.rs'
-      - 'rust/honemesh-sdk/**'
-      - 'honemesh-manifest.json'
+      - 'rust/hone-node/src/api.rs'
+      - 'rust/hone-node/src/tx.rs'
+      - 'rust/hone-node/crates/hone-types/src/entry.rs'
+      - 'rust/hone-sdk/**'
+      - 'hone-manifest.json'
 
 jobs:
   manifest-check:
@@ -42,17 +42,17 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            rust/honemesh-sdk/target
-          key: manifest-check-${{ runner.os }}-${{ hashFiles('rust/honemesh-sdk/Cargo.lock') }}
+            rust/hone-sdk/target
+          key: manifest-check-${{ runner.os }}-${{ hashFiles('rust/hone-sdk/Cargo.lock') }}
 
       - name: Build hone CLI
-        working-directory: rust/honemesh-sdk
+        working-directory: rust/hone-sdk
         run: cargo build --bin hone --release
 
       - name: Run manifest unit tests
-        working-directory: rust/honemesh-sdk
+        working-directory: rust/hone-sdk
         run: cargo test --release manifest
 
       - name: Check committed manifest is current
         run: |
-          ./rust/honemesh-sdk/target/release/hone manifest check --repo .
+          ./rust/hone-sdk/target/release/hone manifest check --repo .

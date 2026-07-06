@@ -42,7 +42,7 @@ pub fn generate_secret() -> String {
 /// Build an otpauth:// URI for QR code scanners.
 pub fn otpauth_uri(account: &str, secret_b32: &str) -> String {
     format!(
-        "otpauth://totp/HoneMesh%3A{}?secret={}&issuer=HoneMesh&algorithm=SHA1&digits=6&period=30",
+        "otpauth://totp/HONE%3A{}?secret={}&issuer=HONE&algorithm=SHA1&digits=6&period=30",
         percent_encode(account),
         secret_b32,
     )

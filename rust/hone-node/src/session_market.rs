@@ -10,7 +10,7 @@ use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use honemesh_types::{LedgerEntry, NATIVE_TOKEN, RECYCLE_FUND_ACCOUNT};
+use hone_types::{LedgerEntry, NATIVE_TOKEN, RECYCLE_FUND_ACCOUNT};
 use crate::chain::Chain;
 
 const MARKETPLACE_FEE_BPS: u64 = 200; // 2% to recycle

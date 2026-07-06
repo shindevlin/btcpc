@@ -24,7 +24,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Proxy /api/* to the HoneMesh API for sensor nodes and bot endpoints
+// Proxy /api/* to the HONE API for sensor nodes and bot endpoints
 app.use("/api", (req, res) => {
   const options = {
     hostname: "127.0.0.1",
@@ -49,7 +49,7 @@ app.use("/api", (req, res) => {
   }
 });
 
-// Proxy /v1/* to the HoneMesh inference API (pull-model, models, etc.)
+// Proxy /v1/* to the HONE inference API (pull-model, models, etc.)
 app.use("/v1", (req, res) => {
   const options = {
     hostname: "127.0.0.1",
@@ -69,7 +69,7 @@ app.use("/v1", (req, res) => {
   req.pipe(proxyReq);
 });
 
-// Proxy /node/* to the HoneMesh API (epoch info, node list, etc.)
+// Proxy /node/* to the HONE API (epoch info, node list, etc.)
 app.use("/node", (req, res) => {
   const options = {
     hostname: "127.0.0.1",
@@ -88,7 +88,7 @@ app.use("/node", (req, res) => {
   req.pipe(proxyReq);
 });
 
-// Proxy /public/* to the HoneMesh API for browser clock nodes
+// Proxy /public/* to the HONE API for browser clock nodes
 app.use("/public", (req, res) => {
   const options = {
     hostname: "127.0.0.1",

@@ -151,13 +151,13 @@
 
   const navEl = document.createElement('nav');
   navEl.id = 'hone-nav';
-  navEl.setAttribute('aria-label', 'HoneMesh main navigation');
+  navEl.setAttribute('aria-label', 'HONE main navigation');
 
   // Logo
   navEl.innerHTML = `
     <a href="/" id="hone-nav-logo">
-      <img src="/honemesh-logo.jpeg" alt="HoneMesh logo">
-      HoneMesh
+      <img src="/hone-logo.jpeg" alt="HONE logo">
+      HONE
     </a>
   `;
 

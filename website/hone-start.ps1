@@ -1,13 +1,13 @@
-# HoneMesh Windows Starter (PowerShell) - Self-Healing Edition
-# Usage: [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; irm https://honemesh.net/honemesh-start.ps1 | iex
+# HONE Windows Starter (PowerShell) - Self-Healing Edition
+# Usage: [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; irm https://honemesh.net/hone-start.ps1 | iex
 
 $ErrorActionPreference = "Continue"
 $PSNativeCommandUseErrorActionPreference = $false
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 function Say($msg, $color = "White") { Write-Host $msg -ForegroundColor $color }
-function Ok($msg)  { Say "[HoneMesh] $msg" "Green" }
-function Info($msg) { Say "[HoneMesh] $msg" "Yellow" }
+function Ok($msg)  { Say "[HONE] $msg" "Green" }
+function Info($msg) { Say "[HONE] $msg" "Yellow" }
 
 Say ""
 Say "  ######   ######## ######  ######  ######" "Yellow"
@@ -92,7 +92,7 @@ do {
     # ----------------------------------------------------------------
     # Step 3: Working directory
     # ----------------------------------------------------------------
-    $workDir = Join-Path $env:USERPROFILE "honemesh"
+    $workDir = Join-Path $env:USERPROFILE "hone"
     if (-not (Test-Path $workDir)) { New-Item -ItemType Directory -Path $workDir | Out-Null }
     Set-Location $workDir
     Ok "Working in $workDir"
@@ -118,18 +118,18 @@ do {
     }
 
     # ----------------------------------------------------------------
-    # Step 5: Download + load HoneMesh image (exponential backoff)
+    # Step 5: Download + load HONE image (exponential backoff)
     # ----------------------------------------------------------------
     $imagesList = docker images --format "{{.Repository}}:{{.Tag}}" 2>$null
     $imagePresent = $false
     if ($imagesList -is [array]) {
-        $imagePresent = $imagesList -contains "honemesh:latest"
+        $imagePresent = $imagesList -contains "hone:latest"
     } elseif ($imagesList -is [string]) {
-        $imagePresent = ($imagesList -eq "honemesh:latest") -or ($imagesList -like "*honemesh:latest*")
+        $imagePresent = ($imagesList -eq "hone:latest") -or ($imagesList -like "*hone:latest*")
     }
 
     if (-not $imagePresent) {
-        Info "HoneMesh image not found locally. Downloading (~200 MB)..."
+        Info "HONE image not found locally. Downloading (~200 MB)..."
         $delays = @(5, 15, 45, 120, 300)
         $dlAttempt = 0
         $dlSuccess = $false
@@ -140,11 +140,11 @@ do {
                 Start-Sleep $wait
             }
             $dlAttempt++
-            if (Test-Path "honemesh-image.tar.gz") { Remove-Item "honemesh-image.tar.gz" -Force }
+            if (Test-Path "hone-image.tar.gz") { Remove-Item "hone-image.tar.gz" -Force }
             Info "Downloading image tarball (attempt $dlAttempt of 5)..."
             try {
                 $ProgressPreference = "SilentlyContinue"
-                Invoke-WebRequest -Uri "https://honemesh.net/honemesh-image.tar.gz" -OutFile "honemesh-image.tar.gz" -UseBasicParsing -ErrorAction Stop
+                Invoke-WebRequest -Uri "https://honemesh.net/hone-image.tar.gz" -OutFile "hone-image.tar.gz" -UseBasicParsing -ErrorAction Stop
                 $dlSuccess = $true
             } catch {
                 Info "Download failed: $($_.Exception.Message)"
@@ -157,14 +157,14 @@ do {
         }
 
         Info "Loading image into Docker (about a minute)..."
-        docker load -i honemesh-image.tar.gz
+        docker load -i hone-image.tar.gz
         if ($LASTEXITCODE -ne 0) {
             Info "docker load failed. Removing tarball and retrying download..."
-            if (Test-Path "honemesh-image.tar.gz") { Remove-Item "honemesh-image.tar.gz" -Force }
+            if (Test-Path "hone-image.tar.gz") { Remove-Item "hone-image.tar.gz" -Force }
             try {
                 $ProgressPreference = "SilentlyContinue"
-                Invoke-WebRequest -Uri "https://honemesh.net/honemesh-image.tar.gz" -OutFile "honemesh-image.tar.gz" -UseBasicParsing -ErrorAction Stop
-                docker load -i honemesh-image.tar.gz
+                Invoke-WebRequest -Uri "https://honemesh.net/hone-image.tar.gz" -OutFile "hone-image.tar.gz" -UseBasicParsing -ErrorAction Stop
+                docker load -i hone-image.tar.gz
                 if ($LASTEXITCODE -ne 0) {
                     Info "Second load attempt failed. Restarting in 60 seconds..."
                     Start-Sleep 60
@@ -180,18 +180,18 @@ do {
         $imagesAfter = docker images --format "{{.Repository}}:{{.Tag}}" 2>$null
         $loadedOk = $false
         if ($imagesAfter -is [array]) {
-            $loadedOk = $imagesAfter -contains "honemesh:latest"
+            $loadedOk = $imagesAfter -contains "hone:latest"
         } elseif ($imagesAfter -is [string]) {
-            $loadedOk = ($imagesAfter -eq "honemesh:latest") -or ($imagesAfter -like "*honemesh:latest*")
+            $loadedOk = ($imagesAfter -eq "hone:latest") -or ($imagesAfter -like "*hone:latest*")
         }
         if (-not $loadedOk) {
-            Info "Image load reported success but honemesh:latest is missing. Restarting..."
+            Info "Image load reported success but hone:latest is missing. Restarting..."
             Start-Sleep 30
             continue
         }
-        Ok "HoneMesh image loaded"
+        Ok "HONE image loaded"
     } else {
-        Ok "HoneMesh image already present"
+        Ok "HONE image already present"
     }
 
     # ----------------------------------------------------------------
@@ -200,8 +200,8 @@ do {
     $miner = $env:HONE_MINER
     if (-not $miner) {
         Say ""
-        Say "Enter your HoneMesh username, or press Enter for a guest name." "Cyan"
-        $miner = Read-Host "Your HoneMesh username"
+        Say "Enter your HONE username, or press Enter for a guest name." "Cyan"
+        $miner = Read-Host "Your HONE username"
         if ($null -eq $miner) { $miner = "" }
         $miner = $miner.Trim().ToLower()
     }
@@ -215,7 +215,7 @@ do {
     # ----------------------------------------------------------------
     # Step 7: docker compose up
     # ----------------------------------------------------------------
-    Info "Starting HoneMesh node as $miner ..."
+    Info "Starting HONE node as $miner ..."
     docker compose up -d
     if ($LASTEXITCODE -ne 0) {
         Info "docker compose up failed. Retrying in 30 seconds..."
@@ -225,17 +225,17 @@ do {
 
     Say ""
     Say ("=" * 65) "Green"
-    Say "  HoneMesh is running as $miner" "Green"
+    Say "  HONE is running as $miner" "Green"
     Say ("=" * 65) "Green"
     Say ""
-    docker ps --filter "name=honemesh"
+    docker ps --filter "name=hone"
     Say ""
     Say "  Check balance:  @btcpcbot /balance on Telegram" "Cyan"
-    Say "  View logs:      docker compose logs -f honemesh" "Cyan"
+    Say "  View logs:      docker compose logs -f hone" "Cyan"
     Say "  Stop node:      docker compose stop" "Cyan"
     Say ""
     Ok "Mining started. This window can stay open to show logs."
-    docker compose logs -f honemesh
+    docker compose logs -f hone
 
     $keepRetrying = $false
 

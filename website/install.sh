@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# HoneMesh Node Installer
+# HONE Node Installer
 # Usage: curl -fsSL https://honemesh.net/install.sh | bash
 #
 # Self-heal rule: this installer NEVER asks a non-technical user to run a
@@ -12,9 +12,9 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 RESET='\033[0m'
 
-say()  { printf "${ORANGE}[honemesh]${RESET} %s\n" "$1"; }
+say()  { printf "${ORANGE}[hone]${RESET} %s\n" "$1"; }
 ok()   { printf "${GREEN}[ok]${RESET} %s\n" "$1"; }
-warn() { printf "${RED}[honemesh]${RESET} %s\n" "$1" >&2; }
+warn() { printf "${RED}[hone]${RESET} %s\n" "$1" >&2; }
 
 cat <<'BANNER'
 
@@ -50,15 +50,15 @@ case "$ARCH" in
   *) ARCH_TAG="amd64" ;;
 esac
 
-BIN_NAME="honemesh-node-${PLATFORM}-${ARCH_TAG}"
+BIN_NAME="hone-node-${PLATFORM}-${ARCH_TAG}"
 DOWNLOAD_URL="https://honemesh.net/downloads/${BIN_NAME}"
-INSTALL_BIN="/usr/local/bin/honemesh-node"
-DATA_DIR="${HONE_DATA_DIR:-$HOME/.honemesh}"
+INSTALL_BIN="/usr/local/bin/hone-node"
+DATA_DIR="${HONE_DATA_DIR:-$HOME/.hone}"
 
 # ── Account name (non-interactive fallback to a guest name) ───────────────────
 if [ -z "${HONE_ACCOUNT:-}" ]; then
   if [ -t 0 ]; then
-    printf "${ORANGE}[honemesh]${RESET} Enter your HoneMesh username (letters, numbers, hyphens): "
+    printf "${ORANGE}[hone]${RESET} Enter your HONE username (letters, numbers, hyphens): "
     read -r HONE_ACCOUNT
   fi
 fi
@@ -76,7 +76,7 @@ if [ -z "${HONE_ROLE_CHOICE:-}" ] && [ -t 0 ]; then
   echo "  1) Clock only      — lightweight, any machine, no GPU needed"
   echo "  2) Clock + Miner   — runs Ollama inference (default, GPU recommended)"
   echo "  3) Full node       — clock + miner + storage"
-  printf "${ORANGE}[honemesh]${RESET} Choice [1/2/3, default=2]: "
+  printf "${ORANGE}[hone]${RESET} Choice [1/2/3, default=2]: "
   read -r HONE_ROLE_CHOICE
 fi
 
@@ -87,7 +87,7 @@ case "${HONE_ROLE_CHOICE:-2}" in
 esac
 
 # ── Acquire the binary — retry with exponential backoff, never give up hard ───
-say "Downloading HoneMesh node (${PLATFORM}/${ARCH_TAG})..."
+say "Downloading HONE node (${PLATFORM}/${ARCH_TAG})..."
 
 TMP="$(mktemp)"
 DL_DELAYS="5 15 45 120 300"
@@ -140,7 +140,7 @@ if [ "$got_binary" != "true" ]; then
     exit 0
   fi
 
-  cd "$BUILD_DIR/rust/honemesh-node" || exit 0
+  cd "$BUILD_DIR/rust/hone-node" || exit 0
   while true; do
     if cargo build --release --quiet; then
       break
@@ -148,7 +148,7 @@ if [ "$got_binary" != "true" ]; then
     warn "Build failed — retrying in 30s (transient toolchain/network issue)..."
     sleep 30
   done
-  cp target/release/honemesh-node "$TMP"
+  cp target/release/hone-node "$TMP"
   cd - >/dev/null || true
   rm -rf "$BUILD_DIR"
   ok "Built from source."
@@ -163,8 +163,8 @@ elif sudo install -m 755 "$TMP" "$INSTALL_BIN" 2>/dev/null; then
   ok "Installed to $INSTALL_BIN (sudo)"
 else
   mkdir -p "$HOME/.local/bin"
-  install -m 755 "$TMP" "$HOME/.local/bin/honemesh-node"
-  INSTALL_BIN="$HOME/.local/bin/honemesh-node"
+  install -m 755 "$TMP" "$HOME/.local/bin/hone-node"
+  INSTALL_BIN="$HOME/.local/bin/hone-node"
   ok "Installed to $INSTALL_BIN (user-local)"
   export PATH="$HOME/.local/bin:$PATH"
 fi
@@ -190,21 +190,21 @@ if [ "$HONE_MINER" = "true" ] && ! command -v ollama >/dev/null 2>&1; then
 fi
 
 # ── Service install + supervised start loop ───────────────────────────────────
-# honemesh-setup wires up the platform service (systemd/launchd) and starts the
+# hone-setup wires up the platform service (systemd/launchd) and starts the
 # node. It runs inside a `while true ... done` supervisor so a transient
 # failure (network not up yet, port briefly taken) auto-retries instead of
 # leaving the user at a dead prompt.
-honemesh-setup() {
+hone-setup() {
   if [ "$PLATFORM" = "linux" ] && command -v systemctl >/dev/null 2>&1; then
-    GENESIS_FILE="$HOME/.honemesh/genesis.json"
+    GENESIS_FILE="$HOME/.hone/genesis.json"
     if [ ! -f "$GENESIS_FILE" ]; then
       curl -fsSL https://honemesh.net/genesis.json -o "$GENESIS_FILE" 2>/dev/null || true
     fi
     SERVICE_DIR="$HOME/.config/systemd/user"
     mkdir -p "$SERVICE_DIR"
-    cat > "$SERVICE_DIR/honemesh-node.service" <<SERVICE
+    cat > "$SERVICE_DIR/hone-node.service" <<SERVICE
 [Unit]
-Description=HoneMesh Node (@${HONE_ACCOUNT})
+Description=HONE Node (@${HONE_ACCOUNT})
 After=network-online.target
 Wants=network-online.target
 
@@ -230,20 +230,20 @@ StandardError=journal
 WantedBy=default.target
 SERVICE
     systemctl --user daemon-reload
-    systemctl --user enable honemesh-node 2>/dev/null || true
-    systemctl --user start  honemesh-node 2>/dev/null || true
+    systemctl --user enable hone-node 2>/dev/null || true
+    systemctl --user start  hone-node 2>/dev/null || true
     sleep 2
-    systemctl --user is-active --quiet honemesh-node && return 0
+    systemctl --user is-active --quiet hone-node && return 0
     return 1
 
   elif [ "$PLATFORM" = "mac" ]; then
-    PLIST="$HOME/Library/LaunchAgents/net.honemesh.node.plist"
+    PLIST="$HOME/Library/LaunchAgents/net.hone.node.plist"
     cat > "$PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>Label</key><string>net.honemesh.node</string>
+  <key>Label</key><string>net.hone.node</string>
   <key>ProgramArguments</key>
   <array><string>${INSTALL_BIN}</string></array>
   <key>EnvironmentVariables</key>
@@ -276,7 +276,7 @@ PLIST
 
 setup_attempt=0
 while true; do
-  if honemesh-setup; then
+  if hone-setup; then
     ok "Node is running."
     break
   fi
@@ -293,12 +293,12 @@ done
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo ""
-ok "HoneMesh node installed."
+ok "HONE node installed."
 echo ""
 echo "  Account:    @${HONE_ACCOUNT}"
 echo "  Roles:      clock=${HONE_CLOCK} miner=${HONE_MINER} storage=${HONE_STORAGE}"
 echo "  API:        http://localhost:4242"
 echo "  Wallet:     https://honemesh.net/app"
-echo "  Logs:       journalctl --user -u honemesh-node -f"
+echo "  Logs:       journalctl --user -u hone-node -f"
 echo ""
 say "Rewards land every 30 seconds. Welcome to the network."

@@ -55,12 +55,12 @@ Use each account's posting pubkey (from `wallets/INDEX.md` or
     "__testnet_fund__": { "balance": 0 } } }
 ```
 Update the timestamp constant in ALL THREE (CI gate check-constants.yml enforces):
-`rust/honemesh-node/src/config.rs`, `rust/honemesh-node/genesis.json`, `docs/CHAIN_CONSTANTS.md`.
+`rust/hone-node/src/config.rs`, `rust/hone-node/genesis.json`, `docs/CHAIN_CONSTANTS.md`.
 
 ### 4. ★ THE GATE — verify-vault ★
 ```
-btcpc wallet verify-vault --vault wallets --genesis rust/honemesh-node/genesis.json \
-    --require-accounts rust/honemesh-node/genesis-required-accounts.txt
+btcpc wallet verify-vault --vault wallets --genesis rust/hone-node/genesis.json \
+    --require-accounts rust/hone-node/genesis-required-accounts.txt
 ```
 - **Exit 0 / "Safe to launch"** → proceed.
 - **Exit 2 / FAIL** → one of three things is wrong, all launch-blocking:
@@ -92,7 +92,7 @@ Recoverability is worthless if it lives on one disk that can die.
 ### 7. Fresh-genesis smoke test (throwaway dir) and RECORD the block-0 hash
 ```
 HONE_DATA_DIR=/tmp/gv2-smoke HONE_CHAIN_ID=hone \
-  HONE_GENESIS_FILE=$PWD/rust/honemesh-node/genesis.json \
+  HONE_GENESIS_FILE=$PWD/rust/hone-node/genesis.json \
   HONE_GENESIS_TIMESTAMP=1783191600000 HONE_API_PORT=4299 HONE_P2P_PORT=6999 \
   ./target/release/btcpc-node &
 sleep 8

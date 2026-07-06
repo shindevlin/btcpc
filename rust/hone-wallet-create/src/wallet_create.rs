@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context, Result};
-use honemesh_sdk::Wallet;
+use hone_sdk::Wallet;
 use eframe::egui;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
@@ -131,7 +131,7 @@ impl WalletCreateApp {
         ui.horizontal(|ui| {
             ui.add_space(18.0);
             ui.vertical(|ui| {
-                ui.label(egui::RichText::new("HoneMesh Wallet Create").size(34.0).strong().color(ORANGE));
+                ui.label(egui::RichText::new("HONE Wallet Create").size(34.0).strong().color(ORANGE));
                 ui.label(egui::RichText::new("Standalone offline-first account and wallet creation.").size(14.0).color(MUTED));
             });
         });
@@ -153,12 +153,12 @@ impl WalletCreateApp {
             ui.add_space(12.0);
 
             labeled_text(ui, "Account name", &mut self.account, "example: alice");
-            labeled_text(ui, "Public wallet file", &mut self.wallet_file, "blank = ~/.honemesh/{account}.wallet.key");
+            labeled_text(ui, "Public wallet file", &mut self.wallet_file, "blank = ~/.hone/{account}.wallet.key");
 
             ui.add_space(4.0);
             ui.checkbox(&mut self.export_signer, "Also export current-node signer file (unencrypted, chmod 600)");
             if self.export_signer {
-                labeled_text(ui, "Signer file", &mut self.signer_file, "blank = ~/.honemesh/{account}.signer.key");
+                labeled_text(ui, "Signer file", &mut self.signer_file, "blank = ~/.hone/{account}.signer.key");
             }
 
             ui.add_space(12.0);
@@ -175,7 +175,7 @@ impl WalletCreateApp {
     fn show_register_card(&mut self, ui: &mut egui::Ui) {
         card(ui, |ui| {
             heading(ui, "2. Register account name");
-            ui.label(egui::RichText::new("Optional online step. This claims the HoneMesh account name on a node using owner-key signatures.").small().color(MUTED));
+            ui.label(egui::RichText::new("Optional online step. This claims the HONE account name on a node using owner-key signatures.").small().color(MUTED));
             ui.add_space(12.0);
 
             labeled_text(ui, "Node URL", &mut self.node_url, DEFAULT_NODE_URL);
@@ -219,7 +219,7 @@ impl WalletCreateApp {
                     .unwrap_or("not exported"));
 
                 ui.add_space(12.0);
-                ui.label(egui::RichText::new("HoneMesh role public keys").strong().color(TEXT));
+                ui.label(egui::RichText::new("HONE role public keys").strong().color(TEXT));
                 for (role, key) in &summary.role_keys {
                     key_value(ui, role, key);
                 }
@@ -348,7 +348,7 @@ fn register_account(base: &str, account: &str, mnemonic: &str) -> Result<String>
 }
 
 fn sign_account_create(
-    keypair: &honemesh_sdk::KeyPair,
+    keypair: &hone_sdk::KeyPair,
     chain_id: &str,
     account: &str,
     role_keys: &std::collections::HashMap<String, String>,
@@ -366,7 +366,7 @@ fn sign_account_create(
 }
 
 fn sign_wallet_family(
-    keypair: &honemesh_sdk::KeyPair,
+    keypair: &hone_sdk::KeyPair,
     chain_id: &str,
     account: &str,
     chains: &[Value],
@@ -454,7 +454,7 @@ fn default_signer_path(account: &str) -> PathBuf {
 }
 
 fn home_hone_dir() -> PathBuf {
-    PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| ".".into())).join(".honemesh")
+    PathBuf::from(std::env::var("HOME").unwrap_or_else(|_| ".".into())).join(".hone")
 }
 
 fn setup_theme(ctx: &egui::Context) {

@@ -24,7 +24,7 @@
 
 use std::sync::Arc;
 
-use honemesh_types::LedgerEntry;
+use hone_types::LedgerEntry;
 use matrix_sdk::{
     Client, Room,
     authentication::matrix::MatrixSession,
@@ -216,7 +216,7 @@ async fn restore_or_login(
     // Fresh password login.
     match client.matrix_auth()
         .login_username(user, password)
-        .initial_device_display_name("honemesh-node")
+        .initial_device_display_name("hone-node")
         .send()
         .await
     {

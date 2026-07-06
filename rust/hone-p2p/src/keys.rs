@@ -1,6 +1,6 @@
 /// Persistent keypair storage — stable PeerId across restarts.
 /// Stored at $HONE_DATA_DIR/p2p-identity.json (ed25519 private key, hex-encoded).
-/// Compatible with existing ~/.honemesh/noise-static-key.json convention.
+/// Compatible with existing ~/.hone/noise-static-key.json convention.
 
 use anyhow::{Context, Result};
 use libp2p::identity::{self, Keypair};

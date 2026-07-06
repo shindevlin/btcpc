@@ -1,5 +1,5 @@
 use anyhow::{anyhow, bail, Context, Result};
-use honemesh_sdk::KeyPair;
+use hone_sdk::KeyPair;
 use colored::Colorize;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
@@ -9,10 +9,10 @@ use crate::session;
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
-/// Save a repo keypair to ~/.honemesh/repos/{name}.key.json.
+/// Save a repo keypair to ~/.hone/repos/{name}.key.json.
 fn save_repo_key(repo_name: &str, account: &str, private_key_hex: &str) -> Result<()> {
     let home = std::env::var("HOME").context("HOME not set")?;
-    let dir = PathBuf::from(home).join(".honemesh").join("repos");
+    let dir = PathBuf::from(home).join(".hone").join("repos");
     std::fs::create_dir_all(&dir)?;
     let path = dir.join(format!("{}.key.json", repo_name));
     let json = serde_json::to_string_pretty(&json!({

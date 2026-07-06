@@ -14,7 +14,7 @@ const MAX_IMAGE_BYTES: usize = 8 * 1024 * 1024; // 8 MB
 /// POST /api/commerce/media/upload
 /// Accepts a single image file (multipart/form-data, field name "file").
 /// Stores the blob in $HONE_DATA_DIR/market-blobs/<sha256hex>
-/// and returns a HoneMesh-FS CID: "sha256:<hex>".
+/// and returns a HONE-FS CID: "sha256:<hex>".
 pub async fn upload_image(
     State(app): State<AppState>,
     Extension(user): Extension<AuthUser>,

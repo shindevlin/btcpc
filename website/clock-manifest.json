@@ -1,7 +1,7 @@
 {
-  "name": "HoneMesh Clock",
-  "short_name": "HoneMesh Clock",
-  "description": "Browser-based clock node for the HoneMesh network",
+  "name": "HONE Clock",
+  "short_name": "HONE Clock",
+  "description": "Browser-based clock node for the HONE network",
   "start_url": "/clock",
   "display": "standalone",
   "background_color": "#0a0e17",

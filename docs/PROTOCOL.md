@@ -1,7 +1,7 @@
 # BTCPC Protocol Primitives
 
 Reference document for external auditors, SDK authors, and integration developers.
-All values are canonical — they match `crates/honemesh-types/src/` exactly.
+All values are canonical — they match `crates/hone-types/src/` exactly.
 If this document conflicts with the code, the code wins.
 
 ---
@@ -143,7 +143,7 @@ epoch_ms(e) = INITIAL_EPOCH_MS << min(era(e), RECYCLE_ERA)
 
 - **Genesis timestamp:** `1783191600000` ms (2026-05-01 12:00:00 IST / 11:00:00 UTC)
 - **Chain ID:** `hone` (mainnet), `hone-testnet` (testnet)
-- **Genesis block:** `rust/honemesh-node/genesis.json`
+- **Genesis block:** `rust/hone-node/genesis.json`
 
 ---
 

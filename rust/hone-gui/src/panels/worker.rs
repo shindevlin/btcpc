@@ -57,7 +57,7 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
                     .min_size(egui::vec2(64.0, 22.0))
             ).clicked() {
                 let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
-                let start = format!("{}/.honemesh", home);
+                let start = format!("{}/.hone", home);
                 let result = std::process::Command::new("zenity")
                     .args(["--file-selection", "--title=Select posting key",
                            &format!("--filename={}/", start)])
@@ -138,7 +138,7 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
         section_heading(ui, "Activate Worker");
         card(ui, |ui| {
             ui.label(egui::RichText::new(
-                "Stake HoneMesh to your own miner or worker role to start earning rewards."
+                "Stake HONE to your own miner or worker role to start earning rewards."
             ).size(11.0).color(DIM_TEXT));
             ui.add_space(4.0);
             ui.label(egui::RichText::new(

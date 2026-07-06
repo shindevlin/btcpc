@@ -29,7 +29,7 @@
 
 use std::sync::Arc;
 
-use honemesh_types::LedgerEntry;
+use hone_types::LedgerEntry;
 use nostr_sdk::prelude::*;
 use nostr_sdk::{
     Client, EventBuilder, Filter, Keys, Kind, RelayPoolNotification, SecretKey, Tag, TagKind,
@@ -45,7 +45,7 @@ use crate::net::NetCmd;
 // Constants
 // ---------------------------------------------------------------------------
 
-/// Default Nostr event kind for HoneMesh ledger entries.
+/// Default Nostr event kind for HONE ledger entries.
 const DEFAULT_KIND: u16 = 21337;
 
 /// Default relay pool URLs (comma-separated).

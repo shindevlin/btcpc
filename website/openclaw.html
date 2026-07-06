@@ -3,9 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>HoneMesh + OpenClaw / Hermes — Mine with Your AI Agent</title>
-    <meta name="description" content="Run HoneMesh inside OpenClaw or Hermes. One command installs the skill. Ask your agent to check your balance, start mining, or send HONE — in plain English." />
-    <meta property="og:title" content="HoneMesh + OpenClaw / Hermes" />
+    <title>HONE + OpenClaw / Hermes — Mine with Your AI Agent</title>
+    <meta name="description" content="Run HONE inside OpenClaw or Hermes. One command installs the skill. Ask your agent to check your balance, start mining, or send HONE — in plain English." />
+    <meta property="og:title" content="HONE + OpenClaw / Hermes" />
     <meta property="og:description" content="Mine Bitcoin Proof of Compute through your AI agent. Works with OpenClaw and Hermes." />
     <meta property="og:url" content="https://honemesh.net/openclaw" />
     <link rel="stylesheet" href="style.css" />
@@ -344,7 +344,7 @@
 
     <!-- Nav -->
     <nav>
-      <a href="/" class="nav-logo">⛏ HoneMesh</a>
+      <a href="/" class="nav-logo">⛏ HONE</a>
       <div class="nav-links">
         <a href="/install">Install</a>
         <a href="/run-a-node">Run a Node</a>
@@ -356,9 +356,9 @@
     <!-- Hero -->
     <div class="hero">
       <div class="hero-badge">🤖 Agent Integration</div>
-      <h1>Mine HoneMesh through<br/><span>your AI agent</span></h1>
+      <h1>Mine HONE through<br/><span>your AI agent</span></h1>
       <p>
-        Install the HoneMesh skill into OpenClaw or Hermes. Then just ask —
+        Install the HONE skill into OpenClaw or Hermes. Then just ask —
         check your balance, start mining, send tokens — all in plain English,
         from inside your existing agent.
       </p>
@@ -389,21 +389,21 @@
     <div class="section" id="install">
       <div class="section-label">Installation</div>
       <h2>Two ways to get started</h2>
-      <p>If HoneMesh is already installed on this machine, the skill install is one command. If you're starting fresh, run the full setup first.</p>
+      <p>If HONE is already installed on this machine, the skill install is one command. If you're starting fresh, run the full setup first.</p>
 
       <div class="steps">
 
-        <!-- Option A: Already have HoneMesh -->
+        <!-- Option A: Already have HONE -->
         <div class="step">
           <div class="step-num">A</div>
           <div>
-            <h3>Already have HoneMesh installed</h3>
+            <h3>Already have HONE installed</h3>
             <p>Drop the skill into your agent. Works for both OpenClaw and Hermes.</p>
             <div class="code-block"><button class="copy-btn" onclick="copy(this)">copy</button><span class="comment"># OpenClaw</span>
-<span class="cmd">node ~/.honemesh/repo/bin/btcpc-setup --engine openclaw</span>
+<span class="cmd">node ~/.hone/repo/bin/btcpc-setup --engine openclaw</span>
 
 <span class="comment"># Hermes</span>
-<span class="cmd">node ~/.honemesh/repo/bin/btcpc-setup --engine hermes</span></div>
+<span class="cmd">node ~/.hone/repo/bin/btcpc-setup --engine hermes</span></div>
             <p style="margin-top:14px;">This copies <code>btcpc.md</code> into your agent's skills directory and verifies the node is reachable.</p>
           </div>
         </div>
@@ -412,8 +412,8 @@
         <div class="step">
           <div class="step-num">B</div>
           <div>
-            <h3>Fresh install — HoneMesh + skill in one shot</h3>
-            <p>Installs HoneMesh, creates your wallet, installs Hermes if not present, and drops in the skill.</p>
+            <h3>Fresh install — HONE + skill in one shot</h3>
+            <p>Installs HONE, creates your wallet, installs Hermes if not present, and drops in the skill.</p>
             <div class="code-block"><button class="copy-btn" onclick="copy(this)">copy</button><span class="cmd">curl -fsSL https://honemesh.net/install.sh | bash -s -- --engine hermes</span></div>
             <p style="margin-top:14px;">The installer detects OpenClaw or Hermes and skips any parts already done.</p>
           </div>
@@ -441,7 +441,7 @@
     <div class="section" id="commands">
       <div class="section-label">Natural Language Commands</div>
       <h2>Just ask your agent</h2>
-      <p>No commands to memorize. The skill maps plain English to the right HoneMesh CLI calls.</p>
+      <p>No commands to memorize. The skill maps plain English to the right HONE CLI calls.</p>
 
       <div class="cmd-grid">
         <div class="cmd-item">
@@ -452,12 +452,12 @@
         <div class="cmd-item">
           <div class="say">Start mining</div>
           <div class="phrase">start mining</div>
-          <div class="action">systemctl --user start honemesh-miner</div>
+          <div class="action">systemctl --user start hone-miner</div>
         </div>
         <div class="cmd-item">
           <div class="say">Stop mining</div>
           <div class="phrase">stop the miner</div>
-          <div class="action">systemctl --user stop honemesh-miner</div>
+          <div class="action">systemctl --user stop hone-miner</div>
         </div>
         <div class="cmd-item">
           <div class="say">Send tokens</div>
@@ -472,7 +472,7 @@
         <div class="cmd-item">
           <div class="say">View logs</div>
           <div class="phrase">show me the miner logs</div>
-          <div class="action">journalctl --user -u honemesh-miner -n 50</div>
+          <div class="action">journalctl --user -u hone-miner -n 50</div>
         </div>
       </div>
 
@@ -542,7 +542,7 @@
     <div class="section">
       <div class="section-label">Migrating from OpenClaw to Hermes?</div>
       <h2>Your skill migrates automatically</h2>
-      <p>Hermes can import your OpenClaw memories, skills, and settings in one command. The HoneMesh skill comes along for the ride.</p>
+      <p>Hermes can import your OpenClaw memories, skills, and settings in one command. The HONE skill comes along for the ride.</p>
       <div class="code-block"><button class="copy-btn" onclick="copy(this)">copy</button><span class="comment"># Migrate everything from OpenClaw → Hermes</span>
 <span class="cmd">hermes claw migrate</span>
 

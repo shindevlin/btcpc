@@ -9,7 +9,7 @@ use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use honemesh_types::LedgerEntry;
+use hone_types::LedgerEntry;
 use crate::chain::Chain;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

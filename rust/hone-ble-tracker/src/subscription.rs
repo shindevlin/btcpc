@@ -5,11 +5,11 @@
 //! the claim is Verified/AcousticVerified, this module:
 //!
 //!   1. Encrypts sighting details to the subscriber's memo public key
-//!   2. Stores the encrypted blob in HoneMesh-FS (gets a CID)
+//!   2. Stores the encrypted blob in HONE-FS (gets a CID)
 //!   3. Emits TrackerSightingData { cid, plaintext_hash, ... } to the node API
 //!
 //! The subscriber's node picks up the gossip entry and stores the CID reference.
-//! The subscriber decrypts via the HoneMesh-FS fetch + their memo private key.
+//! The subscriber decrypts via the HONE-FS fetch + their memo private key.
 
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -121,10 +121,10 @@ impl SubscriptionManager {
         // Placeholder: base64-encode plaintext until crypto crates are wired in.
         let encrypted = base64_encode(plaintext.as_bytes());
 
-        // Store encrypted blob in HoneMesh-FS.
+        // Store encrypted blob in HONE-FS.
         let cid = match self.client.store_blob(&sub.claimer, &encrypted).await {
             Ok(c) => c,
-            Err(e) => { warn!("HoneMesh-FS store failed: {}", e); return; }
+            Err(e) => { warn!("HONE-FS store failed: {}", e); return; }
         };
 
         // Emit TrackerSightingData to the node.

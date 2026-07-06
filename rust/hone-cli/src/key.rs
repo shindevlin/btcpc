@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use honemesh_sdk::KeyPair;
+use hone_sdk::KeyPair;
 use colored::Colorize;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
@@ -85,6 +85,6 @@ fn resolve_key_path(input: Option<&Path>) -> Result<PathBuf> {
 fn default_key_path() -> Result<PathBuf> {
     let home = std::env::var("HOME")
         .map_err(|_| anyhow!("HOME is not set; pass --key-file explicitly"))?;
-    Ok(PathBuf::from(home).join(".honemesh").join("key.json"))
+    Ok(PathBuf::from(home).join(".hone").join("key.json"))
 }
 

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{info, warn};
-use honemesh_types::{LedgerEntry, EPOCH_MS, NATIVE_TOKEN};
+use hone_types::{LedgerEntry, EPOCH_MS, NATIVE_TOKEN};
 
 use crate::chain::Chain;
 use crate::net::NetCmd;
@@ -153,7 +153,7 @@ fn provision_hosted_node(buyer_account: &str) -> anyhow::Result<String> {
             "-p", &format!("{}:4242", api_port),
             "-p", &format!("{}:6942", p2p_port),
             "-v", &format!("{}:/data", vol_name),
-            "ghcr.io/honemesh-network/honemesh-node:latest",
+            "ghcr.io/hone-network/hone-node:latest",
         ])
         .output()?;
 

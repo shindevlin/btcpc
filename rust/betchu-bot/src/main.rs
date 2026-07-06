@@ -40,7 +40,7 @@ async fn main() -> Result<()> {
     info!("Starting betchu-bot v{}", env!("CARGO_PKG_VERSION"));
     info!("Contract: {}", config.bet_contract_address);
     info!("RPC: {}", config.rpc_url);
-    info!("HoneMesh: {}", config.hone_api_url);
+    info!("HONE: {}", config.hone_api_url);
 
     // ── Contract service ─────────────────────────────────────────────────────
     let contract = Arc::new(
@@ -64,7 +64,7 @@ async fn main() -> Result<()> {
         }
     };
 
-    // ── HoneMesh inference client ───────────────────────────────────────────────
+    // ── HONE inference client ───────────────────────────────────────────────
     let hone = if !config.hone_project_key.is_empty() {
         Some(HoneInferenceClient::new(
             config.hone_api_url.clone(),
@@ -75,7 +75,7 @@ async fn main() -> Result<()> {
         None
     };
 
-    // ── HoneMesh service client (heartbeat + registration) ──────────────────────
+    // ── HONE service client (heartbeat + registration) ──────────────────────
     let hone_service = if !config.hone_project_key.is_empty() {
         Some(HoneServiceClient::new(
             config.hone_api_url.clone(),
@@ -98,11 +98,11 @@ async fn main() -> Result<()> {
         espn: Arc::clone(&espn),
     });
 
-    // ── HoneMesh service registration ───────────────────────────────────────────
+    // ── HONE service registration ───────────────────────────────────────────
     let service_slug = if let Some(svc) = &state.hone_service {
         match svc.register_service(&config.hone_account).await {
             Ok(slug) => {
-                info!("Registered as HoneMesh service: {}", slug);
+                info!("Registered as HONE service: {}", slug);
                 slug
             }
             Err(e) => {
@@ -114,7 +114,7 @@ async fn main() -> Result<()> {
         format!("{}/betchu-bot", config.hone_account)
     };
 
-    // ── Health HTTP server (HoneMesh compliance) ────────────────────────────────
+    // ── Health HTTP server (HONE compliance) ────────────────────────────────
     let health_state = Arc::clone(&state);
     let app = Router::new()
         .route("/health", get(health_handler))
@@ -131,7 +131,7 @@ async fn main() -> Result<()> {
         axum::serve(listener, app).await.expect("Health server failed");
     });
 
-    // ── HoneMesh heartbeat loop (every 30s = one epoch) ─────────────────────────
+    // ── HONE heartbeat loop (every 30s = one epoch) ─────────────────────────
     if state.hone_service.is_some() {
         let heartbeat_state = Arc::clone(&state);
         let slug = service_slug.clone();
@@ -144,7 +144,7 @@ async fn main() -> Result<()> {
                 }
             }
         });
-        info!("HoneMesh heartbeat started (30s interval) for {}", service_slug);
+        info!("HONE heartbeat started (30s interval) for {}", service_slug);
     }
 
     // ── ESPN score resolution cron (every 15 min) ────────────────────────────
@@ -189,7 +189,7 @@ async fn health_handler() -> Json<serde_json::Value> {
 async fn root_handler() -> Json<serde_json::Value> {
     Json(serde_json::json!({
         "name": "betchu-bot",
-        "description": "HoneMesh-native P2P sports betting bot",
+        "description": "HONE-native P2P sports betting bot",
         "version": env!("CARGO_PKG_VERSION"),
         "hone_compliant": true,
         "endpoints": ["/health"],

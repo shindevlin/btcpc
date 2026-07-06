@@ -3,7 +3,7 @@
 
 use crate::chain::Chain;
 
-/// Resolve a HoneMesh shortcode or URL path to a store or product.
+/// Resolve a HONE shortcode or URL path to a store or product.
 /// Shortcodes: `@account`, `@account/product`, `hone:{account}/{product}`
 pub fn resolve(chain: &Chain, input: &str) -> serde_json::Value {
     // Strip leading `@` or `hone:` prefix

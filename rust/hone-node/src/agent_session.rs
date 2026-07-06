@@ -14,7 +14,7 @@ use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use tracing::{info, warn};
 
-use honemesh_types::{LedgerEntry, NATIVE_TOKEN, RECYCLE_FUND_ACCOUNT};
+use hone_types::{LedgerEntry, NATIVE_TOKEN, RECYCLE_FUND_ACCOUNT};
 use crate::chain::Chain;
 
 const MAX_HISTORY_TURNS: usize = 50;

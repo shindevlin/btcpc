@@ -9,7 +9,7 @@ use std::time::Duration;
 use sha2::{Digest, Sha256};
 use tracing::{info, warn};
 
-use honemesh_types::{LedgerEntry, NATIVE_TOKEN, EPOCH_MS};
+use hone_types::{LedgerEntry, NATIVE_TOKEN, EPOCH_MS};
 use crate::chain::Chain;
 use crate::net::NetCmd;
 use crate::utils::now_ms;

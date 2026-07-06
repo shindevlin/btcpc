@@ -14,7 +14,7 @@ use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use honemesh_types::{LedgerEntry, NATIVE_TOKEN, RECYCLE_FUND_ACCOUNT};
+use hone_types::{LedgerEntry, NATIVE_TOKEN, RECYCLE_FUND_ACCOUNT};
 use crate::chain::Chain;
 
 const OUTLIER_THRESHOLD_BPS: u64 = 500; // 5%
@@ -26,7 +26,7 @@ const MIN_REPORTS: usize = 3;
 pub struct OracleFeed {
     pub feed_id: String,
     pub creator: String,
-    pub asset_pair: String, // e.g. "HoneMesh/USD"
+    pub asset_pair: String, // e.g. "HONE/USD"
     pub update_interval_epochs: u64,
     pub created_epoch: u64,
     pub last_price: Option<u64>, // micro-USD (6 decimals)
@@ -207,7 +207,7 @@ pub fn apply_finalize(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use honemesh_types::LedgerEntry;
+    use hone_types::LedgerEntry;
     use tempfile::TempDir;
 
     fn make_chain() -> (crate::chain::Chain, TempDir) {
@@ -231,7 +231,7 @@ mod tests {
         chain.apply_entry(&LedgerEntry::GenesisAlloc {
             account: account.to_string(),
             amount,
-            token: honemesh_types::NATIVE_TOKEN.to_string(),
+            token: hone_types::NATIVE_TOKEN.to_string(),
         }).unwrap();
     }
 
@@ -251,7 +251,7 @@ mod tests {
         let entry = LedgerEntry::OracleFeedCreate {
             feed_id: "feed1".to_string(),
             creator: "alice".to_string(),
-            asset_pair: "HoneMesh/USD".to_string(),
+            asset_pair: "HONE/USD".to_string(),
             update_interval_epochs: 5,
             epoch: 1,
             nonce: 1,
@@ -263,7 +263,7 @@ mod tests {
         let raw = chain.store.state_get(&feed_key("feed1")).unwrap();
         let feed: OracleFeed = serde_json::from_slice(&raw).unwrap();
         assert_eq!(feed.feed_id, "feed1");
-        assert_eq!(feed.asset_pair, "HoneMesh/USD");
+        assert_eq!(feed.asset_pair, "HONE/USD");
         assert!(feed.active);
         assert_eq!(feed.reports.len(), 0);
     }
@@ -276,7 +276,7 @@ mod tests {
         let create = LedgerEntry::OracleFeedCreate {
             feed_id: "feed2".to_string(),
             creator: "alice".to_string(),
-            asset_pair: "HoneMesh/USD".to_string(),
+            asset_pair: "HONE/USD".to_string(),
             update_interval_epochs: 10,
             epoch: 1,
             nonce: 1,
@@ -315,7 +315,7 @@ mod tests {
         let create = LedgerEntry::OracleFeedCreate {
             feed_id: "feed3".to_string(),
             creator: "alice".to_string(),
-            asset_pair: "HoneMesh/USD".to_string(),
+            asset_pair: "HONE/USD".to_string(),
             update_interval_epochs: 5,
             epoch: 1,
             nonce: 1,
@@ -340,8 +340,8 @@ mod tests {
         }
 
         // Finalize at epoch ≥ deadline (6)
-        let reveals: Vec<honemesh_types::OracleReveal> = reporters.iter()
-            .map(|(reporter, value, nonce)| honemesh_types::OracleReveal {
+        let reveals: Vec<hone_types::OracleReveal> = reporters.iter()
+            .map(|(reporter, value, nonce)| hone_types::OracleReveal {
                 reporter: reporter.to_string(),
                 value: *value,
                 nonce: nonce.to_string(),
@@ -375,7 +375,7 @@ mod tests {
         let create = LedgerEntry::OracleFeedCreate {
             feed_id: "feed4".to_string(),
             creator: "alice".to_string(),
-            asset_pair: "HoneMesh/USD".to_string(),
+            asset_pair: "HONE/USD".to_string(),
             update_interval_epochs: 3,
             epoch: 1,
             nonce: 1,

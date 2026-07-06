@@ -6,9 +6,9 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <title>HoneMesh — Turn Any Device Into a Node</title>
+  <title>HONE — Turn Any Device Into a Node</title>
   <!-- iPad/Apple fullscreen -->
-  <meta name="apple-mobile-web-app-title" content="HoneMesh">
+  <meta name="apple-mobile-web-app-title" content="HONE">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <meta name="description" content="Earn HONE by sharing sensor data from your device. GPS, motion, orientation, battery, network — every reading pays.">
   <meta name="theme-color" content="#f7931a">
@@ -438,7 +438,7 @@
 
   <!-- Navigation -->
   <div id="nav-bar">
-    <a href="/" class="nav-brand"><img src="/honemesh-logo.jpeg" alt="" class="brand-mark">HoneMesh</a>
+    <a href="/" class="nav-brand"><img src="/hone-logo.jpeg" alt="" class="brand-mark">HONE</a>
     <a href="/globe">Globe</a>
     <a href="/dashboard">Dashboard</a>
     <a href="/map">Map</a>
@@ -451,8 +451,8 @@
   <!-- Desktop sidebar — only visible when data-desktop is set -->
   <div id="desktop-sidebar">
     <div class="sb-logo">
-      <img src="/honemesh-logo.jpeg" alt="HoneMesh">
-      <span>HoneMesh</span>
+      <img src="/hone-logo.jpeg" alt="HONE">
+      <span>HONE</span>
     </div>
     <div class="sb-account">
       <div class="sb-name" id="sb-account-name">—</div>
@@ -503,12 +503,12 @@
   <!-- Screen: Setup -->
   <div id="screen-setup" class="screen active">
     <div class="setup-hero">
-      <img class="setup-hex" src="/honemesh-logo.jpeg" alt="HoneMesh">
-      <h1>HoneMesh Sensor Node</h1>
-      <p>Turn your device into a HoneMesh sensor node. Share GPS, motion, orientation, and device data to earn from the IoT pool.</p>
+      <img class="setup-hex" src="/hone-logo.jpeg" alt="HONE">
+      <h1>HONE Sensor Node</h1>
+      <p>Turn your device into a HONE sensor node. Share GPS, motion, orientation, and device data to earn from the IoT pool.</p>
     </div>
     <div class="input-group">
-      <label>HoneMesh Username</label>
+      <label>HONE Username</label>
       <input type="text" id="input-account" placeholder="e.g. daniel" autocomplete="off" autocapitalize="none" spellcheck="false">
       <div style="color:#94a3b8;font-size:12px;line-height:1.5;margin-top:6px;">Create a wallet with an available name now. Premium names can be assigned later as public name assets on the same wallet.</div>
     </div>
@@ -561,7 +561,7 @@
   <!-- Screen: Dashboard -->
   <div id="screen-dash" class="screen">
     <div class="dash-header">
-      <h2>=== HoneMesh Mobile Node ===</h2>
+      <h2>=== HONE Mobile Node ===</h2>
     </div>
     <!-- Chrome recommendation for non-Chrome Android -->
     <div id="chrome-banner" style="display:none;background:rgba(247,147,26,0.1);border:1px solid rgba(247,147,26,0.3);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:11px;color:#f7931a;">
@@ -619,7 +619,7 @@
       <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:12px;text-align:center;">
         <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">Your Balance</div>
         <div id="home-balance" style="font-size:32px;font-weight:700;color:var(--orange);">—</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px;">HoneMesh</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">HONE</div>
         <div id="home-faucet-wrap" style="display:none;margin-top:12px;">
           <button id="home-faucet-btn" class="btn btn-primary" style="font-size:13px;padding:8px 20px;">Claim Faucet (free HONE)</button>
         </div>
@@ -837,7 +837,7 @@
           { id: 'CodeLlama-13B-Instruct-q4f16_1-MLC', name: 'CodeLlama 13B', size: '7.4GB', ram: 10, tier: 'gpu16', desc: 'Code specialist', earning: '6x' },
           { id: 'Qwen3.5-9B-Instruct-q4f16_1-MLC', name: 'Qwen 3.5 9B', size: '5.5GB', ram: 7, tier: 'gpu8', desc: 'Latest Qwen, balanced', earning: '5x' },
           // ── Desktop GPU 24GB (3090/4090) ──
-          { id: 'Qwen3.5-27B-Instruct-q4f16_1-MLC', name: 'Qwen 3.5 27B', size: '16GB', ram: 20, tier: 'gpu24', desc: 'Default HoneMesh model, highest demand', earning: '10x' },
+          { id: 'Qwen3.5-27B-Instruct-q4f16_1-MLC', name: 'Qwen 3.5 27B', size: '16GB', ram: 20, tier: 'gpu24', desc: 'Default HONE model, highest demand', earning: '10x' },
           { id: 'Dolphin-Mixtral-8x7B-q4f16_1-MLC', name: 'Dolphin Mixtral 8x7B', size: '26GB', ram: 22, tier: 'gpu24', desc: 'Uncensored MoE, heavy', earning: '12x' },
           // ── Data center 48GB+ ──
           { id: 'Llama-3.1-70B-Instruct-q4f16_1-MLC', name: 'Llama 3.1 70B', size: '40GB', ram: 48, tier: 'gpu48', desc: 'Maximum quality, multi-GPU', earning: '17x' },
@@ -866,11 +866,11 @@
             (hasWebGPU
               ? ' • <span style="color:#22c55e;">WebGPU ✓</span>'
               : ' • <span style="color:#f7931a;">CPU inference via WASM ✓</span>') +
-            '<br><span style="color:var(--muted);">Models served from HoneMesh network. Download once, mine forever.</span>';
+            '<br><span style="color:var(--muted);">Models served from HONE network. Download once, mine forever.</span>';
         }
 
         // Desktop uses Ollama model IDs; PWA uses WebLLM/MLC model IDs
-        // HoneMesh is model-agnostic — work value scales with verified parameter count.
+        // HONE is model-agnostic — work value scales with verified parameter count.
         var ollamaModels = [
           // ── Sub-2GB (any hardware) ──────────────────────────────────────────
           { id: 'qwen3:0.6b',       name: 'Qwen3 0.6B',        size: '523MB',  ram: 1,  tier: 'any',    desc: 'Alibaba — fastest, any device',               earning: '1x' },
@@ -890,11 +890,11 @@
           { id: 'deepseek-r1:7b',   name: 'DeepSeek-R1 7B',    size: '4.7GB',  ram: 6,  tier: 'laptop', desc: 'Reasoning specialist — chain of thought',       earning: '4x' },
           { id: 'mistral:7b',       name: 'Mistral 7B',        size: '4.1GB',  ram: 6,  tier: 'laptop', desc: 'Mistral — reliable classic, fast inference',    earning: '4x' },
           { id: 'llama3.2:3b',      name: 'Llama 3.2 3B',      size: '2GB',    ram: 4,  tier: 'laptop', desc: 'Meta — solid small model',                      earning: '2x' },
-          { id: 'dirty-muse-writer:latest', name: 'Dirty Muse Writer 9B',  size: '5.8GB',  ram: 8,  tier: 'gpu8',  desc: 'Uncensored creative writing — GGUF from HoneMesh chain',            earning: '4x',  gguf: true, chain_id: 'dirty-muse-writer' },
-          { id: 'mythomax-l2:13b',          name: 'MythoMax L2 13B',       size: '8.1GB',  ram: 10, tier: 'gpu16', desc: 'Classic uncensored — strong creative/roleplay, HoneMesh chain',    earning: '5x',  gguf: true, chain_id: 'mythomax-l2-13b' },
-          { id: 'dolphin-mixtral:8x7b',     name: 'Dolphin Mixtral 8x7B',  size: '26GB',   ram: 24, tier: 'gpu24', desc: 'Uncensored MoE — 141B total / 12B active, HoneMesh chain',          earning: '12x', gguf: true, chain_id: 'dolphin-mixtral-8x7b' },
+          { id: 'dirty-muse-writer:latest', name: 'Dirty Muse Writer 9B',  size: '5.8GB',  ram: 8,  tier: 'gpu8',  desc: 'Uncensored creative writing — GGUF from HONE chain',            earning: '4x',  gguf: true, chain_id: 'dirty-muse-writer' },
+          { id: 'mythomax-l2:13b',          name: 'MythoMax L2 13B',       size: '8.1GB',  ram: 10, tier: 'gpu16', desc: 'Classic uncensored — strong creative/roleplay, HONE chain',    earning: '5x',  gguf: true, chain_id: 'mythomax-l2-13b' },
+          { id: 'dolphin-mixtral:8x7b',     name: 'Dolphin Mixtral 8x7B',  size: '26GB',   ram: 24, tier: 'gpu24', desc: 'Uncensored MoE — 141B total / 12B active, HONE chain',          earning: '12x', gguf: true, chain_id: 'dolphin-mixtral-8x7b' },
           { id: 'wizardlm2:8x22b',          name: 'WizardLM-2 8x22B',      size: '76GB',   ram: 80, tier: 'gpu80', desc: 'Microsoft uncensored MoE — 141B total, top open instruct model', earning: '28x', gguf: true, chain_id: 'wizardlm-2-8x22b' },
-          { id: 'goliath:120b',             name: 'Goliath 120B',          size: '49.6GB', ram: 64, tier: 'gpu80', desc: 'Merged monster — 120B uncensored, HoneMesh chain Q2_K',              earning: '28x', gguf: true, chain_id: 'goliath-120b' },
+          { id: 'goliath:120b',             name: 'Goliath 120B',          size: '49.6GB', ram: 64, tier: 'gpu80', desc: 'Merged monster — 120B uncensored, HONE chain Q2_K',              earning: '28x', gguf: true, chain_id: 'goliath-120b' },
           // ── 8–24GB (GPU 8–16GB VRAM) ───────────────────────────────────────
           { id: 'qwen3:14b',        name: 'Qwen3 14B',         size: '9.3GB',  ram: 12, tier: 'gpu16',  desc: 'Alibaba — excellent balance of speed/quality',  earning: '6x' },
           { id: 'qwen3.5:27b',      name: 'Qwen3.5 27B',       size: '17GB',   ram: 20, tier: 'gpu24',  desc: 'Alibaba latest — large multimodal',             earning: '9x' },
@@ -911,7 +911,7 @@
           { id: 'qwen3.5:122b',     name: 'Qwen3.5 122B',      size: '74GB',   ram: 80, tier: 'gpu80',  desc: 'Alibaba — massive multimodal, top quality',     earning: '28x' },
         ];
 
-        // CPU models — served from HoneMesh chain, no WebGPU required
+        // CPU models — served from HONE chain, no WebGPU required
         var cpuModels = [
           { id: 'smollm2-360m',    name: 'SmolLM2 360M',      size: '~220MB',  ram: 0.5, tier: 'phone',  desc: 'Fast, runs on any phone',         earning: '1x',   chain_id: 'smollm2-360m' },
           { id: 'qwen2.5-0.5b',   name: 'Qwen2.5 0.5B',      size: '~380MB',  ram: 0.8, tier: 'phone',  desc: 'Best quality, small phones',      earning: '1.2x', chain_id: 'qwen2.5-0.5b' },
@@ -965,7 +965,7 @@
         })();
         if (!desktopMode && hasWebGPU) {
           activeModels.forEach(function(m) {
-            // WebGPU models: served from HoneMesh chain under /api/models/<chain_id>/
+            // WebGPU models: served from HONE chain under /api/models/<chain_id>/
             if (!m.chain_id) m.chain_id = m.id.replace(/-MLC$/, '').toLowerCase();
           });
         }
@@ -1120,7 +1120,7 @@
               }
             } catch(_) {}
           }
-          pullStatus.innerHTML = '<div style="color:#ef4444;">Ollama is not running.<br><span style="color:var(--muted);font-size:11px;">Install HoneMesh Desktop to manage Ollama automatically.</span></div>';
+          pullStatus.innerHTML = '<div style="color:#ef4444;">Ollama is not running.<br><span style="color:var(--muted);font-size:11px;">Install HONE Desktop to manage Ollama automatically.</span></div>';
           return false;
         }
 
@@ -1130,7 +1130,7 @@
           var resp = null;
           var ollamaFallback = false;
 
-          // 1. Try HoneMesh node (port 3000 direct, then /v1 through serve.js proxy)
+          // 1. Try HONE node (port 3000 direct, then /v1 through serve.js proxy)
           var endpoints = [
             { url: 'http://localhost:3000/v1/node/pull-model', auth: true },
             { url: '/v1/node/pull-model', auth: true },
@@ -1420,7 +1420,7 @@
             </div>
             <div style="text-align:center;">
               <div id="st-earned" style="font-size:16px;font-weight:700;color:#22c55e;">0.00</div>
-              <div style="font-size:9px;color:var(--muted);">HoneMesh</div>
+              <div style="font-size:9px;color:var(--muted);">HONE</div>
             </div>
           </div>
         </div>
@@ -1900,11 +1900,11 @@
         <span id="chat-parallel-hint" style="font-size:10px;color:var(--muted);margin-left:4px;"></span>
       </div>
       <div class="chat-input-row">
-        <textarea id="chat-input" rows="1" placeholder="Ask the HoneMesh network anything..."></textarea>
+        <textarea id="chat-input" rows="1" placeholder="Ask the HONE network anything..."></textarea>
         <button id="chat-send">Send</button>
       </div>
       <div style="font-size:11px;color:var(--muted);margin-top:8px;text-align:center;">
-        Inference powered by HoneMesh miners. Cost per token varies by model and network load.
+        Inference powered by HONE miners. Cost per token varies by model and network load.
       </div>
 
       <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">
@@ -1920,7 +1920,7 @@
     <!-- Tab: Data marketplace -->
     <div id="panel-data" class="tab-panel">
       <div style="padding:12px 0 4px;font-size:13px;font-weight:600;color:var(--text);">Sensor Data Marketplace</div>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Query live sensor readings from the HoneMesh network. Pay per reading — earnings go directly to sensor operators.</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Query live sensor readings from the HONE network. Pay per reading — earnings go directly to sensor operators.</div>
 
       <!-- Query builder -->
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px;">
@@ -2058,7 +2058,7 @@
         <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">Available Balance</div>
         <div style="display:flex;align-items:baseline;gap:8px;">
           <span id="wallet-balance-main" style="font-size:28px;font-weight:700;color:var(--orange);">—</span>
-          <span style="font-size:13px;color:var(--muted);">HoneMesh</span>
+          <span style="font-size:13px;color:var(--muted);">HONE</span>
         </div>
         <div id="wallet-delegated-row" style="margin-top:6px;font-size:11px;color:var(--muted);display:none;">
           Delegated: <span id="wallet-balance-delegated" style="color:var(--text);">0</span> HONE
@@ -2121,7 +2121,7 @@
           <div>
             <div style="font-size:10px;color:var(--muted);">Staked</div>
             <div id="staking-my-amount" style="font-size:20px;font-weight:700;color:var(--orange);">—</div>
-            <div style="font-size:10px;color:var(--muted);">HoneMesh</div>
+            <div style="font-size:10px;color:var(--muted);">HONE</div>
           </div>
           <div>
             <div style="font-size:10px;color:var(--muted);">Status</div>
@@ -2265,7 +2265,7 @@
       <div class="settings-section" style="background:rgba(247,147,26,0.05);border:1px solid rgba(247,147,26,0.2);border-radius:8px;padding:12px;">
         <h3 style="color:var(--orange);">Want to earn more?</h3>
         <div style="font-size:12px;color:var(--text);margin-bottom:8px;">
-          This browser app is easy mode. For maximum earnings, install HoneMesh on your computer:
+          This browser app is easy mode. For maximum earnings, install HONE on your computer:
         </div>
         <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">
           &#x2713; Run larger AI models (27B+ params = 10x more earnings)<br>
@@ -2620,7 +2620,7 @@
     })();
     </script>
 
-    <div class="app-footer">HoneMesh Node v3.0 &mdash; honemesh.net</div>
+    <div class="app-footer">HONE Node v3.0 &mdash; honemesh.net</div>
   </div>
 
   <script>
@@ -2723,7 +2723,7 @@ if (!document.documentElement.hasAttribute('data-desktop')) {
       'env.remotePathTemplate = "{model}/";',
       'env.allowLocalModels = false;',
       'window.honeCPUInference = { pipeline, env, ready: true };',
-      'console.log("[HoneMesh] transformers.js loaded, routing models from HoneMesh chain");',
+      'console.log("[HONE] transformers.js loaded, routing models from HONE chain");',
     ].join('\n');
     document.head.appendChild(_tm);
   }
@@ -2759,7 +2759,7 @@ let sensorWatchers = {};
 const SENSORS = [
   {
     id: 'gps', name: 'GPS', icon: '\u{1F4CD}',
-    desc: 'HoneMesh needs your location to report GPS coordinates to the network. You earn from the IoT pool for each reading.',
+    desc: 'HONE needs your location to report GPS coordinates to the network. You earn from the IoT pool for each reading.',
     check: () => 'geolocation' in navigator,
   },
   {
@@ -2945,15 +2945,15 @@ document.getElementById('btn-start').addEventListener('click', async () => {
         var walletBalance = Number(createData.wallet_balance || createData.balance || 0);
         var delegatedBalance = Number(createData.delegated_balance || 0);
         if (delegatedBalance > 0) {
-          document.getElementById('mnemonic-balance').textContent = walletBalance + ' HoneMesh wallet balance, ' + delegatedBalance + ' delegated for network services';
+          document.getElementById('mnemonic-balance').textContent = walletBalance + ' HONE wallet balance, ' + delegatedBalance + ' delegated for network services';
         } else {
-          document.getElementById('mnemonic-balance').textContent = walletBalance + ' HoneMesh wallet balance';
+          document.getElementById('mnemonic-balance').textContent = walletBalance + ' HONE wallet balance';
         }
 
         showScreen('screen-mnemonic');
       } else {
         if (createData.reserved || /reserved/i.test(createData.error || '')) {
-          errEl.textContent = 'That name is reserved. Create an available wallet name now; HoneMesh HQ can assign the reserved name to this wallet later.';
+          errEl.textContent = 'That name is reserved. Create an available wallet name now; HONE HQ can assign the reserved name to this wallet later.';
         } else {
           errEl.textContent = createData.error || 'Account creation failed';
         }
@@ -2993,10 +2993,10 @@ document.getElementById('btn-start').addEventListener('click', async () => {
 
   function makeReadme(account) {
     return [
-      'HoneMesh Key Files — ' + account,
+      'HONE Key Files — ' + account,
       '='.repeat(40),
       '',
-      'Each file contains one role key for your HoneMesh account.',
+      'Each file contains one role key for your HONE account.',
       '',
       'posting.key  — Use this to log into honemesh.net/profile.html and the inference API.',
       '               Safe for daily use. Cannot move funds.',
@@ -3048,7 +3048,7 @@ document.getElementById('btn-start').addEventListener('click', async () => {
 
     if (data.mnemonic) {
       zip.file('mnemonic.txt', [
-        'HoneMesh Recovery Mnemonic — ' + accountName,
+        'HONE Recovery Mnemonic — ' + accountName,
         'STORE OFFLINE. Anyone with these words owns your wallet.',
         '',
         data.mnemonic,
@@ -3532,7 +3532,7 @@ async function startSensor(id, silent) {
       } catch (e) {
         const nativeApp = (location.protocol === 'https:' && location.hostname === 'localhost');
         liveValues.noise = e.name === 'NotAllowedError'
-          ? (nativeApp ? 'Tap Allow when Android asks for Microphone — or go to Settings > Apps > HoneMesh > Permissions' : 'Microphone permission denied')
+          ? (nativeApp ? 'Tap Allow when Android asks for Microphone — or go to Settings > Apps > HONE > Permissions' : 'Microphone permission denied')
           : 'Microphone not available on this device';
         sensorStates.noise = false;
         localStorage.setItem('hone-sensor-states', JSON.stringify(sensorStates));
@@ -3978,7 +3978,7 @@ function stopAll() {
 }
 
 // ─── Model download + file load buttons ───
-// All model files are served from the HoneMesh chain — never from external sites.
+// All model files are served from the HONE chain — never from external sites.
 var modelDownloadURLs = {
   'smollm2-360m':  API_BASE + '/api/models/smollm2-360m/',
   'qwen2.5-0.5b':  API_BASE + '/api/models/qwen2.5-0.5b/',
@@ -3992,7 +3992,7 @@ var fileInput = document.getElementById('mine-file-input');
 
 if (dlBtn) {
   dlBtn.addEventListener('click', function() {
-    // On-chain model distribution is coming — models will be served via HoneMesh-FS.
+    // On-chain model distribution is coming — models will be served via HONE-FS.
     // Never open external sites from the app.
     dlBtn.textContent = 'On-device mining requires WebGPU (not available in app)';
     setTimeout(function() { dlBtn.textContent = 'Download Model File'; }, 4000);
@@ -4137,7 +4137,7 @@ if ('serviceWorker' in navigator) {
   });
   navigator.serviceWorker.register('/app-sw.js').then(reg => {
     reg.update(); // force check for new version
-    console.log('HoneMesh SW registered', reg.scope);
+    console.log('HONE SW registered', reg.scope);
   }).catch(err => {
     console.log('SW registration failed', err);
   });
@@ -4184,7 +4184,7 @@ try {
     };
   }
 } catch (e) {
-  console.error('[HoneMesh] Tab bar init error:', e);
+  console.error('[HONE] Tab bar init error:', e);
 }
 
 // ─── Testnet Toggle ───
@@ -4248,7 +4248,7 @@ try {
         toggle.checked = !enabled; // revert
       }
     } catch (e) {
-      note.textContent = 'Could not reach local node. Start HoneMesh to use this setting.';
+      note.textContent = 'Could not reach local node. Start HONE to use this setting.';
       note.style.color = '#ef4444';
       toggle.checked = !enabled;
     }
@@ -4355,7 +4355,7 @@ async function sendChat() {
 
   const jwt = localStorage.getItem('hone-jwt');
   if (!jwt) {
-    appendChatBubble('assistant', 'Please log in first to use HoneMesh inference.', null);
+    appendChatBubble('assistant', 'Please log in first to use HONE inference.', null);
     return;
   }
 
@@ -4702,7 +4702,7 @@ mineToggleBtn.addEventListener('click', async () => {
       }
       const selectedModel = document.querySelector('.model-cb:checked');
       const cpuModelId = selectedModel ? selectedModel.dataset.chainId || selectedModel.dataset.id : 'smollm2-360m';
-      mineModelText.textContent = 'Downloading model from HoneMesh network...';
+      mineModelText.textContent = 'Downloading model from HONE network...';
       mineProgressWrap.style.display = 'block';
       try {
         const pipelineFn = window.honeCPUInference.pipeline;
@@ -4735,7 +4735,7 @@ mineToggleBtn.addEventListener('click', async () => {
           onProgress: function() {},
           initEngine: function() { return Promise.resolve(); },
         };
-        console.log('[HoneMesh] CPU inference shim ready for relay miner');
+        console.log('[HONE] CPU inference shim ready for relay miner');
       } catch (cpuErr) {
         mineProgressWrap.style.display = 'none';
         mineModelText.textContent = 'Model download failed: ' + cpuErr.message;
@@ -5156,7 +5156,7 @@ if (account) {
 
 // ── Tauri desktop integration ─────────────────────────────────────────────────
 // Wire up events emitted from the Rust backend (tauri-plugin events).
-// window.__TAURI__ is only present inside HoneMesh Desktop (Tauri).
+// window.__TAURI__ is only present inside HONE Desktop (Tauri).
 (function() {
   if (typeof window.__TAURI__ === 'undefined') return;
 
@@ -5227,7 +5227,7 @@ if (account) {
           banner.id = 'android-update-banner';
           banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#f7931a;color:#000;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;font-family:monospace;font-size:13px;font-weight:700;';
           banner.innerHTML =
-            '<span>HoneMesh v' + tag + ' available</span>' +
+            '<span>HONE v' + tag + ' available</span>' +
             '<div style="display:flex;gap:8px;">' +
             '<a id="android-update-dl" href="' + apkUrl + '" target="_blank" style="background:#000;color:#f7931a;border:none;padding:6px 14px;border-radius:4px;font-weight:700;font-size:13px;text-decoration:none;">Download</a>' +
             '<button id="android-update-dismiss" style="background:rgba(0,0,0,0.2);color:#000;border:none;padding:6px 10px;border-radius:4px;font-weight:700;font-size:13px;cursor:pointer;">✕</button>' +
@@ -5538,7 +5538,7 @@ if (account) {
     var banner = document.createElement('div');
     banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#f7931a;color:#000;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;font-family:monospace;font-size:13px;font-weight:700;';
     banner.innerHTML =
-      '<span>HoneMesh Desktop ' + version + ' is available.</span>' +
+      '<span>HONE Desktop ' + version + ' is available.</span>' +
       '<button id="tauri-update-btn" style="background:#000;color:#f7931a;border:none;padding:6px 16px;border-radius:4px;font-weight:700;cursor:pointer;font-size:13px;">Update Now</button>';
     document.body.prepend(banner);
 

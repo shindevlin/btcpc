@@ -1,5 +1,5 @@
 [Unit]
-Description=HoneMesh Explorer Tunnel
+Description=HONE Explorer Tunnel
 After=network-online.target
 Wants=network-online.target
 

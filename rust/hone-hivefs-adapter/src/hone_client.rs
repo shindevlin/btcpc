@@ -1,4 +1,4 @@
-//! Minimal HoneMesh node API client for the hivefs adapter.
+//! Minimal HONE node API client for the hivefs adapter.
 //!
 //! Handles:
 //! - POST /api/storage/hive-replica/commit
@@ -79,7 +79,7 @@ impl HoneClient {
 
     // ── Hive replica endpoints ────────────────────────────────────────────────
 
-    /// Submit a HiveReplicaCommit entry to the HoneMesh node.
+    /// Submit a HiveReplicaCommit entry to the HONE node.
     pub async fn post_hive_commit(
         &self,
         params: HiveCommitParams,
@@ -117,7 +117,7 @@ impl HoneClient {
         Ok(resp)
     }
 
-    /// Submit a HiveReplicaVerify entry to the HoneMesh node.
+    /// Submit a HiveReplicaVerify entry to the HONE node.
     pub async fn post_hive_verify(
         &self,
         params: HiveVerifyParams,
@@ -195,7 +195,7 @@ pub struct HiveVerifyParams {
 /// Sign a JSON body with an ed25519 key (hex-encoded 32-byte seed).
 ///
 /// The signature covers sha256(json_canonical_bytes) — matching the
-/// honemesh-sdk `KeyPair::sign_entry_json` convention.
+/// hone-sdk `KeyPair::sign_entry_json` convention.
 pub fn sign_entry_json(body: &serde_json::Value, key_hex: &str) -> Result<String> {
     let key_bytes = hex::decode(key_hex.trim())
         .context("signing key must be 64-char hex")?;

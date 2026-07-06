@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HoneMesh Device Dashboard — Register & Yield Staking</title>
+  <title>HONE Device Dashboard — Register & Yield Staking</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { background: #0a0e17; color: #c8ccd4; font-family: 'Courier New', Courier, monospace; font-size: 14px; line-height: 1.6; }
@@ -61,8 +61,8 @@
   <!-- Navigation -->
   <div id="nav-bar">
     <a href="/" class="nav-logo">
-      <img src="/honemesh-logo.jpeg" alt="HoneMesh" style="width:24px;height:24px;border-radius:6px;object-fit:cover;box-shadow:0 0 14px rgba(247,147,26,0.35);">
-      HoneMesh
+      <img src="/hone-logo.jpeg" alt="HONE" style="width:24px;height:24px;border-radius:6px;object-fit:cover;box-shadow:0 0 14px rgba(247,147,26,0.35);">
+      HONE
     </a>
     <a href="/#tutorial" class="nav-link">Get Started</a>
     <a href="/run-a-node" class="nav-link">Run a Node</a>
@@ -88,7 +88,7 @@
           <label>Device ID (e.g. <span style="color:#f7931a;">josh/flipper-abc</span>)</label>
           <input type="text" id="reg-device-id" placeholder="owner/device-name">
           <label>Owner Account</label>
-          <input type="text" id="reg-owner" placeholder="your HoneMesh account name">
+          <input type="text" id="reg-owner" placeholder="your HONE account name">
           <label>Device Public Key (hex)</label>
           <input type="text" id="reg-device-pubkey" placeholder="02abcd...">
           <label>Posting Key Signature (hex)</label>
@@ -102,7 +102,7 @@
           <label>Device ID to Claim</label>
           <input type="text" id="claim-device-id" placeholder="originalowner/device-name">
           <label>Claimant Account</label>
-          <input type="text" id="claim-account" placeholder="your HoneMesh account name">
+          <input type="text" id="claim-account" placeholder="your HONE account name">
           <label>Stake Amount (HONE)</label>
           <input type="number" id="claim-stake" placeholder="100" min="0" step="0.01">
           <button onclick="claimDevice()">Claim Device</button>
@@ -172,7 +172,7 @@
       <div id="modal-device-info" style="color:#8892a0;font-size:12px;margin-bottom:4px;"></div>
 
       <label>Your Account</label>
-      <input type="text" id="modal-staker" placeholder="your HoneMesh account">
+      <input type="text" id="modal-staker" placeholder="your HONE account">
 
       <label>Stake Amount (HONE)</label>
       <input type="number" id="modal-stake-amount" placeholder="e.g. 500" min="0" step="0.01">

@@ -1,9 +1,9 @@
-//! Self-hosted LoRaWAN transport — Phase 8 of the HoneMesh transport cascade.
+//! Self-hosted LoRaWAN transport — Phase 8 of the HONE transport cascade.
 //!
 //! Implements the Semtech UDP Packet Forwarder protocol so that a Nebra
 //! (or any SX1302-based) LoRaWAN gateway running the Semtech packet forwarder
 //! (or ChirpStack Gateway Bridge in Semtech mode) can forward received LoRa
-//! packets directly into the HoneMesh node, and receive downlink hashes from it.
+//! packets directly into the HONE node, and receive downlink hashes from it.
 //!
 //! Design rules:
 //!  - Delivery layer only. LoRaWAN peers NEVER count toward peer_count.
@@ -42,7 +42,7 @@ use tokio::net::UdpSocket;
 use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 
-use honemesh_types::LedgerEntry;
+use hone_types::LedgerEntry;
 
 use crate::chain::Chain;
 use crate::net::NetCmd;

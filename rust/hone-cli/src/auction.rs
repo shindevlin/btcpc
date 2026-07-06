@@ -1,5 +1,5 @@
 use anyhow::Result;
-use honemesh_sdk::KeyPair;
+use hone_sdk::KeyPair;
 use colored::Colorize;
 use serde_json::{json, Value};
 use std::path::Path;

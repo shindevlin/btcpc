@@ -1,6 +1,6 @@
 [Unit]
-Description=HoneMesh node auto-update timer
-Requires=honemesh-update.service
+Description=HONE node auto-update timer
+Requires=hone-update.service
 
 [Timer]
 # Check for updates every 10 minutes.

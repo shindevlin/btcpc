@@ -88,7 +88,7 @@ A workflow is a **DAG over the existing agent-task machinery** — NOT a new
 execution engine. Each step becomes a normal `AgentTaskPost` when its
 dependencies have verified; step outputs substitute into dependent step inputs.
 
-### New ledger entry (crates/honemesh-types/src/entry.rs)
+### New ledger entry (crates/hone-types/src/entry.rs)
 ```rust
 AgentWorkflowPost {
     workflow_id:  String,

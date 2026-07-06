@@ -1,5 +1,5 @@
-use honemesh_api_catalog::{CatalogQuery, CatalogSnapshot, LinkStatus, PublicApiRecord};
-use honemesh_orchestrator::{
+use hone_api_catalog::{CatalogQuery, CatalogSnapshot, LinkStatus, PublicApiRecord};
+use hone_orchestrator::{
     InMemoryOrchestrator, JsonMap, Metadata, OrchestrationStore, ResourceKind, ResourceUsage,
     RuntimeJob, RuntimeJobConfig, RuntimeKind, RuntimeRequirements, RuntimeResource, RuntimeSpan,
     RuntimeWorker, SpanKind, WorkerCapabilities, WorkerStatus,
@@ -39,7 +39,7 @@ impl Config {
             category: "Weather".to_string(),
             query: "Open-Meteo".to_string(),
             worker_id: "local-api-worker".to_string(),
-            runtime_id: "honemesh-api-tool-demo".to_string(),
+            runtime_id: "hone-api-tool-demo".to_string(),
             max_bytes: 16 * 1024,
             timeout_secs: 20,
             allow_auth: false,
@@ -119,9 +119,9 @@ struct ApiToolReport {
     resource: RuntimeResource,
     job: RuntimeJob,
     worker: RuntimeWorker,
-    attempt: honemesh_orchestrator::RuntimeAttempt,
+    attempt: hone_orchestrator::RuntimeAttempt,
     span: RuntimeSpan,
-    attestation: Option<honemesh_orchestrator::RuntimeAttestation>,
+    attestation: Option<hone_orchestrator::RuntimeAttestation>,
     failed_attempt_status: Option<String>,
 }
 
@@ -283,7 +283,7 @@ async fn run_api_tool_job(config: Config) -> Result<ApiToolReport, Box<dyn std::
             } else {
                 store.fail_attempt(
                     &attempt.attempt_id,
-                    honemesh_orchestrator::AttemptStatus::Failed,
+                    hone_orchestrator::AttemptStatus::Failed,
                     now + 4,
                 )?;
                 None
@@ -330,7 +330,7 @@ async fn run_api_tool_job(config: Config) -> Result<ApiToolReport, Box<dyn std::
             store.record_span(span.clone())?;
             store.fail_attempt(
                 &attempt.attempt_id,
-                honemesh_orchestrator::AttemptStatus::Failed,
+                hone_orchestrator::AttemptStatus::Failed,
                 now + 4,
             )?;
             let final_job = store.get_job(&attempt.job_id).cloned().unwrap_or(job);
@@ -367,7 +367,7 @@ struct ProbeResult {
 
 async fn probe_url(url: &str, max_bytes: usize, timeout_secs: u64) -> Result<ProbeResult, String> {
     let client = reqwest::Client::builder()
-        .user_agent("honemesh-orchestratord/0.1 (+https://honemesh.net)")
+        .user_agent("hone-orchestratord/0.1 (+https://honemesh.net)")
         .timeout(Duration::from_secs(timeout_secs))
         .redirect(reqwest::redirect::Policy::limited(5))
         .build()
@@ -477,6 +477,6 @@ fn now_unix_secs() -> u64 {
 
 fn usage(binary: &str) -> String {
     format!(
-        "Usage:\n  {binary} run-api-tool --catalog <snapshot.json> [--category Weather] [--query Open-Meteo] [--worker local-api-worker] [--runtime honemesh-api-tool-demo] [--max-bytes 16384] [--timeout-secs 20] [--verified-only] [--allow-auth] [--out report.json]\n\nExample:\n  {binary} run-api-tool --catalog /mnt/honemesh-storage/catalogs/public-apis.snapshot.json --category Weather --query Open-Meteo --out /tmp/api-tool-report.json"
+        "Usage:\n  {binary} run-api-tool --catalog <snapshot.json> [--category Weather] [--query Open-Meteo] [--worker local-api-worker] [--runtime hone-api-tool-demo] [--max-bytes 16384] [--timeout-secs 20] [--verified-only] [--allow-auth] [--out report.json]\n\nExample:\n  {binary} run-api-tool --catalog /mnt/hone-storage/catalogs/public-apis.snapshot.json --category Weather --query Open-Meteo --out /tmp/api-tool-report.json"
     )
 }

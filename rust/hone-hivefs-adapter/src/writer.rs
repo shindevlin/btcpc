@@ -1,8 +1,8 @@
 //! Phase 2 — Hive writer.
 //!
-//! Reads a local HoneMesh-FS file, computes hashes, broadcasts to Hive as
+//! Reads a local HONE-FS file, computes hashes, broadcasts to Hive as
 //! `custom_json`, waits for MIN_CONFIRMATIONS, then submits HiveReplicaCommit
-//! to the HoneMesh node.
+//! to the HONE node.
 
 use anyhow::{bail, Context, Result};
 use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
@@ -47,7 +47,7 @@ impl WriterConfig {
 /// 2. Build Hive custom_json payload.
 /// 3. Sign and broadcast to Hive.
 /// 4. Wait for MIN_CONFIRMATIONS (20 blocks).
-/// 5. Submit HiveReplicaCommit to the HoneMesh node.
+/// 5. Submit HiveReplicaCommit to the HONE node.
 pub async fn run_write(
     cfg: WriterConfig,
     cid: String,
@@ -137,7 +137,7 @@ fn sha256_hex(data: &[u8]) -> String {
     hex::encode(h.finalize())
 }
 
-/// Build the Hive custom_json body per the HoneMesh-FS spec.
+/// Build the Hive custom_json body per the HONE-FS spec.
 ///
 /// For `manifest` and `full` kinds the payload is stored as the SHA256 of the
 /// JSON file bytes. For `chunk` the payload bytes are included as base64 if the
@@ -171,7 +171,7 @@ fn build_hive_payload(
             let b64_data = B64.encode(file_bytes);
             // NOTE: Hive custom_json is limited to ~8 KiB. Chunks larger than
             // MAX_B64_BYTES will be recorded by hash only. The Merkle root still
-            // proves data integrity for the HoneMesh verifier.
+            // proves data integrity for the HONE verifier.
             let payload_b64 = if b64_data.len() <= MAX_B64_BYTES {
                 Some(b64_data)
             } else {

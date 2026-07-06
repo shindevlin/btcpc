@@ -12,7 +12,7 @@ pub struct Session {
 fn session_path() -> Result<PathBuf> {
     let home = std::env::var("HOME")
         .context("HOME is not set; cannot locate session file")?;
-    Ok(PathBuf::from(home).join(".honemesh").join("session.json"))
+    Ok(PathBuf::from(home).join(".hone").join("session.json"))
 }
 
 pub fn load() -> Option<Session> {
@@ -54,7 +54,7 @@ pub fn resolve_account<'a>(explicit: Option<&'a str>, sess: Option<&'a Session>)
     anyhow::bail!("no account specified — pass an account name or run `hone login` first")
 }
 
-/// Resolve a key file: explicit arg > env > session > default ~/.honemesh/key.json
+/// Resolve a key file: explicit arg > env > session > default ~/.hone/key.json
 pub fn resolve_key_file(explicit: Option<&Path>, sess: Option<&Session>) -> Result<PathBuf> {
     if let Some(p) = explicit {
         return Ok(p.to_path_buf());
@@ -71,5 +71,5 @@ pub fn resolve_key_file(explicit: Option<&Path>, sess: Option<&Session>) -> Resu
     // fall back to default key location
     let home = std::env::var("HOME")
         .context("HOME is not set; pass --key-file explicitly")?;
-    Ok(PathBuf::from(home).join(".honemesh").join("key.json"))
+    Ok(PathBuf::from(home).join(".hone").join("key.json"))
 }

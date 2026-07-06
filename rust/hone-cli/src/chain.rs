@@ -6,7 +6,7 @@ use tabled::{Table, Tabled};
 
 use crate::api::ApiClient;
 
-/// Convert hunits (u64) to HoneMesh string with 10 decimal places.
+/// Convert hunits (u64) to HONE string with 10 decimal places.
 pub fn hunits_to_hone(hunits: u64) -> String {
     let whole = hunits / 10_000_000_000;
     let frac = hunits % 10_000_000_000;

@@ -13,7 +13,7 @@
 use std::path::Path;
 use anyhow::Result;
 use tracing::info;
-use honemesh_types::{Block, BlockHeader, LedgerEntry, NATIVE_TOKEN};
+use hone_types::{Block, BlockHeader, LedgerEntry, NATIVE_TOKEN};
 
 use crate::chain::Chain;
 use crate::reserved_names;
@@ -37,7 +37,7 @@ pub fn init_genesis(chain: &Chain, genesis_file: Option<&Path>, genesis_timestam
                         info!("chain_id migrated: '{}' → '{}'", stored_id, chain.chain_id);
                     } else {
                         eprintln!(
-                            "honemesh-node: chain_id mismatch — this database was initialized as '{}' \
+                            "hone-node: chain_id mismatch — this database was initialized as '{}' \
                              but HONE_CHAIN_ID='{}'. Use a separate HONE_DATA_DIR for each chain. \
                              To migrate deliberately, set HONE_CHAIN_ID_MIGRATION=1 for one restart.",
                             stored_id, chain.chain_id
@@ -143,7 +143,7 @@ pub fn init_genesis(chain: &Chain, genesis_file: Option<&Path>, genesis_timestam
     }
 
     let entry_hashes: Vec<String> = entries.iter().map(|e| e.hash()).collect();
-    let tx_root = honemesh_types::merkle_root(&entry_hashes);
+    let tx_root = hone_types::merkle_root(&entry_hashes);
 
     let mut header = BlockHeader::genesis(ts);
     header.merkle_root_transactions = tx_root;
@@ -154,7 +154,7 @@ pub fn init_genesis(chain: &Chain, genesis_file: Option<&Path>, genesis_timestam
         "output_hashes": [],
         "chain_id": chain.chain_id,
         "launch": {
-            "proclamation": "HoneMesh launched at noon, Los Angeles, 2026-07-04 12:00:00 PDT (America's 250th — freedom tech for a free people)",
+            "proclamation": "HONE launched at noon, Los Angeles, 2026-07-04 12:00:00 PDT (America's 250th — freedom tech for a free people)",
             "timestamp_tz": "2026-07-04T12:00:00-07:00",
             "timestamp_utc": "2026-07-04T19:00:00Z",
             "genesis_ms": 1783191600000u64,
@@ -165,7 +165,7 @@ pub fn init_genesis(chain: &Chain, genesis_file: Option<&Path>, genesis_timestam
     chain.store.write_block(0, &block.to_bytes())?;
     chain.store.set_meta("genesis_hash", block.header.hash_hex().as_bytes())?;
     chain.store.set_meta("chain_id", chain.chain_id.as_bytes())?;
-    chain.store.set_meta("launch_proclamation", b"HoneMesh - noon Los Angeles, 2026-07-04 (America's 250th)")?;
+    chain.store.set_meta("launch_proclamation", b"HONE - noon Los Angeles, 2026-07-04 (America's 250th)")?;
 
     // Seed governance council on-chain (D5). 2-of-3 required for parameter changes.
     let gov_keys: Vec<&str> = vec!["shindevlin", "natoshisakamoto", "josh"];

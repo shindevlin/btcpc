@@ -105,7 +105,7 @@ impl Node {
             })
             .build();
 
-        // Subscribe to the HoneMesh gossip topic
+        // Subscribe to the HONE gossip topic
         let topic = gossipsub::IdentTopic::new(HONE_TOPIC);
         swarm.behaviour_mut().gossipsub.subscribe(&topic)?;
 
@@ -133,7 +133,7 @@ impl Node {
             warn!("Kademlia bootstrap queued (expected on first start): {}", e);
         }
 
-        info!("HoneMesh P2P node running — peer ID: {}", swarm.local_peer_id());
+        info!("HONE P2P node running — peer ID: {}", swarm.local_peer_id());
         info!("Port: {} (TCP + QUIC)", self.config.p2p_port);
 
         loop {

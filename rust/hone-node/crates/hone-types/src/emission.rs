@@ -1,6 +1,6 @@
-//! HoneMesh emission schedule — epoch-time doubling model.
+//! HONE emission schedule — epoch-time doubling model.
 //!
-//! Instead of halving per-epoch reward (Bitcoin model), HoneMesh doubles the epoch
+//! Instead of halving per-epoch reward (Bitcoin model), HONE doubles the epoch
 //! duration every DOUBLING_INTERVAL epochs.  The effect on daily emission is
 //! identical (half as many epochs per day = half the daily reward), but the
 //! per-epoch reward stays constant throughout the new-supply phase.
@@ -37,20 +37,20 @@ pub const INITIAL_EPOCH_MS: u64 = 30_000;
 
 // ── Bitcoin alignment — era calibration and oracle layer ─────────────────────
 //
-// HoneMesh supply exhaustion is designed to end within minutes of Bitcoin's last
+// HONE supply exhaustion is designed to end within minutes of Bitcoin's last
 // mined coin.  No governance action is ever required.  The mechanism has two
 // interlocking layers:
 //
 // LAYER 1 — Compile-time projection (active from genesis)
 //   BTC_PROJECTED_END_MS is derived from Bitcoin's genesis timestamp plus
-//   6,930,000 blocks × 10-minute average.  At each HoneMesh era boundary the
+//   6,930,000 blocks × 10-minute average.  At each HONE era boundary the
 //   chain recomputes the next era's epoch duration so that the remaining supply
 //   epochs exhaust exactly at that timestamp.  This self-corrects at every
 //   era: eras 1-4 each recalibrate from the current wall-clock time, absorbing
 //   any drift that accumulated in the prior era.
 //
 // LAYER 2 — Oracle refinement (precision grows each decade)
-//   Any HoneMesh node that also runs a Bitcoin full node may submit a
+//   Any HONE node that also runs a Bitcoin full node may submit a
 //   `BtcHeightReport` entry containing the latest observed Bitcoin block height
 //   and the average block interval over the most recent 2016-block difficulty
 //   window.  The chain holds a 7-entry rolling median of recent reports and
@@ -99,11 +99,11 @@ pub const BTC_PROJECTED_END_MS: u64 =
 // ≈ Unix 5_389_006_505 s ≈ 2140-10-01 18:15 UTC
 
 /// Per-epoch block reward in hunits during the new-supply phase (eras 0-4).
-/// 2 HONE × 10^10 hunits/HoneMesh = 20_000_000_000 hunits.
+/// 2 HONE × 10^10 hunits/HONE = 20_000_000_000 hunits.
 pub const BLOCK_REWARD_HUNITS: u64 = 2 * 10_000_000_000;
 
 /// Total new-supply cap in hunits.
-/// 42_000_000 HONE × 10^10 hunits/HoneMesh.
+/// 42_000_000 HONE × 10^10 hunits/HONE.
 pub const SUPPLY_CAP_HUNITS: u64 = 42_000_000 * 10_000_000_000;
 
 /// First era whose rewards come entirely from recycled tokens (no new supply).

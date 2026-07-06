@@ -155,7 +155,7 @@ function timeAgo(ms) {
 
 function hunits(n) {
   if (n == null) return '—';
-  return (n / 10_000_000_000).toFixed(4) + ' ₿C';
+  return (n / 10_000_000_000).toFixed(4) + ' HONE';
 }
 
 function shortAddr(s) {
@@ -184,8 +184,8 @@ async function loadStats() {
     document.getElementById('s-epoch').textContent  = status.current_epoch?.toLocaleString() ?? '—';
     document.getElementById('s-nodes').textContent  = status.active_nodes ?? status.clock_nodes ?? '—';
     document.getElementById('s-accounts').textContent = supply.account_count ?? supply.accounts ?? '—';
-    document.getElementById('s-supply').textContent = supply.total_supply_hone?.toFixed(2) + ' ₿C' ?? '—';
-    document.getElementById('s-circ').textContent   = supply.circulating_hone?.toFixed(2) + ' ₿C' ?? '—';
+    document.getElementById('s-supply').textContent = supply.total_supply_hone?.toFixed(2) + ' HONE' ?? '—';
+    document.getElementById('s-circ').textContent   = supply.circulating_hone?.toFixed(2) + ' HONE' ?? '—';
     const chainId = status.chain_id ?? 'hone';
     document.getElementById('chain-id-badge').textContent = chainId;
   } catch(e) {
@@ -313,7 +313,7 @@ async function showAllTxns() {
       const amt  = inner.amount ?? inner.amount_hunits ?? null;
       const epoch = t._epoch || t.epoch || inner.epoch || '';
       const memo = inner.memo ? ` "${inner.memo}"` : '';
-      return `  epoch ${String(epoch).padStart(6)} | ${(type||'').padEnd(12)} | ${(from||'').padEnd(16)} → ${(to||'').padEnd(16)} | ${amt != null ? (amt/1e10).toFixed(4)+' ₿C' : '—'}${memo}`;
+      return `  epoch ${String(epoch).padStart(6)} | ${(type||'').padEnd(12)} | ${(from||'').padEnd(16)} → ${(to||'').padEnd(16)} | ${amt != null ? (amt/1e10).toFixed(4)+' HONE' : '—'}${memo}`;
     }).join('\n');
     document.getElementById('detail-pre').textContent = rows || '(no transactions yet)';
     detail.style.display = 'block';

@@ -21,7 +21,7 @@
 use anyhow::Result;
 use reqwest::Client;
 use tracing::{info, warn};
-use honemesh_types::TESTNET_CHAIN_ID;
+use hone_types::TESTNET_CHAIN_ID;
 
 // ── Hive ──────────────────────────────────────────────────────────────────────
 

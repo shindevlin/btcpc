@@ -1,17 +1,17 @@
 [package]
-name = "honemesh-api-catalog"
+name = "hone-api-catalog"
 version = "0.1.0"
 edition = "2021"
-authors = ["HoneMesh contributors"]
-description = "HoneMesh public API catalog parser, snapshotter, and link verifier"
+authors = ["HONE contributors"]
+description = "HONE public API catalog parser, snapshotter, and link verifier"
 license = "MIT OR Apache-2.0"
 
 [lib]
-name = "honemesh_api_catalog"
+name = "hone_api_catalog"
 path = "src/lib.rs"
 
 [[bin]]
-name = "honemesh-api-catalog"
+name = "hone-api-catalog"
 path = "src/main.rs"
 
 [features]

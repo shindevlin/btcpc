@@ -27,7 +27,7 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive("honemesh_market=info".parse()?)
+                .add_directive("hone_market=info".parse()?)
                 .add_directive("tower_http=warn".parse()?)
         )
         .init();
@@ -37,7 +37,7 @@ async fn main() -> Result<()> {
 
     let block_count  = ledger::load_block_files(&cfg, &state);
     let pending_count = ledger::load_pending_entries(&cfg, &state);
-    info!("HoneMesh Market v{} — replayed {} block + {} pending entries",
+    info!("HONE Market v{} — replayed {} block + {} pending entries",
         env!("CARGO_PKG_VERSION"), block_count, pending_count);
 
     let port = cfg.port;
@@ -162,7 +162,7 @@ async fn main() -> Result<()> {
         .with_state(app_state);
 
     let addr = format!("0.0.0.0:{port}");
-    info!("HoneMesh Market listening on http://{addr}");
+    info!("HONE Market listening on http://{addr}");
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     axum::serve(listener, app).await?;
     Ok(())
@@ -171,7 +171,7 @@ async fn main() -> Result<()> {
 async fn health() -> axum::Json<serde_json::Value> {
     axum::Json(serde_json::json!({
         "ok": true,
-        "service": "honemesh-market",
+        "service": "hone-market",
         "version": env!("CARGO_PKG_VERSION"),
         "epoch": models::current_epoch(),
     }))

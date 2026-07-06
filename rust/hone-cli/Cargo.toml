@@ -1,9 +1,9 @@
 [package]
-name = "honemesh-cli"
+name = "hone-cli"
 version = "1.2.2"
 edition = "2021"
 authors = ["Shin Devlin <shindevlin@proton.me>"]
-description = "HoneMesh chain CLI"
+description = "HONE chain CLI"
 
 [[bin]]
 name = "hone"
@@ -22,7 +22,7 @@ anyhow = "1"
 colored = "2"
 tabled = "0.15"
 base64 = "0.22"
-honemesh-sdk = { path = "../honemesh-sdk" }
+hone-sdk = { path = "../hone-sdk" }
 sha2 = "0.10"
 hex = "0.4"
 rand = "0.8"

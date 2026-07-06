@@ -1,12 +1,12 @@
 /*!
-# honemesh-node
+# hone-node
 
-HoneMesh sovereign chain node — single binary for networking, consensus,
+HONE sovereign chain node — single binary for networking, consensus,
 state machine, block production, contract execution, and HTTP API.
 
 ## Environment Variables
 
-    HONE_DATA_DIR        — RocksDB data directory (default: ~/.honemesh)
+    HONE_DATA_DIR        — RocksDB data directory (default: ~/.hone)
     HONE_ACCOUNT         — this node's account name
     HONE_NODE_ID         — libp2p node identity label
     HONE_API_PORT        — HTTP API port (default: 4242)
@@ -106,7 +106,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use anyhow::Result;
 use tracing::{info, warn};
-use honemesh_types::{
+use hone_types::{
     LedgerEntry, block_reward_at, era, RECYCLE_ERA, RECYCLE_REWARD_RATE, RECYCLE_REWARD_DENOM,
     RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN, TESTNET_CHAIN_ID, TESTNET_FUND_ACCOUNT, TREASURY_ACCOUNT,
     inference_score, clock_reward_at, testnet_reward_at,
@@ -153,7 +153,7 @@ async fn main() -> Result<()> {
         match TcpListener::bind(("127.0.0.1", probe_port)) {
             Ok(_) => {} // port is free; the listener is immediately dropped
             Err(_) => {
-                eprintln!("honemesh-node: port {} is already in use — another instance may be running", probe_port);
+                eprintln!("hone-node: port {} is already in use — another instance may be running", probe_port);
                 std::process::exit(1);
             }
         }
@@ -168,7 +168,7 @@ async fn main() -> Result<()> {
             .create(true).write(true).open(&lock_path)?;
         let locked = unsafe { libc::flock(lf.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
         if locked != 0 {
-            eprintln!("honemesh-node: another instance is already running (lock: {:?})", lock_path);
+            eprintln!("hone-node: another instance is already running (lock: {:?})", lock_path);
             std::process::exit(1);
         }
         lf // keep alive until process exits
@@ -190,13 +190,13 @@ async fn main() -> Result<()> {
         )
         .init();
 
-    info!("honemesh-node starting — account={} chain={} data={:?}", cfg.account, cfg.chain_id, cfg.data_dir);
+    info!("hone-node starting — account={} chain={} data={:?}", cfg.account, cfg.chain_id, cfg.data_dir);
 
-    // Wallet: restore / load / generate all chain keys (HoneMesh, Bitcoin, Ethereum).
+    // Wallet: restore / load / generate all chain keys (HONE, Bitcoin, Ethereum).
     let mut wallet_keys = wallet::init(&cfg.data_dir)?;
     // Backfill ton_address if missing (async call to tonapi.io).
     wallet::ensure_ton_address(&cfg.data_dir, &mut wallet_keys).await;
-    // Keep ~/.honemesh/{account}.wallet.key in sync so TUI/CLI can find keys without knowing data_dir.
+    // Keep ~/.hone/{account}.wallet.key in sync so TUI/CLI can find keys without knowing data_dir.
     wallet::backup_to_home(&cfg.account, &wallet_keys);
 
     // Open state database
@@ -374,8 +374,8 @@ async fn main() -> Result<()> {
                                 let claimer = String::from_utf8_lossy(&bytes);
                                 if claimer != hw_acc.as_str() {
                                     eprintln!(
-                                        "honemesh-node: hardware conflict at epoch {} — fingerprint \
-                                         claimed by '{}'. Only one HoneMesh account per physical \
+                                        "hone-node: hardware conflict at epoch {} — fingerprint \
+                                         claimed by '{}'. Only one HONE account per physical \
                                          machine is allowed.", sealed_epoch, claimer
                                     );
                                     std::process::exit(1);
@@ -419,7 +419,7 @@ async fn main() -> Result<()> {
                         // Count unique active verifiers over last VERIFIER_ACTIVITY_TRACK_EPOCHS.
                         // Stored as `active_verifier_count` for auto-scaling min_verifiers per job.
                         {
-                            use honemesh_types::VERIFIER_ACTIVITY_TRACK_EPOCHS;
+                            use hone_types::VERIFIER_ACTIVITY_TRACK_EPOCHS;
                             let window_start = sealed_epoch.saturating_sub(VERIFIER_ACTIVITY_TRACK_EPOCHS);
                             let mut unique: std::collections::HashSet<String> = std::collections::HashSet::new();
                             for ep in window_start..=sealed_epoch {
@@ -541,11 +541,11 @@ async fn main() -> Result<()> {
             let min_stake: u64 = chain.store.state_get("chain_param:clock_min_stake")
                 .and_then(|b| serde_json::from_slice::<u64>(&b).ok())
                 .unwrap_or(5 * 10_000_000_000);
-            let balance = chain.store.get_balance(&cfg.node_id, honemesh_types::NATIVE_TOKEN);
+            let balance = chain.store.get_balance(&cfg.node_id, hone_types::NATIVE_TOKEN);
             if balance >= min_stake {
                 let epoch = chain.current_epoch();
                 let pubkey = signing_pubkey_hex.as_deref().map(|s| s.to_owned());
-                let entry = honemesh_types::LedgerEntry::ClockNodeRegister {
+                let entry = hone_types::LedgerEntry::ClockNodeRegister {
                     node_id: cfg.node_id.clone(),
                     stake: min_stake,
                     epoch,
@@ -596,7 +596,7 @@ async fn main() -> Result<()> {
                 tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
                 let now = now_ms();
                 let elapsed = now.saturating_sub(genesis_ts);
-                let epoch = elapsed / honemesh_types::EPOCH_MS;
+                let epoch = elapsed / hone_types::EPOCH_MS;
                 if epoch > last_sent {
                     last_sent = epoch;
                     let seal_hash = {
@@ -925,7 +925,7 @@ async fn main() -> Result<()> {
                                     // System entries (rewards, seals) are generated locally
                                     // on epoch seal — silently drop if received via gossip.
                                     tracing::trace!("ignoring gossiped system entry");
-                                } else if matches!(e, honemesh_types::LedgerEntry::Mine { .. }) {
+                                } else if matches!(e, hone_types::LedgerEntry::Mine { .. }) {
                                     // Mine entries must be in every node's DB before reward
                                     // hash is computed at epoch seal. Apply directly so the
                                     // reward consensus hash matches across all nodes.
@@ -1312,7 +1312,7 @@ async fn run_inference_verifier(
 
             // Estimate value_score from output length + model (true score comes via claim flow)
             let output_tokens = (output_text.split_whitespace().count() as u64).max(1);
-            let value_score = honemesh_types::inference_score(output_tokens, 0, &job.model);
+            let value_score = hone_types::inference_score(output_tokens, 0, &job.model);
 
             let entry = LedgerEntry::InferenceJobVerify {
                 job_id:      job_id.clone(),
@@ -1669,7 +1669,7 @@ async fn emit_epoch_rewards(
         }
         // Coverage reports: dead-spot reports earn more; corroborated cells earn 1.5× bonus.
         // Scores merged into sensor_nodes pool so coverage reporters share the sensor reward pool.
-        use honemesh_types::{COVERAGE_SCORE_SIGNAL, COVERAGE_SCORE_DEAD_SPOT, COVERAGE_CORROBORATION_BONUS_BPS};
+        use hone_types::{COVERAGE_SCORE_SIGNAL, COVERAGE_SCORE_DEAD_SPOT, COVERAGE_CORROBORATION_BONUS_BPS};
         for (_, v) in chain.store.state_scan_prefix(&format!("coverage_report:{}:", epoch)) {
             let Ok(j) = serde_json::from_slice::<serde_json::Value>(&v) else { continue };
             let Some(reporter) = j["reporter"].as_str() else { continue };
@@ -2106,7 +2106,7 @@ async fn emit_epoch_rewards(
                 warn!("benchmark job {} failed: {}", job_id, e);
             } else {
                 // Store the input text so the local worker can execute it.
-                let prompt = format!("Summarise epoch {} of the HoneMesh chain in one sentence.", epoch);
+                let prompt = format!("Summarise epoch {} of the HONE chain in one sentence.", epoch);
                 let _ = chain.store.state_set(
                     &format!("infer_input:{}", job_id),
                     prompt.as_bytes(),
@@ -2229,14 +2229,14 @@ async fn sweep_tracker_subscription_fees(
             }
         } else {
             // No observers pushed data — treat observer cut as recycle too.
-            let _ = chain.store.credit(honemesh_types::RECYCLE_FUND_ACCOUNT, honemesh_types::NATIVE_TOKEN, observer_cut);
+            let _ = chain.store.credit(hone_types::RECYCLE_FUND_ACCOUNT, hone_types::NATIVE_TOKEN, observer_cut);
         }
 
         if treasury_cut > 0 {
-            let _ = chain.store.credit("treasury", honemesh_types::NATIVE_TOKEN, treasury_cut);
+            let _ = chain.store.credit("treasury", hone_types::NATIVE_TOKEN, treasury_cut);
         }
         if recycle_cut > 0 {
-            let _ = chain.store.credit(honemesh_types::RECYCLE_FUND_ACCOUNT, honemesh_types::NATIVE_TOKEN, recycle_cut);
+            let _ = chain.store.credit(hone_types::RECYCLE_FUND_ACCOUNT, hone_types::NATIVE_TOKEN, recycle_cut);
         }
 
         // Update escrow paid_out.
@@ -2291,7 +2291,7 @@ async fn run_mempool_node(
     cmd_tx:         tokio::sync::mpsc::Sender<NetCmd>,
     relay_counter:  Arc<AtomicUsize>,
 ) {
-    use honemesh_types::EPOCH_MS;
+    use hone_types::EPOCH_MS;
     info!("mempool node started: account={}", account);
 
     let elapsed = utils::now_ms().saturating_sub(genesis_ts);

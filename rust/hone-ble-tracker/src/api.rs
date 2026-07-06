@@ -1,4 +1,4 @@
-//! HTTP client for the local honemesh-node API.
+//! HTTP client for the local hone-node API.
 
 use anyhow::Context;
 use serde::{Deserialize, Serialize};
@@ -82,11 +82,11 @@ impl NodeClient {
         self.post("/api/tracker/sighting-data", body).await
     }
 
-    /// Store an encrypted blob in HoneMesh-FS, returning its CID.
-    /// Placeholder: POSTs to /api/fs/store; returns a synthetic CID until HoneMesh-FS is wired.
+    /// Store an encrypted blob in HONE-FS, returning its CID.
+    /// Placeholder: POSTs to /api/fs/store; returns a synthetic CID until HONE-FS is wired.
     pub async fn store_blob(&self, _owner: &str, data: &str) -> anyhow::Result<String> {
         use sha2::{Digest, Sha256};
-        // Stub: derive a deterministic CID from the content hash until HoneMesh-FS is live.
+        // Stub: derive a deterministic CID from the content hash until HONE-FS is live.
         let hash = hex::encode(Sha256::digest(data.as_bytes()));
         Ok(format!("honefs:{}", &hash[..32]))
     }

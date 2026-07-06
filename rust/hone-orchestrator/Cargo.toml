@@ -1,24 +1,24 @@
 [package]
-name = "honemesh-orchestrator"
+name = "hone-orchestrator"
 version = "0.1.0"
 edition = "2021"
-authors = ["HoneMesh contributors"]
-description = "Rust-native HoneMesh runtime and agent orchestration model"
+authors = ["HONE contributors"]
+description = "Rust-native HONE runtime and agent orchestration model"
 license = "MIT OR Apache-2.0"
 
 [lib]
-name = "honemesh_orchestrator"
+name = "hone_orchestrator"
 path = "src/lib.rs"
 
 [[bin]]
-name = "honemesh-orchestratord"
+name = "hone-orchestratord"
 path = "src/main.rs"
 
 
 # Standalone crate — not a member of rust/Cargo.toml workspace.
 [workspace]
 [dependencies]
-honemesh-api-catalog = { path = "../honemesh-api-catalog" }
+hone-api-catalog = { path = "../hone-api-catalog" }
 hex = "0.4"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 serde = { version = "1", features = ["derive"] }

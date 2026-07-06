@@ -1,4 +1,4 @@
-use honemesh_api_catalog::{
+use hone_api_catalog::{
     default_http_client, load_public_apis_from_checkout, verify_snapshot_sequential, CatalogError,
 };
 use std::path::PathBuf;

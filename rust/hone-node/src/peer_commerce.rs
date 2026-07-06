@@ -12,7 +12,7 @@ pub struct Storefront {
     pub name: String,
     pub description: String,
     pub contact: Option<String>,
-    /// HoneMesh-FS CID pointing to the catalogue JSON.
+    /// HONE-FS CID pointing to the catalogue JSON.
     pub catalogue_cid: Option<String>,
     pub registered_epoch: u64,
 }

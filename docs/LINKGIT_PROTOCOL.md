@@ -64,7 +64,7 @@ This installs both `btcpc-node` and the `btcpc` CLI to `/usr/local/bin`.
 
 ```bash
 git clone https://github.com/shindevlin/btcpc
-cd btcpc/rust/honemesh-cli
+cd btcpc/rust/hone-cli
 cargo build --release
 sudo cp target/release/btcpc /usr/local/bin/
 ```

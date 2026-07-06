@@ -23,7 +23,7 @@ use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use honemesh_types::{
+use hone_types::{
     LedgerEntry, NATIVE_TOKEN,
     INFERENCE_FEE_WORKER_BPS, INFERENCE_FEE_VERIFIER_BPS, INFERENCE_FEE_RECYCLE_BPS,
     INFERENCE_FEE_WORKER_DISPUTED_BPS, INFERENCE_FEE_VERIFIER_DISPUTED_BPS,
@@ -1083,7 +1083,7 @@ pub fn build_pay_entry_nofee(
 mod tests {
     use super::*;
     use std::sync::Arc;
-    use honemesh_types::{LedgerEntry, RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN,
+    use hone_types::{LedgerEntry, RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN,
         INFERENCE_FEE_WORKER_BPS, INFERENCE_FEE_VERIFIER_BPS, INFERENCE_FEE_RECYCLE_BPS};
 
     // ── Test helpers ─────────────────────────────────────────────────────────

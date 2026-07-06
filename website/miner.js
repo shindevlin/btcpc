@@ -1,10 +1,10 @@
 "use strict";
 
 /**
- * HoneMesh Browser Miner -- P2P relay client for phone inference mining
+ * HONE Browser Miner -- P2P relay client for phone inference mining
  * Shin Devlin
  *
- * Connects to the HoneMesh relay via WebSocket and handles inference jobs
+ * Connects to the HONE relay via WebSocket and handles inference jobs
  * using the in-browser WebLLM engine (inference-engine.js).
  */
 
@@ -94,14 +94,14 @@
 
   function connect(opts) {
     opts = opts || {};
-    // opts.account is the HoneMesh account name — always prefer it as the miner identity
+    // opts.account is the HONE account name — always prefer it as the miner identity
     const minerName = opts.account || opts.minerName || localStorage.getItem("hone_miner_name") || localStorage.getItem("hone-sensor-account") || "phone-miner";
     const models = opts.models || [];
     // Persist so reconnects use the same name
     if (minerName !== "phone-miner") localStorage.setItem("hone_miner_name", minerName);
 
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
-      console.log("[HoneMesh Miner] Already connected or connecting");
+      console.log("[HONE Miner] Already connected or connecting");
       return;
     }
 
@@ -111,7 +111,7 @@
     try {
       ws = new WebSocket(RELAY_URL);
     } catch (err) {
-      console.error("[HoneMesh Miner] WebSocket creation failed:", err.message);
+      console.error("[HONE Miner] WebSocket creation failed:", err.message);
       emitStatus("error", err.message);
       scheduleReconnect();
       return;
@@ -121,7 +121,7 @@
       connected = true;
       stats.connected = true;
       reconnectAttempts = 0;
-      console.log("[HoneMesh Miner] Connected to relay");
+      console.log("[HONE Miner] Connected to relay");
       emitStatus("connected");
 
       // Send handshake
@@ -159,7 +159,7 @@
         const msg = JSON.parse(event.data);
         handleMessage(msg, minerName);
       } catch (err) {
-        console.error("[HoneMesh Miner] Bad message:", err.message);
+        console.error("[HONE Miner] Bad message:", err.message);
       }
     };
 
@@ -167,13 +167,13 @@
       connected = false;
       stats.connected = false;
       if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
-      console.log("[HoneMesh Miner] Disconnected from relay");
+      console.log("[HONE Miner] Disconnected from relay");
       emitStatus("disconnected");
       if (!intentionalClose) scheduleReconnect();
     };
 
     ws.onerror = function (err) {
-      console.error("[HoneMesh Miner] WebSocket error:", err);
+      console.error("[HONE Miner] WebSocket error:", err);
       emitStatus("error", "WebSocket error");
     };
   }
@@ -201,7 +201,7 @@
       RECONNECT_MAX_MS
     );
     reconnectAttempts++;
-    console.log("[HoneMesh Miner] Reconnecting in " + Math.round(delay / 1000) + "s...");
+    console.log("[HONE Miner] Reconnecting in " + Math.round(delay / 1000) + "s...");
     emitStatus("reconnecting", { delay_ms: delay, attempt: reconnectAttempts });
     reconnectTimer = setTimeout(function () {
       reconnectTimer = null;
@@ -260,19 +260,19 @@
 
     // Already busy with a job?
     if (jobInFlight) {
-      console.log("[HoneMesh Miner] Busy, skipping " + reqId.slice(0, 8));
+      console.log("[HONE Miner] Busy, skipping " + reqId.slice(0, 8));
       return;
     }
 
     // Check if engine has a model loaded
     if (!window.honeEngine) {
-      console.log("[HoneMesh Miner] No inference engine loaded, skipping");
+      console.log("[HONE Miner] No inference engine loaded, skipping");
       return;
     }
 
     const loadedModels = window.honeEngine.getLoadedModels();
     if (!loadedModels || loadedModels.length === 0) {
-      console.log("[HoneMesh Miner] No model loaded, skipping");
+      console.log("[HONE Miner] No model loaded, skipping");
       return;
     }
 
@@ -304,7 +304,7 @@
       })
     );
 
-    console.log("[HoneMesh Miner] Claimed " + reqId.slice(0, 8) + " (jitter: " + Math.round(jitter) + "ms)");
+    console.log("[HONE Miner] Claimed " + reqId.slice(0, 8) + " (jitter: " + Math.round(jitter) + "ms)");
     emitStatus("claimed", { request_id: reqId });
 
     // If prompt is already in the request (not encrypted), process immediately
@@ -329,7 +329,7 @@
       jobInFlight.request_id === reqId &&
       !jobInFlight.processing
     ) {
-      console.log("[HoneMesh Miner] " + reqId.slice(0, 8) + " claimed by " + data.node_name + ", backing off");
+      console.log("[HONE Miner] " + reqId.slice(0, 8) + " claimed by " + data.node_name + ", backing off");
       jobInFlight = null;
     }
   }
@@ -349,7 +349,7 @@
       try {
         const memoPriv = localStorage.getItem("hone_memo_priv");
         if (!memoPriv) {
-          console.error("[HoneMesh Miner] Encrypted job but no memo private key stored");
+          console.error("[HONE Miner] Encrypted job but no memo private key stored");
           clearJob("no memo key");
           return;
         }
@@ -359,16 +359,16 @@
         );
         prompt = await window.honeCrypto.decrypt(data.prompt_encrypted, sharedSecret);
         jobInFlight.sharedSecret = sharedSecret;
-        console.log("[HoneMesh Miner] Decrypted prompt for " + reqId.slice(0, 8));
+        console.log("[HONE Miner] Decrypted prompt for " + reqId.slice(0, 8));
       } catch (err) {
-        console.error("[HoneMesh Miner] Decrypt failed for " + reqId.slice(0, 8) + ": " + err.message);
+        console.error("[HONE Miner] Decrypt failed for " + reqId.slice(0, 8) + ": " + err.message);
         clearJob("decrypt failed");
         return;
       }
     }
 
     if (!prompt) {
-      console.log("[HoneMesh Miner] No prompt in payload for " + reqId.slice(0, 8));
+      console.log("[HONE Miner] No prompt in payload for " + reqId.slice(0, 8));
       clearJob("no prompt");
       return;
     }
@@ -385,12 +385,12 @@
     jobInFlight.processing = true;
 
     emitStatus("processing", { request_id: reqId, prompt_length: prompt.length });
-    console.log("[HoneMesh Miner] Processing " + reqId.slice(0, 8) + " (" + prompt.length + " chars)");
+    console.log("[HONE Miner] Processing " + reqId.slice(0, 8) + " (" + prompt.length + " chars)");
 
     // Timeout guard
     const timeoutId = setTimeout(function () {
       if (jobInFlight && jobInFlight.request_id === reqId) {
-        console.log("[HoneMesh Miner] Job " + reqId.slice(0, 8) + " timed out");
+        console.log("[HONE Miner] Job " + reqId.slice(0, 8) + " timed out");
         clearJob("timeout");
       }
     }, JOB_TIMEOUT_MS);
@@ -445,7 +445,7 @@
         try {
           resultEncrypted = await window.honeCrypto.encrypt(resultText, sharedSecret);
         } catch (encErr) {
-          console.error("[HoneMesh Miner] Failed to encrypt result: " + encErr.message);
+          console.error("[HONE Miner] Failed to encrypt result: " + encErr.message);
         }
       }
 
@@ -471,7 +471,7 @@
       stats.lastJobAt = new Date().toISOString();
 
       console.log(
-        "[HoneMesh Miner] Completed " +
+        "[HONE Miner] Completed " +
           reqId.slice(0, 8) +
           ": " +
           tokensGenerated +
@@ -531,7 +531,7 @@
       })();
     } catch (err) {
       clearTimeout(timeoutId);
-      console.error("[HoneMesh Miner] Failed " + reqId.slice(0, 8) + ": " + err.message);
+      console.error("[HONE Miner] Failed " + reqId.slice(0, 8) + ": " + err.message);
 
       send(
         createMessage("INFERENCE_RESULT", {
@@ -575,7 +575,7 @@
 
   function clearJob(reason) {
     if (jobInFlight) {
-      console.log("[HoneMesh Miner] Job " + (jobInFlight.request_id || "").slice(0, 8) + " cleared (" + reason + ")");
+      console.log("[HONE Miner] Job " + (jobInFlight.request_id || "").slice(0, 8) + " cleared (" + reason + ")");
       jobInFlight = null;
     }
   }
@@ -598,5 +598,5 @@
     },
   };
 
-  console.log("[HoneMesh Miner] Browser P2P miner ready");
+  console.log("[HONE Miner] Browser P2P miner ready");
 })();

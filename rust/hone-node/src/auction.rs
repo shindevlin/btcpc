@@ -4,16 +4,16 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::chain::Chain;
-use honemesh_types::NATIVE_TOKEN;
+use hone_types::NATIVE_TOKEN;
 
 /// Name length tier for gating auction opens.
 /// Returns the minimum bid in hunits based on character length.
 pub fn name_min_bid(name: &str) -> u64 {
     match name.len() {
-        1        => 10_000_000 * 100_000_000, // 10 M HoneMesh — ultra-rare
-        2        =>  1_000_000 * 100_000_000, // 1 M  HoneMesh — premium
-        3..=4    =>    100_000 * 100_000_000, // 100k HoneMesh — standard
-        5..=9    =>      1_000 * 100_000_000, // 1k   HoneMesh — basic
+        1        => 10_000_000 * 100_000_000, // 10 M HONE — ultra-rare
+        2        =>  1_000_000 * 100_000_000, // 1 M  HONE — premium
+        3..=4    =>    100_000 * 100_000_000, // 100k HONE — standard
+        5..=9    =>      1_000 * 100_000_000, // 1k   HONE — basic
         _        =>          0,               // 10+  — free to auction
     }
 }
@@ -200,7 +200,7 @@ pub fn apply_cancel(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use honemesh_types::LedgerEntry;
+    use hone_types::LedgerEntry;
     use tempfile::TempDir;
 
     fn make_chain() -> (Chain, TempDir) {
@@ -224,7 +224,7 @@ mod tests {
         chain.apply_entry(&LedgerEntry::GenesisAlloc {
             account: account.to_string(),
             amount,
-            token: honemesh_types::NATIVE_TOKEN.to_string(),
+            token: hone_types::NATIVE_TOKEN.to_string(),
         }).unwrap();
     }
 

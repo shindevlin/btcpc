@@ -1,7 +1,7 @@
 /*!
-# HoneMesh Contract Runtime
+# HONE Contract Runtime
 
-Executes WASM smart contracts compiled with `honemesh-contract-sdk`.
+Executes WASM smart contracts compiled with `hone-contract-sdk`.
 
 ## Execution model
 
@@ -14,7 +14,7 @@ Each call to [`execute_call`] is fully isolated:
 
 ## Integration
 
-The runtime is a library embedded in the `honemesh-p2p` Rust sidecar.
+The runtime is a library embedded in the `hone-p2p` Rust sidecar.
 Node.js invokes it via the Unix socket IPC using the `contract_call`
 and `contract_deploy` JSON-RPC methods.
 */
@@ -44,7 +44,7 @@ pub struct CallRequest {
     pub signer: String,
     /// Immediate caller (same as signer unless cross-contract)
     pub predecessor: String,
-    /// HoneMesh satoshis attached to this call
+    /// HONE satoshis attached to this call
     pub attached_deposit: u128,
     /// Gas limit (fuel units)
     pub gas: u64,

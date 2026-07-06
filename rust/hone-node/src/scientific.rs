@@ -1,4 +1,4 @@
-//! HoneMesh Scientific Compute Engine
+//! HONE Scientific Compute Engine
 //!
 //! Long-running distributed scientific compute jobs — protein folding,
 //! drug discovery, climate modeling, genomics, and general inference
@@ -8,7 +8,7 @@
 //!   - Jobs are stored in RocksDB under `sci_job:{job_id}`
 //!   - Open-source jobs receive a 40% fee discount; results are recorded on chain
 //!   - Nodes earn a 25% bonus for processing open-science jobs
-//!   - Results > 50 KB are stored in HoneMesh-FS; the on-chain entry holds the CID
+//!   - Results > 50 KB are stored in HONE-FS; the on-chain entry holds the CID
 //!   - Latency map tracks inter-peer round-trips to optimize shard routing
 #![allow(dead_code)]
 
@@ -18,7 +18,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{bail, Result};
-use honemesh_types::{LedgerEntry, NATIVE_TOKEN};
+use hone_types::{LedgerEntry, NATIVE_TOKEN};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tracing::warn;

@@ -1,4 +1,4 @@
-//! Shared utilities used across honemesh-node modules.
+//! Shared utilities used across hone-node modules.
 
 /// Current time as milliseconds since Unix epoch.
 pub fn now_ms() -> u64 {

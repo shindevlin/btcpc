@@ -377,12 +377,12 @@ async function loadAccount(name) {
         <div class="stat-card">
           <div class="stat-label">Balance</div>
           <div class="stat-value orange">${fmt(balance, 4)}</div>
-          <div class="stat-sub">HoneMesh</div>
+          <div class="stat-sub">HONE</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Staked</div>
           <div class="stat-value">${fmt(stake, 4)}</div>
-          <div class="stat-sub">HoneMesh</div>
+          <div class="stat-sub">HONE</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Nonce</div>
@@ -451,7 +451,7 @@ async function loadAccounts() {
     const accounts = data.accounts || [];
     if (!accounts.length) { empty("accounts-table", "No accounts found."); return; }
 
-    // Convert hunits integer to HoneMesh float (1 HONE = 10,000,000,000 hunits)
+    // Convert hunits integer to HONE float (1 HONE = 10,000,000,000 hunits)
     const HUNITS_PER_HONE = 10_000_000_000;
     const rows = accounts.map((a, i) => {
       const hunitsRaw = (a.balances && a.balances.HONE) ? Number(a.balances.HONE) : 0;

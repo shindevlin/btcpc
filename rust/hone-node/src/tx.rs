@@ -17,7 +17,7 @@
 //! override.
 
 use anyhow::{bail, Result};
-use honemesh_types::{LedgerEntry, NATIVE_TOKEN, HUNITS_PER_HONE, entry_weight, BASE_FEE_INITIAL_HUNITS, RECYCLE_FUND_ACCOUNT, TESTNET_FUND_ACCOUNT, STAKE_EXEMPT_ACCOUNTS};
+use hone_types::{LedgerEntry, NATIVE_TOKEN, HUNITS_PER_HONE, entry_weight, BASE_FEE_INITIAL_HUNITS, RECYCLE_FUND_ACCOUNT, TESTNET_FUND_ACCOUNT, STAKE_EXEMPT_ACCOUNTS};
 use ed25519_dalek::{Signature, VerifyingKey};
 
 use crate::chain::Chain;
@@ -261,7 +261,7 @@ pub fn validate_and_apply(
                 );
             }
             check_account_create_signature(&chain.chain_id, entry, sig_hex, owner_key)?;
-            let exempt = honemesh_types::STAKE_EXEMPT_ACCOUNTS.contains(&account.as_str());
+            let exempt = hone_types::STAKE_EXEMPT_ACCOUNTS.contains(&account.as_str());
             if !exempt {
                 // Check if name stake is enabled via on-chain governance param.
                 let stake_enabled = chain.store.state_get("chain_param:name_stake_enabled")
@@ -273,7 +273,7 @@ pub fn validate_and_apply(
                     let stake_amount = chain.store.state_get("chain_param:name_stake_amount")
                         .and_then(|bytes| String::from_utf8(bytes).ok())
                         .and_then(|s| s.trim().parse::<u64>().ok())
-                        .unwrap_or(honemesh_types::NAME_REGISTRATION_STAKE);
+                        .unwrap_or(hone_types::NAME_REGISTRATION_STAKE);
 
                     let funder = funded_by.as_deref()
                         .filter(|s| !s.is_empty())
@@ -281,7 +281,7 @@ pub fn validate_and_apply(
                             "name registration requires a funded_by account with {} hunits",
                             stake_amount
                         ))?;
-                    let bal = chain.store.get_balance(funder, honemesh_types::NATIVE_TOKEN);
+                    let bal = chain.store.get_balance(funder, hone_types::NATIVE_TOKEN);
                     anyhow::ensure!(
                         bal >= stake_amount,
                         "funded_by '{}' has {} hunits, need {} for name registration",
@@ -630,7 +630,7 @@ pub fn validate_and_apply(
         LedgerEntry::BlobStore { .. }
         | LedgerEntry::ContractDeploy { .. }
         | LedgerEntry::ContractCall { .. }
-        // Freeport orders/escrow — no on-chain balance movement; honemesh-market
+        // Freeport orders/escrow — no on-chain balance movement; hone-market
         // sidecar manages the money (EscrowRelease apply is an empty no-op).
         | LedgerEntry::OrderPlace { .. }
         | LedgerEntry::OrderFulfill { .. }
@@ -908,8 +908,8 @@ pub fn validate_and_apply(
             }
             require_key(chain, owner)?;
             check_signature(chain, signed_by, entry, sig_hex, "posting")?;
-            if *bond < honemesh_types::RUNTIME_MIN_BOND {
-                bail!("bond {} is below minimum {} hunits", bond, honemesh_types::RUNTIME_MIN_BOND);
+            if *bond < hone_types::RUNTIME_MIN_BOND {
+                bail!("bond {} is below minimum {} hunits", bond, hone_types::RUNTIME_MIN_BOND);
             }
             let bal = chain.store.get_balance(owner, NATIVE_TOKEN);
             if bal < *bond {
@@ -1449,7 +1449,7 @@ pub fn validate_and_apply(
         // ── Chain Entropy Protocol — cross-chain witness ──────────────────────
         LedgerEntry::EntropyWitness { account, chain: ext_chain, address, signed_by, .. } => {
             let _guard = chain.write_lock.lock();
-            // Submitter must be a known HoneMesh account.
+            // Submitter must be a known HONE account.
             require_key(chain, signed_by)?;
             // The address must be in the published wallet family for this account.
             let rev_key = format!("wallet_addr:{}:{}", ext_chain, address);
@@ -2142,7 +2142,7 @@ fn check_slot_2fa(
     account: &str,
     role: &str,
     entry: &LedgerEntry,
-    twofactor: Option<&honemesh_types::TwoFactor>,
+    twofactor: Option<&hone_types::TwoFactor>,
 ) -> Result<()> {
     let state = match chain.store.get_account(account)? {
         Some(s) => s,
@@ -2796,7 +2796,7 @@ pub fn canonical_signing_message(entry: &LedgerEntry, chain_id: &str) -> Result<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use honemesh_types::{LedgerEntry, NATIVE_TOKEN};
+    use hone_types::{LedgerEntry, NATIVE_TOKEN};
     use ed25519_dalek::{SigningKey, Signer};
     use tempfile::TempDir;
 

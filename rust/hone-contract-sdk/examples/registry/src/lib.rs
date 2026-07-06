@@ -1,9 +1,9 @@
 /*!
-# HoneMesh Registry Contract
+# HONE Registry Contract
 
-The first system contract deployed on the HoneMesh chain.
+The first system contract deployed on the HONE chain.
 
-A simple on-chain key-value store — any HoneMesh account can register named
+A simple on-chain key-value store — any HONE account can register named
 entries, look them up, list all entries for a given account, and delete them.
 Useful as general-purpose on-chain metadata storage (IPFS CIDs, public keys,
 profile data, custom attributes, etc.).
@@ -37,7 +37,7 @@ hone contract call <address> unregister \
 ```
 */
 
-use honemesh_contract_sdk::*;
+use hone_contract_sdk::*;
 use borsh::{BorshDeserialize, BorshSerialize};
 
 const MAX_KEY_LEN: usize = 128;

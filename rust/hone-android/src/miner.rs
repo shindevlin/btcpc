@@ -12,7 +12,7 @@ use std::time::Duration;
 use sha2::{Digest, Sha256};
 use tracing::{info, warn};
 
-use honemesh_types::{LedgerEntry, EPOCH_MS};
+use hone_types::{LedgerEntry, EPOCH_MS};
 
 use crate::chain::Chain;
 use crate::llm::LlmEngine;

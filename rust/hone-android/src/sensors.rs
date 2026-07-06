@@ -12,7 +12,7 @@ use std::sync::Arc;
 use sha2::{Digest, Sha256};
 use tracing::warn;
 
-use honemesh_types::LedgerEntry;
+use hone_types::LedgerEntry;
 use crate::chain::Chain;
 use crate::net::NetCmd;
 

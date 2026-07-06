@@ -136,7 +136,7 @@ claim on a Rust item since the ICE commit is unverifiable.
   — it is a transport-cascade dependency (Matrix alt-transport), used in exactly
   one file (`src/matrix_transport.rs`, wired at `main.rs:99,1117`), not
   consensus-critical — so `btcpc-node` core builds without it and off a lower
-  rustc; **(c)** last resort, split the workspace so `crates/honemesh-types` + core
+  rustc; **(c)** last resort, split the workspace so `crates/hone-types` + core
   chain crates build on a stable toolchain independent of the transport crates.
   **Acceptance:** `cargo test -p btcpc-node` runs to completion from a clean
   checkout, producing a pass/fail count.

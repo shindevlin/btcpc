@@ -32,7 +32,7 @@ use std::process;
     name = "hone",
     version = "1.0.0",
     author = "Shin Devlin <shindevlin@proton.me>",
-    about = "HoneMesh chain CLI — interact with a honemesh-node",
+    about = "HONE chain CLI — interact with a hone-node",
     long_about = None
 )]
 struct Cli {
@@ -75,7 +75,7 @@ enum Commands {
     /// Node health check
     Health,
 
-    /// Transfer HoneMesh between accounts
+    /// Transfer HONE between accounts
     Transfer {
         #[arg(long)]
         from: String,
@@ -122,7 +122,7 @@ enum Commands {
         /// Hex-encoded public key
         #[arg(long)]
         pubkey: Option<String>,
-        /// Key file used to sign the account claim (default: session key or ~/.honemesh/key.json)
+        /// Key file used to sign the account claim (default: session key or ~/.hone/key.json)
         #[arg(long)]
         key_file: Option<PathBuf>,
     },
@@ -194,7 +194,7 @@ enum Commands {
         action: ComputerUseCommands,
     },
 
-    /// Snapshot save/load (HoneMesh-FS backed)
+    /// Snapshot save/load (HONE-FS backed)
     Snap {
         #[command(subcommand)]
         action: SnapCommands,
@@ -240,12 +240,12 @@ enum Commands {
         action: RepoCommands,
     },
 
-    /// Sign in with a key file — saves session to ~/.honemesh/session.json
+    /// Sign in with a key file — saves session to ~/.hone/session.json
     Login {
         /// Account name to associate with this session
         #[arg(long)]
         account: String,
-        /// Path to key file (default: ~/.honemesh/key.json)
+        /// Path to key file (default: ~/.hone/key.json)
         #[arg(long)]
         key_file: Option<PathBuf>,
         /// Node URL (default: http://localhost:4242)
@@ -365,13 +365,13 @@ enum ContractCommands {
 enum KeyCommands {
     /// Generate a new keypair and save to a file.
     Generate {
-        /// Output path (default: ~/.honemesh/key.json)
+        /// Output path (default: ~/.hone/key.json)
         #[arg(long)]
         output: Option<PathBuf>,
     },
     /// Show the public key for a key file.
     Show {
-        /// Key file path (default: ~/.honemesh/key.json)
+        /// Key file path (default: ~/.hone/key.json)
         #[arg(long)]
         key_file: Option<PathBuf>,
     },
@@ -382,7 +382,7 @@ enum KeyCommands {
         /// Key role to register (default: posting). Options: posting, owner, memo, active.
         #[arg(long, default_value = "posting")]
         role: String,
-        /// Key file path (default: ~/.honemesh/key.json)
+        /// Key file path (default: ~/.hone/key.json)
         #[arg(long)]
         key_file: Option<PathBuf>,
     },
@@ -390,53 +390,53 @@ enum KeyCommands {
 
 #[derive(Subcommand)]
 enum WalletCommands {
-    /// Generate a new BIP39 mnemonic, create the HoneMesh account, and publish all
+    /// Generate a new BIP39 mnemonic, create the HONE account, and publish all
     /// derived chain addresses on-chain atomically.  Prints the mnemonic — back it up.
     Create {
-        /// HoneMesh account name to register.
+        /// HONE account name to register.
         #[arg(long)]
         account: String,
-        /// Where to save the wallet file (default: ~/.honemesh/wallet.json).
+        /// Where to save the wallet file (default: ~/.hone/wallet.json).
         #[arg(long)]
         output: Option<PathBuf>,
     },
     /// Restore a wallet from an existing mnemonic and show its derived addresses.
     Show {
-        /// Wallet file path (default: ~/.honemesh/wallet.json).
+        /// Wallet file path (default: ~/.hone/wallet.json).
         #[arg(long)]
         wallet_file: Option<PathBuf>,
     },
     /// Re-publish derived chain addresses for a wallet already on-chain.
     /// Requires the mnemonic to derive the signing key (never stored on disk).
     Publish {
-        /// Wallet file path (default: ~/.honemesh/wallet.json).
+        /// Wallet file path (default: ~/.hone/wallet.json).
         #[arg(long)]
         wallet_file: Option<PathBuf>,
         /// BIP39 mnemonic phrase (or set HONE_MNEMONIC env var).
         #[arg(long)]
         mnemonic: String,
     },
-    /// Write .honemesh/wallet.env in the current directory from your saved wallet.
+    /// Write .hone/wallet.env in the current directory from your saved wallet.
     /// Run this inside a project repo to wire up HONE_ACCOUNT and HONE_API_KEY.
     Env {
-        /// Wallet file to read account name from (default: ~/.honemesh/wallet.json).
+        /// Wallet file to read account name from (default: ~/.hone/wallet.json).
         #[arg(long)]
         wallet_file: Option<PathBuf>,
-        /// Override output path (default: .honemesh/wallet.env in CWD).
+        /// Override output path (default: .hone/wallet.env in CWD).
         #[arg(long)]
         output: Option<PathBuf>,
     },
-    /// Generate a random API key, register it on-chain, and write it to .honemesh/wallet.env.
+    /// Generate a random API key, register it on-chain, and write it to .hone/wallet.env.
     /// Requires your mnemonic to sign the on-chain AccountApiKeySet entry.
     #[command(name = "api-key-gen")]
     ApiKeyGen {
         /// BIP39 mnemonic phrase (or set HONE_MNEMONIC env var).
         #[arg(long, env = "HONE_MNEMONIC")]
         mnemonic: String,
-        /// Wallet file (default: ~/.honemesh/wallet.json).
+        /// Wallet file (default: ~/.hone/wallet.json).
         #[arg(long)]
         wallet_file: Option<PathBuf>,
-        /// Output path (default: .honemesh/wallet.env in CWD).
+        /// Output path (default: .hone/wallet.env in CWD).
         #[arg(long)]
         output: Option<PathBuf>,
     },
@@ -453,7 +453,7 @@ enum InferenceCommands {
         /// Input text or path to input file (prefix with @)
         #[arg(long)]
         input: String,
-        /// Maximum fee in hunits (or HoneMesh as decimal string e.g. "0.5")
+        /// Maximum fee in hunits (or HONE as decimal string e.g. "0.5")
         #[arg(long)]
         max_fee: u64,
         /// Minimum node reputation score required (0 = any)
@@ -768,7 +768,7 @@ enum AmberPillCommands {
     /// Mint your Amber Pill (one per hardware fingerprint; grants 1.5× mining weight)
     Mint {
         #[arg(long)] account: String,
-        /// Hardware fingerprint hex (from honemesh-node /api/node/hardware or honemesh-node logs)
+        /// Hardware fingerprint hex (from hone-node /api/node/hardware or hone-node logs)
         #[arg(long)] fingerprint: String,
         #[arg(long)] key_file: Option<std::path::PathBuf>,
     },
@@ -824,7 +824,7 @@ enum AgentCommands {
     Get {
         account: String,
     },
-    /// Deposit HoneMesh into agent credit balance
+    /// Deposit HONE into agent credit balance
     Deposit {
         #[arg(long)] account: String,
         #[arg(long)] amount: u64,
@@ -882,7 +882,7 @@ enum AgentCommands {
         #[arg(long)] agent: String,
         /// SHA-256(task_id|output|agent)
         #[arg(long)] result_hash: String,
-        /// Optional CID of full output stored on HoneMesh-FS
+        /// Optional CID of full output stored on HONE-FS
         #[arg(long, default_value = "")] output_cid: String,
         #[arg(long)] key_file: Option<PathBuf>,
     },
@@ -963,7 +963,7 @@ enum BridgeCommands {
         #[arg(long, default_value = "ethereum")] chain: String,
         #[arg(long)] key_file: Option<PathBuf>,
     },
-    /// Wrap HoneMesh → wHONE (sends to external chain)
+    /// Wrap HONE → wHONE (sends to external chain)
     Wrap {
         #[arg(long)] account: String,
         #[arg(long)] amount_hunits: u64,
@@ -1710,7 +1710,7 @@ fn cmd_login(account: &str, key_file: Option<&std::path::Path>, node_url: Option
     use colored::Colorize;
     let key_path = session::resolve_key_file(key_file, None)?;
     // verify the key file is readable
-    honemesh_sdk::KeyPair::from_file(&key_path)
+    hone_sdk::KeyPair::from_file(&key_path)
         .map_err(|e| anyhow::anyhow!("cannot read key file {}: {}", key_path.display(), e))?;
 
     let sess = session::Session {

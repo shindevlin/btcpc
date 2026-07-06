@@ -1,12 +1,12 @@
 [package]
-name = "honemesh-wallet-create"
+name = "hone-wallet-create"
 version = "0.1.0"
 edition = "2021"
-authors = ["HoneMesh contributors"]
-description = "Standalone HoneMesh wallet and account creation app"
+authors = ["HONE contributors"]
+description = "Standalone HONE wallet and account creation app"
 
 [[bin]]
-name = "honemesh-wallet-create"
+name = "hone-wallet-create"
 path = "src/main.rs"
 
 
@@ -18,4 +18,4 @@ egui = "0.34"
 anyhow = "1"
 serde_json = "1"
 reqwest = { version = "0.12", features = ["blocking", "json"] }
-honemesh-sdk = { path = "../honemesh-sdk" }
+hone-sdk = { path = "../hone-sdk" }

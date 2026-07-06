@@ -22,7 +22,7 @@ storage.**
 
 - The SDK's `Wallet::save_to_file` writes **only public keys** — by design:
   *"No private key, no mnemonic, no seed — those must be kept by the user."*
-  (`rust/honemesh-sdk/src/lib.rs:1445`).
+  (`rust/hone-sdk/src/lib.rs:1445`).
 - The mnemonic was shown once (if at all) and discarded. In practice it was
   **never durably delivered** — confirmed: not on either PC, not in Telegram,
   not in Signal.

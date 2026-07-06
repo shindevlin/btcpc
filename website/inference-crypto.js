@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * HoneMesh Inference Crypto (Browser) -- ECDH + AES-256-GCM
+ * HONE Inference Crypto (Browser) -- ECDH + AES-256-GCM
  * Shin Devlin
  *
  * Browser port of src/inference/crypto.js using Web Crypto API + noble-secp256k1.
@@ -201,5 +201,5 @@
 
   window.honeCrypto = { computeSharedSecret, encrypt, decrypt };
 
-  console.log("[HoneMesh Crypto] Browser inference crypto ready");
+  console.log("[HONE Crypto] Browser inference crypto ready");
 })();

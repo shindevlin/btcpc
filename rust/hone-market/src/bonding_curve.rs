@@ -3,7 +3,7 @@
 
 const DEFAULT_BASE_USD: f64 = 1.00;
 const DEFAULT_SLOPE_USD: f64 = 0.05;
-pub const DEFAULT_STAKE_PER_SLOT_HoneMesh: f64 = 1.0;
+pub const DEFAULT_STAKE_PER_SLOT_HONE: f64 = 1.0;
 
 fn round4(v: f64) -> f64 {
     (v * 10000.0).round() / 10000.0
@@ -45,7 +45,7 @@ pub fn capacity_for_payment(current_capacity: u32, payment_usd: f64) -> u32 {
     lo
 }
 
-/// HoneMesh stake locked for `capacity` slots.
+/// HONE stake locked for `capacity` slots.
 pub fn stake_for_capacity(capacity: u32) -> f64 {
-    capacity as f64 * DEFAULT_STAKE_PER_SLOT_HoneMesh
+    capacity as f64 * DEFAULT_STAKE_PER_SLOT_HONE
 }

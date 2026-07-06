@@ -369,7 +369,7 @@ fn show_create_task(ui: &mut egui::Ui, data: &mut AppData, account: &str, can_ac
                 });
                 ui.end_row();
 
-                ui.label(egui::RichText::new("Bounty (HoneMesh)").color(DIM_TEXT).small());
+                ui.label(egui::RichText::new("Bounty (HONE)").color(DIM_TEXT).small());
                 ui.add(egui::TextEdit::singleline(&mut data.forms.new_task_bounty)
                     .hint_text("0.0")
                     .desired_width(120.0));

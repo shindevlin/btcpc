@@ -28,7 +28,7 @@ pub fn node_chain_id(api: &ApiClient) -> Result<String> {
 }
 
 pub fn sign_entry(
-    keypair: &honemesh_sdk::KeyPair,
+    keypair: &hone_sdk::KeyPair,
     chain_id: &str,
     entry_type: &str,
     mut fields: serde_json::Value,

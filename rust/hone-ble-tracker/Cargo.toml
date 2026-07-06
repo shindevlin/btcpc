@@ -1,12 +1,12 @@
 [package]
-name = "honemesh-ble-tracker"
+name = "hone-ble-tracker"
 version = "1.0.0"
 edition = "2021"
 authors = ["Shin Devlin <shindevlin@proton.me>"]
-description = "HoneMesh BLE tracker scanner — passive detection of AirTags, Find My Device tags, Tile, Samsung SmartTags, with acoustic ownership challenge"
+description = "HONE BLE tracker scanner — passive detection of AirTags, Find My Device tags, Tile, Samsung SmartTags, with acoustic ownership challenge"
 
 [[bin]]
-name = "honemesh-ble-tracker"
+name = "hone-ble-tracker"
 path = "src/main.rs"
 
 [features]
@@ -40,7 +40,7 @@ rand = "0.8"
 serde       = { version = "1", features = ["derive"] }
 serde_json  = "1"
 
-# HTTP client (submit to local honemesh-node)
+# HTTP client (submit to local hone-node)
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
 # Local sighting log (co-location tracking)

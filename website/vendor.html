@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Vendor Dashboard — HoneMesh Market</title>
+  <title>Vendor Dashboard — HONE Market</title>
   <link rel="icon" href="/favicon-32.png" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -296,13 +296,13 @@
 <header>
   <div class="nav-top">
     <a href="/store" class="nav-logo" style="text-decoration:none">
-      <img src="/honemesh-logo.jpeg" alt="HoneMesh" />
-      <div><div>HoneMesh</div><span class="sub">Market</span></div>
+      <img src="/hone-logo.jpeg" alt="HONE" />
+      <div><div>HONE</div><span class="sub">Market</span></div>
     </a>
     <span class="nav-sep">/</span>
     <span class="nav-title">Vendor Dashboard</span>
     <div class="nav-r">
-      <button class="node-sel-btn" id="node-sel-btn" onclick="openNodeModal()" title="Switch HoneMesh node">
+      <button class="node-sel-btn" id="node-sel-btn" onclick="openNodeModal()" title="Switch HONE node">
         <span class="node-dot local" id="node-dot"></span>
         <span id="node-label">Local</span>
       </button>
@@ -314,9 +314,9 @@
   <!-- Node selector modal -->
   <div id="node-modal-overlay" onclick="if(event.target===this)closeNodeModal()">
     <div id="node-modal">
-      <h3>HoneMesh Node</h3>
-      <p>Enter the base URL of any public HoneMesh gateway node. Leave blank to use the local node (same origin).</p>
-      <input id="node-input" type="url" placeholder="https://node.honemesh.network" />
+      <h3>HONE Node</h3>
+      <p>Enter the base URL of any public HONE gateway node. Leave blank to use the local node (same origin).</p>
+      <input id="node-input" type="url" placeholder="https://node.honemesh.net" />
       <div class="node-modal-actions">
         <button class="btn-node-cancel" onclick="closeNodeModal()">Cancel</button>
         <button class="btn-node-clear" onclick="clearNode()">Use Local</button>
@@ -588,13 +588,13 @@
               <input type="text" id="s-name" value="TechSurplus" />
             </div>
             <div class="form-group">
-              <label>Store Slug (your HoneMesh username)</label>
+              <label>Store Slug (your HONE username)</label>
               <input type="text" id="s-slug" value="shindevlin" readonly style="background:var(--bg2);color:var(--muted)" />
-              <span class="form-hint">Cannot be changed. Linked to your HoneMesh account.</span>
+              <span class="form-hint">Cannot be changed. Linked to your HONE account.</span>
             </div>
             <div class="form-group form-full">
               <label>Store Description</label>
-              <textarea id="s-desc">Recertified GPU hardware, LoRa mesh devices, and digital AI resources. All products HoneMesh-verified with on-chain provenance. Escrow protected.</textarea>
+              <textarea id="s-desc">Recertified GPU hardware, LoRa mesh devices, and digital AI resources. All products HONE-verified with on-chain provenance. Escrow protected.</textarea>
             </div>
             <div class="form-group form-full">
               <label>Categories (comma-separated)</label>
@@ -679,7 +679,7 @@
           <div style="margin-bottom:20px">
             <div style="font-weight:700;font-size:14px;margin-bottom:6px">Catalog Distribution (always on)</div>
             <div style="font-size:13px;color:var(--sub);line-height:1.7;background:var(--bg2);border-radius:6px;padding:12px">
-              Your product listings are replicated across every HoneMesh node that is online. Buyers
+              Your product listings are replicated across every HONE node that is online. Buyers
               can browse your store from any node in the mesh — no single IP is required.
               Your catalog is already censorship-resistant by default.
             </div>
@@ -764,8 +764,8 @@
           <input type="text" id="ship-tracking" placeholder="1Z999AA10123456784" autocomplete="off" />
         </div>
         <div class="form-group form-full" id="ship-cid-row" style="display:none">
-          <label>HoneMesh-FS CID (digital delivery)</label>
-          <input type="text" id="ship-cid" placeholder="Qm… content ID from HoneMesh-FS" />
+          <label>HONE-FS CID (digital delivery)</label>
+          <input type="text" id="ship-cid" placeholder="Qm… content ID from HONE-FS" />
         </div>
         <div class="form-group form-full">
           <label>Note to Buyer (optional)</label>
@@ -844,7 +844,7 @@
               <input type="file" id="p-img-file" accept="image/*" style="display:none" onchange="uploadProductImage()" />
             </label>
           </div>
-          <span class="form-hint" id="p-img-hint">Upload an image (max 8 MB) or paste an existing HoneMesh-FS CID.</span>
+          <span class="form-hint" id="p-img-hint">Upload an image (max 8 MB) or paste an existing HONE-FS CID.</span>
         </div>
         <div class="form-group form-full" style="border-top:1px solid #eee;padding-top:12px;margin-top:4px">
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
@@ -854,7 +854,7 @@
           <span class="form-hint">Buyer receives the file CID instantly after payment. No seller action needed.</span>
         </div>
         <div class="form-group form-full" id="p-delivery-cid-wrap" style="display:none">
-          <label>Delivery CID (HoneMesh-FS blob hash of the file to deliver) *</label>
+          <label>Delivery CID (HONE-FS blob hash of the file to deliver) *</label>
           <input type="text" id="p-delivery-cid" placeholder="sha256:..." />
           <span class="form-hint">The buyer will receive this CID in their order confirmation.</span>
         </div>
@@ -946,13 +946,13 @@
 <div id="login-wall">
   <div class="login-card">
     <div class="login-logo">
-      <img src="/honemesh-logo.jpeg" alt="HoneMesh" style="width:32px;height:32px;border-radius:4px" />
-      <span>HoneMesh <small>Vendor Dashboard</small></span>
+      <img src="/hone-logo.jpeg" alt="HONE" style="width:32px;height:32px;border-radius:4px" />
+      <span>HONE <small>Vendor Dashboard</small></span>
     </div>
     <h2>Sign in with your posting key</h2>
-    <p>Enter your HoneMesh account name and posting key to manage your store.</p>
+    <p>Enter your HONE account name and posting key to manage your store.</p>
     <div class="login-field">
-      <label>HoneMesh Username</label>
+      <label>HONE Username</label>
       <input id="login-username" type="text" placeholder="e.g. shindevlin" autocomplete="username" />
     </div>
     <div class="login-field">
@@ -1086,8 +1086,8 @@ var _linkedShippingAccounts = [];
 
 // Demo data (shown when API is unreachable)
 var DEMO_LISTINGS = [
-  { product_id:'shindevlin/rtx-3080-recertified', title:'RTX 3080 Recertified — 10GB VRAM, HoneMesh Mine-Tested 500h', price:480, token:'HONE', inventory:3, status:'active', sold:94, revenue:45120, category:'GPU & Compute', icon:'🖥️' },
-  { product_id:'shindevlin/tbeam-v11-honemesh', title:'Meshtastic T-Beam v1.1 — LoRa 915MHz, Pre-flashed HoneMesh Firmware', price:22, token:'HONE', inventory:50, status:'active', sold:41, revenue:902, category:'LoRa & Mesh', icon:'📡' },
+  { product_id:'shindevlin/rtx-3080-recertified', title:'RTX 3080 Recertified — 10GB VRAM, HONE Mine-Tested 500h', price:480, token:'HONE', inventory:3, status:'active', sold:94, revenue:45120, category:'GPU & Compute', icon:'🖥️' },
+  { product_id:'shindevlin/tbeam-v11-hone', title:'Meshtastic T-Beam v1.1 — LoRa 915MHz, Pre-flashed HONE Firmware', price:22, token:'HONE', inventory:50, status:'active', sold:41, revenue:902, category:'LoRa & Mesh', icon:'📡' },
   { product_id:'shindevlin/qwen25-7b-q5km', title:'Qwen2.5-7B GGUF Q5_K_M — Instant Download, Ollama Ready', price:5, token:'HONE', inventory:null, status:'active', sold:212, revenue:1060, category:'Digital Goods', icon:'🧠' },
   { product_id:'shindevlin/wd-sn850x-4tb', title:'4TB NVMe SSD WD Black SN850X — PCIe 4.0, Sealed', price:38, token:'HONE', inventory:18, status:'active', sold:29, revenue:1102, category:'Storage', icon:'💾' },
   { product_id:'shindevlin/rak-wisblock-sensor-kit', title:'RAK WisBlock LoRa Dev Kit — nRF52840 + SX1262', price:14, token:'HONE', inventory:30, status:'active', sold:18, revenue:252, category:'LoRa & Mesh', icon:'📶' },
@@ -1098,7 +1098,7 @@ var DEMO_LISTINGS = [
 
 var DEMO_ORDERS = [
   { order_id:'ord-a1b2c3d4e5f6789012345678', buyer:'natoshisakamoto', product_id:'shindevlin/rtx-3080-recertified', quantity:1, total:480, token:'HONE', status:'pending', placed_epoch:36200, escrow_id:'esc-abc123def456' },
-  { order_id:'ord-b2c3d4e5f6a7890123456789', buyer:'loravan_king',     product_id:'shindevlin/tbeam-v11-honemesh', quantity:4, total:88, token:'HONE', status:'pending', placed_epoch:36195, escrow_id:'esc-def456abc789' },
+  { order_id:'ord-b2c3d4e5f6a7890123456789', buyer:'loravan_king',     product_id:'shindevlin/tbeam-v11-hone', quantity:4, total:88, token:'HONE', status:'pending', placed_epoch:36195, escrow_id:'esc-def456abc789' },
   { order_id:'ord-c3d4e5f6a7b8901234567890', buyer:'mesh_relay_99',    product_id:'shindevlin/qwen25-7b-q5km', quantity:1, total:5, token:'HONE', status:'fulfilled', placed_epoch:36180, escrow_id:'esc-ghi789jkl012' },
   { order_id:'ord-d4e5f6a7b8c9012345678901', buyer:'ai_farm_hale',     product_id:'shindevlin/wd-sn850x-4tb', quantity:2, total:76, token:'HONE', status:'delivered', placed_epoch:36150, escrow_id:'esc-jkl012mno345' },
   { order_id:'ord-e5f6a7b8c9d0123456789012', buyer:'hone_miner_77',   product_id:'shindevlin/rtx-4090-founders', quantity:1, total:920, token:'HONE', status:'disputed', placed_epoch:36100, escrow_id:'esc-mno345pqr678' },
@@ -1883,7 +1883,7 @@ async function loadPrivacyStatus() {
     }
   } catch(e) {
     var el = document.getElementById('peer-node-count');
-    if (el) el.textContent = 'Node offline — start the HoneMesh miner to enable peer relay.';
+    if (el) el.textContent = 'Node offline — start the HONE miner to enable peer relay.';
   }
 
   // Load current store Tor status
@@ -1946,7 +1946,7 @@ async function setupTor() {
       return;
     }
   } catch(e) {}
-  box.innerHTML = 'API offline — start the HoneMesh miner and honemesh-market, then try again.';
+  box.innerHTML = 'API offline — start the HONE miner and hone-market, then try again.';
 }
 
 function showOnionAddress(onion) {

@@ -1,28 +1,28 @@
 //! `hone` — the ecosystem CLI. Its job here is the integration manifest:
 //! generate it (in the hone repo), enforce it in CI, and sync it into any
-//! consumer repo so that repo stays correct across HoneMesh updates.
+//! consumer repo so that repo stays correct across HONE updates.
 //!
 //! Subcommands:
-//!   hone manifest generate [--repo <dir>] [--out honemesh-manifest.json]
-//!       Regenerate the manifest from the HoneMesh source tree.
+//!   hone manifest generate [--repo <dir>] [--out hone-manifest.json]
+//!       Regenerate the manifest from the HONE source tree.
 //!
 //!   hone manifest check [--repo <dir>]
 //!       CI gate: regenerate and compare against the committed
-//!       honemesh-manifest.json. Exit non-zero if they differ (the API changed but
+//!       hone-manifest.json. Exit non-zero if they differ (the API changed but
 //!       the manifest wasn't updated in the same commit).
 //!
 //!   hone manifest diff <old.json> <new.json>
 //!       Print the ADDED / REMOVED / DEPRECATED / breaking changelog.
 //!
 //!   hone sync [--node <url> | --manifest <path>] [--dir <consumer repo>]
-//!       Consumer side: refresh HoneMesh.md + HoneMesh.lock in the current repo and
+//!       Consumer side: refresh HONE.md + HONE.lock in the current repo and
 //!       print what changed since last sync. Exit 2 on breaking changes.
 //!
 //! No arg parser dependency is added — a tiny hand-rolled parser keeps the SDK's
 //! dependency surface small (this binary ships to consumer CI).
 
 use anyhow::{anyhow, bail, Context, Result};
-use honemesh_sdk::manifest::{
+use hone_sdk::manifest::{
     diff::diff_manifests, generate, schema::Manifest, sync, MANIFEST_FILENAME,
 };
 use std::path::{Path, PathBuf};
@@ -67,7 +67,7 @@ fn run() -> Result<i32> {
 
 fn usage() {
     eprintln!(
-        "hone — HoneMesh ecosystem CLI\n\n\
+        "hone — HONE ecosystem CLI\n\n\
          USAGE:\n\
          \x20 hone manifest generate [--repo DIR] [--out FILE] [--chain-id ID]\n\
          \x20 hone manifest check    [--repo DIR] [--chain-id ID]\n\
@@ -202,8 +202,8 @@ fn cmd_sync(args: &[String]) -> Result<i32> {
 
     if outcome.first_sync {
         println!(
-            "Initialized HoneMesh.md + HoneMesh.lock (HoneMesh {} surface {}).\n\
-             Tip: list the entries/routes you use under uses_entries/uses_routes in HoneMesh.lock \
+            "Initialized HONE.md + HONE.lock (HONE {} surface {}).\n\
+             Tip: list the entries/routes you use under uses_entries/uses_routes in HONE.lock \
              to get targeted change alerts.",
             new_manifest.hone_version,
             &new_manifest.surface_hash[..new_manifest.surface_hash.len().min(12)]

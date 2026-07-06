@@ -19,7 +19,7 @@ pub async fn run(client: Client, owner: String, repo: String) -> Result<()> {
             writeln!(out, "")?;
             out.flush()?;
         } else if line == "list" || line == "list for-push" {
-            // Fetch refs from HoneMesh chain
+            // Fetch refs from HONE chain
             let refs = client.get_refs(&repo_id).await.unwrap_or_default();
             for (refname, hash) in &refs {
                 writeln!(out, "{} {}", hash, refname)?;

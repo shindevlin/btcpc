@@ -30,9 +30,9 @@ The most critical incompatibility: **Node.js and Rust produce fundamentally diff
 - `src/services/accountCreation.js` — dedicated account provisioning service
 
 **Rust has:**
-- `rust/honemesh-node/src/tx.rs` — ed25519 signature validation for Transfer, Stake, Unstake, AccountUpdateKey, EpochSeal, and all inference entries
-- `rust/honemesh-node/src/api.rs` — `/api/transfer`, `/api/stake`, `/api/unstake`, `/api/account/create`, `/api/account/update-key`
-- `rust/honemesh-cli/src/key.rs` — local keypair generation
+- `rust/hone-node/src/tx.rs` — ed25519 signature validation for Transfer, Stake, Unstake, AccountUpdateKey, EpochSeal, and all inference entries
+- `rust/hone-node/src/api.rs` — `/api/transfer`, `/api/stake`, `/api/unstake`, `/api/account/create`, `/api/account/update-key`
+- `rust/hone-cli/src/key.rs` — local keypair generation
 
 **Gap / What's missing:**
 - Zero JWT/session-based authentication — the Rust API accepts unsigned entry submissions with no auth gate
@@ -58,8 +58,8 @@ The most critical incompatibility: **Node.js and Rust produce fundamentally diff
 - `src/p2p/mempool.js` — per-account pendingDebit tracking, double-spend prevention, MAX_MEMPOOL_SIZE cap
 
 **Rust has:**
-- `rust/honemesh-node/src/tx.rs` — strong validation for Transfer, Stake, Unstake, AccountCreate, AccountUpdateKey, EpochSeal, and all inference entries
-- `rust/honemesh-types/src/entry.rs` — LedgerEntry enum with ~50 variants including commerce, sensors, LinkGit, testnet, inference
+- `rust/hone-node/src/tx.rs` — strong validation for Transfer, Stake, Unstake, AccountCreate, AccountUpdateKey, EpochSeal, and all inference entries
+- `rust/hone-types/src/entry.rs` — LedgerEntry enum with ~50 variants including commerce, sensors, LinkGit, testnet, inference
 - nonce-check + bump on Transfer/Stake/Unstake
 - No dedicated mempool module
 
@@ -93,9 +93,9 @@ The most critical incompatibility: **Node.js and Rust produce fundamentally diff
 - `src/chain/epochFinalizer.js` — applies winning proposal to ledger + stateStore + block files, writes finality snapshot every FINALITY_INTERVAL epochs, rolling commitment hash, finalityAnchoring, LucidPruning of old block files, mempool clearance
 
 **Rust has:**
-- `rust/honemesh-node/src/chain.rs` — `apply_entry()` for all entry types, `apply_block_entries()`, `current_epoch()` tracking via RocksDB meta
-- `rust/honemesh-node/src/finalize.rs` — `run_finalizer()`, `finalize_epoch()`, proxy state root (SHA-256 of block hash + epoch bytes), `redirect_unearned_rewards()` to recycle fund
-- `rust/honemesh-types/src/block.rs` — Block struct with binary header encoding
+- `rust/hone-node/src/chain.rs` — `apply_entry()` for all entry types, `apply_block_entries()`, `current_epoch()` tracking via RocksDB meta
+- `rust/hone-node/src/finalize.rs` — `run_finalizer()`, `finalize_epoch()`, proxy state root (SHA-256 of block hash + epoch bytes), `redirect_unearned_rewards()` to recycle fund
+- `rust/hone-types/src/block.rs` — Block struct with binary header encoding
 
 **Gap / What's missing:**
 - **No full validateChain() walk** — no end-to-end chain integrity verification from genesis to tip
@@ -124,7 +124,7 @@ The most critical incompatibility: **Node.js and Rust produce fundamentally diff
 - `src/chain/computeVerifier.js` — validates account balances against known-good state
 
 **Rust has:**
-- `rust/honemesh-node/src/clock.rs` — quorum-based seal collection: receives EpochSeal gossip, applies timestamp median filtering, outlier rejection, 51% quorum, observer mode, clock reputation scoring
+- `rust/hone-node/src/clock.rs` — quorum-based seal collection: receives EpochSeal gossip, applies timestamp median filtering, outlier rejection, 51% quorum, observer mode, clock reputation scoring
 - Clock module properly handles single-seal isolated mode
 
 **Gap / What's missing:**
@@ -166,8 +166,8 @@ The most critical incompatibility: **Node.js and Rust produce fundamentally diff
 - `src/services/sensorDataBilling.js` — purchase-triggered sensor rewards
 
 **Rust has:**
-- `rust/honemesh-node/src/main.rs` `emit_epoch_rewards()` function: collects Mine entries for the epoch from RocksDB, computes `inference_score()` per miner, distributes `MineReward` proportionally; emits `ClockReward` equally to all signing clocks; emits `StorageReward` proportional to `bytes_proven`, `SensorReward` proportional to `reading_count`, `VerifierReward` proportional to verifications
-- `rust/honemesh-types/src/emission.rs` — `inference_score()`, `hw_tier_weight()`, `model_weight()`, `clock_reward_at()` era scaling
+- `rust/hone-node/src/main.rs` `emit_epoch_rewards()` function: collects Mine entries for the epoch from RocksDB, computes `inference_score()` per miner, distributes `MineReward` proportionally; emits `ClockReward` equally to all signing clocks; emits `StorageReward` proportional to `bytes_proven`, `SensorReward` proportional to `reading_count`, `VerifierReward` proportional to verifications
+- `rust/hone-types/src/emission.rs` — `inference_score()`, `hw_tier_weight()`, `model_weight()`, `clock_reward_at()` era scaling
 
 **Gap / What's missing:**
 - **No activity-gated emission** — Rust always distributes `block_reward_at(epoch)` in full regardless of network activity. Node.js scales actual emission down to 1% when the network is idle.
@@ -203,8 +203,8 @@ The most critical incompatibility: **Node.js and Rust produce fundamentally diff
 - `src/services/reviewerSelection.js` — selects human reviewers for disputed jobs
 
 **Rust has:**
-- `rust/honemesh-node/src/inference.rs` — full on-chain state machine: Posted → Awarded → Completed → Verified → Paid, with Disputed → Claimed → Reviewed → Paid path, `NodeReputation` (jobs_accepted/completed/failed, avg latency, score 0-10000), `jobs_ready_to_award()`, `jobs_claim_expired()`, `jobs_past_deadline()`, `select_best_bid()`, `build_pay_entry_happy()`, `build_pay_entry_disputed()`, `build_pay_entry_nofee()`
-- `rust/honemesh-node/src/inference_daemon.rs` — background daemon that processes job state transitions (award, pay, expire)
+- `rust/hone-node/src/inference.rs` — full on-chain state machine: Posted → Awarded → Completed → Verified → Paid, with Disputed → Claimed → Reviewed → Paid path, `NodeReputation` (jobs_accepted/completed/failed, avg latency, score 0-10000), `jobs_ready_to_award()`, `jobs_claim_expired()`, `jobs_past_deadline()`, `select_best_bid()`, `build_pay_entry_happy()`, `build_pay_entry_disputed()`, `build_pay_entry_nofee()`
+- `rust/hone-node/src/inference_daemon.rs` — background daemon that processes job state transitions (award, pay, expire)
 
 **Gap / What's missing:**
 - **No ensemble/Mode A** — `ensembleCoordinator.js` with consensus bonuses and partial multipliers has no Rust equivalent. The Rust `InferenceJobPost.mode` field accepts "ensemble" but no ensemble coordinator exists.
@@ -232,8 +232,8 @@ The most critical incompatibility: **Node.js and Rust produce fundamentally diff
 - Seen-message deduplication via seenMessages Set, flushed to disk on SIGTERM
 
 **Rust has:**
-- `rust/honemesh-node/src/net.rs` — libp2p 0.55: TCP + QUIC transport, gossipsub topics (btcpc/blocks, btcpc/entries, btcpc/seals, btcpc/sync), Kademlia DHT, Identify, Ping; peer store persisted to RocksDB; Kademlia re-bootstrap every 5 minutes when < 3 peers; block sync request/response via btcpc/sync topic
-- `rust/honemesh-node/src/discovery.rs` — Hive + TON registry peer discovery, self-announce
+- `rust/hone-node/src/net.rs` — libp2p 0.55: TCP + QUIC transport, gossipsub topics (btcpc/blocks, btcpc/entries, btcpc/seals, btcpc/sync), Kademlia DHT, Identify, Ping; peer store persisted to RocksDB; Kademlia re-bootstrap every 5 minutes when < 3 peers; block sync request/response via btcpc/sync topic
+- `rust/hone-node/src/discovery.rs` — Hive + TON registry peer discovery, self-announce
 
 **Gap / What's missing:**
 - **No Cloudflare relay** — the Rust node has no fallback relay for NAT-punching. Node.js falls back to `wss://btcpc-relay.shindevlin.workers.dev/ws` when no direct peers are reachable.
@@ -252,7 +252,7 @@ The most critical incompatibility: **Node.js and Rust produce fundamentally diff
 `amberPillRoutes`, `appealRoutes`, `auctionRoutes`, `blobRoutes`, `blobServeProofRoutes`, `botRoutes`, `bridgeRoutes`, `commerceRoutes`, `computerUseRoutes`, `delegationRoutes`, `dreamRoutes`, `explorerRoutes`, `faucetRoutes`, `finetuneRoutes`, `inferenceMarketRoutes`, `memoryRoutes`, `modelRoutes`, `nodeRoutes`, `oracleRoutes`, `peerCommerceRoutes`, `phoneMiningRoutes`, `phoneStorageRoutes`, `projectRoutes`, `publicRoutes`, `purchaseRoutes`, `recoveryRoutes`, `sensorDataRoutes`, `sensorRoutes`, `serviceRoutes`, `sessionMarketRoutes`, `sessionRoutes`, `stakingRoutes`, `storageRoutes`, `streamingRoutes`, `toolRegistryRoutes`, `toolRoutes`, `totpRoutes`, `userRoutes`
 
 **Rust has:**
-- `rust/honemesh-node/src/api.rs` (~1100 lines): GET `/api/balance`, `/api/balances`, `/api/account`, `/api/block`, `/api/latest`, `/api/stake`, `/api/epoch`, `/health`; POST `/api/transfer`, `/api/stake`, `/api/unstake`, `/api/account/create`, `/api/account/update-key`, `/api/contract/deploy`, `/api/contract/call`, `/api/contract/view`, `/api/inference/*` (7 endpoints), `/api/faucet/claim`, `/api/linkgit/*` (5 endpoints)
+- `rust/hone-node/src/api.rs` (~1100 lines): GET `/api/balance`, `/api/balances`, `/api/account`, `/api/block`, `/api/latest`, `/api/stake`, `/api/epoch`, `/health`; POST `/api/transfer`, `/api/stake`, `/api/unstake`, `/api/account/create`, `/api/account/update-key`, `/api/contract/deploy`, `/api/contract/call`, `/api/contract/view`, `/api/inference/*` (7 endpoints), `/api/faucet/claim`, `/api/linkgit/*` (5 endpoints)
 
 **Gap / What's missing:** ~25 of 35+ Node.js route files have no Rust equivalent. Entirely absent:
 - Blob storage API (upload, download, CID proof)
@@ -364,7 +364,7 @@ The most critical incompatibility: **Node.js and Rust produce fundamentally diff
 - `rust/btcpc-contract-sdk/` — SDK for writing contracts: collections, events, promises, storage, types, mock test harness
 - `rust/btcpc-contract-sdk/examples/ft/` — fungible token example
 - `rust/btcpc-contract-sdk/examples/nft/` — NFT example
-- `rust/honemesh-node/src/contracts.rs` — `ContractEngine` integrated into the node
+- `rust/hone-node/src/contracts.rs` — `ContractEngine` integrated into the node
 
 **Gap / What's missing:**
 - This is an area where Rust **exceeds** Node.js — the contract runtime didn't exist in Node.js.
@@ -506,7 +506,7 @@ The most critical incompatibility: **Node.js and Rust produce fundamentally diff
 
 **Rust has:**
 - No installer — node configured via environment variables and `genesis.json`
-- `rust/honemesh-node/src/config.rs` — `Config::from_env()` reads all settings from env
+- `rust/hone-node/src/config.rs` — `Config::from_env()` reads all settings from env
 
 **Gap / What's missing:** No guided installer, no GPU detection, no Ollama installation helper, no skill system.
 
@@ -521,9 +521,9 @@ The most critical incompatibility: **Node.js and Rust produce fundamentally diff
 - Various client libraries inlined in routes
 
 **Rust has:**
-- `rust/honemesh-sdk/src/lib.rs` — thin HTTP client SDK: `BtcpcClient` with transfer(), get_balance(), get_account(), create_account(), submit_entry(); ed25519 signing built in
-- `rust/chain-core/src/lib.rs` — re-exports of honemesh-types
-- `rust/honemesh-cli/src/` — full CLI: balance, transfer, stake, unstake, inference post/bid/complete, contract deploy/call/view, account create/update-key, chain info
+- `rust/hone-sdk/src/lib.rs` — thin HTTP client SDK: `BtcpcClient` with transfer(), get_balance(), get_account(), create_account(), submit_entry(); ed25519 signing built in
+- `rust/chain-core/src/lib.rs` — re-exports of hone-types
+- `rust/hone-cli/src/` — full CLI: balance, transfer, stake, unstake, inference post/bid/complete, contract deploy/call/view, account create/update-key, chain info
 
 **Gap / What's missing:**
 - No JavaScript/TypeScript SDK (all client apps currently depend on hand-rolled fetch calls to the Node.js API)
@@ -593,7 +593,7 @@ The most critical incompatibility: **Node.js and Rust produce fundamentally diff
 - Genesis timestamp: 1776236400000 hardcoded
 
 **Rust has:**
-- `rust/honemesh-node/src/config.rs` — `Config::from_env()`: HONE_DATA_DIR, HONE_ACCOUNT, HONE_NODE_ID, HONE_API_PORT, HONE_P2P_PORT, HONE_MINER, HONE_CLOCK, HONE_GENESIS_FILE, HONE_GENESIS_TIMESTAMP, HONE_LOG_LEVEL, HONE_BOOTSTRAP_PEERS, HONE_CHAIN_ID, HONE_CLOCK_QUORUM, HONE_FINALITY_INTERVAL, HONE_FULL_ACTIVITY_SCORE (referenced but not implemented)
+- `rust/hone-node/src/config.rs` — `Config::from_env()`: HONE_DATA_DIR, HONE_ACCOUNT, HONE_NODE_ID, HONE_API_PORT, HONE_P2P_PORT, HONE_MINER, HONE_CLOCK, HONE_GENESIS_FILE, HONE_GENESIS_TIMESTAMP, HONE_LOG_LEVEL, HONE_BOOTSTRAP_PEERS, HONE_CHAIN_ID, HONE_CLOCK_QUORUM, HONE_FINALITY_INTERVAL, HONE_FULL_ACTIVITY_SCORE (referenced but not implemented)
 
 **Gap / What's missing:**
 - Genesis timestamp mismatch: CLAUDE.md specifies `1776236400000` (2026-04-15). The Rust node reads `HONE_GENESIS_TIMESTAMP` from env with no hardcoded fallback — it will panic if not set rather than defaulting to the canonical value.
@@ -615,7 +615,7 @@ The most critical incompatibility: **Node.js and Rust produce fundamentally diff
 - Tests in CI
 
 **Rust has:**
-- `rust/honemesh-types/src/emission.rs` — 5 unit tests: `era_boundaries`, `epoch_durations`, `supply_exhausted_after_5_eras`, `total_supply_correct`, `genesis_to_cap_duration`
+- `rust/hone-types/src/emission.rs` — 5 unit tests: `era_boundaries`, `epoch_durations`, `supply_exhausted_after_5_eras`, `total_supply_correct`, `genesis_to_cap_duration`
 - `rust/btcpc-contract-sdk/sdk/src/mock.rs` — contract test harness
 - Contract example tests (ft, nft)
 

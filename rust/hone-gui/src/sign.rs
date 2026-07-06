@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context, Result};
-use honemesh_sdk::KeyPair;
+use hone_sdk::KeyPair;
 use serde_json::{json, Value};
 use std::path::Path;
 
@@ -65,7 +65,7 @@ pub fn submit_transfer(base: &str, key_file: &Path, from: &str, to: &str, amount
         "from": from,
         "to": to,
         "amount": amount_hunits,
-        "token": "HoneMesh",
+        "token": "HONE",
         "nonce": nonce,
     }))?;
     let sig = keypair.sign_entry_json(&msg);
@@ -73,7 +73,7 @@ pub fn submit_transfer(base: &str, key_file: &Path, from: &str, to: &str, amount
         "from": from,
         "to": to,
         "amount": amount_hunits,
-        "token": "HoneMesh",
+        "token": "HONE",
         "signed_by": from,
         "nonce": nonce,
         "signature": sig,

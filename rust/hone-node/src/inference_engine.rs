@@ -7,7 +7,7 @@
 //! exactly what 503'd bullship at launch. This module fixes both fragilities:
 //!
 //!   1. **Embedded backend (default):** a candle GGUF model runs IN-PROCESS
-//!      (ported from the proven `honemesh-android/src/llm.rs`). If the node is
+//!      (ported from the proven `hone-android/src/llm.rs`). If the node is
 //!      alive, inference is alive — no external daemon, no port, no 503.
 //!   2. **One module:** all callers go through `chat` / `available`; the backend
 //!      choice lives here alone.
@@ -149,7 +149,7 @@ async fn http_chat(base: &str, req: &ChatRequest) -> Result<ChatResponse> {
 }
 
 // ── Embedded candle GGUF backend ─────────────────────────────────────────────
-// Ported from honemesh-android/src/llm.rs — the proven in-process candle path.
+// Ported from hone-android/src/llm.rs — the proven in-process candle path.
 
 #[cfg(feature = "inference-embedded")]
 mod candle_backend {
@@ -158,7 +158,7 @@ mod candle_backend {
     use std::path::{Path, PathBuf};
     use std::sync::OnceLock;
 
-    // Default model — matches the phone tier (honemesh-android). Overridable via env.
+    // Default model — matches the phone tier (hone-android). Overridable via env.
     const HF_REPO: &str = "Qwen/Qwen2.5-0.5B-Instruct-GGUF";
     const GGUF_FILE: &str = "qwen2.5-0.5b-instruct-q4_k_m.gguf";
     const TOKENIZER_REPO: &str = "Qwen/Qwen2.5-0.5B-Instruct";
@@ -241,7 +241,7 @@ mod candle_backend {
         Ok(ChatResponse { content })
     }
 
-    /// The candle generate loop — ported from honemesh-android/src/llm.rs. Greedy.
+    /// The candle generate loop — ported from hone-android/src/llm.rs. Greedy.
     fn generate_sync(model_path: &Path, prompt: &str, max_tokens: usize) -> Result<String> {
         use candle_core::quantized::gguf_file;
         use candle_core::{Device, Tensor};

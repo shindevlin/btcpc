@@ -52,7 +52,7 @@ def main():
         from beem import Hive
         from beem.account import Account
     except ImportError:
-        print("beem not installed. Run: uv pip install beem --python /tmp/honemesh-hive-venv", file=sys.stderr)
+        print("beem not installed. Run: uv pip install beem --python /tmp/hone-hive-venv", file=sys.stderr)
         sys.exit(1)
 
     hive = Hive(keys=[args.key])

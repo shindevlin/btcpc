@@ -1,5 +1,5 @@
 /*!
-Procedural macros for HoneMesh smart contracts.
+Procedural macros for HONE smart contracts.
 
 # Attributes
 
@@ -25,33 +25,33 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput, ItemImpl, ImplItem, ImplItemFn, FnArg, Pat};
 
-/// Mark a struct as a HoneMesh smart contract.
+/// Mark a struct as a HONE smart contract.
 #[proc_macro_attribute]
 pub fn hone_contract(_attr: TokenStream, input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let name = &input.ident;
 
     let expanded = quote! {
-        #[derive(::honemesh_contract_sdk::BorshSerialize, ::honemesh_contract_sdk::BorshDeserialize)]
+        #[derive(::hone_contract_sdk::BorshSerialize, ::hone_contract_sdk::BorshDeserialize)]
         #input
 
         impl #name {
             const __STATE_KEY: &'static [u8] = b"__state";
 
             fn __load() -> Self {
-                ::honemesh_contract_sdk::env::storage_read(Self::__STATE_KEY)
+                ::hone_contract_sdk::env::storage_read(Self::__STATE_KEY)
                     .and_then(|bytes| {
-                        <Self as ::honemesh_contract_sdk::BorshDeserialize>::try_from_slice(&bytes).ok()
+                        <Self as ::hone_contract_sdk::BorshDeserialize>::try_from_slice(&bytes).ok()
                     })
-                    .unwrap_or_else(|| ::honemesh_contract_sdk::env::panic_str(
+                    .unwrap_or_else(|| ::hone_contract_sdk::env::panic_str(
                         "Contract state not initialized — call init first"
                     ))
             }
 
             fn __save(&self) {
-                let mut buf = ::honemesh_contract_sdk::__private::vec![];
-                ::honemesh_contract_sdk::BorshSerialize::serialize(self, &mut buf).unwrap();
-                ::honemesh_contract_sdk::env::storage_write(Self::__STATE_KEY, &buf);
+                let mut buf = ::hone_contract_sdk::__private::vec![];
+                ::hone_contract_sdk::BorshSerialize::serialize(self, &mut buf).unwrap();
+                ::hone_contract_sdk::env::storage_write(Self::__STATE_KEY, &buf);
             }
         }
     };
@@ -89,7 +89,7 @@ pub fn hone_impl(_attr: TokenStream, input: TokenStream) -> TokenStream {
                 let result = contract.#method_name(#call_args);
                 contract.__save();
                 if let Some(val) = __to_json_bytes(&result) {
-                    ::honemesh_contract_sdk::env::value_return(&val);
+                    ::hone_contract_sdk::env::value_return(&val);
                 }
             }
         }
@@ -105,7 +105,7 @@ pub fn hone_impl(_attr: TokenStream, input: TokenStream) -> TokenStream {
                 #parse_stmts
                 let result = contract.#method_name(#call_args);
                 if let Some(val) = __to_json_bytes(&result) {
-                    ::honemesh_contract_sdk::env::value_return(&val);
+                    ::hone_contract_sdk::env::value_return(&val);
                 }
             }
         }
@@ -128,21 +128,21 @@ pub fn hone_impl(_attr: TokenStream, input: TokenStream) -> TokenStream {
         #impl_block
 
         #[allow(unused)]
-        fn __to_json_bytes<T: ::honemesh_contract_sdk::Serialize>(v: &T) -> Option<::honemesh_contract_sdk::__private::Vec<u8>> {
-            ::honemesh_contract_sdk::serde_json::to_vec(v).ok()
+        fn __to_json_bytes<T: ::hone_contract_sdk::Serialize>(v: &T) -> Option<::hone_contract_sdk::__private::Vec<u8>> {
+            ::hone_contract_sdk::serde_json::to_vec(v).ok()
         }
 
         // Single WASM entry point called by the runtime.
         #[cfg(target_arch = "wasm32")]
         #[no_mangle]
         pub extern "C" fn __hone_dispatch() {
-            let method = ::honemesh_contract_sdk::env::read_method_name();
+            let method = ::hone_contract_sdk::env::read_method_name();
             match method.as_str() {
                 #(#init_arms)*
                 #(#call_arms)*
                 #(#view_arms)*
-                other => ::honemesh_contract_sdk::env::panic_str(
-                    &::honemesh_contract_sdk::__private::format!("method not found: {}", other)
+                other => ::hone_contract_sdk::env::panic_str(
+                    &::hone_contract_sdk::__private::format!("method not found: {}", other)
                 ),
             }
         }
@@ -172,9 +172,9 @@ fn build_dispatch(m: &ImplItemFn) -> (TokenStream2, TokenStream2) {
     }
 
     let input_parse = quote! {
-        let __input = ::honemesh_contract_sdk::env::input();
-        let __args: ::honemesh_contract_sdk::serde_json::Value =
-            ::honemesh_contract_sdk::serde_json::from_slice(&__input).unwrap_or_default();
+        let __input = ::hone_contract_sdk::env::input();
+        let __args: ::hone_contract_sdk::serde_json::Value =
+            ::hone_contract_sdk::serde_json::from_slice(&__input).unwrap_or_default();
     };
 
     let mut per_param: Vec<TokenStream2> = Vec::new();
@@ -183,7 +183,7 @@ fn build_dispatch(m: &ImplItemFn) -> (TokenStream2, TokenStream2) {
     for (ident, ty) in &params {
         let key_str = ident.to_string();
         per_param.push(quote! {
-            let #ident: #ty = ::honemesh_contract_sdk::serde_json::from_value(
+            let #ident: #ty = ::hone_contract_sdk::serde_json::from_value(
                 __args[#key_str].clone()
             ).unwrap_or_default();
         });

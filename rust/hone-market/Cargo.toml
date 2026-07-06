@@ -1,16 +1,16 @@
 [package]
-name = "honemesh-market"
+name = "hone-market"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
-description = "HoneMesh Market — commerce HTTP service (stores, products, orders, reputation)"
+description = "HONE Market — commerce HTTP service (stores, products, orders, reputation)"
 
 [[bin]]
-name = "honemesh-market"
+name = "hone-market"
 path = "src/main.rs"
 
 [dependencies]
-honemesh-types = { path = "../honemesh-node/crates/honemesh-types" }
+hone-types = { path = "../hone-node/crates/hone-types" }
 axum = { version = "0.7", features = ["json", "multipart"] }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }

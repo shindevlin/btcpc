@@ -6,9 +6,9 @@
 > Verasens, unified storage, Freeport, LinkGit, bots, and new verticals get
 > built out — with real code, real tests, on every part, every day.
 >
-> Ground truth as of 2026-07: the chain core (`rust/honemesh-node`) is solid —
+> Ground truth as of 2026-07: the chain core (`rust/hone-node`) is solid —
 > ~41k LOC, 226 tests, all entry types below already exist in
-> `crates/honemesh-types/src/entry.rs`. The verticals themselves (the products
+> `crates/hone-types/src/entry.rs`. The verticals themselves (the products
 > built ON TOP of those entry types) are thin-to-nonexistent. This PRD closes
 > that gap, in priority order.
 
@@ -22,7 +22,7 @@ A full review of every repo under `shindevlin` on GitHub (8 repos total:
 things worth acting on:
 
 1. **`btcpc-marketing`'s `INNOVATIONS.md` oversells several features as
-   built when they are not.** Verified by grep against `rust/honemesh-node`:
+   built when they are not.** Verified by grep against `rust/hone-node`:
    - **Lucid Pruning** (chain self-compression via AI inference) — **no
      code found.** Pure marketing copy.
    - **Genesis Dreams / on-chain inscriptions** — **no code found.**
@@ -30,7 +30,7 @@ things worth acting on:
      fixed-size regardless of account count") — **no SMT implementation
      found.** What DOES exist: `state_root`, `merkle_root_transactions`,
      `merkle_root_compute_proofs` as plain 32-byte fields in the block
-     header (`crates/honemesh-types/src/block.rs`) — a normal merkle-root
+     header (`crates/hone-types/src/block.rs`) — a normal merkle-root
      design, not a Sparse Merkle Tree, and no proof-generation code was
      found to back the "~1KB proof" claim.
    - **Resource-aware mining / auto-throttle** ("detects when user is at
@@ -74,7 +74,7 @@ things worth acting on:
 
 1. **Build AND test.** No item is done when the code compiles — it's done
    when there's a real test proving the behavior, same standard as
-   `rust/honemesh-node`'s existing 226 tests.
+   `rust/hone-node`'s existing 226 tests.
 2. **Every phase ends with something runnable**, not just a design doc.
    Design-only items exist (marked explicitly) but must produce a decision
    record other phases can build against — not open-ended musing.
@@ -139,7 +139,7 @@ every future sensor type without a code change per sensor.
 
   ##### Ground-truth read (verified in code, not assumed)
 
-  - **Units.** `crates/honemesh-types/src/lib.rs:12` defines
+  - **Units.** `crates/hone-types/src/lib.rs:12` defines
     `HUNITS_PER_HONE = 10_000_000_000` (1e10). **This contradicts the
     "1 BTCPC = 100,000,000 dreams" figure used in some loose docs** (including
     the 1.4 settlement-seam record above) — the **code is canonical:
@@ -512,7 +512,7 @@ every future sensor type without a code change per sensor.
 
   **The vulnerability, confirmed by direct code read (not just the audit's
   description):**
-  - `rust/honemesh-node/src/tx.rs` lines ~465-490 put `SensorReading`,
+  - `rust/hone-node/src/tx.rs` lines ~465-490 put `SensorReading`,
     `SensorRegister`, and `GatewayHeartbeat` in a literal "Allowlisted
     pass-through" match arm with **zero signature verification** — entries
     go straight to `chain.apply_entry()`.
@@ -534,7 +534,7 @@ every future sensor type without a code change per sensor.
   design:**
   - `SensorRegister` and `GatewayHeartbeat` **already have a `signed_by:
     AccountId` field** in their struct definitions
-    (`crates/honemesh-types/src/entry.rs`) — the field exists, `check_signature`
+    (`crates/hone-types/src/entry.rs`) — the field exists, `check_signature`
     (the exact mechanism already used for `Stake` et al., see `tx.rs:2111`)
     is simply never called on them. Fixing these two is a small, non-breaking
     `tx.rs` change: move them out of the pass-through arm, call
@@ -548,7 +548,7 @@ every future sensor type without a code change per sensor.
     AND every producer of `SensorReading` must be updated to actually sign.
   - **Confirmed producers requiring updates**, found by grepping the whole
     repo for `LedgerEntry::SensorReading` construction:
-    - `rust/honemesh-node/src/sim.rs` — test/simulation harness. **Correction
+    - `rust/hone-node/src/sim.rs` — test/simulation harness. **Correction
       during implementation:** `main.rs` was initially believed to also
       construct `SensorReading` (the `HONE_SENSOR` env var it documents is
       real, but re-checked by direct grep during implementation — `main.rs`
@@ -590,7 +590,7 @@ every future sensor type without a code change per sensor.
   **Rollout plan (why this can't be a silent merge-to-main):**
   1. **Schema change — corrected during implementation**: only
      `signed_by: AccountId` needs to be added to
-     `LedgerEntry::SensorReading` in `crates/honemesh-types/src/entry.rs`. The
+     `LedgerEntry::SensorReading` in `crates/hone-types/src/entry.rs`. The
      actual signature bytes do NOT need to live in the struct — confirmed
      by reading how `Stake` (which has `signed_by` but no in-struct
      signature field) actually gets verified: the signature travels
@@ -657,7 +657,7 @@ every future sensor type without a code change per sensor.
   — NOT by new chain code. Rationale and the one real gap follow.
 
   **Ground truth audited (files read, not assumed):**
-  - `crates/honemesh-types/src/entry.rs` — `SensorReading { sensor_id, owner,
+  - `crates/hone-types/src/entry.rs` — `SensorReading { sensor_id, owner,
     epoch, value: f64, data_hash, metadata: Option<serde_json::Value> }`
     (~L390). No `signed_by` field. `CoverageReport` (~L404) is the only
     typed sensor class and is cellular-specific (lat, lon, signal_dbm,
@@ -838,7 +838,7 @@ every future sensor type without a code change per sensor.
 
   **Mapping onto the generic `SensorReading` shape.**
   `SensorReading { sensor_id, owner, epoch, value: f64, data_hash, metadata }`
-  (`crates/honemesh-types/src/entry.rs`). Convention proposed here:
+  (`crates/hone-types/src/entry.rs`). Convention proposed here:
   - `sensor_id` = `"{device_pubkey_prefix}:{sensor_class}"` (e.g.
     `"a1b2c3…:subghz"`), so one registered Flipper device key can expose
     multiple sensor classes under stable per-class ids.
@@ -1318,7 +1318,7 @@ start code until the design item is done and reviewed.
 
 ## URGENT infrastructure blocker (found 2026-07-01, blocks ALL future Rust work)
 
-**`rust/honemesh-node` cannot currently be built from scratch with `cargo
+**`rust/hone-node` cannot currently be built from scratch with `cargo
 check`/`cargo test` on the Beastly WSL machine (Ubuntu, user `beastly`) —
 confirmed on UNMODIFIED `main`, not caused by any feature work.** This blocks
 every future Phase 1-8 item that touches Rust code from running its own
@@ -1339,14 +1339,14 @@ analysis of the `api` module — not a code error, a compiler crash.
 - **Net result: no rustc version currently on this machine, or installable
   via `rustup` at the time of this check, can both (a) satisfy the
   workspace's own dependency floor and (b) avoid the ICE.**
-- The narrower `crates/honemesh-types` package (a dependency of `btcpc-node`,
+- The narrower `crates/hone-types` package (a dependency of `btcpc-node`,
   not the full binary) DOES compile cleanly — the ICE is specific to
   building the full `btcpc-node` binary crate, not a fundamental problem
   with the workspace's Rust code in general.
 - Confirmed NOT a memory/resource issue (31GB RAM available, plenty free).
 - Confirmed this is a **known, pre-existing problem**, not new: found
   `build.err`/`build.first.err` log files already present in the deployment
-  checkout (`/home/beastly/btcpc-node/rust/honemesh-node/`) from a prior
+  checkout (`/home/beastly/btcpc-node/rust/hone-node/`) from a prior
   session's build attempts, plus a `howtoinstallandrun.md` "lessons
   learned" doc that recommends downloading a prebuilt release binary
   specifically because building from source on this machine is unreliable.

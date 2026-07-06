@@ -1,8 +1,8 @@
 #!/bin/bash
-# Install HoneMesh on a Nebra Helium Hotspot
+# Install HONE on a Nebra Helium Hotspot
 # Usage: curl -fsSL https://honemesh.net/nebra-install.sh | bash
 #
-# Shin Devlin — HoneMesh Project
+# Shin Devlin — HONE Project
 # https://honemesh.net
 #
 # This script:
@@ -10,10 +10,10 @@
 #   2. Installs Node.js via nvm (ARM build)
 #   3. Clones the btcpc repo
 #   4. npm install
-#   5. Prompts for HoneMesh account name (or defaults to gateway-<random>)
+#   5. Prompts for HONE account name (or defaults to gateway-<random>)
 #   6. Auto-detects LoRa region from Nebra's existing config
-#   7. Registers as a HoneMesh gateway
-#   8. Installs systemd service: honemesh-nebra.service
+#   7. Registers as a HONE gateway
+#   8. Installs systemd service: hone-nebra.service
 #   9. Starts and enables
 
 set -e
@@ -21,7 +21,7 @@ set -e
 HONE_REPO="https://github.com/btcpc-network/btcpc.git"
 HONE_BRANCH="main"
 HONE_DIR="$HOME/btcpc"
-SERVICE_NAME="honemesh-nebra"
+SERVICE_NAME="hone-nebra"
 NVM_VERSION="v0.39.7"
 NODE_VERSION="20"
 
@@ -32,10 +32,10 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-info()    { echo -e "${BLUE}[honemesh]${NC} $1"; }
-success() { echo -e "${GREEN}[honemesh]${NC} $1"; }
-warn()    { echo -e "${YELLOW}[honemesh]${NC} $1"; }
-error()   { echo -e "${RED}[honemesh]${NC} $1" >&2; }
+info()    { echo -e "${BLUE}[hone]${NC} $1"; }
+success() { echo -e "${GREEN}[hone]${NC} $1"; }
+warn()    { echo -e "${YELLOW}[hone]${NC} $1"; }
+error()   { echo -e "${RED}[hone]${NC} $1" >&2; }
 
 # ─── Architecture check ──────────────────────────────────────────
 ARCH=$(uname -m)
@@ -87,13 +87,13 @@ info "LoRa region: $LORA_REGION"
 RANDOM_SUFFIX=$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 4 | head -n 1 2>/dev/null || echo "0001")
 DEFAULT_ACCOUNT="gateway-${RANDOM_SUFFIX}"
 if [[ -t 0 ]]; then
-  read -p "$(echo -e "${YELLOW}Enter your HoneMesh account name [${DEFAULT_ACCOUNT}]:${NC} ")" HONE_ACCOUNT
+  read -p "$(echo -e "${YELLOW}Enter your HONE account name [${DEFAULT_ACCOUNT}]:${NC} ")" HONE_ACCOUNT
   HONE_ACCOUNT="${HONE_ACCOUNT:-$DEFAULT_ACCOUNT}"
 else
   HONE_ACCOUNT="$DEFAULT_ACCOUNT"
   info "Non-interactive mode. Using account: $HONE_ACCOUNT"
 fi
-info "HoneMesh account: $HONE_ACCOUNT"
+info "HONE account: $HONE_ACCOUNT"
 
 GATEWAY_NAME="${HONE_ACCOUNT}-nebra"
 
@@ -128,7 +128,7 @@ fi
 if ! grep -q 'nvm.sh' "$HOME/.bashrc" 2>/dev/null; then
   cat >> "$HOME/.bashrc" << 'NVMEOF'
 
-# nvm (added by honemesh-nebra installer)
+# nvm (added by hone-nebra installer)
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && source "$NVM_DIR/nvm.sh"
 [ -s "$NVM_DIR/bash_completion" ] && source "$NVM_DIR/bash_completion"
@@ -174,7 +174,7 @@ mkdir -p "$(dirname "$SERVICE_FILE")"
 info "Writing systemd service: $SERVICE_FILE"
 cat > "$SERVICE_FILE" << SVCEOF
 [Unit]
-Description=HoneMesh Nebra LoRa Gateway Daemon
+Description=HONE Nebra LoRa Gateway Daemon
 After=network.target
 Wants=network-online.target
 
@@ -187,7 +187,7 @@ Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=honemesh-nebra
+SyslogIdentifier=hone-nebra
 
 [Install]
 WantedBy=default.target
@@ -203,7 +203,7 @@ sleep 2
 systemctl --user status "${SERVICE_NAME}" --no-pager || true
 
 success ""
-success "HoneMesh Nebra gateway installed and running!"
+success "HONE Nebra gateway installed and running!"
 success ""
 success "Account:  $HONE_ACCOUNT"
 success "Gateway:  $GATEWAY_NAME"

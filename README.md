@@ -22,12 +22,12 @@ These are native ledger entry types, not smart contracts deployed after the fact
 
 ## Stack
 
-- **Rust** — `rust/honemesh-node` — single binary: libp2p networking, sled state, clock consensus, inference mining, Axum HTTP API (port 4242)
+- **Rust** — `rust/hone-node` — single binary: libp2p networking, sled state, clock consensus, inference mining, Axum HTTP API (port 4242)
 - **Rust** — `rust/btcpc-android` — standalone Android micronode (libp2p + sled + Candle inference, fully self-contained)
 - **Ollama** — AI inference backend, model-agnostic (qwen, llama, mistral, gemma, deepseek, etc.)
 - **libp2p** — gossipsub P2P mesh, port 6942
 
-> `src/` (Node.js) is kept for historical reference only. The canonical chain is `rust/honemesh-node`.
+> `src/` (Node.js) is kept for historical reference only. The canonical chain is `rust/hone-node`.
 
 ---
 
@@ -99,10 +99,10 @@ curl http://localhost:4242/api/node/info
 
 ```bash
 git clone https://github.com/shindevlin/btcpc
-cd btcpc/rust/honemesh-cli && cargo build --release
+cd btcpc/rust/hone-cli && cargo build --release
 cd ../btcpc-node && cargo build --release
-sudo cp rust/honemesh-cli/target/release/btcpc /usr/local/bin/
-sudo cp rust/honemesh-node/target/release/btcpc-node /usr/local/bin/
+sudo cp rust/hone-cli/target/release/btcpc /usr/local/bin/
+sudo cp rust/hone-node/target/release/btcpc-node /usr/local/bin/
 ```
 
 ### Docker
@@ -260,7 +260,7 @@ Agent onboarding prompt:
 ```
 You are working on BTCPC (Bitcoin Proof of Compute). Read AGENTS.md,
 CLAUDE.md, and README.md first. Use the code-review-graph MCP tools
-before Grep or file scanning. The canonical chain is rust/honemesh-node
+before Grep or file scanning. The canonical chain is rust/hone-node
 (port 4242). Do not reference or modify the Node.js src/ directory.
 Do not change genesis constants, token economics, or security-sensitive
 flows unless explicitly asked.

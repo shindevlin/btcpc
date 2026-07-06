@@ -1,5 +1,5 @@
-// HoneMesh Sensor — Service Worker
-const CACHE_NAME = 'honemesh-node-v15';
+// HONE Sensor — Service Worker
+const CACHE_NAME = 'hone-node-v15';
 const ASSETS = ['/app', '/app.html', '/inference-crypto.js', '/inference-engine.js', '/miner.js', '/nav.js'];
 
 self.addEventListener('install', e => {

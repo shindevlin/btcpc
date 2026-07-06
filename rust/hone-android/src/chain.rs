@@ -6,7 +6,7 @@ use anyhow::{bail, Result};
 use parking_lot::RwLock;
 use tracing::warn;
 
-use honemesh_types::{
+use hone_types::{
     LedgerEntry, NATIVE_TOKEN,
     block_reward_at, era, RECYCLE_ERA, RECYCLE_REWARD_RATE, RECYCLE_REWARD_DENOM,
     RECYCLE_FUND_ACCOUNT, DEVICE_CLAIM_OVERBID_NUM, DEVICE_CLAIM_OVERBID_DENOM,

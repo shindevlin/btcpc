@@ -265,7 +265,7 @@ async fn fetch_hone_net_peers(chain_id: &str) -> Result<Vec<String>> {
 // ── Hive peer discovery ───────────────────────────────────────────────────────
 
 async fn fetch_hive_peers(chain_id: &str) -> Result<Vec<String>> {
-    let key = if chain_id == honemesh_types::TESTNET_CHAIN_ID {
+    let key = if chain_id == hone_types::TESTNET_CHAIN_ID {
         "hone_satoshi_peers"
     } else {
         "hone_peers"

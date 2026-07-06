@@ -172,7 +172,7 @@ pub async fn tor_setup(
     }
 
     let torrc_content = format!(
-        "# HoneMesh Market hidden service\nHiddenServiceDir {}\nHiddenServicePort 80 127.0.0.1:{}\n",
+        "# HONE Market hidden service\nHiddenServiceDir {}\nHiddenServicePort 80 127.0.0.1:{}\n",
         hs_dir.display(), app.cfg.port
     );
     tokio::fs::write(&torrc, &torrc_content).await

@@ -10,9 +10,9 @@ drifts from the value in source code.
 
 | Constant | Value | Source |
 |----------|-------|--------|
-| Mainnet chain ID | `hone` | `honemesh-types/src/lib.rs:MAINNET_CHAIN_ID` |
-| Testnet chain ID | `hone-testnet` | `honemesh-types/src/lib.rs:TESTNET_CHAIN_ID` |
-| Native token symbol | `BTCPC` | `honemesh-types/src/lib.rs:NATIVE_TOKEN` |
+| Mainnet chain ID | `hone` | `hone-types/src/lib.rs:MAINNET_CHAIN_ID` |
+| Testnet chain ID | `hone-testnet` | `hone-types/src/lib.rs:TESTNET_CHAIN_ID` |
+| Native token symbol | `BTCPC` | `hone-types/src/lib.rs:NATIVE_TOKEN` |
 | HTTP API port | `4242` | `src/config.rs` default |
 | P2P port | `6942` | `src/config.rs` default |
 

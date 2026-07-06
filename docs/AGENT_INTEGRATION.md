@@ -117,7 +117,7 @@ The response includes `usage.fee_dreams` showing exact cost.
 
 ```toml
 [dependencies]
-btcpc-sdk = { git = "https://github.com/shindevlin/btcpc", subdirectory = "rust/honemesh-sdk" }
+btcpc-sdk = { git = "https://github.com/shindevlin/btcpc", subdirectory = "rust/hone-sdk" }
 ```
 
 ```rust

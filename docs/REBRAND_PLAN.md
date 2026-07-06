@@ -16,7 +16,7 @@ status: DRAFT — pending name decision (HONE under IP/crypto research)
 
 | Element | New value | Was |
 |---|---|---|
-| **Project / brand** | **HoneMesh** | BTCPC |
+| **Project / brand** | **HONE** | BTCPC |
 | **Token / ticker** | **HONE** | BTCPC |
 | **chain_id** | **`hone`** (no version number) | hone |
 | **Base unit (smallest)** | **hunit** (1 HONE = 10,000,000,000 hunits) | dream |
@@ -30,12 +30,12 @@ status: DRAFT — pending name decision (HONE under IP/crypto research)
 - `NATIVE_TOKEN = "BTCPC"` → `"HONE"`
 - `HUNITS_PER_HONE` → `HUNITS_PER_HONE` (value unchanged: 10^10)
 - the unit string `"dreams"` → `"hunits"`; `"dream"` → `"hunit"`
-- brand literal `BTCPC` → `HoneMesh` (docs/user-facing); keep in historical/changelog context
+- brand literal `BTCPC` → `HONE` (docs/user-facing); keep in historical/changelog context
 
-**Research verdict (why HoneMesh + HONE):** HONE ticker is clean on every check
-(no existing HONE token; you're the FIRST HONE chain). HoneMesh brand: honemesh.net
+**Research verdict (why HONE + HONE):** HONE ticker is clean on every check
+(no existing HONE token; you're the FIRST HONE chain). HONE brand: honemesh.net
 + .io available (.com taken). Note: the "mesh" crypto namespace is crowded
-(Mesh Connect $1B, Polymesh, Meshswap) — Shin chose HoneMesh knowing this. Prior
+(Mesh Connect $1B, Polymesh, Meshswap) — Shin chose HONE knowing this. Prior
 rejects: HoneLabs (crypto-dev namesake), DataMesh (generic term + Deutsche-Bank
 paytech), Honedata (Hondata sensor-app collision).
 
@@ -58,7 +58,7 @@ allocation (they were near-zero-earned anyway; founder rewards restart).
 - The 11 accounts + system funds (__treasury__, __recycle_fund__, __testnet_fund__).
 
 ## What changes
-- **chain_id:** `hone` → `[new-chain-id]` (in `crates/honemesh-types/src/lib.rs`
+- **chain_id:** `hone` → `[new-chain-id]` (in `crates/hone-types/src/lib.rs`
   MAINNET_CHAIN_ID, `genesis.json`, `config.rs` default, `CHAIN_CONSTANTS.md`).
 - **Genesis block payload:** the launch proclamation text (currently "BTCPC v2 …")
   → "[NEW_NAME] …". This changes block-0 hash → a NEW canonical hash (expected;

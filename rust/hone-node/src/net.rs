@@ -1,4 +1,4 @@
-//! honemesh-node P2P networking — libp2p 0.56
+//! hone-node P2P networking — libp2p 0.56
 #![allow(dead_code)]
 //!
 //! Gossipsub topics:
@@ -369,7 +369,7 @@ impl Network {
         info!(
             peer_id = %swarm.local_peer_id(),
             port    = self.config.p2p_port,
-            "honemesh-node P2P running",
+            "hone-node P2P running",
         );
 
         // ------------------------------------------------------------------

@@ -4,7 +4,7 @@
 //!   git clone https://git.honemesh.net/git/vitalik.eth/myrepo
 //!
 //! Resolution order:
-//!   1. ENS `hone` text record → HoneMesh account name (explicit, fastest)
+//!   1. ENS `hone` text record → HONE account name (explicit, fastest)
 //!   2. ENS addr record → ETH address → `wallet_addr:eth:{addr}` chain index
 //!
 //! Set `HONE_ETH_RPC` to point at a custom Ethereum JSON-RPC endpoint.
@@ -159,14 +159,14 @@ pub async fn reverse_resolve(eth_addr: &str) -> Option<String> {
     decode_string(&result)
 }
 
-// ── HoneMesh ↔ ENS bridge ────────────────────────────────────────────────────────
+// ── HONE ↔ ENS bridge ────────────────────────────────────────────────────────
 
-/// Given an ENS name, find the linked HoneMesh account.
+/// Given an ENS name, find the linked HONE account.
 ///
 /// Resolution order:
 ///   1. `hone` text record → account name (user sets this on their ENS name)
 ///   2. addr record → ETH address → `wallet_addr:eth:{addr}` chain reverse index
-///      (populated by WalletFamilyPublish on HoneMesh)
+///      (populated by WalletFamilyPublish on HONE)
 pub async fn hone_account_for_ens(chain: &Chain, ens_name: &str) -> Option<String> {
     // Fast path: "hone" text record directly names the account.
     // "btcpc" is the pre-rebrand record key — ENS records live on Ethereum and

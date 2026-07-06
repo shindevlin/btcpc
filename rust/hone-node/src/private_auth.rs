@@ -105,7 +105,7 @@ pub fn apply_approve(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use honemesh_types::LedgerEntry;
+    use hone_types::LedgerEntry;
     use tempfile::TempDir;
 
     fn make_chain() -> (Chain, TempDir) {
@@ -129,7 +129,7 @@ mod tests {
         chain.apply_entry(&LedgerEntry::GenesisAlloc {
             account: account.to_string(),
             amount,
-            token: honemesh_types::NATIVE_TOKEN.to_string(),
+            token: hone_types::NATIVE_TOKEN.to_string(),
         }).unwrap();
     }
 

@@ -295,7 +295,7 @@ pub async fn escrow_balance(
         "buyer": buyer,
         "locked_amount": total_locked,
         "locked_order_count": locked.len(),
-        "token": "HoneMesh",
+        "token": "HONE",
     }))
 }
 

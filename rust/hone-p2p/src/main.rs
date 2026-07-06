@@ -15,14 +15,14 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive("honemesh_p2p=info".parse()?)
+                .add_directive("hone_p2p=info".parse()?)
                 .add_directive("libp2p=warn".parse()?)
         )
         .init();
 
     let config = Config::from_env();
 
-    info!("HoneMesh P2P Sidecar v{}", env!("CARGO_PKG_VERSION"));
+    info!("HONE P2P Sidecar v{}", env!("CARGO_PKG_VERSION"));
     info!("IPC socket : {}", config.ipc_socket);
     info!("P2P port   : {}", config.p2p_port);
     info!("Data dir   : {}", config.data_dir);

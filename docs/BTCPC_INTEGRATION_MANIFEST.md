@@ -13,8 +13,8 @@ status: implemented
 > (and the repo's coding agent) can *refresh on demand* and trust to be current.
 
 > **Status: built.** The generator, differ, CI gate, and consumer `sync` are
-> implemented in `rust/honemesh-sdk` (`src/manifest/`, binary `btcpc`). The
-> canonical manifest is committed at the repo root as `honemesh-manifest.json`
+> implemented in `rust/hone-sdk` (`src/manifest/`, binary `btcpc`). The
+> canonical manifest is committed at the repo root as `hone-manifest.json`
 > (188 entries, 307 routes as of BTCPC 1.2.2). See **§4. Using it today**.
 
 The chain's surface changes: new ledger entries, new routes, new deploy
@@ -59,7 +59,7 @@ hand — so it can never drift from what the node actually serves:
   },
 
   "entry_types": [
-    // generated from LedgerEntry (crates/honemesh-types/src/entry.rs):
+    // generated from LedgerEntry (crates/hone-types/src/entry.rs):
     {
       "type": "SensorDataCommit",
       "route": "POST /api/sensor/commit",
@@ -166,14 +166,14 @@ they also *document* the hosting surface as it arrives, closing the loop between
 
 ## 4. Using it today
 
-The system is implemented in `rust/honemesh-sdk` (module `src/manifest/`, binary
-`btcpc`). Build it once: `cd rust/honemesh-sdk && cargo build --release --bin btcpc`.
+The system is implemented in `rust/hone-sdk` (module `src/manifest/`, binary
+`btcpc`). Build it once: `cd rust/hone-sdk && cargo build --release --bin btcpc`.
 
 ### For BTCPC maintainers (in this repo)
 
 ```bash
 # Regenerate the canonical manifest after changing routes/entries/signing:
-btcpc manifest generate --repo .          # writes honemesh-manifest.json
+btcpc manifest generate --repo .          # writes hone-manifest.json
 
 # CI runs this — fails if the committed manifest drifted from source:
 btcpc manifest check --repo .             # exit 0 = current, 2 = stale
@@ -182,13 +182,13 @@ btcpc manifest check --repo .             # exit 0 = current, 2 = stale
 The `.github/workflows/manifest-check.yml` gate enforces that any change to
 `api.rs`, `tx.rs`, or `entry.rs` regenerates the manifest in the same commit.
 So "what changed in BTCPC's surface" is always a real `git diff` of
-`honemesh-manifest.json`.
+`hone-manifest.json`.
 
 ### For consumer repos (Bullship, bots, services)
 
 ```bash
 # One-time: initialize BTCPC.md + BTCPC.lock in your repo.
-btcpc sync --manifest path/to/honemesh-manifest.json   # or --node https://node.honemesh.net
+btcpc sync --manifest path/to/hone-manifest.json   # or --node https://node.honemesh.net
 
 # In CI, after pulling BTCPC updates — prints the changelog, exits 2 on breaking:
 btcpc sync --node https://node.honemesh.net
@@ -223,4 +223,4 @@ piece of the surface is at, per BTCPC commit, automatically.
 
 *Cross-refs:* `docs/SERVICE_HOST_V2_14.md` (the hosting surface this manifest
 exposes), `docs/AGENT_INTEGRATION.md`, `docs/API_CATALOG_LIBRARY.md`.
-Implementation: `rust/honemesh-sdk/src/manifest/`, `.github/workflows/manifest-check.yml`.
+Implementation: `rust/hone-sdk/src/manifest/`, `.github/workflows/manifest-check.yml`.

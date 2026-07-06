@@ -1,9 +1,9 @@
 [workspace]
 members = [
-    "honemesh-node",
-    "honemesh-node/crates/honemesh-types",
-    "honemesh-p2p",
-    "honemesh-market",
+    "hone-node",
+    "hone-node/crates/hone-types",
+    "hone-p2p",
+    "hone-market",
     "linkgit",
 ]
 resolver = "2"

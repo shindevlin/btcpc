@@ -27,7 +27,7 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
 
             ui.label(egui::RichText::new(&balance_str)
                 .size(36.0).strong().color(egui::Color32::WHITE));
-            ui.label(egui::RichText::new("HoneMesh")
+            ui.label(egui::RichText::new("HONE")
                 .size(13.0).color(ORANGE).strong());
 
             ui.add_space(6.0);
@@ -88,7 +88,7 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
                         ui.add(egui::TextEdit::singleline(&mut data.forms.transfer_amount)
                             .hint_text("0.0")
                             .desired_width(140.0));
-                        ui.label(egui::RichText::new("HoneMesh").color(ORANGE).size(12.0));
+                        ui.label(egui::RichText::new("HONE").color(ORANGE).size(12.0));
                     });
                     ui.end_row();
                 });

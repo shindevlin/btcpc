@@ -187,7 +187,7 @@
     },
     "AgentCreditDeposit": {
       "name": "AgentCreditDeposit",
-      "summary": "User deposits HoneMesh into their agent credit balance (pre-paid escrow pool).",
+      "summary": "User deposits HONE into their agent credit balance (pre-paid escrow pool).",
       "fields": [
         {
           "name": "account",
@@ -555,7 +555,7 @@
         },
         {
           "name": "output_cid",
-          "ty": "String,  // HoneMesh-FS CID or \"\" for off-chain delivery"
+          "ty": "String,  // HONE-FS CID or \"\" for off-chain delivery"
         },
         {
           "name": "epoch",
@@ -862,7 +862,7 @@
     },
     "BridgeWrap": {
       "name": "BridgeWrap",
-      "summary": "Wrap native HoneMesh into wHONE for use on external chains.",
+      "summary": "Wrap native HONE into wHONE for use on external chains.",
       "fields": [
         {
           "name": "account",
@@ -1340,7 +1340,7 @@
     },
     "DeviceClaimStake": {
       "name": "DeviceClaimStake",
-      "summary": "Stake HoneMesh to claim ownership of a device identified by its hardware serial.",
+      "summary": "Stake HONE to claim ownership of a device identified by its hardware serial.",
       "fields": [
         {
           "name": "device_serial",
@@ -2261,7 +2261,7 @@
     },
     "HiveReplicaCommit": {
       "name": "HiveReplicaCommit",
-      "summary": "Storage node records a HoneMesh-FS replica written to Hive custom_json.",
+      "summary": "Storage node records a HONE-FS replica written to Hive custom_json.",
       "fields": [
         {
           "name": "node_id",
@@ -3587,7 +3587,7 @@
     },
     "LivenessProof": {
       "name": "LivenessProof",
-      "summary": "Prove liveness using a HoneMesh key — the cheapest possible \"I'm here\" signal.",
+      "summary": "Prove liveness using a HONE key — the cheapest possible \"I'm here\" signal.",
       "fields": [
         {
           "name": "account",
@@ -3717,7 +3717,7 @@
     },
     "MempoolOperatorRegister": {
       "name": "MempoolOperatorRegister",
-      "summary": "Register as a mempool operator. Operator stakes HoneMesh; lowest-latency",
+      "summary": "Register as a mempool operator. Operator stakes HONE; lowest-latency",
       "fields": [
         {
           "name": "operator",
@@ -4162,7 +4162,7 @@
     },
     "OracleFeedCreate": {
       "name": "OracleFeedCreate",
-      "summary": "Create a new oracle price feed (e.g. \"HoneMesh/USD\").",
+      "summary": "Create a new oracle price feed (e.g. \"HONE/USD\").",
       "fields": [
         {
           "name": "feed_id",
@@ -5725,7 +5725,7 @@
     },
     "SnapshotSave": {
       "name": "SnapshotSave",
-      "summary": "Save a named chain snapshot (slug → HoneMesh-FS CID).",
+      "summary": "Save a named chain snapshot (slug → HONE-FS CID).",
       "fields": [
         {
           "name": "account",
@@ -5835,7 +5835,7 @@
     },
     "SpamGateSet": {
       "name": "SpamGateSet",
-      "summary": "Set a HoneMesh fee that any sender must pay to deliver an unapproved token.",
+      "summary": "Set a HONE fee that any sender must pay to deliver an unapproved token.",
       "fields": [
         {
           "name": "account",
@@ -7153,7 +7153,7 @@
     },
     "WalletFamilyPublish": {
       "name": "WalletFamilyPublish",
-      "summary": "Permanently link a set of BIP44-derived addresses across chains to a HoneMesh",
+      "summary": "Permanently link a set of BIP44-derived addresses across chains to a HONE",
       "fields": [
         {
           "name": "account",
@@ -7919,14 +7919,14 @@
       "method": "GET",
       "path": "/api/service/node-hosting",
       "handler": "get_node_hosting_listings",
-      "summary": "Node hosting (HoneMesh-native cloud deploy)",
+      "summary": "Node hosting (HONE-native cloud deploy)",
       "stability": "stable"
     },
     "GET /api/service/node-hosting/my-nodes": {
       "method": "GET",
       "path": "/api/service/node-hosting/my-nodes",
       "handler": "get_my_hosted_nodes",
-      "summary": "Node hosting (HoneMesh-native cloud deploy)",
+      "summary": "Node hosting (HONE-native cloud deploy)",
       "stability": "stable"
     },
     "GET /api/sessions/listing/:id": {
@@ -8895,7 +8895,7 @@
       "method": "POST",
       "path": "/api/runtime/deploy",
       "handler": "post_runtime_deploy",
-      "summary": "Decentralized runtime (HoneMesh as AWS)",
+      "summary": "Decentralized runtime (HONE as AWS)",
       "stability": "stable"
     },
     "POST /api/runtime/job/attest": {
@@ -8920,14 +8920,14 @@
       "method": "POST",
       "path": "/api/runtime/register",
       "handler": "post_runtime_register",
-      "summary": "Decentralized runtime (HoneMesh as AWS)",
+      "summary": "Decentralized runtime (HONE as AWS)",
       "stability": "stable"
     },
     "POST /api/runtime/undeploy": {
       "method": "POST",
       "path": "/api/runtime/undeploy",
       "handler": "post_runtime_undeploy",
-      "summary": "Decentralized runtime (HoneMesh as AWS)",
+      "summary": "Decentralized runtime (HONE as AWS)",
       "stability": "stable"
     },
     "POST /api/science/jobs": {
@@ -8973,7 +8973,7 @@
       "method": "POST",
       "path": "/api/service/node-hosting/buy",
       "handler": "post_node_hosting_buy",
-      "summary": "Node hosting (HoneMesh-native cloud deploy)",
+      "summary": "Node hosting (HONE-native cloud deploy)",
       "stability": "stable"
     },
     "POST /api/sessions/buy": {
@@ -9029,14 +9029,14 @@
       "method": "POST",
       "path": "/api/storage/hive-replica/commit",
       "handler": "post_hive_replica_commit",
-      "summary": "HoneMesh-FS Hive external replicas",
+      "summary": "HONE-FS Hive external replicas",
       "stability": "stable"
     },
     "POST /api/storage/hive-replica/verify": {
       "method": "POST",
       "path": "/api/storage/hive-replica/verify",
       "handler": "post_hive_replica_verify",
-      "summary": "HoneMesh-FS Hive external replicas",
+      "summary": "HONE-FS Hive external replicas",
       "stability": "stable"
     },
     "POST /api/task/bid": {

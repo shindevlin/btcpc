@@ -121,10 +121,10 @@ fn submit_login(app: &mut app::App) {
         let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
         let data_dir = std::env::var("HONE_DATA_DIR").unwrap_or_default();
         let candidates: Vec<String> = [
-            format!("{}/.honemesh/{}.wallet.key", home, account),
-            format!("{}/.honemesh/wallet.key", home),
+            format!("{}/.hone/{}.wallet.key", home, account),
+            format!("{}/.hone/wallet.key", home),
             format!("{}/wallet.key", data_dir),
-            format!("{}/.honemesh/key.json", home),
+            format!("{}/.hone/key.json", home),
         ]
         .into_iter()
         .filter(|p| !p.starts_with('/') || !p.trim_start_matches('/').is_empty())
@@ -139,7 +139,7 @@ fn submit_login(app: &mut app::App) {
             }
             None => {
                 set_login_error(app, format!(
-                    "No key file found — tried ~/.honemesh/{}.wallet.key, wallet.key, key.json",
+                    "No key file found — tried ~/.hone/{}.wallet.key, wallet.key, key.json",
                     account
                 ));
                 return;
@@ -423,7 +423,7 @@ fn paste_current_field(app: &mut app::App, text: &str) {
     }
 }
 
-/// Parse a HoneMesh decimal string to hunits (u64). 1 HONE = 10^10 hunits.
+/// Parse a HONE decimal string to hunits (u64). 1 HONE = 10^10 hunits.
 fn parse_hone_amount(s: &str) -> Result<u64, String> {
     let trimmed = s.trim();
     if trimmed.is_empty() {

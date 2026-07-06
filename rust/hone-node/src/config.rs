@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
-use honemesh_types::{AccountId, MAINNET_CHAIN_ID};
+use hone_types::{AccountId, MAINNET_CHAIN_ID};
 
 /// Cloudflare DNS seeds — update the A record when a machine changes, no code change needed.
 /// Add more entries here as the network grows.
@@ -40,7 +40,7 @@ impl Config {
             .unwrap_or_else(|_| {
                 dirs_next::home_dir()
                     .unwrap_or_else(|| PathBuf::from("/tmp"))
-                    .join(".honemesh")
+                    .join(".hone")
             });
 
         Self {

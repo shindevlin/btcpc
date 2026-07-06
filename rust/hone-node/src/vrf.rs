@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tracing::info;
 
-use honemesh_types::{LedgerEntry, NATIVE_TOKEN, RECYCLE_FUND_ACCOUNT};
+use hone_types::{LedgerEntry, NATIVE_TOKEN, RECYCLE_FUND_ACCOUNT};
 use crate::chain::Chain;
 
 const COMMIT_DEPOSIT_HUNITS: u64 = 10_000; // 0.0001 HONE — ensures reveals
@@ -165,7 +165,7 @@ pub fn sweep_epoch(chain: &Chain, epoch: u64) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use honemesh_types::LedgerEntry;
+    use hone_types::LedgerEntry;
     use tempfile::TempDir;
 
     fn make_chain() -> (Chain, TempDir) {
@@ -189,7 +189,7 @@ mod tests {
         chain.apply_entry(&LedgerEntry::GenesisAlloc {
             account: account.to_string(),
             amount,
-            token: honemesh_types::NATIVE_TOKEN.to_string(),
+            token: hone_types::NATIVE_TOKEN.to_string(),
         }).unwrap();
     }
 

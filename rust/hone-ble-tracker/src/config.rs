@@ -1,13 +1,13 @@
 use clap::Parser;
 
 #[derive(Parser, Debug, Clone)]
-#[command(about = "HoneMesh BLE tracker scanner daemon")]
+#[command(about = "HONE BLE tracker scanner daemon")]
 pub struct Config {
-    /// URL of the local honemesh-node API.
+    /// URL of the local hone-node API.
     #[arg(long, env = "HONE_NODE_URL", default_value = "http://127.0.0.1:3001")]
     pub node_url: String,
 
-    /// HoneMesh account ID that will sign sighting commits and claims.
+    /// HONE account ID that will sign sighting commits and claims.
     #[arg(long, env = "HONE_ACCOUNT")]
     pub account: String,
 
@@ -33,6 +33,6 @@ pub struct Config {
     pub min_rssi: i16,
 
     /// Path for the local sled DB (co-location log).
-    #[arg(long, env = "HONE_TRACKER_DB", default_value = "/var/lib/honemesh/tracker.db")]
+    #[arg(long, env = "HONE_TRACKER_DB", default_value = "/var/lib/hone/tracker.db")]
     pub db_path: String,
 }

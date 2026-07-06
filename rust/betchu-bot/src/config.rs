@@ -14,14 +14,14 @@ pub struct Config {
     pub player_registry_address: String,
     pub loyalty_token_address: String,
 
-    // HoneMesh inference
+    // HONE inference
     pub hone_api_url: String,
     pub hone_project_key: String,
 
     // MongoDB
     pub mongodb_uri: String,
 
-    // HoneMesh service identity
+    // HONE service identity
     pub hone_account: String,
     pub service_port: u16,
 
@@ -32,7 +32,7 @@ pub struct Config {
 
 impl Config {
     pub fn from_env() -> Result<Self> {
-        // Load .envhone first so HoneMesh credentials override any parent-process env.
+        // Load .envhone first so HONE credentials override any parent-process env.
         // Then load .env for betchu-specific vars.
         let _ = dotenvy::from_filename(".envhone");
         let _ = dotenvy::dotenv();

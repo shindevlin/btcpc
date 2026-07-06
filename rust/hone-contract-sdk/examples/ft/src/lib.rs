@@ -1,8 +1,8 @@
 /*!
 # BSP-20 Fungible Token
 
-Reference implementation of the HoneMesh Standard Proposal 20 (BSP-20)
-fungible token interface. Mirrors ERC-20 semantics on HoneMesh.
+Reference implementation of the HONE Standard Proposal 20 (BSP-20)
+fungible token interface. Mirrors ERC-20 semantics on HONE.
 
 ## Deploy
 
@@ -28,7 +28,7 @@ hone contract view honesc<address> balance_of \
 ```
 */
 
-use honemesh_contract_sdk::*;
+use hone_contract_sdk::*;
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 

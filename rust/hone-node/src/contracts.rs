@@ -1,4 +1,4 @@
-//! WASM smart contract integration — deploys and calls contracts via honemesh-contract-runtime.
+//! WASM smart contract integration — deploys and calls contracts via hone-contract-runtime.
 //!
 //! State is persisted in RocksDB (CF_META) using namespaced keys:
 //!   "contract:{contract_id}:{hex_storage_key}"  → raw value bytes
@@ -10,13 +10,13 @@
 use std::sync::Arc;
 use anyhow::{anyhow, Result};
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
-use honemesh_contract_runtime::{
+use hone_contract_runtime::{
     execute_call, execute_deploy, execute_view,
     CallRequest, DeployRequest,
     state::{ContractState, StorageKv},
     derive_contract_address,
 };
-use honemesh_types::{LedgerEntry, NATIVE_TOKEN};
+use hone_types::{LedgerEntry, NATIVE_TOKEN};
 
 use crate::chain::Chain;
 use crate::tx;

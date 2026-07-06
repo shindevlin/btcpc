@@ -1,5 +1,5 @@
 [Unit]
-Description=HoneMesh GNSS Capture — Rust RTCM3 interceptor + chain recorder
+Description=HONE GNSS Capture — Rust RTCM3 interceptor + chain recorder
 After=network-online.target btcpc-api.service
 Wants=network-online.target
 Before=btcpc-miner.service
@@ -8,7 +8,7 @@ Before=btcpc-miner.service
 Type=simple
 User=root
 WorkingDirectory=/home/ubuntclaw/repos/btcpc
-ExecStart=/usr/local/bin/honemesh-gnss-capture
+ExecStart=/usr/local/bin/hone-gnss-capture
 Restart=on-failure
 RestartSec=5
 EnvironmentFile=/home/ubuntclaw/repos/btcpc/.env

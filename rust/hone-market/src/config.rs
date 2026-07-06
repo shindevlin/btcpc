@@ -18,8 +18,8 @@ impl Config {
 
         let data_dir = env::var("HONE_DATA_DIR").unwrap_or_else(|_| {
             dirs_next::home_dir()
-                .map(|h| h.join(".honemesh").to_string_lossy().to_string())
-                .unwrap_or_else(|| "/var/lib/honemesh".to_string())
+                .map(|h| h.join(".hone").to_string_lossy().to_string())
+                .unwrap_or_else(|| "/var/lib/hone".to_string())
         });
 
         let jwt_secret = env::var("HONE_JWT_SECRET")

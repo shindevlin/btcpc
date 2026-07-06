@@ -1,11 +1,11 @@
-//! honemesh-ble-tracker — passive BLE tracker oracle for HoneMesh sensor nodes.
+//! hone-ble-tracker — passive BLE tracker oracle for HONE sensor nodes.
 //!
 //! Runs on any Raspberry Pi (or Linux box) with a BLE adapter.
 //! Optionally compile with `--features acoustic` for acoustic ownership challenges
 //! (requires a USB microphone).
 //!
 //! Usage:
-//!   honemesh-ble-tracker \
+//!   hone-ble-tracker \
 //!     --account shindevlin \
 //!     --posting-key <hex> \
 //!     --observer-id "pi-nebra/ble"
@@ -42,12 +42,12 @@ async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive("honemesh_ble_tracker=info".parse()?)
+                .add_directive("hone_ble_tracker=info".parse()?)
         )
         .init();
 
     let cfg = Config::parse();
-    info!("honemesh-ble-tracker starting, observer_id={}", cfg.observer_id);
+    info!("hone-ble-tracker starting, observer_id={}", cfg.observer_id);
 
     let db = sled::open(&cfg.db_path)
         .with_context(|| format!("open sled DB at {}", cfg.db_path))?;

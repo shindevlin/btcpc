@@ -1,9 +1,9 @@
-//! HoneMesh chain client SDK.
+//! HONE chain client SDK.
 //!
 //! # Quick start
 //!
 //! ```no_run
-//! use honemesh_sdk::HoneClient;
+//! use hone_sdk::HoneClient;
 //!
 //! #[tokio::main]
 //! async fn main() -> anyhow::Result<()> {
@@ -20,7 +20,7 @@ use ed25519_dalek::{Signer, SigningKey};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs, path::Path};
 
-/// The self-updating integration manifest: how any repo in the HoneMesh ecosystem
+/// The self-updating integration manifest: how any repo in the HONE ecosystem
 /// keeps a current, diffable understanding of the chain's surface. See
 /// [`manifest`] for the full design.
 pub mod manifest;
@@ -36,7 +36,7 @@ pub mod keystore;
 pub const HUNITS_PER_HONE: u64 = 10_000_000_000;
 
 /// Native token ticker.
-pub const NATIVE_TOKEN: &str = "HoneMesh";
+pub const NATIVE_TOKEN: &str = "HONE";
 
 /// Default local node API address.
 pub const DEFAULT_API_URL: &str = "http://localhost:4242";
@@ -95,7 +95,7 @@ struct AllBalancesResponse {
 
 // ── Client ────────────────────────────────────────────────────────────────────
 
-/// HTTP client for the HoneMesh node API.
+/// HTTP client for the HONE node API.
 ///
 /// Build with [`HoneClient::new`], optionally attach a default account with
 /// [`HoneClient::with_account`], or load from environment with
@@ -162,7 +162,7 @@ impl HoneClient {
 
     // ── Chain queries ─────────────────────────────────────────────────────────
 
-    /// Fetch the HoneMesh balance of `account`.
+    /// Fetch the HONE balance of `account`.
     pub async fn balance(&self, account: &str) -> Result<BalanceResponse> {
         let resp = self
             .http
@@ -175,7 +175,7 @@ impl HoneClient {
         Ok(resp)
     }
 
-    /// Fetch the staked HoneMesh of `account`.
+    /// Fetch the staked HONE of `account`.
     pub async fn stake(&self, account: &str) -> Result<StakeResponse> {
         let resp = self
             .http
@@ -230,7 +230,7 @@ impl HoneClient {
 
     // ── Inference ─────────────────────────────────────────────────────────────
 
-    /// Send an OpenAI-compatible chat completion request to the HoneMesh inference
+    /// Send an OpenAI-compatible chat completion request to the HONE inference
     /// gateway at `/v1/chat/completions`.
     ///
     /// Requires `HONE_API_KEY` (or `HONE_ACCOUNT`) to be set — the fee of
@@ -342,7 +342,7 @@ impl HoneClient {
 
     // ── Transactions ──────────────────────────────────────────────────────────
 
-    /// Submit a HoneMesh transfer.
+    /// Submit a HONE transfer.
     ///
     /// Pass an empty string for `sig` to submit unsigned (accepted by
     /// permissive nodes or for testing).
@@ -1283,7 +1283,7 @@ struct KeyFile {
     private_key_hex: String,
 }
 
-/// Simple ed25519 keypair wrapper for signing HoneMesh payloads.
+/// Simple ed25519 keypair wrapper for signing HONE payloads.
 pub struct KeyPair {
     signing_key: SigningKey,
 }
@@ -1365,18 +1365,18 @@ impl KeyPair {
 // ── Wallet: BIP39 mnemonic + multi-chain key derivation ──────────────────────
 
 /// On-disk wallet identity file.
-/// Contains ONLY public information: account name, HoneMesh public key, and
+/// Contains ONLY public information: account name, HONE public key, and
 /// chain addresses.  No private keys, no mnemonic, ever.
 /// Private keys must be derived from the mnemonic at session time.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WalletFile {
     pub version: u8,
-    /// HoneMesh account name.
+    /// HONE account name.
     pub account: String,
-    /// Derived HoneMesh posting public key (hex). Kept for older callers.
+    /// Derived HONE posting public key (hex). Kept for older callers.
     #[serde(alias = "btcpc_public_key_hex")]
     pub hone_public_key_hex: String,
-    /// HoneMesh role public keys derived from the canonical HoneMesh wallet path.
+    /// HONE role public keys derived from the canonical HONE wallet path.
     #[serde(default, alias = "btcpc_role_public_keys")]
     pub hone_role_public_keys: std::collections::HashMap<String, String>,
     /// Derived chain addresses / public keys.
@@ -1387,22 +1387,22 @@ pub struct WalletFile {
 /// Derivation paths used per chain.
 pub mod paths {
     const H: u32 = 0x8000_0000;
-    /// HoneMesh SLIP-44 coin type. This must match honemesh-node wallet derivation.
+    /// HONE SLIP-44 coin type. This must match hone-node wallet derivation.
     pub const HONE_COIN: u32 = 6942;
-    /// HoneMesh owner key: cold key for key rotation and governance.
+    /// HONE owner key: cold key for key rotation and governance.
     pub const HONE_OWNER: &[u32] = &[44 | H, HONE_COIN | H, 0 | H, 0 | H];
-    /// HoneMesh active key: transfers, staking, and API-key registration.
+    /// HONE active key: transfers, staking, and API-key registration.
     pub const HONE_ACTIVE: &[u32] = &[44 | H, HONE_COIN | H, 1 | H, 0 | H];
-    /// HoneMesh posting key: daily protocol activity.
+    /// HONE posting key: daily protocol activity.
     pub const HONE_POSTING: &[u32] = &[44 | H, HONE_COIN | H, 2 | H, 0 | H];
-    /// HoneMesh memo key: encrypted messages and selective disclosure.
+    /// HONE memo key: encrypted messages and selective disclosure.
     pub const HONE_MEMO: &[u32] = &[44 | H, HONE_COIN | H, 3 | H, 0 | H];
-    /// HoneMesh hide key: private content encryption.
+    /// HONE hide key: private content encryption.
     pub const HONE_HIDE: &[u32] = &[44 | H, HONE_COIN | H, 4 | H, 0 | H];
-    /// HoneMesh seek key: encrypted buyer delivery.
+    /// HONE seek key: encrypted buyer delivery.
     pub const HONE_SEEK: &[u32] = &[44 | H, HONE_COIN | H, 5 | H, 0 | H];
-    /// Canonical HoneMesh signing key for backwards-compatible callers: posting.
-    pub const HoneMesh: &[u32] = HONE_POSTING;
+    /// Canonical HONE signing key for backwards-compatible callers: posting.
+    pub const HONE: &[u32] = HONE_POSTING;
     /// Legacy SDK v1 path. Use only to migrate older public wallet files.
     pub const HONE_LEGACY: &[u32] = &[44 | H, 2301 | H, 0 | H, 0 | H, 0 | H];
     pub const HONE_OWNER_STR: &str = "m/44'/6942'/0'/0'";
@@ -1447,7 +1447,7 @@ impl Wallet {
     }
 
     /// Save the wallet identity file.
-    /// Writes ONLY public information: account name, HoneMesh public key, chain addresses.
+    /// Writes ONLY public information: account name, HONE public key, chain addresses.
     /// No private key, no mnemonic, no seed — those must be kept by the user.
     pub fn save_to_file(&self, path: &std::path::Path) -> Result<()> {
         if let Some(parent) = path.parent() {
@@ -1471,12 +1471,12 @@ impl Wallet {
         Ok(())
     }
 
-    /// HoneMesh signing key derived via SLIP10-ed25519.
+    /// HONE signing key derived via SLIP10-ed25519.
     pub fn hone_keypair(&self) -> Result<KeyPair> {
         self.hone_role_keypair("posting")
     }
 
-    /// HoneMesh role key derived from canonical m/44'/6942'/role'/0' paths.
+    /// HONE role key derived from canonical m/44'/6942'/role'/0' paths.
     pub fn hone_role_keypair(&self, role: &str) -> Result<KeyPair> {
         let path = match role {
             "owner" => paths::HONE_OWNER,
@@ -1485,7 +1485,7 @@ impl Wallet {
             "memo" => paths::HONE_MEMO,
             "hide" => paths::HONE_HIDE,
             "seek" => paths::HONE_SEEK,
-            other => return Err(anyhow!("unknown HoneMesh wallet role '{}'", other)),
+            other => return Err(anyhow!("unknown HONE wallet role '{}'", other)),
         };
         let key_bytes = slip10_ed25519_derive(&self.seed, path);
         KeyPair::from_bytes(&key_bytes)
@@ -1882,12 +1882,12 @@ impl<'a> Bsp721Client<'a> {
 
 // ── Utility helpers ───────────────────────────────────────────────────────────
 
-/// Convert HoneMesh decimal string to hunits (u64).
+/// Convert HONE decimal string to hunits (u64).
 pub fn hone_to_hunits(hone: &str) -> Result<u64> {
     parse_decimal_hone_to_hunits(hone)
 }
 
-/// Convert hunits (u64) to HoneMesh decimal string with 10 fractional digits.
+/// Convert hunits (u64) to HONE decimal string with 10 fractional digits.
 pub fn hunits_to_hone(hunits: u64) -> String {
     let whole = hunits / HUNITS_PER_HONE;
     let frac = hunits % HUNITS_PER_HONE;

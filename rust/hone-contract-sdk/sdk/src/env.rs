@@ -1,4 +1,4 @@
-//! Host functions provided by the HoneMesh runtime to executing contracts.
+//! Host functions provided by the HONE runtime to executing contracts.
 //!
 //! On-chain (wasm32): these are extern "C" imports from the runtime.
 //! Off-chain (tests): a mock implementation is injected.
@@ -119,7 +119,7 @@ pub fn epoch() -> Epoch {
     crate::mock::env::epoch()
 }
 
-/// HoneMesh balance of `account` in hunits (1 HONE = 10_000_000_000 hunits).
+/// HONE balance of `account` in hunits (1 HONE = 10_000_000_000 hunits).
 pub fn balance_of(account: &AccountId) -> Balance {
     #[cfg(target_arch = "wasm32")]
     unsafe {

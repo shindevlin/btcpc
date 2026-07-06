@@ -1,7 +1,7 @@
 //! Agentic task marketplace — verified third-party consensus model.
 //!
 //! Flow:
-//!   1. User deposits HoneMesh into agent_credit balance (AgentCreditDeposit).
+//!   1. User deposits HONE into agent_credit balance (AgentCreditDeposit).
 //!   2. User posts a task (AgentTaskPost) — max_fee reserved from credit.
 //!   3. Agents bid during bid_window_epochs (AgentTaskBid).
 //!   4. Requester assigns to an agent (AgentTaskAssign), or auto-assigns to
@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tracing::{info, warn};
 
-use honemesh_types::{LedgerEntry, NATIVE_TOKEN};
+use hone_types::{LedgerEntry, NATIVE_TOKEN};
 use crate::chain::Chain;
 
 const VERIFIER_FEE_PCT: u64 = 10; // verifiers collectively get 10% of agreed fee

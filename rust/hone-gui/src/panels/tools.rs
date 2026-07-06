@@ -83,7 +83,7 @@ fn show_ai(ui: &mut egui::Ui, data: &mut AppData) {
                         ui.horizontal(|ui| {
                             ui.add(egui::TextEdit::singleline(&mut data.forms.job_max_fee)
                                 .hint_text("0.01").desired_width(100.0));
-                            ui.label(egui::RichText::new("HoneMesh").color(ORANGE).size(12.0));
+                            ui.label(egui::RichText::new("HONE").color(ORANGE).size(12.0));
                         });
                         ui.end_row();
 
@@ -192,7 +192,7 @@ fn show_storage(ui: &mut egui::Ui, data: &AppData) {
         ui.add_space(4.0);
         ui.label(egui::RichText::new(
             "This node can store and serve blobs for the network. Blob uploads and retrievals \
-             are posted as StoragePin / StorageRelease entries on-chain and priced in HoneMesh per MB."
+             are posted as StoragePin / StorageRelease entries on-chain and priced in HONE per MB."
         ).size(11.0).color(DIM_TEXT));
         ui.add_space(6.0);
         ui.label(egui::RichText::new("Upload / listing UI — coming soon").size(11.0).color(YELLOW));
@@ -217,7 +217,7 @@ fn show_sensors(ui: &mut egui::Ui, data: &AppData) {
         ui.add_space(4.0);
         ui.label(egui::RichText::new(
             "Sensor nodes submit signed physical-world data (GPS, temperature, RF, etc.) \
-             as SensorReport entries. Verifiers earn HoneMesh for cross-validating reports."
+             as SensorReport entries. Verifiers earn HONE for cross-validating reports."
         ).size(11.0).color(DIM_TEXT));
         ui.add_space(6.0);
         ui.label(egui::RichText::new("Live feed browser — coming soon").size(11.0).color(YELLOW));
@@ -233,7 +233,7 @@ fn show_freeport(ui: &mut egui::Ui, _data: &AppData) {
         ui.add_space(4.0);
         ui.label(egui::RichText::new(
             "Freeport is the on-chain peer-to-peer marketplace. List and purchase goods, \
-             services, and data subscriptions priced in native HoneMesh. All trades settle \
+             services, and data subscriptions priced in native HONE. All trades settle \
              through the chain with escrow enforced by the mempool role."
         ).size(11.0).color(DIM_TEXT));
         ui.add_space(6.0);
@@ -249,8 +249,8 @@ fn show_linkgit(ui: &mut egui::Ui, _data: &AppData) {
         ui.label(egui::RichText::new("Git Identity on Chain").size(13.0).strong().color(BLUE));
         ui.add_space(4.0);
         ui.label(egui::RichText::new(
-            "LinkGit registers git repository identities on the HoneMesh chain. \
-             Pin commit hashes, prove authorship, and receive HoneMesh tips for open-source \
+            "LinkGit registers git repository identities on the HONE chain. \
+             Pin commit hashes, prove authorship, and receive HONE tips for open-source \
              contributions — all without leaving your normal git workflow."
         ).size(11.0).color(DIM_TEXT));
         ui.add_space(6.0);

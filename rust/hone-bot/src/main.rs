@@ -27,7 +27,7 @@ async fn main() -> Result<()> {
 
     let default_account = std::env::var("HONE_ACCOUNT").ok();
 
-    info!("Starting HoneMesh bot");
+    info!("Starting HONE bot");
     info!("API URL: {}", api_url);
     if let Some(ref acc) = default_account {
         info!("Default account: {}", acc);

@@ -161,7 +161,7 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
                         ui.add(egui::TextEdit::singleline(&mut data.forms.role_stake_amount)
                             .hint_text("0.0")
                             .desired_width(140.0));
-                        ui.label(egui::RichText::new("HoneMesh").color(ORANGE).size(12.0));
+                        ui.label(egui::RichText::new("HONE").color(ORANGE).size(12.0));
                         // Show minimum for selected role
                         if !data.forms.role_stake_role.is_empty() {
                             if let Some(ref req) = data.role_requirements {
@@ -292,7 +292,7 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
                                 ui.add(egui::TextEdit::singleline(&mut data.forms.role_unstake_amount)
                                     .hint_text("0.0")
                                     .desired_width(80.0));
-                                ui.label(egui::RichText::new("HoneMesh").color(ORANGE).size(11.0));
+                                ui.label(egui::RichText::new("HONE").color(ORANGE).size(11.0));
                             } else {
                                 if ui.add(
                                     egui::Button::new("Unstake")
@@ -342,7 +342,7 @@ pub fn show(ui: &mut egui::Ui, data: &mut AppData) {
                         ui.add(egui::TextEdit::singleline(&mut data.forms.stake_amount)
                             .hint_text("0.0")
                             .desired_width(140.0));
-                        ui.label(egui::RichText::new("HoneMesh").color(ORANGE).size(12.0));
+                        ui.label(egui::RichText::new("HONE").color(ORANGE).size(12.0));
                     });
                     ui.end_row();
                 });

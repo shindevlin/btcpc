@@ -2513,7 +2513,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "honemesh-contract-runtime"
+name = "hone-contract-runtime"
 version = "1.0.0"
 dependencies = [
  "anyhow",
@@ -2529,7 +2529,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "honemesh-market"
+name = "hone-market"
 version = "1.2.2"
 dependencies = [
  "anyhow",
@@ -2538,7 +2538,7 @@ dependencies = [
  "dirs-next",
  "hex",
  "hmac",
- "honemesh-types",
+ "hone-types",
  "jsonwebtoken",
  "once_cell",
  "parking_lot",
@@ -2556,7 +2556,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "honemesh-node"
+name = "hone-node"
 version = "1.2.2"
 dependencies = [
  "aes-gcm",
@@ -2579,8 +2579,8 @@ dependencies = [
  "hex",
  "hf-hub",
  "hmac",
- "honemesh-contract-runtime",
- "honemesh-types",
+ "hone-contract-runtime",
+ "hone-types",
  "libc",
  "libp2p",
  "matrix-sdk",
@@ -2613,7 +2613,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "honemesh-p2p"
+name = "hone-p2p"
 version = "1.2.2"
 dependencies = [
  "anyhow",
@@ -2621,7 +2621,7 @@ dependencies = [
  "dirs-next",
  "futures",
  "hex",
- "honemesh-types",
+ "hone-types",
  "libp2p",
  "rand 0.8.6",
  "serde",
@@ -2633,7 +2633,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "honemesh-types"
+name = "hone-types"
 version = "1.2.2"
 dependencies = [
  "borsh",

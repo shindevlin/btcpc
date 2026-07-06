@@ -1,9 +1,9 @@
-//! BSP-721: Non-Fungible Token standard for HoneMesh
+//! BSP-721: Non-Fungible Token standard for HONE
 //!
 //! Each NFT is identified by a (collection, token_id) pair.
 //! Supports: mint, transfer, approve, approve_all, revoke, metadata, royalties.
 
-use honemesh_contract_sdk::*;
+use hone_contract_sdk::*;
 use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
 

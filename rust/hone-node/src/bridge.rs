@@ -1,7 +1,7 @@
 //! Cross-chain bridge registry (wHONE).
 //!
 //! BridgeFund: a custodian deposits ETH/BTC into a registered bridge contract.
-//! BridgeWrap: mints wHONE on-chain (1:1 HONE hunits), up to the 4.2M HoneMesh cap.
+//! BridgeWrap: mints wHONE on-chain (1:1 HONE hunits), up to the 4.2M HONE cap.
 //! BridgeUnlock: custodian signals that wrapped tokens have been burned on the external chain.
 //! BridgeUnwrap: burns on-chain wHONE and queues an unlock in FIFO order.
 //!
@@ -12,10 +12,10 @@ use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use honemesh_types::{LedgerEntry, NATIVE_TOKEN};
+use hone_types::{LedgerEntry, NATIVE_TOKEN};
 use crate::chain::Chain;
 
-const BRIDGE_CAP_HUNITS: u64 = 4_200_000 * 100_000_000; // 4.2M HoneMesh in hunits
+const BRIDGE_CAP_HUNITS: u64 = 4_200_000 * 100_000_000; // 4.2M HONE in hunits
 const WHONE_TOKEN: &str = "wHONE";
 const BRIDGE_QUEUE_KEY: &str = "bridge_unlock_queue";
 const BRIDGE_SUPPLY_KEY: &str = "bridge_whone_supply";
@@ -185,7 +185,7 @@ pub fn apply_unlock(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use honemesh_types::LedgerEntry;
+    use hone_types::LedgerEntry;
     use tempfile::TempDir;
 
     fn make_chain() -> (Chain, TempDir) {
@@ -209,7 +209,7 @@ mod tests {
         chain.apply_entry(&LedgerEntry::GenesisAlloc {
             account: account.to_string(),
             amount,
-            token: honemesh_types::NATIVE_TOKEN.to_string(),
+            token: hone_types::NATIVE_TOKEN.to_string(),
         }).unwrap();
     }
 
@@ -260,7 +260,7 @@ mod tests {
         };
         apply_wrap(&chain, &wrap).unwrap();
 
-        // HoneMesh burned, wHONE credited
+        // HONE burned, wHONE credited
         assert_eq!(chain.get_balance("user", NATIVE_TOKEN), 5_000_000);
         assert_eq!(chain.get_balance("user", WHONE_TOKEN), 5_000_000);
     }

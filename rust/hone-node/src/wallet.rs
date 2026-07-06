@@ -1,7 +1,7 @@
-//! HoneMesh multi-chain wallet — one BIP39 mnemonic, all supported chains.
+//! HONE multi-chain wallet — one BIP39 mnemonic, all supported chains.
 //!
 //! Derivation:
-//!   HoneMesh role keys — SLIP-10 m/44'/6942'/role_index'/0'  ed25519
+//!   HONE role keys — SLIP-10 m/44'/6942'/role_index'/0'  ed25519
 //!     role 0 = owner    (key rotation, governance — store cold)
 //!     role 1 = active   (transfers, staking — sign with active key)
 //!     role 2 = posting  (daily activity — can be on device)
@@ -37,7 +37,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Sha256, Sha512};
 use sha3::{Keccak256, Sha3_256};
 use tracing::{info, warn};
-use honemesh_types::ChainProof;
+use hone_types::ChainProof;
 
 type HmacSha512 = Hmac<Sha512>;
 const H: u32 = 0x8000_0000;
@@ -56,14 +56,14 @@ fn chain_commitment(chain: &str, address: &str, nonce: &str) -> String {
 
 // ── Key bundle ────────────────────────────────────────────────────────────────
 
-/// HoneMesh coin type in SLIP-44 (coin index 6942 = HoneMesh).
+/// HONE coin type in SLIP-44 (coin index 6942 = HONE).
 const HONE_COIN: u32 = 6942;
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct WalletKeys {
     pub mnemonic: String,
 
-    // HoneMesh role keys — SLIP-10 m/44'/6942'/role'/0'
+    // HONE role keys — SLIP-10 m/44'/6942'/role'/0'
     // serde aliases accept pre-rebrand wallet.key files (btcpc_* field names).
     // Owner: key rotation and governance. Keep this one cold.
     #[serde(alias = "btcpc_owner_private_key")]
@@ -296,17 +296,17 @@ pub fn init(data_dir: &Path) -> Result<WalletKeys> {
     Ok(keys)
 }
 
-/// Copy the wallet to ~/.honemesh/{account}.wallet.key and ~/.honemesh/{account}.txt so
+/// Copy the wallet to ~/.hone/{account}.wallet.key and ~/.hone/{account}.txt so
 /// TUI/CLI can find it without knowing the node's data directory.
-/// Called every startup — safe to repeat. User can encrypt the ~/.honemesh/ folder.
+/// Called every startup — safe to repeat. User can encrypt the ~/.hone/ folder.
 pub fn backup_to_home(account: &str, keys: &WalletKeys) {
     let home = match std::env::var("HOME") {
         Ok(h) => h,
         Err(_) => return,
     };
-    let dir = std::path::PathBuf::from(&home).join(".honemesh");
+    let dir = std::path::PathBuf::from(&home).join(".hone");
     if let Err(e) = std::fs::create_dir_all(&dir) {
-        warn!("wallet: could not create ~/.honemesh: {}", e);
+        warn!("wallet: could not create ~/.hone: {}", e);
         return;
     }
 
@@ -333,7 +333,7 @@ fn format_txt_backup(account: &str, k: &WalletKeys) -> String {
   MNEMONIC (12 words — regenerates everything below)
   {}
 
-  ── HoneMesh ROLE KEYS (ed25519) ──────────────────────────
+  ── HONE ROLE KEYS (ed25519) ──────────────────────────
 
   owner
     public   {}
@@ -435,7 +435,7 @@ pub fn register_account(
     account: &str,
     keys: &WalletKeys,
 ) -> Result<()> {
-    use honemesh_types::LedgerEntry;
+    use hone_types::LedgerEntry;
 
     if chain.store.get_account(account)?.is_some() {
         return Ok(());
@@ -528,7 +528,7 @@ fn generate_fresh() -> Result<WalletKeys> {
 fn derive_all(mnemonic: Mnemonic) -> Result<WalletKeys> {
     let seed = mnemonic.to_seed("");
 
-    // ── HoneMesh role keys — SLIP-10 m/44'/6942'/role'/0' ───────────────────────
+    // ── HONE role keys — SLIP-10 m/44'/6942'/role'/0' ───────────────────────
     // role 0=owner, 1=active, 2=posting, 3=memo, 4=hide, 5=seek
     let (owner_priv,   owner_pub)   = slip10(&seed, &[44|H, HONE_COIN|H, 0|H, 0|H])?;
     let (active_priv,  active_pub)  = slip10(&seed, &[44|H, HONE_COIN|H, 1|H, 0|H])?;
@@ -832,34 +832,34 @@ fn aptos_addr(pub_key: &[u8; 32]) -> String {
 fn print_new_wallet(k: &WalletKeys) {
     println!("\n\
 ╔══════════════════════════════════════════════════════════════════════════════════╗\n\
-║          NEW HoneMesh WALLET — WRITE DOWN YOUR MNEMONIC NOW                       ║\n\
+║          NEW HONE WALLET — WRITE DOWN YOUR MNEMONIC NOW                       ║\n\
 ╠══════════════════════════════════════════════════════════════════════════════════╣\n\
 ║  MNEMONIC (12 words — master key for every chain below):                       ║\n\
 ║                                                                                  ║\n\
 ║  {:<80}║\n\
 ║                                                                                  ║\n\
 ╠══════════════════════════════════════════════════════════════════════════════════╣\n\
-║  HoneMesh OWNER KEY  (SLIP-10 m/44'/6942'/0'/0') — store cold, key rotation only  ║\n\
+║  HONE OWNER KEY  (SLIP-10 m/44'/6942'/0'/0') — store cold, key rotation only  ║\n\
 ║    Public key  : {:<64}║\n\
 ║    Private key : {:<64}║\n\
 ╠══════════════════════════════════════════════════════════════════════════════════╣\n\
-║  HoneMesh ACTIVE KEY  (SLIP-10 m/44'/6942'/1'/0') — transfers and staking         ║\n\
+║  HONE ACTIVE KEY  (SLIP-10 m/44'/6942'/1'/0') — transfers and staking         ║\n\
 ║    Public key  : {:<64}║\n\
 ║    Private key : {:<64}║\n\
 ╠══════════════════════════════════════════════════════════════════════════════════╣\n\
-║  HoneMesh POSTING KEY  (SLIP-10 m/44'/6942'/2'/0') — daily activity on device     ║\n\
+║  HONE POSTING KEY  (SLIP-10 m/44'/6942'/2'/0') — daily activity on device     ║\n\
 ║    Public key  : {:<64}║\n\
 ║    Private key : {:<64}║\n\
 ╠══════════════════════════════════════════════════════════════════════════════════╣\n\
-║  HoneMesh MEMO KEY  (SLIP-10 m/44'/6942'/3'/0') — encrypted messages             ║\n\
+║  HONE MEMO KEY  (SLIP-10 m/44'/6942'/3'/0') — encrypted messages             ║\n\
 ║    Public key  : {:<64}║\n\
 ║    Private key : {:<64}║\n\
 ╠══════════════════════════════════════════════════════════════════════════════════╣\n\
-║  HoneMesh HIDE KEY  (SLIP-10 m/44'/6942'/4'/0') — private content encryption     ║\n\
+║  HONE HIDE KEY  (SLIP-10 m/44'/6942'/4'/0') — private content encryption     ║\n\
 ║    Public key  : {:<64}║\n\
 ║    Private key : {:<64}║\n\
 ╠══════════════════════════════════════════════════════════════════════════════════╣\n\
-║  HoneMesh SEEK KEY  (SLIP-10 m/44'/6942'/5'/0') — encrypted delivery to buyers   ║\n\
+║  HONE SEEK KEY  (SLIP-10 m/44'/6942'/5'/0') — encrypted delivery to buyers   ║\n\
 ║    Public key  : {:<64}║\n\
 ║    Private key : {:<64}║\n\
 ╠══════════════════════════════════════════════════════════════════════════════════╣\n\
@@ -909,7 +909,7 @@ fn print_new_wallet(k: &WalletKeys) {
 ║    Address     : {:<64}║\n\
 ║    Private key : {:<64}║\n\
 ╠══════════════════════════════════════════════════════════════════════════════════╣\n\
-║  Saved to: ~/.honemesh/wallet.key (chmod 600)                                      ║\n\
+║  Saved to: ~/.hone/wallet.key (chmod 600)                                      ║\n\
 ║  All public keys registered on-chain — your identity spans every chain.         ║\n\
 ╚══════════════════════════════════════════════════════════════════════════════════╝\n",
         k.mnemonic,

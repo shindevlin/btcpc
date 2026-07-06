@@ -1,11 +1,11 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# HoneMesh Termux Installer — one command, zero questions
+# HONE Termux Installer — one command, zero questions
 # Usage: curl -fsSL https://honemesh.net/install-termux.sh | bash
 
 set -e
 
 echo "========================================="
-echo "  HoneMesh — Bitcoin Proof of Compute"
+echo "  HONE — Bitcoin Proof of Compute"
 echo "  Termux Installer (clock node)"
 echo "========================================="
 echo ""
@@ -27,7 +27,7 @@ fi
 echo "  Node $(node --version) installed"
 
 # Clone or update repo
-echo "[3/5] Downloading HoneMesh..."
+echo "[3/5] Downloading HONE..."
 if [ -d "$HOME/btcpc" ]; then
   cd "$HOME/btcpc"
   git pull --ff-only 2>/dev/null || true
@@ -44,7 +44,7 @@ npm install --production 2>/dev/null
 echo "[5/5] Setting up account..."
 if [ ! -f "$HOME/btcpc/.env" ]; then
   echo ""
-  echo "Enter your HoneMesh username:"
+  echo "Enter your HONE username:"
   read -r HONE_USER
   echo ""
   echo "Enter a password:"
@@ -69,7 +69,7 @@ termux-wake-lock 2>/dev/null || true
 
 echo ""
 echo "========================================="
-echo "  HoneMesh installed!"
+echo "  HONE installed!"
 echo ""
 echo "  Start:   cd ~/btcpc && node bin/btcpc-all"
 echo "  Or just:  hone"

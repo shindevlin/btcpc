@@ -206,7 +206,7 @@ impl HiveClient {
         })
     }
 
-    /// Attach a HoneMesh-style ed25519 placeholder signature to a tx JSON.
+    /// Attach a HONE-style ed25519 placeholder signature to a tx JSON.
     ///
     /// NOTE: This produces a signature field accepted by dev/testnet nodes that
     /// do not enforce secp256k1 Hive signatures. For mainnet Hive signing, the

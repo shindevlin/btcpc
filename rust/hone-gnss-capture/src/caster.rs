@@ -45,7 +45,7 @@ async fn connect(c: &Caster) -> anyhow::Result<TcpStream> {
     let mp = if c.mountpoint.is_empty() { "/".to_string() } else { format!("/{}", c.mountpoint) };
     let req = format!(
         "POST {mp} HTTP/1.1\r\nHost: {host}\r\nNtrip-Version: Ntrip/2.0\r\n\
-         Authorization: Basic {auth}\r\nUser-Agent: HoneMesh-GNSS-Capture/1.0\r\n\
+         Authorization: Basic {auth}\r\nUser-Agent: HONE-GNSS-Capture/1.0\r\n\
          Content-Type: application/octet-stream\r\nTransfer-Encoding: chunked\r\n\r\n",
         host = c.host
     );

@@ -1,4 +1,4 @@
-//! Snapshot replication — slug-based chain snapshot save/load via HoneMesh-FS.
+//! Snapshot replication — slug-based chain snapshot save/load via HONE-FS.
 //! P5-J: ~215 LOC
 
 #![allow(dead_code)]
@@ -10,7 +10,7 @@ use crate::chain::Chain;
 pub struct Snapshot {
     pub account: String,
     pub slug: String,
-    /// HoneMesh-FS CID of the snapshot data.
+    /// HONE-FS CID of the snapshot data.
     pub cid: String,
     pub saved_epoch: u64,
 }

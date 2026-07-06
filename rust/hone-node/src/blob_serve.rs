@@ -6,7 +6,7 @@ use anyhow::Result;
 use sha2::{Sha256, Digest};
 
 use crate::chain::Chain;
-use honemesh_types::NATIVE_TOKEN;
+use hone_types::NATIVE_TOKEN;
 
 /// Reward per verified blob serve proof in hunits (0.01 HONE).
 pub const BLOB_SERVE_REWARD_HUNITS: u64 = 1_000_000;
@@ -99,10 +99,10 @@ mod tests {
     }
 
     fn fund(chain: &Chain, account: &str, amount: u64) {
-        chain.apply_entry(&honemesh_types::LedgerEntry::GenesisAlloc {
+        chain.apply_entry(&hone_types::LedgerEntry::GenesisAlloc {
             account: account.to_string(),
             amount,
-            token: honemesh_types::NATIVE_TOKEN.to_string(),
+            token: hone_types::NATIVE_TOKEN.to_string(),
         }).unwrap();
     }
 

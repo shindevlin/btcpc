@@ -1,5 +1,5 @@
 //! Hardware fingerprinting — GPU serial detection and stable machine identity.
-//! Used for anti-sybil: one physical machine = one HoneMesh account.
+//! Used for anti-sybil: one physical machine = one HONE account.
 
 use sha2::{Digest, Sha256};
 

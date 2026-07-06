@@ -1,7 +1,7 @@
-//! Rust-native HoneMesh runtime orchestration primitives.
+//! Rust-native HONE runtime orchestration primitives.
 //!
 //! This crate intentionally does not import Agent Lightning. It keeps the useful
-//! control-plane concepts that HoneMesh needs: resources, jobs, attempts, spans,
+//! control-plane concepts that HONE needs: resources, jobs, attempts, spans,
 //! attestations, worker capabilities, and retry/failover state transitions.
 
 use serde::{Deserialize, Serialize};

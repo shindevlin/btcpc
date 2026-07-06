@@ -26,9 +26,9 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 /// Where the surface is defined, relative to the hone repo root.
-pub const ENTRY_SRC: &str = "rust/honemesh-node/crates/honemesh-types/src/entry.rs";
-pub const API_SRC: &str = "rust/honemesh-node/src/api.rs";
-pub const TX_SRC: &str = "rust/honemesh-node/src/tx.rs";
+pub const ENTRY_SRC: &str = "rust/hone-node/crates/hone-types/src/entry.rs";
+pub const API_SRC: &str = "rust/hone-node/src/api.rs";
+pub const TX_SRC: &str = "rust/hone-node/src/tx.rs";
 pub const WORKSPACE_TOML: &str = "rust/Cargo.toml";
 
 /// Hand-curated invariants every consumer must respect. Stable text; changes

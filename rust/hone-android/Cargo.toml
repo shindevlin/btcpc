@@ -2,17 +2,17 @@
 resolver = "2"
 
 [package]
-name = "honemesh-android"
+name = "hone-android"
 version = "1.0.0"
 edition = "2021"
 authors = ["Shin Devlin <shindevlin@proton.me>"]
 
 [lib]
-name = "honemesh_miner"
+name = "hone_miner"
 crate-type = ["cdylib"]
 
 [dependencies]
-honemesh-types = { path = "../honemesh-node/crates/honemesh-types" }
+hone-types = { path = "../hone-node/crates/hone-types" }
 
 # JNI bridge
 jni = { version = "0.21", default-features = false }

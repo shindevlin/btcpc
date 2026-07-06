@@ -1,4 +1,4 @@
-//! Recoverable encrypted keystore — the fix for HoneMesh's deepest gap.
+//! Recoverable encrypted keystore — the fix for HONE's deepest gap.
 //!
 //! # The problem this solves
 //!

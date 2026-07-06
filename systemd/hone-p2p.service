@@ -1,5 +1,5 @@
 [Unit]
-Description=HoneMesh P2P Sidecar — rust-libp2p with Kademlia DHT
+Description=HONE P2P Sidecar — rust-libp2p with Kademlia DHT
 After=network-online.target
 Wants=network-online.target
 Before=btcpc-miner.service btcpc-api.service
@@ -8,7 +8,7 @@ Before=btcpc-miner.service btcpc-api.service
 Type=simple
 User=ubuntclaw
 WorkingDirectory=/home/ubuntclaw/repos/btcpc
-ExecStart=/home/ubuntclaw/repos/btcpc-p2p/target/release/honemesh-p2p
+ExecStart=/home/ubuntclaw/repos/btcpc-p2p/target/release/hone-p2p
 Restart=on-failure
 RestartSec=5
 EnvironmentFile=/home/ubuntclaw/repos/btcpc/.env

@@ -1,7 +1,7 @@
 {
-  "name": "HoneMesh Android",
-  "short_name": "HoneMesh",
-  "description": "Mine HoneMesh clock rewards from your Android phone",
+  "name": "HONE Android",
+  "short_name": "HONE",
+  "description": "Mine HONE clock rewards from your Android phone",
   "start_url": "/android-install",
   "scope": "/",
   "display": "standalone",

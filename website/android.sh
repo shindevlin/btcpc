@@ -1,5 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# HoneMesh Android Clock Node Installer
+# HONE Android Clock Node Installer
 # For Termux on Android: install Termux from F-Droid first
 # Usage: curl https://honemesh.net/android.sh | bash
 
@@ -9,7 +9,7 @@ ORANGE='\033[38;5;208m'
 GREEN='\033[0;32m'
 RESET='\033[0m'
 
-say() { printf "${ORANGE}[honemesh]${RESET} %s\n" "$1"; }
+say() { printf "${ORANGE}[hone]${RESET} %s\n" "$1"; }
 ok()  { printf "${GREEN}[ok]${RESET} %s\n" "$1"; }
 
 cat <<'BANNER'
@@ -44,10 +44,10 @@ if command -v termux-wake-lock >/dev/null 2>&1; then
   termux-wake-lock || true
 fi
 
-INSTALL_DIR="$HOME/.honemesh-clock"
+INSTALL_DIR="$HOME/.hone-clock"
 mkdir -p "$INSTALL_DIR"
 
-say "Downloading honemesh-clock-lite..."
+say "Downloading hone-clock-lite..."
 curl -fsSL https://honemesh.net/clock-lite.js -o "$INSTALL_DIR/clock.js"
 
 # Prompt for account — read from /dev/tty so it works under curl | bash
@@ -55,7 +55,7 @@ echo
 if [ -n "${HONE_ACCOUNT:-}" ]; then
   : # already set via env var
 elif [ -r /dev/tty ]; then
-  printf "${ORANGE}[honemesh]${RESET} Your HoneMesh username: " > /dev/tty
+  printf "${ORANGE}[hone]${RESET} Your HONE username: " > /dev/tty
   read -r HONE_ACCOUNT < /dev/tty
 else
   echo "ERROR: No TTY available. Run with HONE_ACCOUNT=yourname before piping:"
@@ -78,15 +78,15 @@ EOF
 # Create launcher script
 cat > "$INSTALL_DIR/start.sh" <<'EOF'
 #!/data/data/com.termux/files/usr/bin/bash
-source "$HOME/.honemesh-clock/config"
+source "$HOME/.hone-clock/config"
 export HONE_CLOCK_ACCOUNT
-cd "$HOME/.honemesh-clock"
+cd "$HOME/.hone-clock"
 exec node clock.js
 EOF
 chmod +x "$INSTALL_DIR/start.sh"
 
 # Set up auto-start via termux-services (runit)
-SVC_DIR="$PREFIX/var/service/honemesh-clock"
+SVC_DIR="$PREFIX/var/service/hone-clock"
 mkdir -p "$SVC_DIR/log"
 
 cat > "$SVC_DIR/run" <<EOF
@@ -101,23 +101,23 @@ chmod +x "$SVC_DIR/run"
 
 cat > "$SVC_DIR/log/run" <<EOF
 #!$PREFIX/bin/sh
-exec logger -t honemesh-clock
+exec logger -t hone-clock
 EOF
 chmod +x "$SVC_DIR/log/run"
 
 ok "Installation complete!"
 echo
 say "Starting clock node now..."
-sv-enable honemesh-clock 2>/dev/null || true
-sv up honemesh-clock 2>/dev/null || nohup "$INSTALL_DIR/start.sh" > "$INSTALL_DIR/clock.log" 2>&1 &
+sv-enable hone-clock 2>/dev/null || true
+sv up hone-clock 2>/dev/null || nohup "$INSTALL_DIR/start.sh" > "$INSTALL_DIR/clock.log" 2>&1 &
 
 sleep 2
 
 ok "Clock node running for: $HONE_ACCOUNT"
 echo
-say "To check status:  sv status honemesh-clock"
+say "To check status:  sv status hone-clock"
 say "To view logs:     tail -f $INSTALL_DIR/clock.log"
-say "To stop:          sv down honemesh-clock"
+say "To stop:          sv down hone-clock"
 say "To uninstall:     rm -rf $INSTALL_DIR && rm -rf $SVC_DIR"
 echo
 say "Important: keep Termux running in the background. Disable battery"

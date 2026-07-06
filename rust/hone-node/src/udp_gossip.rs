@@ -26,7 +26,7 @@ use tokio::net::UdpSocket;
 use tokio::sync::mpsc;
 use tracing::{debug, warn};
 
-use honemesh_types::LedgerEntry;
+use hone_types::LedgerEntry;
 
 use crate::chain::Chain;
 use crate::net::NetCmd;
@@ -294,7 +294,7 @@ mod tests {
             from:      "alice".into(),
             to:        "bob".into(),
             amount:    1_000_000,
-            token:     honemesh_types::NATIVE_TOKEN.into(),
+            token:     hone_types::NATIVE_TOKEN.into(),
             memo:      None,
             epoch:     1,
             nonce:     1,
@@ -333,7 +333,7 @@ mod tests {
             from:      "alice".into(),
             to:        "bob".into(),
             amount:    1,
-            token:     honemesh_types::NATIVE_TOKEN.into(),
+            token:     hone_types::NATIVE_TOKEN.into(),
             memo:      None,
             epoch:     1,
             nonce:     2,

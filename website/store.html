@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TechSurplus — HoneMesh Market</title>
+  <title>TechSurplus — HONE Market</title>
   <link rel="icon" href="/favicon-32.png" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -782,9 +782,9 @@
 <header>
   <div class="nav-top">
     <a href="/" class="nav-logo" style="text-decoration:none">
-      <img src="/honemesh-logo.jpeg" alt="HoneMesh" />
+      <img src="/hone-logo.jpeg" alt="HONE" />
       <div>
-        <div>HoneMesh</div>
+        <div>HONE</div>
         <span class="market-sub">Market</span>
       </div>
     </a>
@@ -798,7 +798,7 @@
         <option value="Ham">Ham Radio</option>
         <option value="Storage">Storage</option>
       </select>
-      <input class="search-input" id="search-input" type="text" placeholder="Search HoneMesh Market…"
+      <input class="search-input" id="search-input" type="text" placeholder="Search HONE Market…"
              onkeydown="if(event.key==='Enter')filterProducts()" />
       <button class="search-btn" onclick="filterProducts()">🔍</button>
     </div>
@@ -820,7 +820,7 @@
         <div class="line1" style="color:#ccc">Balance</div>
         <div class="line2">1,204.8 HONE</div>
       </button>
-      <button class="node-sel-btn" id="node-sel-btn" onclick="openNodeModal()" title="Switch HoneMesh node">
+      <button class="node-sel-btn" id="node-sel-btn" onclick="openNodeModal()" title="Switch HONE node">
         <span class="node-dot local" id="node-dot"></span>
         <span id="node-label">Local</span>
       </button>
@@ -834,9 +834,9 @@
   <!-- Node selector modal -->
   <div id="node-modal-overlay" onclick="if(event.target===this)closeNodeModal()">
     <div id="node-modal">
-      <h3>HoneMesh Node</h3>
-      <p>Enter the base URL of any public HoneMesh gateway node. Leave blank to use the local node (same origin).</p>
-      <input id="node-input" type="url" placeholder="https://node.honemesh.network" />
+      <h3>HONE Node</h3>
+      <p>Enter the base URL of any public HONE gateway node. Leave blank to use the local node (same origin).</p>
+      <input id="node-input" type="url" placeholder="https://node.honemesh.net" />
       <div class="node-modal-actions">
         <button class="btn-node-cancel" onclick="closeNodeModal()">Cancel</button>
         <button class="btn-node-clear" onclick="clearNode()">Use Local</button>
@@ -848,10 +848,10 @@
   <!-- Buyer auth modal -->
   <div id="auth-modal-overlay" onclick="if(event.target===this)closeAuthModal()">
     <div id="auth-modal">
-      <h3>Sign in to HoneMesh Market</h3>
-      <p>Enter your HoneMesh account name and posting key to place orders and track purchases.</p>
+      <h3>Sign in to HONE Market</h3>
+      <p>Enter your HONE account name and posting key to place orders and track purchases.</p>
       <div class="auth-field">
-        <label>HoneMesh Username</label>
+        <label>HONE Username</label>
         <input id="auth-username" type="text" placeholder="e.g. natoshisakamoto" autocomplete="username" />
       </div>
       <div class="auth-field">
@@ -937,7 +937,7 @@
 
     <div class="sidebar-section">
       <h4>Payment</h4>
-      <div class="filter-item"><input type="checkbox" id="t1" checked><label for="t1">HoneMesh</label></div>
+      <div class="filter-item"><input type="checkbox" id="t1" checked><label for="t1">HONE</label></div>
       <div class="filter-item"><input type="checkbox" id="t2" checked><label for="t2">wUSDC</label></div>
       <div class="filter-item"><input type="checkbox" id="t3" checked><label for="t3">wUSDT</label></div>
     </div>
@@ -985,17 +985,17 @@
     <div style="background:var(--white);border:1px solid var(--border);border-radius:4px;padding:12px 18px;margin-bottom:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
       <span style="font-size:18px;">&#127978;</span>
       <div style="flex:1;min-width:200px;">
-        <span style="font-weight:700;color:var(--text);font-size:13px;">This marketplace runs on Freeport &mdash; a native HoneMesh protocol, active since genesis.</span>
+        <span style="font-weight:700;color:var(--text);font-size:13px;">This marketplace runs on Freeport &mdash; a native HONE protocol, active since genesis.</span>
         <span style="color:var(--sub);font-size:12px;margin-left:6px;">No platform fees. Escrow-protected. Digital goods auto-deliver encrypted to your key. Tor routing optional.</span>
       </div>
-      <a href="/" style="font-size:12px;color:var(--link);white-space:nowrap;flex-shrink:0;">About HoneMesh ›</a>
+      <a href="/" style="font-size:12px;color:var(--link);white-space:nowrap;flex-shrink:0;">About HONE ›</a>
     </div>
 
     <!-- AMAZON IMPORT PROMO -->
     <div class="import-promo">
       <div style="font-size:36px">📦</div>
       <div class="import-promo-text">
-        <h3>Selling on Amazon? Bring your store to HoneMesh.</h3>
+        <h3>Selling on Amazon? Bring your store to HONE.</h3>
         <p>Import your Amazon inventory CSV in seconds — products, prices, and descriptions migrate automatically. Keep selling while earning on a chain you own.</p>
       </div>
       <button class="import-promo-btn" onclick="openImport()">Import Amazon Store →</button>
@@ -1051,7 +1051,7 @@
           <span class="deal-ribbon">-18% Deal</span>
         </div>
         <div class="product-body">
-          <div class="product-title">RTX 3080 Recertified — 10GB VRAM, HoneMesh Mine-Tested 500h, Ollama Compatible</div>
+          <div class="product-title">RTX 3080 Recertified — 10GB VRAM, HONE Mine-Tested 500h, Ollama Compatible</div>
           <div class="product-stars">
             <span class="stars">★★★★★</span>
             <span class="review-count">94</span>
@@ -1068,7 +1068,7 @@
         <div class="product-footer">
           <button class="btn-cart" onclick="addToCart(event,'RTX 3080 Recertified','480','🖥️','rtx3080')">Add to Cart</button>
           <button class="btn-buy" onclick="openProduct('rtx3080',true);event.stopPropagation()">Buy Now</button>
-          <div class="hone-tag">Pay with <span>HoneMesh</span> · Escrow protected</div>
+          <div class="hone-tag">Pay with <span>HONE</span> · Escrow protected</div>
         </div>
       </div>
 
@@ -1078,7 +1078,7 @@
           <span class="new-ribbon">New</span>
         </div>
         <div class="product-body">
-          <div class="product-title">Meshtastic T-Beam v1.1 — LoRa 915MHz, Pre-flashed HoneMesh Firmware, GPS+WiFi+BLE</div>
+          <div class="product-title">Meshtastic T-Beam v1.1 — LoRa 915MHz, Pre-flashed HONE Firmware, GPS+WiFi+BLE</div>
           <div class="product-stars">
             <span class="stars">★★★★★</span>
             <span class="review-count">41</span>
@@ -1093,17 +1093,17 @@
         <div class="product-footer">
           <button class="btn-cart" onclick="addToCart(event,'Meshtastic T-Beam v1.1','22','📡','tbeam')">Add to Cart</button>
           <button class="btn-buy" onclick="openProduct('tbeam',true);event.stopPropagation()">Buy Now</button>
-          <div class="hone-tag">Pay with <span>HoneMesh</span> · Escrow protected</div>
+          <div class="hone-tag">Pay with <span>HONE</span> · Escrow protected</div>
         </div>
       </div>
 
       <div class="product-card" data-price="5" data-rating="4.8" data-epoch="2510" data-cat="digital" onclick="openProduct('qwen25')">
         <div class="product-img" style="background:#f5f0ff">
           🧠
-          <span class="btcfs-ribbon">HoneMesh-FS</span>
+          <span class="btcfs-ribbon">HONE-FS</span>
         </div>
         <div class="product-body">
-          <div class="product-title">Qwen2.5-7B GGUF Q5_K_M — Instant Download, Ollama Ready, 5GB via HoneMesh-FS</div>
+          <div class="product-title">Qwen2.5-7B GGUF Q5_K_M — Instant Download, Ollama Ready, 5GB via HONE-FS</div>
           <div class="product-stars">
             <span class="stars">★★★★☆</span>
             <span class="review-count">212</span>
@@ -1118,7 +1118,7 @@
         <div class="product-footer">
           <button class="btn-cart" onclick="addToCart(event,'Qwen2.5-7B GGUF Q5_K_M','5','🧠','qwen25')">Add to Cart</button>
           <button class="btn-buy" onclick="openProduct('qwen25',true);event.stopPropagation()">Buy Now</button>
-          <div class="hone-tag">Pay with <span>HoneMesh</span> · Instant CID delivery</div>
+          <div class="hone-tag">Pay with <span>HONE</span> · Instant CID delivery</div>
         </div>
       </div>
 
@@ -1142,7 +1142,7 @@
         <div class="product-footer">
           <button class="btn-cart" onclick="addToCart(event,'Icom IC-7300 HF Transceiver','310','📻','ic7300')">Add to Cart</button>
           <button class="btn-buy" onclick="openProduct('ic7300',true);event.stopPropagation()">Buy Now</button>
-          <div class="hone-tag">Pay with <span>HoneMesh</span> · Escrow protected</div>
+          <div class="hone-tag">Pay with <span>HONE</span> · Escrow protected</div>
         </div>
       </div>
 
@@ -1167,17 +1167,17 @@
         <div class="product-footer">
           <button class="btn-cart" onclick="addToCart(event,'4TB NVMe SSD WD Black','38','💾','ssd4tb')">Add to Cart</button>
           <button class="btn-buy" onclick="openProduct('ssd4tb',true);event.stopPropagation()">Buy Now</button>
-          <div class="hone-tag">Pay with <span>HoneMesh</span> · Escrow protected</div>
+          <div class="hone-tag">Pay with <span>HONE</span> · Escrow protected</div>
         </div>
       </div>
 
       <div class="product-card" data-price="2" data-rating="5.0" data-epoch="2600" data-cat="digital" onclick="openProduct('guide')">
         <div class="product-img" style="background:#fffff0">
           📜
-          <span class="btcfs-ribbon">HoneMesh-FS</span>
+          <span class="btcfs-ribbon">HONE-FS</span>
         </div>
         <div class="product-body">
-          <div class="product-title">HoneMesh Mining Optimization Guide v3 — 38 Pages, Model Tuning, Stake Strategy</div>
+          <div class="product-title">HONE Mining Optimization Guide v3 — 38 Pages, Model Tuning, Stake Strategy</div>
           <div class="product-stars">
             <span class="stars">★★★★★</span>
             <span class="review-count">503</span>
@@ -1192,7 +1192,7 @@
         <div class="product-footer">
           <button class="btn-cart" onclick="addToCart(event,'Mining Optimization Guide v3','2','📜','guide')">Add to Cart</button>
           <button class="btn-buy" onclick="openProduct('guide',true);event.stopPropagation()">Buy Now</button>
-          <div class="hone-tag">Pay with <span>HoneMesh</span> · Instant CID delivery</div>
+          <div class="hone-tag">Pay with <span>HONE</span> · Instant CID delivery</div>
         </div>
       </div>
 
@@ -1216,7 +1216,7 @@
         <div class="product-footer">
           <button class="btn-cart" onclick="addToCart(event,'RAK WisBlock LoRa Dev Kit','14','📶','rakwis')">Add to Cart</button>
           <button class="btn-buy" onclick="openProduct('rakwis',true);event.stopPropagation()">Buy Now</button>
-          <div class="hone-tag">Pay with <span>HoneMesh</span> · Escrow protected</div>
+          <div class="hone-tag">Pay with <span>HONE</span> · Escrow protected</div>
         </div>
       </div>
 
@@ -1243,7 +1243,7 @@
         <div class="product-footer">
           <button class="btn-cart" onclick="addToCart(event,'RTX 4090 Founders Edition','920','⚡','rtx4090')">Add to Cart</button>
           <button class="btn-buy" onclick="openProduct('rtx4090',true);event.stopPropagation()">Buy Now</button>
-          <div class="hone-tag">Pay with <span>HoneMesh</span> · Escrow protected</div>
+          <div class="hone-tag">Pay with <span>HONE</span> · Escrow protected</div>
         </div>
       </div>
 
@@ -1304,7 +1304,7 @@
           <div class="pd-price-usd" id="pd-price-usd"></div>
           <div class="pd-price-was" id="pd-price-was" style="display:none"></div>
           <div class="pd-free-ship" id="pd-ship">FREE delivery</div>
-          <div class="pd-escrow-note">Secured by <b>HoneMesh Escrow</b> — funds locked until delivery confirmed</div>
+          <div class="pd-escrow-note">Secured by <b>HONE Escrow</b> — funds locked until delivery confirmed</div>
         </div>
         <div class="pd-desc" id="pd-desc"></div>
         <div class="pd-qty-row">
@@ -1357,7 +1357,7 @@
 <div class="modal-overlay" id="import-modal">
   <div class="import-modal">
     <div class="modal-head">
-      <h2>📦 Import Your Amazon Store to HoneMesh</h2>
+      <h2>📦 Import Your Amazon Store to HONE</h2>
       <button class="modal-close" onclick="closeImport()">✕</button>
     </div>
     <div class="modal-body">
@@ -1370,7 +1370,7 @@
 
       <!-- STEP 1 -->
       <div id="panel-1">
-        <p style="margin-bottom:16px;color:var(--sub);font-size:13px">Select how you want to bring your inventory to HoneMesh Market.</p>
+        <p style="margin-bottom:16px;color:var(--sub);font-size:13px">Select how you want to bring your inventory to HONE Market.</p>
         <div class="source-cards">
           <div class="source-card selected" onclick="selectSource(this,'url')">
             <div class="icon">🔗</div>
@@ -1443,7 +1443,7 @@
           <label>HONE rate:</label>
           <span style="font-size:11px;color:var(--muted)">1 USD =</span>
           <input type="number" id="rate-input" value="1.207" step="0.001" oninput="recalcPrices()" />
-          <span style="font-size:11px;color:var(--muted)">HoneMesh</span>
+          <span style="font-size:11px;color:var(--muted)">HONE</span>
           <div class="rate-note">Adjust the exchange rate. All USD prices will be converted automatically.</div>
         </div>
         <div class="preview-table-wrap">
@@ -1459,7 +1459,7 @@
       <div id="panel-4" style="display:none;text-align:center;padding:32px 0">
         <div style="font-size:64px;margin-bottom:16px">🎉</div>
         <h3 style="font-size:20px;margin-bottom:8px">Store imported successfully!</h3>
-        <p style="color:var(--sub);font-size:14px;margin-bottom:20px">Your products are now live on HoneMesh Market. Buyers can find them immediately.</p>
+        <p style="color:var(--sub);font-size:14px;margin-bottom:20px">Your products are now live on HONE Market. Buyers can find them immediately.</p>
         <div style="background:var(--green-bg);border:1px solid var(--green);border-radius:6px;padding:16px;display:inline-block;text-align:left;font-size:13px;margin-bottom:20px">
           <div id="final-summary"></div>
         </div>
@@ -1479,9 +1479,9 @@
 
 <script>
 // ── NODE CONFIGURATION ───────────────────────────────────────────────────────
-// HONE_NODE is the base URL of the HoneMesh node serving the API.
+// HONE_NODE is the base URL of the HONE node serving the API.
 // Defaults to '' (same origin) for local users, but can be pointed at any
-// public HoneMesh gateway via ?node= query param or the node selector below.
+// public HONE gateway via ?node= query param or the node selector below.
 var HONE_NODE = (function() {
   var p = new URLSearchParams(window.location.search).get('node');
   if (p) { var n = p.replace(/\/$/, ''); localStorage.setItem('hone_node', n); return n; }
@@ -2006,7 +2006,7 @@ function renderStep() {
   } else if (importStep === 3) {
     footer.style.display = '';
     nextBtn.className = 'btn-import-final';
-    nextBtn.textContent = '🚀 Publish ' + parsedProducts.length + ' Products to HoneMesh';
+    nextBtn.textContent = '🚀 Publish ' + parsedProducts.length + ' Products to HONE';
     nextBtn.onclick = doImport;
     nextBtn.disabled = false;
   } else if (importStep === 2 && selectedSource === 'url') {
@@ -2169,13 +2169,13 @@ function doImport() {
     importStep = 4;
     renderStep();
     document.getElementById('final-summary').innerHTML =
-      '✅ <b>' + count + ' products</b> published to HoneMesh Market<br/>' +
+      '✅ <b>' + count + ' products</b> published to HONE Market<br/>' +
       '🔐 Escrow enabled on all listings<br/>' +
       '📊 Reputation tracking active<br/>' +
       '⛓ All listings recorded on-chain<br/>';
     // Reload the grid with imported products added
     addImportedCards(parsedProducts.slice(0,4));
-    toast('✅ ' + count + ' products live on HoneMesh Market!', 'green');
+    toast('✅ ' + count + ' products live on HONE Market!', 'green');
   }, 1800);
 }
 
@@ -2205,7 +2205,7 @@ function addImportedCards(products) {
       '<div class="product-footer">' +
         '<button class="btn-cart" onclick="addToCart(event,\'' + p.title.replace(/'/g,"\\'").slice(0,30) + '\',' + p._hone + ',\'' + (emojis[i]||'📦') + '\',' + (p.product_id ? '\'' + p.product_id + '\'' : 'null') + ')">Add to Cart</button>' +
         '<button class="btn-buy" onclick="event.stopPropagation()">Buy Now</button>' +
-        '<div class="hone-tag">Pay with <span>HoneMesh</span> · Escrow protected</div>' +
+        '<div class="hone-tag">Pay with <span>HONE</span> · Escrow protected</div>' +
       '</div>';
     grid.appendChild(card);
   });
@@ -2294,7 +2294,7 @@ function buildCard(p) {
     var pct = p.price > 0 ? Math.round((1 - p.sale_price / p.price) * 100) : 0;
     badge = '<span class="deal-ribbon">-' + pct + '% Deal</span>';
   } else if (p.auto_deliver) {
-    badge = '<span class="btcfs-ribbon">HoneMesh-FS</span>';
+    badge = '<span class="btcfs-ribbon">HONE-FS</span>';
   }
 
   var imgHtml = imgSrc
@@ -2320,7 +2320,7 @@ function buildCard(p) {
     price: ep, was: saleActive ? p.price : null,
     stars: storeScore > 0 ? parseFloat(ratingVal) : 4.5, reviews: 0,
     inventory: p.inventory, digital: !!p.auto_deliver,
-    ship: p.auto_deliver ? 'Instant digital delivery via HoneMesh-FS' : 'FREE delivery',
+    ship: p.auto_deliver ? 'Instant digital delivery via HONE-FS' : 'FREE delivery',
     desc: p.description || '', token: p.token || 'HONE',
     questions: (p.questions || []).map(function(q) { return {
       qa_id: q.qa_id, asker: q.asker, question: q.question, answer: q.answer
@@ -2378,7 +2378,7 @@ function buildCard(p) {
     '<div class="product-footer">' +
       '<button class="btn-cart" onclick="addToCart(event,\'' + safeTitle + '\',' + ep + ',\'' + catEmoji(p.categories) + '\',\'' + safeKey + '\');event.stopPropagation()">Add to Cart</button>' +
       '<button class="btn-buy" onclick="openProduct(\'' + safeKey + '\',true);event.stopPropagation()">Buy Now</button>' +
-      '<div class="hone-tag">Pay with <span>HoneMesh</span> · Escrow protected</div>' +
+      '<div class="hone-tag">Pay with <span>HONE</span> · Escrow protected</div>' +
     '</div>';
   return card;
 }
@@ -2492,13 +2492,13 @@ var _nowEpoch = Math.floor((Date.now() - 1783191600000) / 30000);
 var PRODUCTS = {
   rtx3080: {
     key:'rtx3080', icon:'🖥️', bg:'#f0f4f8',
-    title:'RTX 3080 Recertified — 10GB VRAM, HoneMesh Mine-Tested 500h, Ollama Compatible',
+    title:'RTX 3080 Recertified — 10GB VRAM, HONE Mine-Tested 500h, Ollama Compatible',
     seller:'shindevlin', productId:'shindevlin/rtx-3080-recertified',
     price:480, priceUsd:398, was:585, badge:'deal', badgeLabel:'-18% Deal', badgeColor:'var(--badge-deal)',
     saleEndsEpoch: _nowEpoch + 1440,
     stars:4.9, reviews:94, inventory:3, digital:false,
     ship:'FREE delivery — 2–3 days',
-    desc:'Professionally recertified RTX 3080 10GB. Burn-tested for 500 hours on HoneMesh Ollama mining workload before listing — GPU is confirmed stable at full inference load. Compatible with all major Ollama models up to 7B without quantization. Includes 90-day HoneMesh Escrow buyer protection and a verified compute-hours certificate on-chain. Original cooler, replaced thermal paste, custom VBIOS for quiet mining. PCIe 4.0 slot required.',
+    desc:'Professionally recertified RTX 3080 10GB. Burn-tested for 500 hours on HONE Ollama mining workload before listing — GPU is confirmed stable at full inference load. Compatible with all major Ollama models up to 7B without quantization. Includes 90-day HONE Escrow buyer protection and a verified compute-hours certificate on-chain. Original cooler, replaced thermal paste, custom VBIOS for quiet mining. PCIe 4.0 slot required.',
     token:'HONE',
     questions:[
       {qa_id:'q1', asker:'loravan_king', question:'Does it work with PCIe 3.0 slots?', answer:'Yes — PCIe 3.0 ×16 works fine, you lose about 2% bandwidth vs 4.0. All Ollama models run at full speed.'},
@@ -2512,12 +2512,12 @@ var PRODUCTS = {
   },
   tbeam: {
     key:'tbeam', icon:'📡', bg:'#f0f8ff',
-    title:'Meshtastic T-Beam v1.1 — LoRa 915MHz, Pre-flashed HoneMesh Firmware, GPS+WiFi+BLE',
-    seller:'shindevlin', productId:'shindevlin/tbeam-v11-honemesh',
+    title:'Meshtastic T-Beam v1.1 — LoRa 915MHz, Pre-flashed HONE Firmware, GPS+WiFi+BLE',
+    seller:'shindevlin', productId:'shindevlin/tbeam-v11-hone',
     price:22, priceUsd:18, badge:'new', badgeLabel:'New', badgeColor:'var(--badge-new)',
     stars:5.0, reviews:41, inventory:50, digital:false,
     ship:'FREE delivery — 3–5 days',
-    desc:'T-Beam v1.1 pre-configured as a HoneMesh mesh relay node. Comes with HoneMesh sensor firmware, LoRa 915MHz (US) or 868MHz (EU — specify in notes), integrated GPS for GNSS sensor proofs, WiFi for local API, and BLE for phone pairing. Just plug in and your node starts earning sensor relay rewards. Includes USB-C cable and 3dBi antenna. IP65 enclosure optional (+HONE 4).',
+    desc:'T-Beam v1.1 pre-configured as a HONE mesh relay node. Comes with HONE sensor firmware, LoRa 915MHz (US) or 868MHz (EU — specify in notes), integrated GPS for GNSS sensor proofs, WiFi for local API, and BLE for phone pairing. Just plug in and your node starts earning sensor relay rewards. Includes USB-C cable and 3dBi antenna. IP65 enclosure optional (+HONE 4).',
     token:'HONE',
     questions:[
       {qa_id:'q3', asker:'hamradio_hone', question:'Does it work with the 868MHz EU band?', answer:'Yes — specify "EU 868" in the order notes. We flash the correct firmware before shipping.'},
@@ -2529,12 +2529,12 @@ var PRODUCTS = {
   },
   qwen25: {
     key:'qwen25', icon:'🧠', bg:'#f5f0ff',
-    title:'Qwen2.5-7B GGUF Q5_K_M — Instant Download, Ollama Ready, 5GB via HoneMesh-FS',
+    title:'Qwen2.5-7B GGUF Q5_K_M — Instant Download, Ollama Ready, 5GB via HONE-FS',
     seller:'shindevlin', productId:'shindevlin/qwen25-7b-q5km',
-    price:5, priceUsd:4, badge:'btcfs', badgeLabel:'HoneMesh-FS', badgeColor:'var(--badge-btcfs)',
+    price:5, priceUsd:4, badge:'btcfs', badgeLabel:'HONE-FS', badgeColor:'var(--badge-btcfs)',
     stars:4.8, reviews:212, inventory:null, digital:true,
-    ship:'Instant digital delivery via HoneMesh-FS',
-    desc:'Qwen2.5-7B in GGUF Q5_K_M quantization — best quality-per-GB for 7B inference. Delivered as a HoneMesh-FS content-addressed blob (CID included in order confirmation). Pull directly with Ollama: "ollama pull <cid>". Validated against the Qwen2.5 official weights hash. Includes a model card with prompt templates, system prompts tuned for HoneMesh mining tasks, and benchmark results on RTX 3080/4090.',
+    ship:'Instant digital delivery via HONE-FS',
+    desc:'Qwen2.5-7B in GGUF Q5_K_M quantization — best quality-per-GB for 7B inference. Delivered as a HONE-FS content-addressed blob (CID included in order confirmation). Pull directly with Ollama: "ollama pull <cid>". Validated against the Qwen2.5 official weights hash. Includes a model card with prompt templates, system prompts tuned for HONE mining tasks, and benchmark results on RTX 3080/4090.',
     token:'HONE',
     questions:[
       {qa_id:'q4', asker:'ai_farm_hale', question:'Is a 13B version available?', answer:null},
@@ -2553,7 +2553,7 @@ var PRODUCTS = {
     price:310, priceUsd:257, badge:null,
     stars:4.7, reviews:7, inventory:2, digital:false,
     ship:'FREE delivery — 5–7 days (large item)',
-    desc:'Icom IC-7300 direct-sampling SDR HF transceiver. 100W output, 0.5–30MHz coverage. Professionally calibrated at 1, 7, 14, 21, 28MHz reference frequencies — calibration printout included. Paired with VARA HF modem for HoneMesh emergency mesh comms. Minor cosmetic marks on front panel (pictured). Comes with power cable, mic, and IC-7300 manual. 30-day escrow protection — no questions asked returns.',
+    desc:'Icom IC-7300 direct-sampling SDR HF transceiver. 100W output, 0.5–30MHz coverage. Professionally calibrated at 1, 7, 14, 21, 28MHz reference frequencies — calibration printout included. Paired with VARA HF modem for HONE emergency mesh comms. Minor cosmetic marks on front panel (pictured). Comes with power cable, mic, and IC-7300 manual. 30-day escrow protection — no questions asked returns.',
     token:'HONE', questions:[],
     reviews_data:[
       {user:'hamradio_hone', stars:5, date:'1 month ago', text:'Calibration is real — checked on my own equipment. Great value.', verified:true},
@@ -2567,21 +2567,21 @@ var PRODUCTS = {
     price:38, priceUsd:32, badge:'new', badgeLabel:'New', badgeColor:'var(--badge-new)',
     stars:4.9, reviews:29, inventory:18, digital:false,
     ship:'FREE delivery — 2–3 days',
-    desc:'Western Digital WD Black SN850X 4TB NVMe SSD. Factory sealed, full 5-year manufacturer warranty. PCIe Gen 4 x4, sequential read 7300MB/s, write 6600MB/s. M.2 2280 form factor. Perfect for HoneMesh-FS node storage — a single drive holds over 80,000 sensor data blobs at typical sizes. The SN850X has no DRAM-less cache stutter; sustained write performance is consistent across the full 4TB.',
+    desc:'Western Digital WD Black SN850X 4TB NVMe SSD. Factory sealed, full 5-year manufacturer warranty. PCIe Gen 4 x4, sequential read 7300MB/s, write 6600MB/s. M.2 2280 form factor. Perfect for HONE-FS node storage — a single drive holds over 80,000 sensor data blobs at typical sizes. The SN850X has no DRAM-less cache stutter; sustained write performance is consistent across the full 4TB.',
     token:'HONE', questions:[],
     reviews_data:[
-      {user:'storage_relay', stars:5, date:'5 days ago', text:'Sealed as advertised. Running it as my HoneMesh-FS blob store. Zero issues.', verified:true},
+      {user:'storage_relay', stars:5, date:'5 days ago', text:'Sealed as advertised. Running it as my HONE-FS blob store. Zero issues.', verified:true},
       {user:'loravan_king', stars:5, date:'2 weeks ago', text:'Great price. Faster than my old Samsung 980 Pro at sustained writes.', verified:true},
     ]
   },
   guide: {
     key:'guide', icon:'📜', bg:'#fffff0',
-    title:'HoneMesh Mining Optimization Guide v3 — 38 Pages, Model Tuning, Stake Strategy',
+    title:'HONE Mining Optimization Guide v3 — 38 Pages, Model Tuning, Stake Strategy',
     seller:'natoshisakamoto', productId:'natoshisakamoto/mining-guide-v3',
-    price:2, priceUsd:1.66, badge:'btcfs', badgeLabel:'HoneMesh-FS', badgeColor:'var(--badge-btcfs)',
+    price:2, priceUsd:1.66, badge:'btcfs', badgeLabel:'HONE-FS', badgeColor:'var(--badge-btcfs)',
     stars:5.0, reviews:503, inventory:null, digital:true,
-    ship:'Instant digital delivery via HoneMesh-FS',
-    desc:'The definitive HoneMesh miner\'s handbook (v3). 38 pages covering: model selection for maximum work-value, epoch bandwidth optimization, stake curve theory with worked examples, multi-GPU setups, clock node co-location, validator reward splits, and self-heal automation patterns. Includes a spreadsheet template for tracking reward ROI. Written by natoshisakamoto — author of the HoneMesh Whitepaper appendices.',
+    ship:'Instant digital delivery via HONE-FS',
+    desc:'The definitive HONE miner\'s handbook (v3). 38 pages covering: model selection for maximum work-value, epoch bandwidth optimization, stake curve theory with worked examples, multi-GPU setups, clock node co-location, validator reward splits, and self-heal automation patterns. Includes a spreadsheet template for tracking reward ROI. Written by natoshisakamoto — author of the HONE Whitepaper appendices.',
     token:'HONE',
     questions:[
       {qa_id:'q7', asker:'hone_miner_77', question:'Is there a v4 planned?', answer:'Yes, targeting v4 after the Phase G validator upgrade. Buyers of v3 get it free.'},
@@ -2599,7 +2599,7 @@ var PRODUCTS = {
     price:14, priceUsd:12, badge:null,
     stars:4.6, reviews:18, inventory:30, digital:false,
     ship:'FREE delivery — 3–5 days',
-    desc:'RAK WisBlock Starter Kit with nRF52840 CPU and SX1262 LoRa module. Pre-configured as a HoneMesh environment sensor node — temperature, humidity, light, and air quality sensors included. Ships with HoneMesh sensor firmware flashed and pre-paired to the HoneMesh mesh. Just power on and the node begins publishing readings to the chain. Great for earning sensor relay income at low cost.',
+    desc:'RAK WisBlock Starter Kit with nRF52840 CPU and SX1262 LoRa module. Pre-configured as a HONE environment sensor node — temperature, humidity, light, and air quality sensors included. Ships with HONE sensor firmware flashed and pre-paired to the HONE mesh. Just power on and the node begins publishing readings to the chain. Great for earning sensor relay income at low cost.',
     token:'HONE', questions:[],
     reviews_data:[
       {user:'vera_sensor', stars:5, date:'2 weeks ago', text:'Running 6 of these. All earning. Setup is legitimately 5 minutes.', verified:true},
@@ -2614,10 +2614,10 @@ var PRODUCTS = {
     saleEndsEpoch: _nowEpoch + 720,
     stars:4.9, reviews:14, inventory:1, digital:false,
     ship:'FREE delivery — 2–3 days (insured shipment)',
-    desc:'RTX 4090 Founder\'s Edition, single owner, purchased new 8 months ago. Used exclusively for HoneMesh Ollama inference — no gaming, no overclocking. BIOS never modified. Verified 9.4× work multiplier on Qwen2.5:14B vs baseline (test results on-chain, CID in listing). Comes with original box, GPU removal tool, and power adapters. HoneMesh-verified compute history included — transparent provenance.',
+    desc:'RTX 4090 Founder\'s Edition, single owner, purchased new 8 months ago. Used exclusively for HONE Ollama inference — no gaming, no overclocking. BIOS never modified. Verified 9.4× work multiplier on Qwen2.5:14B vs baseline (test results on-chain, CID in listing). Comes with original box, GPU removal tool, and power adapters. HONE-verified compute history included — transparent provenance.',
     token:'HONE',
     questions:[
-      {qa_id:'q6', asker:'mesh_relay_99', question:'Any warranty left on this?', answer:'Manufacturer warranty expired but we offer 30-day HoneMesh escrow buyer protection — full refund if not as described.'},
+      {qa_id:'q6', asker:'mesh_relay_99', question:'Any warranty left on this?', answer:'Manufacturer warranty expired but we offer 30-day HONE escrow buyer protection — full refund if not as described.'},
     ],
     reviews_data:[
       {user:'ai_farm_hale', stars:5, date:'3 days ago', text:'The on-chain work proof was the deciding factor. Legitimate history, no games. It\'s a beast.', verified:true},
@@ -3048,7 +3048,7 @@ function renderReviews(reviews) {
         '<span class="pd-review-date">' + r.date + '</span>' +
       '</div>' +
       '<div class="pd-review-text">' + r.text + '</div>' +
-      (r.verified ? '<div class="pd-review-verify">✔ Verified HoneMesh purchase</div>' : '') +
+      (r.verified ? '<div class="pd-review-verify">✔ Verified HONE purchase</div>' : '') +
     '</div>';
   }).join('');
 }

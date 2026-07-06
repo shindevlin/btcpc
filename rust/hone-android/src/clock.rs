@@ -14,7 +14,7 @@ use sha2::{Digest, Sha256};
 use tokio::sync::broadcast;
 use tracing::{info, warn};
 
-use honemesh_types::{
+use hone_types::{
     LedgerEntry, EPOCH_MS,
     block_reward_at, era, RECYCLE_ERA, RECYCLE_REWARD_RATE, RECYCLE_REWARD_DENOM,
     RECYCLE_FUND_ACCOUNT, TESTNET_FUND_ACCOUNT, NATIVE_TOKEN,

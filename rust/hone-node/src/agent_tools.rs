@@ -20,7 +20,7 @@ const MAX_TOOL_ITERATIONS: usize = 8;
 /// System prompt injected before the user message when tools are available.
 pub fn build_system_prompt(tools: &[String]) -> String {
     let tool_docs = tools.iter().map(|t| match t.as_str() {
-        "chain_read" => r#"- chain_read: Query the HoneMesh node REST API.
+        "chain_read" => r#"- chain_read: Query the HONE node REST API.
   Args: {"path": "/api/account/alice"}
   Returns: JSON response from the node."#,
         "web_search" => r#"- web_search: Search the web via DuckDuckGo.
@@ -114,7 +114,7 @@ async fn web_search(args: &Value) -> Result<Value, String> {
     );
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(TOOL_TIMEOUT_SECS))
-        .user_agent("honemesh-agent/1.0")
+        .user_agent("hone-agent/1.0")
         .build()
         .map_err(|e| e.to_string())?;
 

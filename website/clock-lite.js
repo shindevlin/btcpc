@@ -2,11 +2,11 @@
 "use strict";
 
 /**
- * honemesh-clock-lite — Zero-dependency clock node
+ * hone-clock-lite — Zero-dependency clock node
  * Works on Node.js 14+. No npm install needed.
  * Uses built-in http/crypto modules for WebSocket.
  *
- * Usage: node honemesh-clock-lite.js
+ * Usage: node hone-clock-lite.js
  */
 
 var http = require("http");
@@ -27,7 +27,7 @@ var connections = [];
 var seen = new Set();
 
 console.log("");
-console.log("  honemesh-clock-lite");
+console.log("  hone-clock-lite");
 console.log("  Account: " + ACCOUNT);
 console.log("  Node: " + NODE_ID.slice(0, 12));
 console.log("  Port: " + PORT);

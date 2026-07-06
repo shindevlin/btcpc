@@ -69,7 +69,7 @@ fn render_login(f: &mut Frame, s: &LoginState) {
     f.render_widget(Clear, area);
     let block = Block::default()
         .borders(Borders::ALL)
-        .title(" HoneMesh — Sign In ")
+        .title(" HONE — Sign In ")
         .title_alignment(Alignment::Center)
         .style(Style::default().fg(Color::Yellow));
     f.render_widget(block, area);
@@ -114,7 +114,7 @@ fn render_tabs(f: &mut Frame, app: &App, area: Rect) {
         Line::from("[4] Inference"),
     ];
     let tabs = Tabs::new(titles)
-        .block(Block::default().borders(Borders::ALL).title(" HoneMesh "))
+        .block(Block::default().borders(Borders::ALL).title(" HONE "))
         .select(app.tab)
         .style(Style::default().fg(Color::DarkGray))
         .highlight_style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD));
@@ -245,7 +245,7 @@ fn render_wallet_tab(f: &mut Frame, app: &App, area: Rect) {
             Line::from(""),
             Line::from(vec![
                 Span::styled("  [T]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-                Span::raw("  Transfer HoneMesh to another account"),
+                Span::raw("  Transfer HONE to another account"),
             ]),
             Line::from(""),
             Line::from(vec![
@@ -366,11 +366,11 @@ fn render_staking_tab(f: &mut Frame, app: &App, area: Rect) {
         vec![
             Line::from(vec![
                 Span::styled("  [S]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-                Span::raw("  Stake — back a node's role with your HoneMesh"),
+                Span::raw("  Stake — back a node's role with your HONE"),
             ]),
             Line::from(vec![
                 Span::styled("  [U]", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
-                Span::raw("  Unstake — reclaim HoneMesh from a role position"),
+                Span::raw("  Unstake — reclaim HONE from a role position"),
             ]),
         ]
     } else {
@@ -420,7 +420,7 @@ fn render_inference_tab(f: &mut Frame, app: &App, area: Rect) {
 
     let table = Table::new(rows, [Constraint::Length(14), Constraint::Min(20), Constraint::Length(10), Constraint::Length(14), Constraint::Length(8)])
         .block(Block::default().borders(Borders::ALL).title(" Inference Jobs "))
-        .header(Row::new(vec!["ID", "Model", "Status", "Fee HoneMesh", "Epoch"]).style(Style::default().fg(Color::DarkGray).add_modifier(Modifier::BOLD)));
+        .header(Row::new(vec!["ID", "Model", "Status", "Fee HONE", "Epoch"]).style(Style::default().fg(Color::DarkGray).add_modifier(Modifier::BOLD)));
 
     f.render_widget(table, chunks[0]);
 
@@ -493,7 +493,7 @@ fn render_form_fields(f: &mut Frame, title: &str, fields: &[(&str, &str)], focus
 }
 
 fn render_transfer_form(f: &mut Frame, area: Rect, state: &crate::app::TransferState) {
-    render_form_fields(f, " Transfer HoneMesh ", &state.field_values(), state.field,
+    render_form_fields(f, " Transfer HONE ", &state.field_values(), state.field,
         "Tab next field   Enter submit   Esc cancel", area);
 }
 
@@ -513,7 +513,7 @@ fn render_role_stake_form(
     let fields: &[(&str, &str)] = &[
         ("Node (own name or 'self')", state.node.as_str()),
         ("Role",                      &role_display),
-        ("Amount (HoneMesh)",            state.amount.as_str()),
+        ("Amount (HONE)",            state.amount.as_str()),
     ];
 
     // Build hint with minimum for selected role

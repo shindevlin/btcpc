@@ -40,7 +40,7 @@ Two sources of fragility today, both fixed here:
 
 ## 2. The single inference interface
 
-Create `rust/honemesh-node/src/inference.rs` — the ONE entry point:
+Create `rust/hone-node/src/inference.rs` — the ONE entry point:
 
 ```rust
 pub struct ChatRequest { pub model: String, pub messages: Vec<Message>, pub max_tokens: Option<u32>, pub stream: bool }

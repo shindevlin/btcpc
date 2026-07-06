@@ -1,10 +1,10 @@
-/* HoneMesh onboarding chat widget — drop <script src="chat-widget.js"></script> anywhere */
+/* HONE onboarding chat widget — drop <script src="chat-widget.js"></script> anywhere */
 (function () {
   "use strict";
 
   const API = "/public/agent-chat";
   const PLACEHOLDER = 'Ask anything — "how do I start on Windows?"';
-  const WELCOME = "Hey! I'm the HoneMesh setup assistant. What platform are you on, or what do you want to know?";
+  const WELCOME = "Hey! I'm the HONE setup assistant. What platform are you on, or what do you want to know?";
 
   function detectPlatform() {
     const ua = navigator.userAgent;
@@ -97,7 +97,7 @@
 
   const fab = document.createElement("button");
   fab.id = "hone-chat-fab";
-  fab.title = "Chat with HoneMesh assistant";
+  fab.title = "Chat with HONE assistant";
   fab.innerHTML = `<svg viewBox="0 0 24 24"><path d="M20 2H4a2 2 0 0 0-2 2v18l4-4h14a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2z"/></svg>`;
 
   const panel = document.createElement("div");
@@ -106,7 +106,7 @@
   panel.innerHTML = `
     <div id="hone-chat-header">
       <div class="dot"></div>
-      <span>HoneMesh Assistant</span>
+      <span>HONE Assistant</span>
       <button id="hone-chat-close" title="Close">&times;</button>
     </div>
     <div id="hone-chat-messages"></div>

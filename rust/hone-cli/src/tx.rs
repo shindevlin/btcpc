@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use honemesh_sdk::KeyPair;
+use hone_sdk::KeyPair;
 use colored::Colorize;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
@@ -39,13 +39,13 @@ pub fn cmd_transfer(
     let nonce = next_nonce(&api, from)?;
     let chain_id = node_chain_id(&api)?;
 
-    let sig = sign_transfer(&keypair, &chain_id, from, to, amount, "HoneMesh", nonce);
+    let sig = sign_transfer(&keypair, &chain_id, from, to, amount, "HONE", nonce);
 
     let body = json!({
         "from": from,
         "to": to,
         "amount": amount,
-        "token": "HoneMesh",
+        "token": "HONE",
         "memo": memo,
         "signed_by": from,
         "nonce": nonce,

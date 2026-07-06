@@ -16,14 +16,14 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive("honemesh_gnss_capture=info".parse()?)
+                .add_directive("hone_gnss_capture=info".parse()?)
                 .add_directive("warn".parse()?),
         )
         .init();
 
     let config = Config::from_env();
 
-    info!("HoneMesh GNSS Capture v0.1.0");
+    info!("HONE GNSS Capture v0.1.0");
     info!("device: {}  geodnet: {}:{}", config.device_ip, config.geodnet_ip, config.geodnet_port);
     info!("listen port: {}  miner: {}  chain interval: {} frames",
         config.listen_port, config.miner, config.chain_interval);

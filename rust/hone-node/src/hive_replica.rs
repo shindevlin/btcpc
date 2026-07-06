@@ -1,14 +1,14 @@
-//! Hive external replica accounting for HoneMesh-FS.
+//! Hive external replica accounting for HONE-FS.
 //!
 //! Hive is treated as a decentralized external storage domain, not as local disk.
 //! A storage operator first commits a Hive custom_json reference, then an independent
-//! HoneMesh verifier attests that the Hive payload was fetched and matched the HoneMesh-FS
+//! HONE verifier attests that the Hive payload was fetched and matched the HONE-FS
 //! CID/Merkle metadata. Only verified replicas add a second storage-domain reward slot.
 
 use anyhow::{bail, ensure, Result};
 use sha2::{Digest, Sha256};
 
-use honemesh_types::LedgerEntry;
+use hone_types::LedgerEntry;
 
 use crate::chain::Chain;
 
@@ -373,7 +373,7 @@ mod tests {
             .apply_entry(&LedgerEntry::GenesisAlloc {
                 account: account.to_string(),
                 amount: 1_000_000,
-                token: honemesh_types::NATIVE_TOKEN.to_string(),
+                token: hone_types::NATIVE_TOKEN.to_string(),
             })
             .unwrap();
     }

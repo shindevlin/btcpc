@@ -9,7 +9,7 @@ use anyhow::{bail, Result};
 use serde::{Deserialize, Serialize};
 use tracing::info;
 
-use honemesh_types::{LedgerEntry, NATIVE_TOKEN, RECYCLE_FUND_ACCOUNT};
+use hone_types::{LedgerEntry, NATIVE_TOKEN, RECYCLE_FUND_ACCOUNT};
 use crate::chain::Chain;
 
 const APPEAL_WINDOW_EPOCHS: u64 = 100;
@@ -155,7 +155,7 @@ pub fn apply_appeal(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use honemesh_types::LedgerEntry;
+    use hone_types::LedgerEntry;
     use tempfile::TempDir;
 
     fn make_chain() -> (Chain, TempDir) {
@@ -179,7 +179,7 @@ mod tests {
         chain.apply_entry(&LedgerEntry::GenesisAlloc {
             account: account.to_string(),
             amount,
-            token: honemesh_types::NATIVE_TOKEN.to_string(),
+            token: hone_types::NATIVE_TOKEN.to_string(),
         }).unwrap();
     }
 
@@ -219,13 +219,13 @@ mod tests {
         set_stake(&chain, "accused", MIN_SLASH_STAKE * 2);
         set_clock_stake(&chain, "reporter", 1_000_000);
 
-        let balance_before = chain.get_balance("accused", honemesh_types::NATIVE_TOKEN);
+        let balance_before = chain.get_balance("accused", hone_types::NATIVE_TOKEN);
         apply_slash(&chain, &slash_entry("slash1", "reporter", "accused", 5)).unwrap();
-        let balance_after = chain.get_balance("accused", honemesh_types::NATIVE_TOKEN);
+        let balance_after = chain.get_balance("accused", hone_types::NATIVE_TOKEN);
 
         // apply_slash debits accused's NATIVE_TOKEN balance by accused_stake / 10
         assert!(balance_after < balance_before,
-            "accused HoneMesh balance should be reduced after slash: before={} after={}",
+            "accused HONE balance should be reduced after slash: before={} after={}",
             balance_before, balance_after);
     }
 

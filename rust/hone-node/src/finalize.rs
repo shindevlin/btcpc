@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tracing::{info, warn};
 
-use honemesh_types::{
+use hone_types::{
     Block, NATIVE_TOKEN, RECYCLE_FUND_ACCOUNT, block_reward_at,
     LIVENESS_GRACE_EPOCHS, LIVENESS_DECAY_DELAY_EPOCHS, LIVENESS_HALF_LIFE_EPOCHS,
 };
@@ -156,7 +156,7 @@ fn redirect_unearned_rewards(chain: &Arc<Chain>, prev_finalized: u64, boundary: 
 /// balance decreases by `balance × (1 - 2^(-100 / HALF_LIFE))`.
 ///
 /// No keys required. No user action needed to trigger this — it runs automatically.
-/// The only way to stop it is to do anything on HoneMesh with the account's own keys.
+/// The only way to stop it is to do anything on HONE with the account's own keys.
 fn apply_entropy_decay(chain: &Arc<Chain>, current_epoch: u64) {
     const FINALIZE_INTERVAL: u64 = 100;
     let decay_threshold = LIVENESS_GRACE_EPOCHS + LIVENESS_DECAY_DELAY_EPOCHS;
@@ -191,7 +191,7 @@ fn apply_entropy_decay(chain: &Arc<Chain>, current_epoch: u64) {
             continue;
         }
 
-        // Decay ALL token balances held by this dormant account, not just HoneMesh.
+        // Decay ALL token balances held by this dormant account, not just HONE.
         // Every token on the chain bleeds to the recycle fund proportionally.
         let balances = chain.store.scan_balances(account);
         if balances.is_empty() {

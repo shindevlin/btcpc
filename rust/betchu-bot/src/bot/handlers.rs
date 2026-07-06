@@ -78,7 +78,7 @@ async fn cmd_start(bot: Bot, msg: Message, state: std::sync::Arc<AppState>) -> H
         /me — Your stats & wallet\n\
         /scores — Latest game scores\n\
         /app — Open the Mini App\n\n\
-        Powered by HoneMesh P2P inference network.",
+        Powered by HONE P2P inference network.",
     )
     .reply_markup(keyboard)
     .await?;
@@ -98,7 +98,7 @@ async fn cmd_help(bot: Bot, msg: Message) -> HandlerResult {
         /me — Profile, wallet, stats\n\
         /wallet <address> — Link EVM wallet\n\
         /scores — Live ESPN scores\n\
-        /network — HoneMesh node status\n\
+        /network — HONE node status\n\
         /app — Open BetChu Mini App\n\n\
         Units: 1 ETH = 10^18 wei | Fees: 1% platform + 0.5% creator",
     )
@@ -158,7 +158,7 @@ async fn cmd_bets(bot: Bot, msg: Message, state: std::sync::Arc<AppState>) -> Ha
         ));
     }
 
-    // Generate AI insight for top pool if HoneMesh is configured
+    // Generate AI insight for top pool if HONE is configured
     if let Some(hone) = &state.hone {
         if let Some(top) = pools.first() {
             if let Ok(insight) = hone
@@ -405,16 +405,16 @@ async fn cmd_network(bot: Bot, msg: Message, state: std::sync::Arc<AppState>) ->
         .as_ref()
     {
         Some(svc) => {
-            // Try a quick balance/health check on the HoneMesh API
+            // Try a quick balance/health check on the HONE API
             "Checking..."
         }
-        None => "HoneMesh node not configured",
+        None => "HONE node not configured",
     };
 
     bot.send_message(
         msg.chat.id,
         format!(
-            "HoneMesh Network Status\n\nAPI: {}\nChain: Base Sepolia\nContract: {}\n\nPowered by HoneMesh P2P inference",
+            "HONE Network Status\n\nAPI: {}\nChain: Base Sepolia\nContract: {}\n\nPowered by HONE P2P inference",
             state.config.hone_api_url,
             &state.config.bet_contract_address[..8],
         ),
@@ -488,7 +488,7 @@ pub async fn handle_dialogue_text(
             // 1. Fetch live ESPN games
             let games = state.espn.get_games().await.unwrap_or_default();
 
-            // 2. Try HoneMesh semantic match first; fall back to fuzzy string match
+            // 2. Try HONE semantic match first; fall back to fuzzy string match
             // Returns (normalized_desc, start_epoch, sport) or None
             let matched: Option<(String, u64, String)> = if let Some(hone) = &state.hone {
                 match hone.match_game_description(&raw, &games).await {
@@ -499,7 +499,7 @@ pub async fn handle_dialogue_text(
                     Ok(None) => find_matching_game(&raw, &games)
                         .map(|g| (g.normalized_description(), g.start_epoch, g.sport.clone())),
                     Err(e) => {
-                        warn!("HoneMesh game match failed, falling back to fuzzy: {}", e);
+                        warn!("HONE game match failed, falling back to fuzzy: {}", e);
                         find_matching_game(&raw, &games)
                             .map(|g| (g.normalized_description(), g.start_epoch, g.sport.clone()))
                     }

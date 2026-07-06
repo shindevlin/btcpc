@@ -1,7 +1,7 @@
 /*!
-# honemesh-contract-runtime
+# hone-contract-runtime
 
-IPC server that executes WASM smart contracts for the HoneMesh chain.
+IPC server that executes WASM smart contracts for the HONE chain.
 Receives JSON-RPC calls from the Node.js chain process over a Unix socket,
 runs the contract in a sandboxed wasmtime environment, and returns results.
 
@@ -29,13 +29,13 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use anyhow::Result;
 use tracing::info;
 
-use honemesh_contract_runtime::{
+use hone_contract_runtime::{
     execute_call, execute_view, execute_deploy,
     CallRequest, DeployRequest,
     state::{ContractState, StorageKv},
 };
 
-const SOCKET_PATH: &str = "/tmp/honemesh-contract-runtime.sock";
+const SOCKET_PATH: &str = "/tmp/hone-contract-runtime.sock";
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -46,7 +46,7 @@ async fn main() -> Result<()> {
     }
 
     let listener = UnixListener::bind(SOCKET_PATH)?;
-    info!("HoneMesh Contract Runtime listening on {}", SOCKET_PATH);
+    info!("HONE Contract Runtime listening on {}", SOCKET_PATH);
 
     loop {
         let (mut socket, _) = listener.accept().await?;

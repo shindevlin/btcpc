@@ -1,11 +1,11 @@
-//! honemesh-hivefs-adapter — Hive external replica writer and verifier.
+//! hone-hivefs-adapter — Hive external replica writer and verifier.
 //!
 //! # Usage
 //!
 //! ## Phase 2 — Write
 //!
 //! ```text
-//! honemesh-hivefs-adapter write \
+//! hone-hivefs-adapter write \
 //!   --cid bafyhone... \
 //!   --file /path/to/chunk.bin \
 //!   --kind chunk
@@ -18,7 +18,7 @@
 //! ## Phase 3 — Verify
 //!
 //! ```text
-//! honemesh-hivefs-adapter verify \
+//! hone-hivefs-adapter verify \
 //!   --node-id <storage-node-hone-account> \
 //!   --cid bafyhone... \
 //!   --hive-tx-id <40-char-hex> \
@@ -40,9 +40,9 @@ use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(
-    name = "honemesh-hivefs-adapter",
+    name = "hone-hivefs-adapter",
     version,
-    about = "HoneMesh-FS Hive external replica writer and verifier"
+    about = "HONE-FS Hive external replica writer and verifier"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -51,9 +51,9 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Phase 2: write a HoneMesh-FS blob to Hive and submit HiveReplicaCommit.
+    /// Phase 2: write a HONE-FS blob to Hive and submit HiveReplicaCommit.
     Write {
-        /// HoneMesh-FS CID of the blob being replicated.
+        /// HONE-FS CID of the blob being replicated.
         #[arg(long)]
         cid: String,
 
@@ -68,11 +68,11 @@ enum Command {
 
     /// Phase 3: verify a Hive replica and submit HiveReplicaVerify.
     Verify {
-        /// HoneMesh account ID of the storage node whose replica is being verified.
+        /// HONE account ID of the storage node whose replica is being verified.
         #[arg(long)]
         node_id: String,
 
-        /// HoneMesh-FS CID of the replicated blob.
+        /// HONE-FS CID of the replicated blob.
         #[arg(long)]
         cid: String,
 
@@ -88,7 +88,7 @@ enum Command {
         #[arg(long, default_value = "0")]
         op_index: u32,
 
-        /// Current HoneMesh epoch to compute the challenge hash for.
+        /// Current HONE epoch to compute the challenge hash for.
         #[arg(long)]
         epoch: u64,
     },

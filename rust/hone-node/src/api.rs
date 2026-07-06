@@ -19,7 +19,7 @@ use serde::{Deserialize, Deserializer};
 use tower_http::cors::CorsLayer;
 use tokio::sync::broadcast;
 use tokio_stream::wrappers::ReceiverStream;
-use honemesh_types::{Block, ChainAddress, ChainProof, LedgerEntry, NATIVE_TOKEN, HUNITS_PER_HONE, TESTNET_CHAIN_ID, EPOCH_MS};
+use hone_types::{Block, ChainAddress, ChainProof, LedgerEntry, NATIVE_TOKEN, HUNITS_PER_HONE, TESTNET_CHAIN_ID, EPOCH_MS};
 
 /// Gossip envelope: entry JSON + out-of-band signature so peers can re-verify.
 pub type GossipEntry = (LedgerEntry, Option<String>);
@@ -141,7 +141,7 @@ pub fn router(state: AppState) -> Router {
         .route("/health", get(health))
         // ── GitHub App ────────────────────────────────────────────────────
         .route("/api/github/webhook", post(post_github_webhook))
-        // ── Node hosting (HoneMesh-native cloud deploy) ─────────────────────
+        // ── Node hosting (HONE-native cloud deploy) ─────────────────────
         .route("/api/service/node-hosting", get(get_node_hosting_listings))
         .route("/api/service/node-hosting/buy", post(post_node_hosting_buy))
         .route("/api/service/node-hosting/my-nodes", get(get_my_hosted_nodes))
@@ -349,7 +349,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/project/task/claim", post(post_task_claim))
         .route("/api/project/task/submit", post(post_task_submit))
         .route("/api/project/task/approve", post(post_task_approve))
-        // ── Decentralized runtime (HoneMesh as AWS) ─────────────────────────
+        // ── Decentralized runtime (HONE as AWS) ─────────────────────────
         .route("/api/runtime/register", post(post_runtime_register))
         .route("/api/runtime/deploy", post(post_runtime_deploy))
         .route("/api/runtime/undeploy", post(post_runtime_undeploy))
@@ -483,7 +483,7 @@ pub fn router(state: AppState) -> Router {
         // ── Blob serve proof + bandwidth ──────────────────────────────────────
         .route("/api/blob/serve-proof", post(post_blob_serve_proof))
         .route("/api/blob/bandwidth/:cid", get(get_blob_bandwidth))
-        // ── HoneMesh-FS Hive external replicas ──────────────────────────────────
+        // ── HONE-FS Hive external replicas ──────────────────────────────────
         .route("/api/storage/hive-replica/commit", post(post_hive_replica_commit))
         .route("/api/storage/hive-replica/verify", post(post_hive_replica_verify))
         // ── Peer commerce ─────────────────────────────────────────────────────
@@ -556,7 +556,7 @@ async fn get_account(
         Err(_)      => return Err(StatusCode::INTERNAL_SERVER_ERROR),
     };
 
-    // Strip cross-chain plaintext addresses — return only HoneMesh keys and proven chain names.
+    // Strip cross-chain plaintext addresses — return only HONE keys and proven chain names.
     // Raw addresses are never stored on-chain; only commitments are.
     // chain_proofs stores { chain: { commitment, mode, [sig_type, signed_message, signature] } }
     let proven_chains: Vec<serde_json::Value> = data
@@ -762,7 +762,7 @@ async fn post_verify_chain(
 
     // Build the VerifyChainLink entry — chain.rs verifies the signature and commitment.
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::VerifyChainLink {
+    let entry = hone_types::LedgerEntry::VerifyChainLink {
         account:        body.account.clone(),
         chain:          body.chain.clone(),
         commitment:     body.commitment.clone(),
@@ -793,7 +793,7 @@ async fn post_verify_chain(
 /// Enable, disable, or change the 2FA policy for a key slot.
 ///
 /// Body:
-///   account        — HoneMesh account name
+///   account        — HONE account name
 ///   role           — "owner" | "active" | "posting" | "memo" | "hide" | "seek"
 ///   twofactor_chain — chain name to enable 2FA (e.g. "ethereum"), or null to clear
 ///   signature      — ed25519 hex sig from owner key over the canonical entry message
@@ -817,12 +817,12 @@ async fn post_set_key_policy(
     Json(body): Json<SetKeyPolicyBody>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let epoch = s.chain.current_epoch();
-    let owner_auth = honemesh_types::OwnerAuth {
+    let owner_auth = hone_types::OwnerAuth {
         owner_2fa:       None, // future: accept via body
         corroborant_key: body.corroborant_key.clone(),
         corroborant_sig: body.corroborant_sig.clone(),
     };
-    let entry = honemesh_types::LedgerEntry::SetKeyPolicy {
+    let entry = hone_types::LedgerEntry::SetKeyPolicy {
         account:         body.account.clone(),
         role:            body.role.clone(),
         twofactor_chain: body.twofactor_chain.clone(),
@@ -866,7 +866,7 @@ async fn post_liveness_proof(
     Json(body): Json<LivenessProofBody>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::LivenessProof {
+    let entry = hone_types::LedgerEntry::LivenessProof {
         account:   body.account.clone(),
         epoch,
         nonce:     body.nonce,
@@ -896,8 +896,8 @@ async fn get_alive_epoch(
     let alive = s.chain.store.get_alive_epoch(&name);
     let current = s.chain.current_epoch();
     let silence = current.saturating_sub(alive);
-    let grace = honemesh_types::LIVENESS_GRACE_EPOCHS;
-    let decay_start = grace + honemesh_types::LIVENESS_DECAY_DELAY_EPOCHS;
+    let grace = hone_types::LIVENESS_GRACE_EPOCHS;
+    let decay_start = grace + hone_types::LIVENESS_DECAY_DELAY_EPOCHS;
     let status = if silence <= grace {
         "healthy"
     } else if silence <= decay_start {
@@ -994,14 +994,14 @@ async fn get_epoch(
 
 // GET /health
 async fn health() -> Json<serde_json::Value> {
-    Json(serde_json::json!({ "status": "ok", "node": "honemesh-node" }))
+    Json(serde_json::json!({ "status": "ok", "node": "hone-node" }))
 }
 
 /// POST /api/github/webhook
 ///
 /// Receives GitHub App webhook events. On `installation` or `installation_repositories`,
-/// auto-creates a HoneMesh account for the installer (prefixed `gh_`). This is the
-/// decentralised onboarding path: any HoneMesh node can receive and process the webhook,
+/// auto-creates a HONE account for the installer (prefixed `gh_`). This is the
+/// decentralised onboarding path: any HONE node can receive and process the webhook,
 /// creating the account on-chain and gossiping it to all peers.
 ///
 /// Set HONE_GITHUB_WEBHOOK_SECRET to the secret configured in the GitHub App.
@@ -1010,24 +1010,29 @@ async fn post_github_webhook(
     State(s): State<AppState>,
     body: axum::body::Bytes,
 ) -> (StatusCode, Json<serde_json::Value>) {
-    // Verify HMAC-SHA256 signature from GitHub
-    if let Ok(secret) = std::env::var("HONE_GITHUB_WEBHOOK_SECRET") {
-        if !secret.is_empty() {
-            let expected = {
-                type HmacSha256 = hmac::Hmac<sha2::Sha256>;
-                use hmac::Mac;
-                let mut mac = HmacSha256::new_from_slice(secret.as_bytes())
-                    .unwrap_or_else(|_| panic!("HMAC key error"));
-                mac.update(&body);
-                format!("sha256={}", hex::encode(mac.finalize().into_bytes()))
-            };
-            let provided = headers.get("X-Hub-Signature-256")
-                .and_then(|v| v.to_str().ok())
-                .unwrap_or("");
-            if provided != expected {
-                return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error": "invalid signature"})));
-            }
+    // Verify HMAC-SHA256 signature from GitHub. Webhooks fail closed unless the
+    // shared secret is configured; otherwise any public node can be spoofed.
+    let secret = match std::env::var("HONE_GITHUB_WEBHOOK_SECRET") {
+        Ok(secret) if !secret.is_empty() => secret,
+        _ => {
+            return (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({
+                "error": "github webhook secret not configured"
+            })));
         }
+    };
+    let expected = {
+        type HmacSha256 = hmac::Hmac<sha2::Sha256>;
+        use hmac::Mac;
+        let mut mac = HmacSha256::new_from_slice(secret.as_bytes())
+            .unwrap_or_else(|_| panic!("HMAC key error"));
+        mac.update(&body);
+        format!("sha256={}", hex::encode(mac.finalize().into_bytes()))
+    };
+    let provided = headers.get("X-Hub-Signature-256")
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    if provided != expected {
+        return (StatusCode::UNAUTHORIZED, Json(serde_json::json!({"error": "invalid signature"})));
     }
 
     let event = headers.get("X-GitHub-Event")
@@ -1052,7 +1057,7 @@ async fn post_github_webhook(
                     // Create account on-chain if it doesn't exist
                     if s.chain.store.get_account(&hone_account).ok().flatten().is_none() {
                         let epoch = s.chain.current_epoch();
-                        let entry = honemesh_types::LedgerEntry::AccountCreate {
+                        let entry = hone_types::LedgerEntry::AccountCreate {
                             account: hone_account.clone(),
                             keys: std::collections::BTreeMap::new(),
                             chain_proofs: vec![],
@@ -1062,7 +1067,7 @@ async fn post_github_webhook(
                         };
                         s.chain.push_pending(entry.clone(), None);
                         let _ = s.tx_broadcast.send((entry, None));
-                        tracing::info!("[github-app] created HoneMesh account '{}' for GitHub user '{}'",
+                        tracing::info!("[github-app] created HONE account '{}' for GitHub user '{}'",
                             hone_account, github_login);
                     }
 
@@ -1093,7 +1098,7 @@ async fn get_node_hosting_listings(State(s): State<AppState>) -> Json<serde_json
         "price_hunits": crate::services::HOSTING_PRICE_HUNITS,
         "price_hone": crate::services::HOSTING_PRICE_HUNITS as f64 / 100_000_000.0,
         "duration_epochs": crate::services::HOSTING_DURATION_EPOCHS,
-        "note": "Pay HoneMesh to a service node to get a hosted clock node on the HoneMesh network."
+        "note": "Pay HONE to a service node to get a hosted clock node on the HONE network."
     }))
 }
 
@@ -1142,7 +1147,7 @@ async fn post_node_hosting_buy(
         to: body.service_node.clone(),
         amount: price,
         token: NATIVE_TOKEN.to_string(),
-        memo: Some("honemesh-node-hosting".to_string()),
+        memo: Some("hone-node-hosting".to_string()),
         epoch,
         nonce,
         signed_by: body.buyer.clone(),
@@ -1230,7 +1235,7 @@ async fn get_public_leaderboard(State(s): State<AppState>) -> Json<serde_json::V
     let ids = s.chain.store.scan_account_ids();
     let mut entries: Vec<serde_json::Value> = ids.iter()
         .filter_map(|id| {
-            let bal = s.chain.get_balance(id, honemesh_types::NATIVE_TOKEN);
+            let bal = s.chain.get_balance(id, hone_types::NATIVE_TOKEN);
             if bal == 0 { return None; }
             let mut roles: Vec<&str> = vec![];
             if clock_set.contains(id) { roles.push("clock"); }
@@ -1351,12 +1356,12 @@ async fn get_node_info(State(s): State<AppState>) -> Json<serde_json::Value> {
 // ── Integration manifest ────────────────────────────────────────────────────
 // The manifest is the ecosystem's machine-readable understanding of this node's
 // surface (routes + ledger-entry signing shapes). It is generated from source by
-// `hone manifest generate` (rust/honemesh-sdk) and committed at the repo root as
-// honemesh-manifest.json; CI (.github/workflows/manifest-check.yml) fails if it
+// `hone manifest generate` (rust/hone-sdk) and committed at the repo root as
+// hone-manifest.json; CI (.github/workflows/manifest-check.yml) fails if it
 // drifts from source. We embed that CI-verified artifact at compile time and
 // serve it verbatim, so `hone sync --node <url>` always gets exactly the
 // manifest that shipped with this binary — no runtime file dependency, no drift.
-static INTEGRATION_MANIFEST_JSON: &str = include_str!("../../../honemesh-manifest.json");
+static INTEGRATION_MANIFEST_JSON: &str = include_str!("../../../hone-manifest.json");
 
 // GET /api/integration/manifest — the machine-readable capability manifest.
 // Consumed by `hone sync --node <url>`.
@@ -1391,7 +1396,7 @@ async fn get_integration_manifest_md() -> impl IntoResponse {
 fn render_manifest_markdown(json: &str) -> String {
     let v: serde_json::Value = match serde_json::from_str(json) {
         Ok(v) => v,
-        Err(e) => return format!("# HoneMesh Integration Manifest\n\n_manifest unavailable: {e}_\n"),
+        Err(e) => return format!("# HONE Integration Manifest\n\n_manifest unavailable: {e}_\n"),
     };
     let ver = v["hone_version"].as_str().unwrap_or("unknown");
     let chain = v["chain_id"].as_str().unwrap_or("unknown");
@@ -1410,9 +1415,9 @@ fn render_manifest_markdown(json: &str) -> String {
     submittable.sort();
 
     let mut s = String::new();
-    s.push_str("# HoneMesh Integration Manifest\n\n");
+    s.push_str("# HONE Integration Manifest\n\n");
     s.push_str(&format!(
-        "- **HoneMesh version:** {ver}\n- **Chain:** {chain}\n- **Surface hash:** `{hash}`\n\
+        "- **HONE version:** {ver}\n- **Chain:** {chain}\n- **Surface hash:** `{hash}`\n\
          - **Surface size:** {entries} entries, {routes} routes\n- **Submittable entries:** {}\n\n\
          Machine-readable: `GET /api/integration/manifest`. \
          Sync a consumer repo: `hone sync --node <this node>`.\n\n",
@@ -1570,7 +1575,7 @@ async fn post_bootstrap_peer(
 //
 // Accepts three wire formats to eliminate f64 precision loss on large amounts:
 //   integer  → treated as hunits directly          e.g. 15_000_000_000
-//   float    → HoneMesh × HUNITS_PER_HONE, rounded   e.g. 1.5   (only safe < ~900k HoneMesh)
+//   float    → HONE × HUNITS_PER_HONE, rounded   e.g. 1.5   (only safe < ~900k HONE)
 //   string   → decimal HONE, integer arithmetic   e.g. "1.5" (always safe)
 //
 // String form is preferred for any amount that might exceed 900_000 HONE.
@@ -1588,7 +1593,7 @@ where
         type Value = u64;
 
         fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
-            f.write_str("a numeric amount (HoneMesh as float/string, or hunits as integer)")
+            f.write_str("a numeric amount (HONE as float/string, or hunits as integer)")
         }
 
         fn visit_u64<E: de::Error>(self, v: u64) -> Result<u64, E> {
@@ -1650,7 +1655,7 @@ fn parse_hone_str(s: &str) -> Result<u64, ()> {
 struct TransferBody {
     from: String,
     to: String,
-    /// Amount: HoneMesh as float/string, or hunits as integer.
+    /// Amount: HONE as float/string, or hunits as integer.
     #[serde(deserialize_with = "deserialize_amount_hunits")]
     amount: u64,
     #[serde(default = "default_token")]
@@ -1665,7 +1670,7 @@ struct TransferBody {
 #[derive(Debug, Deserialize)]
 struct StakeBody {
     account: String,
-    /// Amount: HoneMesh as float/string, or hunits as integer.
+    /// Amount: HONE as float/string, or hunits as integer.
     #[serde(deserialize_with = "deserialize_amount_hunits")]
     amount: u64,
     nonce: u64,
@@ -1677,7 +1682,7 @@ struct StakeBody {
 #[derive(Debug, Deserialize)]
 struct UnstakeBody {
     account: String,
-    /// Amount: HoneMesh as float/string, or hunits as integer.
+    /// Amount: HONE as float/string, or hunits as integer.
     #[serde(deserialize_with = "deserialize_amount_hunits")]
     amount: u64,
     nonce: u64,
@@ -2550,7 +2555,7 @@ struct FaucetClaimBody {
     account: String,
 }
 
-/// POST /api/faucet/claim — issues testnet HoneMesh to a zero-balance account.
+/// POST /api/faucet/claim — issues testnet HONE to a zero-balance account.
 /// Guards: testnet-only, IP rate limit (3/day), account must exist and be ≥120 epochs old,
 /// wallet balance must be zero, per-account cooldown (720 epochs / ~6 hours).
 async fn post_faucet_claim(
@@ -2560,7 +2565,7 @@ async fn post_faucet_claim(
 ) -> (StatusCode, Json<serde_json::Value>) {
     if s.chain.chain_id != TESTNET_CHAIN_ID {
         return (StatusCode::FORBIDDEN, Json(serde_json::json!({
-            "error": "Faucet not available on mainnet. Earn HoneMesh by mining, running sensors, or storing data.",
+            "error": "Faucet not available on mainnet. Earn HONE by mining, running sensors, or storing data.",
         })));
     }
 
@@ -2579,7 +2584,7 @@ async fn post_faucet_claim(
             *entry = (1, now);
         } else if entry.0 >= FAUCET_IP_MAX_PER_DAY {
             return (StatusCode::TOO_MANY_REQUESTS, Json(serde_json::json!({
-                "error": format!("Too many faucet claims from this IP ({}/day max). Earn HoneMesh by mining, running sensors, or storing data.", FAUCET_IP_MAX_PER_DAY),
+                "error": format!("Too many faucet claims from this IP ({}/day max). Earn HONE by mining, running sensors, or storing data.", FAUCET_IP_MAX_PER_DAY),
             })));
         } else {
             entry.0 += 1;
@@ -2660,7 +2665,7 @@ async fn post_faucet_claim(
             "amount_hone": faucet_amount_hone(current_epoch),
             "amount_hunits": amount,
             "message": format!(
-                "Welcome to HoneMesh — {:.4} HONE sent to {}. Earn more by mining, running sensors, or storing data.",
+                "Welcome to HONE — {:.4} HONE sent to {}. Earn more by mining, running sensors, or storing data.",
                 faucet_amount_hone(current_epoch), account
             ),
         }))),
@@ -3848,14 +3853,14 @@ async fn post_pr_close(
 // ── POST /public/agent-chat ───────────────────────────────────────────────────
 
 const AGENT_SYSTEM_PROMPT: &str = "\
-You are the HoneMesh setup assistant on honemesh.net. HONE is a sovereign blockchain where \
+You are the HONE setup assistant on honemesh.net. HONE is a sovereign blockchain where \
 miners earn by running AI tasks via Ollama — no gatekeepers, no cloud.\n\n\
 Keep every reply under 3 sentences. Be direct and actionable. Give exact commands when asked.\n\n\
 Platform setup:\n\
 - Windows: download start-windows.bat from honemesh.net, double-click it. Handles Ollama binding and Docker automatically.\n\
 - Linux / Ubuntu / WSL: download start.sh from honemesh.net, run: bash start.sh\n\
 - Docker only (advanced): set OLLAMA_URL=http://host.docker.internal:11434 in .env, then: docker compose up -d\n\
-- Android: install the HoneMesh app from honemesh.net/android\n\n\
+- Android: install the HONE app from honemesh.net/android\n\n\
 Requirements: Docker Desktop (Windows/Mac) or Docker Engine (Linux), plus Ollama on the host.\n\
 Recommended first model: qwen3:4b (run: ollama pull qwen3:4b)\n\n\
 Mining starts automatically once the node is running and a model is loaded.\n\
@@ -4744,7 +4749,7 @@ static MAP_HTML: &str = r#"<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
-<title>HoneMesh Tracker Route</title>
+<title>HONE Tracker Route</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -4768,7 +4773,7 @@ static MAP_HTML: &str = r#"<!DOCTYPE html>
 </head>
 <body>
 <div id="header">
-  <h1>⬡ HoneMesh Tracker</h1>
+  <h1>⬡ HONE Tracker</h1>
   <input id="sc"      placeholder="serial_commitment" size="20">
   <input id="account" placeholder="account" size="14">
   <input id="sig"     placeholder="posting key (hex)" size="20" type="password">
@@ -4788,7 +4793,7 @@ static MAP_HTML: &str = r#"<!DOCTYPE html>
 <script>
 const map = L.map('map').setView([20, 0], 2);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-  attribution: '&copy; HoneMesh | &copy; CartoDB', maxZoom: 19
+  attribution: '&copy; HONE | &copy; CartoDB', maxZoom: 19
 }).addTo(map);
 
 let allWaypoints = [];
@@ -4833,7 +4838,7 @@ function renderRoute(wps) {
   }).filter(p => p.lat !== null && p.lon !== null);
 
   if (pts.length === 0) {
-    statusMsg('Route loaded — CID decryption needed for GPS coords. Use honemesh-cli tracker decrypt.');
+    statusMsg('Route loaded — CID decryption needed for GPS coords. Use hone-cli tracker decrypt.');
     return;
   }
 
@@ -4869,7 +4874,7 @@ function scrub(val) {
 // ── Node install: personalized one-liner ─────────────────────────────────────
 
 static INSTALL_SCRIPT_TEMPLATE: &str = r#"#!/usr/bin/env bash
-# HoneMesh node installer for account: __ACCOUNT__
+# HONE node installer for account: __ACCOUNT__
 # Generated by honemesh.net — runs on Linux x86_64 or aarch64
 set -euo pipefail
 
@@ -4886,15 +4891,15 @@ else
   # Fall back: connect via WebSocket relay (works behind any NAT/firewall)
   BOOTSTRAP="/dns4/p2p.honemesh.net/tcp/443/wss"
 fi
-DATA_DIR="$HOME/.honemesh"
+DATA_DIR="$HOME/.hone"
 ENV_FILE="$DATA_DIR/node.env"
-BIN=/usr/local/bin/honemesh-node
+BIN=/usr/local/bin/hone-node
 BASE_URL="https://honemesh.net/download"
 
 ARCH=$(uname -m)
 case "$ARCH" in
-  x86_64)  ASSET="honemesh-node-x86_64-linux" ;;
-  aarch64) ASSET="honemesh-node-aarch64-linux" ;;
+  x86_64)  ASSET="hone-node-x86_64-linux" ;;
+  aarch64) ASSET="hone-node-aarch64-linux" ;;
   *)       echo "Unsupported architecture: $ARCH"; exit 1 ;;
 esac
 
@@ -4906,7 +4911,7 @@ fi
 
 echo ""
 echo "  ╔══════════════════════════════════════════════╗"
-echo "  ║          HoneMesh Node Installer                ║"
+echo "  ║          HONE Node Installer                ║"
 echo "  ║          Account: __ACCOUNT__                ║"
 if $IS_WSL; then
 echo "  ║          Platform: Windows / WSL             ║"
@@ -4951,11 +4956,11 @@ fi
 # or from a CI/agent context stdin is a pipe, so we skip prompts entirely.
 ACCOUNT_PUBKEY=""
 if [ -t 0 ]; then
-    read -r -p "  Do you have an existing HoneMesh posting public key? [y/N]: " HAS_ACCOUNT
+    read -r -p "  Do you have an existing HONE posting public key? [y/N]: " HAS_ACCOUNT
     echo ""
 
     if [[ "${HAS_ACCOUNT,,}" == y* ]]; then
-        echo "  Enter your HoneMesh account posting public key (64-char hex)."
+        echo "  Enter your HONE account posting public key (64-char hex)."
         echo "  PUBLIC key only — never enter your private key or mnemonic here."
         echo ""
         read -r -p "  Posting public key: " ACCOUNT_PUBKEY
@@ -4984,7 +4989,7 @@ fi
 
 # ── 1. Download binary ────────────────────────────────────────────────────────
 echo ""
-echo "  ==> Downloading honemesh-node ($ARCH)..."
+echo "  ==> Downloading hone-node ($ARCH)..."
 TMP=$(mktemp)
 curl -fsSL --progress-bar "$BASE_URL/$ASSET" -o "$TMP"
 chmod +x "$TMP"
@@ -4992,7 +4997,7 @@ chmod +x "$TMP"
 file "$TMP" 2>/dev/null | grep -q ELF || { echo "Download failed — not an ELF binary"; rm -f "$TMP"; exit 1; }
 sudo install -m 755 "$TMP" "$BIN"
 rm -f "$TMP"
-echo "  ==> Installed: $($BIN --version 2>/dev/null || echo honemesh-node)"
+echo "  ==> Installed: $($BIN --version 2>/dev/null || echo hone-node)"
 
 # ── 2. Create data dir and env file ──────────────────────────────────────────
 mkdir -p "$DATA_DIR"
@@ -5020,17 +5025,17 @@ chmod 600 "$ENV_FILE"
 mkdir -p "$HOME/.config/systemd/user"
 
 # Stop existing service if running
-systemctl --user stop honemesh-node 2>/dev/null || true
+systemctl --user stop hone-node 2>/dev/null || true
 
-cat > "$HOME/.config/systemd/user/honemesh-node.service" << SERVICE
+cat > "$HOME/.config/systemd/user/hone-node.service" << SERVICE
 [Unit]
-Description=HoneMesh Node (__ACCOUNT__)
+Description=HONE Node (__ACCOUNT__)
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/honemesh-node
+ExecStart=/usr/local/bin/hone-node
 EnvironmentFile=$DATA_DIR/node.env
 Environment="HONE_DATA_DIR=$DATA_DIR"
 Restart=on-failure
@@ -5044,7 +5049,7 @@ SERVICE
 
 # ── 4. Enable and start ───────────────────────────────────────────────────────
 systemctl --user daemon-reload
-systemctl --user enable --now honemesh-node
+systemctl --user enable --now hone-node
 loginctl enable-linger "$USER" 2>/dev/null || true
 
 # ── 5. Wait for node to come up ──────────────────────────────────────────────
@@ -5067,12 +5072,12 @@ if [ $STARTED -eq 1 ]; then
     EPOCH=$(echo "$LATEST" | grep -o '"epoch":[0-9]*' | grep -o '[0-9]*' || echo "?")
     echo ""
     echo "  ╔══════════════════════════════════════════════╗"
-    echo "  ║  ✓  HoneMesh node is running!                  ║"
+    echo "  ║  ✓  HONE node is running!                  ║"
     echo "  ║                                              ║"
     echo "  ║  Account : __ACCOUNT__                      ║"
     echo "  ║  Epoch   : $EPOCH"
     echo "  ║  API     : http://localhost:4242             ║"
-    echo "  ║  Logs    : journalctl --user -u honemesh-node -f ║"
+    echo "  ║  Logs    : journalctl --user -u hone-node -f ║"
     echo "  ╚══════════════════════════════════════════════╝"
     echo ""
     if $IS_WSL; then
@@ -5082,13 +5087,13 @@ if [ $STARTED -eq 1 ]; then
     echo ""
     WSL_IP=$(hostname -I | awk '{print $1}')
     echo "    netsh interface portproxy add v4tov4 listenport=6942 listenaddress=0.0.0.0 connectport=6942 connectaddress=$WSL_IP"
-    echo "    netsh advfirewall firewall add rule name=\"HoneMesh P2P\" dir=in action=allow protocol=TCP localport=6942"
+    echo "    netsh advfirewall firewall add rule name=\"HONE P2P\" dir=in action=allow protocol=TCP localport=6942"
     echo ""
     echo "  (Optional — only needed if you want other nodes to connect TO you)"
     fi
 else
     echo "  ⚠  Node did not start in time. Check logs:"
-    echo "     journalctl --user -u honemesh-node -n 50"
+    echo "     journalctl --user -u hone-node -n 50"
     if $IS_WSL; then
     echo ""
     echo "  WSL tip: if 'systemctl' gives 'System has not been booted with systemd',"
@@ -5128,7 +5133,7 @@ async fn get_install_script(
 
 /// GET /agent/:account — plain-text install instructions for AI agents / CI / automation
 ///
-/// Explains what HoneMesh is, why the bash script is safe, and gives exact OS-specific commands.
+/// Explains what HONE is, why the bash script is safe, and gives exact OS-specific commands.
 /// Returns text/plain so any LLM or shell can consume it without HTML parsing.
 async fn get_agent_instructions(
     Path(account): Path<String>,
@@ -5148,7 +5153,7 @@ async fn get_agent_instructions(
         );
     }
 
-    let instructions = format!(r#"HoneMesh Node — Install Instructions for Account: {account}
+    let instructions = format!(r#"HONE Node — Install Instructions for Account: {account}
 ======================================================
 
 YOUR ONLY JOB RIGHT NOW: run the correct install command below for this machine.
@@ -5189,8 +5194,8 @@ script that downloads and installs a single binary. You can read it first:
   curl -sL https://honemesh.net/install/{account}
 
 It does exactly four things:
-  1. Downloads the honemesh-node binary (a single ~30 MB statically-linked file)
-  2. Creates ~/.honemesh/node.env with your account name and settings (chmod 600)
+  1. Downloads the hone-node binary (a single ~30 MB statically-linked file)
+  2. Creates ~/.hone/node.env with your account name and settings (chmod 600)
   3. Installs a systemd user service so the node starts automatically
   4. Starts the node
 
@@ -5199,15 +5204,15 @@ It does NOT phone home or send telemetry.
 The node runs entirely on your machine — no cloud dependency.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-WHAT IS HoneMesh?
+WHAT IS HONE?
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-HoneMesh is a blockchain where mining means doing real work — running AI jobs,
+HONE is a blockchain where mining means doing real work — running AI jobs,
 hosting files, providing sensor data — rather than wasting electricity on
-meaningless hash calculations. You earn HoneMesh tokens for useful computation.
+meaningless hash calculations. You earn HONE tokens for useful computation.
 
 One mnemonic (12 words), twelve chains. On first start the node generates a
-wallet that covers HoneMesh, Bitcoin, Ethereum and every major chain from one
+wallet that covers HONE, Bitcoin, Ethereum and every major chain from one
 seed phrase. All public keys are registered on-chain under your account name.
 
 The mnemonic is printed once on first start. Write it down — it is never sent
@@ -5217,9 +5222,9 @@ anywhere and is not stored in a recoverable form outside your machine.
 COMMON COMMANDS AFTER INSTALL
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  journalctl --user -u honemesh-node -f        # live logs
-  systemctl --user restart honemesh-node       # restart
-  systemctl --user stop honemesh-node          # stop
+  journalctl --user -u hone-node -f        # live logs
+  systemctl --user restart hone-node       # restart
+  systemctl --user stop hone-node          # stop
   curl http://localhost:4242/api/latest     # current epoch and block hash
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -5253,7 +5258,7 @@ static SETUP_HTML: &str = r#"<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Get started with HoneMesh</title>
+<title>Get started with HONE</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -5313,13 +5318,13 @@ input[type=text].err { border-color: #ef4444; }
 
   <!-- Screen 0: hero / choose path -->
   <div class="screen active" id="s0">
-    <h1>Get started with HoneMesh</h1>
+    <h1>Get started with HONE</h1>
     <p class="sub">Sovereign blockchain for compute and commerce. Run a node in under 2 minutes.</p>
     <div class="split">
       <div class="card-opt" onclick="go('new')">
         <div class="opt-icon">&#x1F511;</div>
         <div class="opt-title">Create wallet</div>
-        <div class="opt-desc">New to HoneMesh — generate a seed phrase and get your account</div>
+        <div class="opt-desc">New to HONE — generate a seed phrase and get your account</div>
       </div>
       <div class="card-opt" onclick="go('existing')">
         <div class="opt-icon">&#x26A1;</div>
@@ -5333,7 +5338,7 @@ input[type=text].err { border-color: #ef4444; }
   <div class="screen" id="s-existing">
     <div class="step-bar"><div class="step-dot active"></div><div class="step-dot"></div><div class="step-dot"></div></div>
     <h1>Get your installer</h1>
-    <p class="sub">Enter your HoneMesh account name, then choose your device.</p>
+    <p class="sub">Enter your HONE account name, then choose your device.</p>
     <label for="ex-name">Account name</label>
     <input id="ex-name" type="text" placeholder="natoshisakamoto" maxlength="32">
     <p style="font-size:0.82rem;color:#888;margin:18px 0 8px;text-transform:uppercase;letter-spacing:0.03em;">What device are you installing on?</p>
@@ -5351,7 +5356,7 @@ input[type=text].err { border-color: #ef4444; }
       <div class="card-opt" onclick="pickDevice('existing','android')" style="min-width:120px;">
         <div class="opt-icon">&#x1F4F1;</div>
         <div class="opt-title">Android</div>
-        <div class="opt-desc">Download the HoneMesh app (APK)</div>
+        <div class="opt-desc">Download the HONE app (APK)</div>
       </div>
       <div class="card-opt" onclick="openAgentChat()" style="min-width:120px;">
         <div class="opt-icon">&#x1F916;</div>
@@ -5390,7 +5395,7 @@ input[type=text].err { border-color: #ef4444; }
       <div class="card-opt" id="new-dev-android" onclick="selectNewDevice('android')" style="min-width:120px;">
         <div class="opt-icon">&#x1F4F1;</div>
         <div class="opt-title">Android</div>
-        <div class="opt-desc">Download the HoneMesh app (APK)</div>
+        <div class="opt-desc">Download the HONE app (APK)</div>
       </div>
       <div class="card-opt" onclick="openAgentChat()" style="min-width:120px;">
         <div class="opt-icon">&#x1F916;</div>
@@ -5406,7 +5411,7 @@ input[type=text].err { border-color: #ef4444; }
   <div class="screen" id="s-mnemonic">
     <div class="step-bar"><div class="step-dot done"></div><div class="step-dot active"></div><div class="step-dot"></div><div class="step-dot"></div></div>
     <h1>Your seed phrase</h1>
-    <p class="sub">This 12-word phrase is the master key to all your wallets (HoneMesh, BTC, ETH). Write it on paper. Never type it online.</p>
+    <p class="sub">This 12-word phrase is the master key to all your wallets (HONE, BTC, ETH). Write it on paper. Never type it online.</p>
     <div class="words-grid" id="words-grid"></div>
     <div class="warn-box">&#x26A0;&#xFE0F; Anyone with these words controls your funds. Store them offline, never in a photo or cloud app.</div>
     <label class="check-row" for="saved-check">
@@ -5437,8 +5442,8 @@ input[type=text].err { border-color: #ef4444; }
       <p style="font-size:0.78rem;color:#555;margin-top:10px;">Need the install script again later? <code style="color:#888;">curl honemesh.net/install/<span id="done-acct-inline"></span> | bash</code></p>
     </div>
     <div id="done-install-android" style="display:none;margin-top:18px;">
-      <p style="font-size:0.85rem;color:#888;">Download the HoneMesh Android app:</p>
-      <a id="done-apk-link" href="/download/honemesh-android.apk" class="btn" style="display:block;text-align:center;text-decoration:none;margin-top:8px;">Download HoneMesh Android APK</a>
+      <p style="font-size:0.85rem;color:#888;">Download the HONE Android app:</p>
+      <a id="done-apk-link" href="/download/hone-android.apk" class="btn" style="display:block;text-align:center;text-decoration:none;margin-top:8px;">Download HONE Android APK</a>
     </div>
   </div>
 
@@ -5480,7 +5485,7 @@ window.back = function() { showScreen('s0'); };
 
 // ── Agent chat helper ──────────────────────────────────────────────────────────
 window.openAgentChat = function() {
-  const msg = encodeURIComponent('I need help installing HoneMesh on my device');
+  const msg = encodeURIComponent('I need help installing HONE on my device');
   window.location.href = `/public/agent-chat?q=${msg}`;
 };
 
@@ -5503,8 +5508,8 @@ window.pickDevice = function(flow, dev) {
   const cmdEl = document.getElementById('ex-cmd');
   const res   = document.getElementById('ex-result');
   if (dev === 'android') {
-    label.textContent = 'Download the HoneMesh Android app:';
-    cmdEl.innerHTML = `<a href="/download/honemesh-android.apk" style="color:#f59e0b;">Download honemesh-android.apk</a>`;
+    label.textContent = 'Download the HONE Android app:';
+    cmdEl.innerHTML = `<a href="/download/hone-android.apk" style="color:#f59e0b;">Download hone-android.apk</a>`;
   } else {
     label.textContent = 'Run this on your machine:';
     cmdEl.textContent = `curl -fsSL honemesh.net/install/${acct} | bash`;
@@ -5578,7 +5583,7 @@ window.goCreate = async function() {
     // ETH address from keccak256 of uncompressed pubkey (last 20 bytes)
     const ethAddr = await deriveEthAddress(ethKey.publicKey);
 
-    // HoneMesh key: m/44'/12345'/0'/0'/0' (hardened for ed25519 SLIP10)
+    // HONE key: m/44'/12345'/0'/0'/0' (hardened for ed25519 SLIP10)
     // We derive a secp256k1 key from this path and record it as the hone posting key
     // (ed25519 migration happens on-node from seed phrase in a future CLI update)
     const honeKey = root.derive("m/44'/12345'/0'/0'/0'");
@@ -5609,7 +5614,7 @@ window.goCreate = async function() {
 
     const keyGrid = document.getElementById('done-keys');
     keyGrid.innerHTML = `
-      <span class="key-label">HoneMesh</span><span class="key-val">${honePubHex}</span>
+      <span class="key-label">HONE</span><span class="key-val">${honePubHex}</span>
       <span class="key-label">BTC</span><span class="key-val">${btcPubHex}</span>
       <span class="key-label">ETH</span><span class="key-val">${ethAddr}</span>
     `;
@@ -5897,7 +5902,7 @@ async fn post_clock_register(
     State(s): State<AppState>,
     Json(body): Json<ClockRegisterBody>,
 ) -> (StatusCode, Json<serde_json::Value>) {
-    let entry = honemesh_types::LedgerEntry::ClockNodeRegister {
+    let entry = hone_types::LedgerEntry::ClockNodeRegister {
         node_id: body.node_id,
         stake:   body.stake,
         epoch:   body.epoch,
@@ -5938,7 +5943,7 @@ async fn post_clock_self_register(
         .and_then(|Json(v)| v.get("stake").and_then(|s| s.as_u64()))
         .unwrap_or(min_stake);
 
-    let entry = honemesh_types::LedgerEntry::ClockNodeRegister {
+    let entry = hone_types::LedgerEntry::ClockNodeRegister {
         node_id:   account.clone(),
         stake,
         epoch,
@@ -6262,7 +6267,7 @@ async fn get_download_file(
     let data_dir = std::env::var("HONE_DATA_DIR")
         .unwrap_or_else(|_| {
             format!(
-                "{}/.honemesh",
+                "{}/.hone",
                 std::env::var("HOME").unwrap_or_default()
             )
         });
@@ -6397,7 +6402,7 @@ async fn post_node_role_opt_in(
     State(s): State<AppState>,
     Json(b): Json<NodeRoleOptInBody>,
 ) -> (StatusCode, Json<serde_json::Value>) {
-    let entry = honemesh_types::LedgerEntry::NodeRoleOptIn {
+    let entry = hone_types::LedgerEntry::NodeRoleOptIn {
         node: b.node,
         role: b.role,
         backer_share_bps: b.backer_share_bps,
@@ -6418,7 +6423,7 @@ async fn post_node_role_opt_out(
     State(s): State<AppState>,
     Json(b): Json<NodeRoleOptOutBody>,
 ) -> (StatusCode, Json<serde_json::Value>) {
-    let entry = honemesh_types::LedgerEntry::NodeRoleOptOut {
+    let entry = hone_types::LedgerEntry::NodeRoleOptOut {
         node: b.node,
         role: b.role,
         epoch: b.epoch,
@@ -6463,7 +6468,7 @@ async fn post_testnet_register(
     State(s): State<AppState>,
     Json(b): Json<TestnetRegisterBody>,
 ) -> (StatusCode, Json<serde_json::Value>) {
-    let entry = honemesh_types::LedgerEntry::TestnetOperatorRegister {
+    let entry = hone_types::LedgerEntry::TestnetOperatorRegister {
         mainnet_account: b.mainnet_account,
         testnet_node_id: b.testnet_node_id,
         testnet_chain_id: b.testnet_chain_id,
@@ -6482,7 +6487,7 @@ async fn post_testnet_deregister(
     State(s): State<AppState>,
     Json(b): Json<TestnetDeregisterBody>,
 ) -> (StatusCode, Json<serde_json::Value>) {
-    let entry = honemesh_types::LedgerEntry::TestnetOperatorDeregister {
+    let entry = hone_types::LedgerEntry::TestnetOperatorDeregister {
         mainnet_account: b.mainnet_account,
         testnet_chain_id: b.testnet_chain_id,
         epoch: b.epoch,
@@ -6527,7 +6532,7 @@ async fn post_testnet_toggle(
     let chain_id = s.chain.chain_id.clone();
 
     let entry = if enabled {
-        honemesh_types::LedgerEntry::TestnetOperatorRegister {
+        hone_types::LedgerEntry::TestnetOperatorRegister {
             mainnet_account: account.clone(),
             testnet_node_id: account.clone(),
             testnet_chain_id: "hone-testnet".to_string(),
@@ -6535,7 +6540,7 @@ async fn post_testnet_toggle(
             signed_by: account.clone(),
         }
     } else {
-        honemesh_types::LedgerEntry::TestnetOperatorDeregister {
+        hone_types::LedgerEntry::TestnetOperatorDeregister {
             mainnet_account: account.clone(),
             testnet_chain_id: "hone-testnet".to_string(),
             epoch,
@@ -6566,7 +6571,7 @@ async fn post_node_role_stake(
     State(s): State<AppState>,
     Json(b): Json<NodeRoleStakeBody>,
 ) -> (StatusCode, Json<serde_json::Value>) {
-    let entry = honemesh_types::LedgerEntry::NodeRoleStake {
+    let entry = hone_types::LedgerEntry::NodeRoleStake {
         node: b.node,
         role: b.role,
         staker: b.staker,
@@ -6587,7 +6592,7 @@ async fn post_node_role_unstake(
     State(s): State<AppState>,
     Json(b): Json<NodeRoleStakeBody>,
 ) -> (StatusCode, Json<serde_json::Value>) {
-    let entry = honemesh_types::LedgerEntry::NodeRoleUnstake {
+    let entry = hone_types::LedgerEntry::NodeRoleUnstake {
         node: b.node,
         role: b.role,
         staker: b.staker,
@@ -6658,7 +6663,7 @@ async fn get_node_role_stakes_by_role(
         "node": node,
         "role": role,
         "total_hunits": total,
-        "total_hone": total as f64 / honemesh_types::HUNITS_PER_HONE as f64,
+        "total_hone": total as f64 / hone_types::HUNITS_PER_HONE as f64,
         "backers": entries,
     }))
 }
@@ -7495,8 +7500,8 @@ fn git_auth(headers: &HeaderMap) -> Option<String> {
         .map(|s| s.trim().to_owned())
 }
 
-/// Resolve the HoneMesh account for `owner`: if it looks like an ENS name (contains '.')
-/// resolve it via ENS → HoneMesh; otherwise use it as-is.
+/// Resolve the HONE account for `owner`: if it looks like an ENS name (contains '.')
+/// resolve it via ENS → HONE; otherwise use it as-is.
 async fn resolve_owner(s: &AppState, owner: &str) -> String {
     if crate::ens::is_ens_name(owner) {
         crate::ens::hone_account_for_ens(&s.chain, owner).await
@@ -7651,7 +7656,7 @@ async fn git_receive_pack(
 // ── ENS identity handlers ─────────────────────────────────────────────────────
 
 /// GET /api/ens/resolve/:name
-/// Resolve an ENS name to its ETH address and linked HoneMesh account.
+/// Resolve an ENS name to its ETH address and linked HONE account.
 async fn get_ens_resolve(
     State(s): State<AppState>,
     Path(name): Path<String>,
@@ -7682,7 +7687,7 @@ async fn get_ens_repos(
             "ens_name": name,
             "hone_account": null,
             "repos": [],
-            "error": "ENS name not linked to a HoneMesh account",
+            "error": "ENS name not linked to a HONE account",
         }));
     };
     let repos: Vec<serde_json::Value> = s.chain.store.state_scan_prefix("linkgit:repo:")
@@ -7759,7 +7764,7 @@ async fn post_v1_chat_completions(
     }
 
     // ── Auth + payment gate ───────────────────────────────────────────────────
-    // Caller must present a funded HoneMesh account. Fee is debited before inference runs.
+    // Caller must present a funded HONE account. Fee is debited before inference runs.
     let caller = {
         let auth = headers
             .get("authorization")
@@ -7805,7 +7810,7 @@ async fn post_v1_chat_completions(
             }
         };
         {
-            let balance = s.chain.store.get_balance(&account, honemesh_types::NATIVE_TOKEN);
+            let balance = s.chain.store.get_balance(&account, hone_types::NATIVE_TOKEN);
             if balance < MIN_INFERENCE_FEE_HUNITS {
                 return (StatusCode::PAYMENT_REQUIRED, Json(serde_json::json!({
                     "error": {
@@ -7893,11 +7898,11 @@ async fn post_v1_chat_completions(
                             let completion_tokens = v["eval_count"].as_u64().unwrap_or(0);
                             let total_tokens = prompt_tokens + completion_tokens;
                             let fee = (total_tokens * HUNITS_PER_TOKEN).max(MIN_INFERENCE_FEE_HUNITS);
-                            let balance = s_stream.chain.store.get_balance(&caller_stream, honemesh_types::NATIVE_TOKEN);
+                            let balance = s_stream.chain.store.get_balance(&caller_stream, hone_types::NATIVE_TOKEN);
                             let actual_fee = fee.min(balance);
                             if actual_fee > 0 {
-                                let _ = s_stream.chain.store.debit(&caller_stream, honemesh_types::NATIVE_TOKEN, actual_fee);
-                                let _ = s_stream.chain.store.credit(s_stream.node_account.as_str(), honemesh_types::NATIVE_TOKEN, actual_fee);
+                                let _ = s_stream.chain.store.debit(&caller_stream, hone_types::NATIVE_TOKEN, actual_fee);
+                                let _ = s_stream.chain.store.credit(s_stream.node_account.as_str(), hone_types::NATIVE_TOKEN, actual_fee);
                             }
                             let _ = tx.send(Ok(Event::default().data("[DONE]"))).await;
                             return;
@@ -7925,11 +7930,11 @@ async fn post_v1_chat_completions(
                 let completion_tokens = v["eval_count"].as_u64().unwrap_or(0);
                 let total_tokens = prompt_tokens + completion_tokens;
                 let fee = (total_tokens * HUNITS_PER_TOKEN).max(MIN_INFERENCE_FEE_HUNITS);
-                let balance = s.chain.store.get_balance(&caller, honemesh_types::NATIVE_TOKEN);
+                let balance = s.chain.store.get_balance(&caller, hone_types::NATIVE_TOKEN);
                 let actual_fee = fee.min(balance);
                 if actual_fee > 0 {
-                    let _ = s.chain.store.debit(&caller, honemesh_types::NATIVE_TOKEN, actual_fee);
-                    let _ = s.chain.store.credit(s.node_account.as_str(), honemesh_types::NATIVE_TOKEN, actual_fee);
+                    let _ = s.chain.store.debit(&caller, hone_types::NATIVE_TOKEN, actual_fee);
+                    let _ = s.chain.store.credit(s.node_account.as_str(), hone_types::NATIVE_TOKEN, actual_fee);
                 }
                 let completion = serde_json::json!({
                     "id": chat_id,
@@ -8005,7 +8010,7 @@ async fn get_v1_pricing(State(s): State<AppState>) -> Json<serde_json::Value> {
             "price_per_1k_tokens_hone": (HUNITS_PER_TOKEN * 1000) as f64 / 100_000_000.0,
             "active_model": active_model
         },
-        "note": "Fee debited from your HoneMesh balance per request. Set Authorization: Bearer <account>."
+        "note": "Fee debited from your HONE balance per request. Set Authorization: Bearer <account>."
     }))
 }
 
@@ -8265,7 +8270,7 @@ async fn post_phone_mine_submit(
         .and_then(|b| serde_json::from_slice::<u64>(&b).ok())
         .unwrap_or(0);
 
-    let entry = honemesh_types::LedgerEntry::PhoneMineSubmit {
+    let entry = hone_types::LedgerEntry::PhoneMineSubmit {
         account:     body.account.clone(),
         nonce,
         device_id:   body.device_id.clone(),
@@ -8311,7 +8316,7 @@ async fn get_fee_estimate(State(s): State<AppState>) -> Json<serde_json::Value> 
     let base_fee: u64 = s.chain.store.state_get("chain_param:base_fee")
         .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
         .and_then(|j| j["fee"].as_u64())
-        .unwrap_or(honemesh_types::BASE_FEE_INITIAL_HUNITS);
+        .unwrap_or(hone_types::BASE_FEE_INITIAL_HUNITS);
     let suggested_priority = base_fee / 10; // 10% tip suggestion
     Json(serde_json::json!({
         "base_fee": base_fee,
@@ -8326,8 +8331,8 @@ async fn get_mempool_status(State(s): State<AppState>) -> Json<serde_json::Value
     let base_fee: u64 = s.chain.store.state_get("chain_param:base_fee")
         .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
         .and_then(|j| j["fee"].as_u64())
-        .unwrap_or(honemesh_types::BASE_FEE_INITIAL_HUNITS);
-    let target = honemesh_types::EPOCH_TARGET_WEIGHT_UNITS;
+        .unwrap_or(hone_types::BASE_FEE_INITIAL_HUNITS);
+    let target = hone_types::EPOCH_TARGET_WEIGHT_UNITS;
     let congestion_pct = (pending as u64 * 100).min(target * 2) / target.max(1);
     Json(serde_json::json!({
         "pending_count": pending,
@@ -8357,7 +8362,7 @@ async fn get_node_health_detailed(State(s): State<AppState>) -> Json<serde_json:
         "last_seal_epoch": s.chain.current_epoch(),
         "alerts": alerts,
         "healer": healer_event,
-        "healthy": epoch_lag_ms < honemesh_types::EPOCH_MS * 2 && peer_count > 0,
+        "healthy": epoch_lag_ms < hone_types::EPOCH_MS * 2 && peer_count > 0,
     }))
 }
 
@@ -8386,7 +8391,7 @@ async fn post_ensemble_job(
         .and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or(0);
     let epoch = s.chain.current_epoch();
     let model = body.model.unwrap_or_else(|| s.current_model.try_read().map(|m| m.clone()).unwrap_or_default());
-    let entry = honemesh_types::LedgerEntry::EnsembleJobPost {
+    let entry = hone_types::LedgerEntry::EnsembleJobPost {
         job_id: job_id.clone(), requester: body.requester.clone(), model,
         input_hash: body.input_hash, max_fee: body.max_fee, n_workers: body.n_workers,
         epoch, nonce, signed_by: body.requester.clone(), signature: body.signature.clone(),
@@ -8412,7 +8417,7 @@ async fn post_ensemble_vote(
     let nonce: u64 = s.chain.store.state_get(&format!("nonce:{}", body.worker))
         .and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or(0);
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::EnsembleVote {
+    let entry = hone_types::LedgerEntry::EnsembleVote {
         job_id: body.job_id.clone(), worker: body.worker.clone(),
         output_hash: body.output_hash, epoch, nonce,
         signed_by: body.worker.clone(), signature: body.signature.clone(),
@@ -8463,7 +8468,7 @@ async fn post_slash_validator(
     let nonce: u64 = s.chain.store.state_get(&format!("nonce:{}", body.reporter))
         .and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or(0);
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::SlashValidator {
+    let entry = hone_types::LedgerEntry::SlashValidator {
         slash_id: slash_id.clone(), reporter: body.reporter.clone(),
         accused: body.accused, violation: body.violation, evidence: body.evidence,
         epoch, nonce, signed_by: body.reporter.clone(), signature: body.signature.clone(),
@@ -8489,7 +8494,7 @@ async fn post_slash_appeal(
     let nonce: u64 = s.chain.store.state_get(&format!("nonce:{}", body.panelist))
         .and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or(0);
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::SlashAppeal {
+    let entry = hone_types::LedgerEntry::SlashAppeal {
         slash_id: body.slash_id.clone(), panelist: body.panelist.clone(),
         overturn: body.overturn, epoch, nonce,
         signed_by: body.panelist.clone(), signature: body.signature.clone(),
@@ -8562,7 +8567,7 @@ async fn post_bridge_fund(
     let nonce: u64 = s.chain.store.state_get(&format!("nonce:{}", body.custodian))
         .and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or(0);
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::BridgeFund {
+    let entry = hone_types::LedgerEntry::BridgeFund {
         bridge_id: body.bridge_id, custodian: body.custodian.clone(),
         amount_hunits: body.amount_hunits, external_tx_hash: body.external_tx_hash,
         chain: body.chain, epoch, nonce,
@@ -8590,7 +8595,7 @@ async fn post_bridge_wrap(
     let nonce: u64 = s.chain.store.state_get(&format!("nonce:{}", body.account))
         .and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or(0);
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::BridgeWrap {
+    let entry = hone_types::LedgerEntry::BridgeWrap {
         account: body.account.clone(), amount_hunits: body.amount_hunits,
         external_address: body.external_address, chain: body.chain,
         epoch, nonce, signed_by: body.account.clone(), signature: body.signature.clone(),
@@ -8617,7 +8622,7 @@ async fn post_bridge_unwrap(
     let nonce: u64 = s.chain.store.state_get(&format!("nonce:{}", body.account))
         .and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or(0);
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::BridgeUnwrap {
+    let entry = hone_types::LedgerEntry::BridgeUnwrap {
         account: body.account.clone(), amount_hunits: body.amount_hunits,
         recipient_external: body.recipient_external, chain: body.chain,
         epoch, nonce, signed_by: body.account.clone(), signature: body.signature.clone(),
@@ -8643,7 +8648,7 @@ async fn post_bridge_unlock(
     let nonce: u64 = s.chain.store.state_get(&format!("nonce:{}", body.custodian))
         .and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or(0);
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::BridgeUnlock {
+    let entry = hone_types::LedgerEntry::BridgeUnlock {
         request_id: body.request_id, custodian: body.custodian.clone(),
         external_tx_hash: body.external_tx_hash, epoch, nonce,
         signed_by: body.custodian.clone(), signature: body.signature.clone(),
@@ -8672,7 +8677,7 @@ async fn get_bridge_queue(State(s): State<AppState>) -> Json<serde_json::Value> 
 /// `wHONE.claim()` on the target EVM chain and mint `amount_hunits * 100` raw
 /// wHONE units (10-decimal token, 1 HONE = 10^10 raw).
 ///
-/// The HoneMesh is burned from the account's on-chain balance via a BridgeWrap entry.
+/// The HONE is burned from the account's on-chain balance via a BridgeWrap entry.
 /// The oracle private key must be set in `HONE_ORACLE_KEY` (32-byte hex).
 #[derive(Deserialize)]
 struct BridgeClaimProofRequest {
@@ -8772,13 +8777,13 @@ async fn post_bridge_claim_proof(
     // Record nonce
     let _ = s.chain.store.state_set(&nonce_key, &serde_json::to_vec(&ts_ns).unwrap());
 
-    // Burn HoneMesh via BridgeWrap
+    // Burn HONE via BridgeWrap
     let tx_nonce: u64 = s.chain.store.get_account(&body.hone_account)
         .ok().flatten()
         .and_then(|st| st.get("nonce").and_then(|v| v.as_u64()))
         .unwrap_or(0);
     let epoch = s.chain.current_epoch();
-    let wrap_entry = honemesh_types::LedgerEntry::BridgeWrap {
+    let wrap_entry = hone_types::LedgerEntry::BridgeWrap {
         account: body.hone_account.clone(),
         amount_hunits: body.amount_hunits,
         external_address: format!("0x{}", hex::encode(&eth_bytes)),
@@ -8825,7 +8830,7 @@ async fn post_memory_set(
     Json(body): Json<MemorySetBody>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::MemorySet {
+    let entry = hone_types::LedgerEntry::MemorySet {
         account: account.clone(),
         key,
         value: body.value,
@@ -8852,7 +8857,7 @@ async fn delete_memory_key(
     Json(body): Json<MemoryDeleteBody>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::MemoryDelete {
+    let entry = hone_types::LedgerEntry::MemoryDelete {
         account: account.clone(),
         key,
         epoch,
@@ -8900,7 +8905,7 @@ async fn post_amber_pill_mint(
     Json(body): Json<AmberPillMintBody>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::AmberPillMint {
+    let entry = hone_types::LedgerEntry::AmberPillMint {
         account: body.account.clone(),
         pill_id: body.pill_id,
         epoch,
@@ -8940,7 +8945,7 @@ async fn post_phone_storage_proof(
     Json(body): Json<PhoneStorageProofBody>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::PhoneStorageProof {
+    let entry = hone_types::LedgerEntry::PhoneStorageProof {
         account: body.account.clone(),
         device_id: body.device_id,
         proof_hash: body.proof_hash,
@@ -8974,7 +8979,7 @@ async fn post_finetune_job(
     Json(body): Json<FineTuneJobBody>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::FineTuneJobPost {
+    let entry = hone_types::LedgerEntry::FineTuneJobPost {
         job_id: body.job_id,
         requester: body.requester.clone(),
         base_model: body.base_model,
@@ -9005,7 +9010,7 @@ async fn post_finetune_complete(
     Json(body): Json<FineTuneCompleteBody>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::FineTuneJobComplete {
+    let entry = hone_types::LedgerEntry::FineTuneJobComplete {
         job_id,
         worker: body.worker.clone(),
         adapter_cid: body.adapter_cid,
@@ -9050,7 +9055,7 @@ async fn post_computer_use_job(
     Json(body): Json<ComputerUseJobBody>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::ComputerUseJobPost {
+    let entry = hone_types::LedgerEntry::ComputerUseJobPost {
         job_id: body.job_id,
         requester: body.requester.clone(),
         task_json: body.task_json,
@@ -9080,7 +9085,7 @@ async fn post_computer_use_complete(
     Json(body): Json<ComputerUseCompleteBody>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::ComputerUseJobComplete {
+    let entry = hone_types::LedgerEntry::ComputerUseJobComplete {
         job_id,
         worker: body.worker.clone(),
         result_cid: body.result_cid,
@@ -9127,7 +9132,7 @@ async fn post_blob_serve_proof(
     let epoch = s.chain.current_epoch();
     // Record in bandwidth meter
     s.blob_bandwidth.record(&body.cid, body.bytes_served);
-    let entry = honemesh_types::LedgerEntry::BlobServeProof {
+    let entry = hone_types::LedgerEntry::BlobServeProof {
         node_id: body.node_id.clone(),
         cid: body.cid,
         bytes_served: body.bytes_served,
@@ -9150,7 +9155,7 @@ async fn get_blob_bandwidth(
     Json(serde_json::json!({ "cid": cid, "bytes_pending": bytes }))
 }
 
-// ── HoneMesh-FS Hive external replicas ──────────────────────────────────────────
+// ── HONE-FS Hive external replicas ──────────────────────────────────────────
 
 #[derive(Deserialize)]
 struct HiveReplicaCommitBody {
@@ -9176,7 +9181,7 @@ async fn post_hive_replica_commit(
     Json(body): Json<HiveReplicaCommitBody>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::HiveReplicaCommit {
+    let entry = hone_types::LedgerEntry::HiveReplicaCommit {
         node_id: body.node_id.clone(),
         cid: body.cid,
         hive_account: body.hive_account,
@@ -9224,7 +9229,7 @@ async fn post_hive_replica_verify(
     Json(body): Json<HiveReplicaVerifyBody>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::HiveReplicaVerify {
+    let entry = hone_types::LedgerEntry::HiveReplicaVerify {
         verifier: body.verifier.clone(),
         node_id: body.node_id,
         cid: body.cid,
@@ -9325,7 +9330,7 @@ async fn post_snapshot_save(
     Json(body): Json<SnapshotSaveBody>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::SnapshotSave {
+    let entry = hone_types::LedgerEntry::SnapshotSave {
         account: account.clone(),
         slug: body.slug,
         cid: body.cid,
@@ -9426,7 +9431,7 @@ async fn post_name_auction_open(
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
     let auction_id = format!("name-{}-{}", body.name.to_lowercase(), epoch);
-    let entry = honemesh_types::LedgerEntry::NameAuctionOpen {
+    let entry = hone_types::LedgerEntry::NameAuctionOpen {
         auction_id: auction_id.clone(),
         name: body.name,
         opener: body.opener.clone(),
@@ -9457,7 +9462,7 @@ async fn post_name_auction_bid(
     Json(body): Json<AuctionBidRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::NameAuctionBid {
+    let entry = hone_types::LedgerEntry::NameAuctionBid {
         auction_id,
         bidder: body.bidder.clone(),
         amount: body.amount,
@@ -9485,7 +9490,7 @@ async fn post_name_auction_settle(
     Json(body): Json<AuctionSettleRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::NameAuctionSettle {
+    let entry = hone_types::LedgerEntry::NameAuctionSettle {
         auction_id,
         settler: body.settler.clone(),
         epoch,
@@ -9512,7 +9517,7 @@ async fn post_name_auction_cancel(
     Json(body): Json<AuctionCancelRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::NameAuctionCancel {
+    let entry = hone_types::LedgerEntry::NameAuctionCancel {
         auction_id,
         opener: body.opener.clone(),
         epoch,
@@ -9563,7 +9568,7 @@ async fn post_freeport_auction_open(
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
     let auction_id = format!("fp-{}-{}-{}", body.item_type, body.item_id, epoch);
-    let entry = honemesh_types::LedgerEntry::FreeportAuctionOpen {
+    let entry = hone_types::LedgerEntry::FreeportAuctionOpen {
         auction_id: auction_id.clone(),
         item_type: body.item_type,
         item_id: body.item_id,
@@ -9586,7 +9591,7 @@ async fn post_freeport_auction_bid(
     Json(body): Json<AuctionBidRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::FreeportAuctionBid {
+    let entry = hone_types::LedgerEntry::FreeportAuctionBid {
         auction_id,
         bidder: body.bidder.clone(),
         amount: body.amount,
@@ -9606,7 +9611,7 @@ async fn post_freeport_auction_settle(
     Json(body): Json<AuctionSettleRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::FreeportAuctionSettle {
+    let entry = hone_types::LedgerEntry::FreeportAuctionSettle {
         auction_id,
         settler: body.settler.clone(),
         epoch,
@@ -9636,7 +9641,7 @@ async fn post_private_auth_enroll(
     Json(body): Json<PrivateAuthEnrollRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::PrivateAuthEnroll {
+    let entry = hone_types::LedgerEntry::PrivateAuthEnroll {
         group_id: body.group_id,
         member: body.member.clone(),
         member_pubkey: body.member_pubkey,
@@ -9667,7 +9672,7 @@ async fn post_private_auth_approve(
     Json(body): Json<PrivateAuthApproveRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::PrivateAuthApprove {
+    let entry = hone_types::LedgerEntry::PrivateAuthApprove {
         group_id: body.group_id,
         tx_hash: body.tx_hash,
         approver: body.approver.clone(),
@@ -9711,7 +9716,7 @@ async fn post_oracle_create(
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
     let feed_id = format!("{}-{}", body.asset_pair.to_lowercase().replace('/', "-"), epoch);
-    let entry = honemesh_types::LedgerEntry::OracleFeedCreate {
+    let entry = hone_types::LedgerEntry::OracleFeedCreate {
         feed_id: feed_id.clone(),
         creator: body.creator.clone(),
         asset_pair: body.asset_pair,
@@ -9741,7 +9746,7 @@ async fn post_oracle_report(
     Json(body): Json<OracleReportRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::OracleReport {
+    let entry = hone_types::LedgerEntry::OracleReport {
         feed_id,
         reporter: body.reporter.clone(),
         commit_hash: body.commit_hash,
@@ -9758,7 +9763,7 @@ async fn post_oracle_report(
 #[derive(Deserialize)]
 struct OracleFinalizeRequest {
     finalizer: String,
-    reveals: Vec<honemesh_types::OracleReveal>,
+    reveals: Vec<hone_types::OracleReveal>,
     nonce: u64,
     #[serde(default)]
     signature: Option<String>,
@@ -9770,7 +9775,7 @@ async fn post_oracle_finalize(
     Json(body): Json<OracleFinalizeRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::OracleFeedFinalize {
+    let entry = hone_types::LedgerEntry::OracleFeedFinalize {
         feed_id,
         finalizer: body.finalizer.clone(),
         reveals: body.reveals,
@@ -9850,7 +9855,7 @@ async fn post_session_list(
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
     let listing_id = format!("{}-{}", body.seller, epoch);
-    let entry = honemesh_types::LedgerEntry::SessionListingCreate {
+    let entry = hone_types::LedgerEntry::SessionListingCreate {
         listing_id: listing_id.clone(),
         seller: body.seller.clone(),
         model: body.model,
@@ -9881,7 +9886,7 @@ async fn post_session_buy(
     Json(body): Json<SessionBuyRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::SessionListingBuy {
+    let entry = hone_types::LedgerEntry::SessionListingBuy {
         listing_id: body.listing_id,
         buyer: body.buyer.clone(),
         epoch,
@@ -9908,7 +9913,7 @@ async fn post_session_cancel(
     Json(body): Json<SessionCancelRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::SessionListingCancel {
+    let entry = hone_types::LedgerEntry::SessionListingCancel {
         listing_id: body.listing_id,
         seller: body.seller.clone(),
         epoch,
@@ -9962,7 +9967,7 @@ async fn post_agent_session_open(
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
     let session_id = format!("{}-{}", body.client, epoch);
-    let entry = honemesh_types::LedgerEntry::AgentSessionOpen {
+    let entry = hone_types::LedgerEntry::AgentSessionOpen {
         session_id: session_id.clone(),
         client: body.client.clone(),
         model: body.model,
@@ -9993,7 +9998,7 @@ async fn post_agent_session_close(
     Json(body): Json<AgentSessionCloseRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     let epoch = s.chain.current_epoch();
-    let entry = honemesh_types::LedgerEntry::AgentSessionClose {
+    let entry = hone_types::LedgerEntry::AgentSessionClose {
         session_id: body.session_id,
         client: body.client.clone(),
         epoch,
@@ -10092,7 +10097,7 @@ async fn post_vrf_commit(
     State(s): State<AppState>,
     Json(body): Json<VrfCommitRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    let entry = honemesh_types::LedgerEntry::VrfCommit {
+    let entry = hone_types::LedgerEntry::VrfCommit {
         committer: body.committer.clone(),
         commit_hash: body.commit_hash,
         epoch: body.epoch,
@@ -10119,7 +10124,7 @@ async fn post_vrf_reveal(
     State(s): State<AppState>,
     Json(body): Json<VrfRevealRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    let entry = honemesh_types::LedgerEntry::VrfReveal {
+    let entry = hone_types::LedgerEntry::VrfReveal {
         committer: body.committer.clone(),
         secret_hex: body.secret_hex,
         epoch: body.epoch,
@@ -10423,7 +10428,7 @@ async fn get_vrf_round(
 
 #[derive(Deserialize)]
 struct TonActivateBody {
-    /// The user's HoneMesh account name — must exist on-chain and sign this entry.
+    /// The user's HONE account name — must exist on-chain and sign this entry.
     hone_account:  String,
     ton_address:    String,
     source_chain:   String,  // "tron" | "ethereum"
@@ -10448,7 +10453,7 @@ async fn post_ton_activate(
         _          => String::new(),
     };
 
-    let entry = honemesh_types::LedgerEntry::TonActivationIntent {
+    let entry = hone_types::LedgerEntry::TonActivationIntent {
         hone_account:  body.hone_account.clone(),
         ton_address:    body.ton_address.clone(),
         source_chain:   body.source_chain.clone(),

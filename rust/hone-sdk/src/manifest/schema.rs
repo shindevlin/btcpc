@@ -1,4 +1,4 @@
-//! The manifest data model. Serialized to `honemesh-manifest.json` with stable
+//! The manifest data model. Serialized to `hone-manifest.json` with stable
 //! field ordering (BTreeMap / sorted vecs) so byte-for-byte diffs are meaningful
 //! and CI can compare a committed manifest against a freshly generated one.
 
@@ -105,7 +105,7 @@ pub struct RouteSpec {
 pub struct Manifest {
     /// Schema version of the manifest format itself.
     pub schema_version: u32,
-    /// The HoneMesh workspace version this manifest was generated from
+    /// The HONE workspace version this manifest was generated from
     /// (`rust/Cargo.toml` `[workspace.package] version`).
     pub hone_version: String,
     pub chain_id: String,

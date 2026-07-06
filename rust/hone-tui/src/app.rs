@@ -42,14 +42,14 @@ impl Session {
 
 pub fn load_session() -> Option<Session> {
     let home = std::env::var("HOME").ok()?;
-    let path = std::path::PathBuf::from(home).join(".honemesh").join("session.json");
+    let path = std::path::PathBuf::from(home).join(".hone").join("session.json");
     let bytes = std::fs::read(path).ok()?;
     serde_json::from_slice(&bytes).ok()
 }
 
 pub fn save_session(s: &Session) -> anyhow::Result<()> {
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
-    let dir = std::path::PathBuf::from(home).join(".honemesh");
+    let dir = std::path::PathBuf::from(home).join(".hone");
     std::fs::create_dir_all(&dir)?;
     let path = dir.join("session.json");
     let json = serde_json::to_string_pretty(s)?;
@@ -82,7 +82,7 @@ impl TransferState {
     pub fn field_values(&self) -> Vec<(&'static str, &str)> {
         vec![
             ("To", self.to.as_str()),
-            ("Amount (HoneMesh)", self.amount.as_str()),
+            ("Amount (HONE)", self.amount.as_str()),
             ("Memo (optional)", self.memo.as_str()),
         ]
     }
@@ -111,7 +111,7 @@ impl StakeState {
         &mut self.amount
     }
     pub fn field_values(&self) -> Vec<(&'static str, &str)> {
-        vec![("Amount (HoneMesh)", self.amount.as_str())]
+        vec![("Amount (HONE)", self.amount.as_str())]
     }
 }
 
@@ -181,7 +181,7 @@ impl PostJobState {
         vec![
             ("Model", self.model.as_str()),
             ("Input", self.input.as_str()),
-            ("Max Fee (HoneMesh)", self.max_fee.as_str()),
+            ("Max Fee (HONE)", self.max_fee.as_str()),
             ("Deadline Epoch", self.deadline.as_str()),
         ]
     }

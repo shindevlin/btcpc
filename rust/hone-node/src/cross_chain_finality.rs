@@ -1,8 +1,8 @@
 //! Cross-chain finality announcements.
 //!
-//! At each finalization boundary the HoneMesh node writes a signed announcement
+//! At each finalization boundary the HONE node writes a signed announcement
 //! file that external chains (TON, Ethereum, etc.) can consume to verify that
-//! a given HoneMesh epoch is irreversible.
+//! a given HONE epoch is irreversible.
 //!
 //! Files land at:
 //!   `$HONE_DATA_DIR/anchors/cross-chain/{chain_id}/epoch-{N}.json`
@@ -17,7 +17,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{bail, Result};
-use honemesh_types::{Block, LedgerEntry};
+use hone_types::{Block, LedgerEntry};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tracing::{info, warn};
@@ -60,7 +60,7 @@ impl CrossChainFinalityModule {
 
     /// Build and persist a finality announcement for `finality_epoch`.
     ///
-    /// `chain_id` is the HoneMesh chain identifier (e.g. `"hone"` or `"hone-testnet"`).
+    /// `chain_id` is the HONE chain identifier (e.g. `"hone"` or `"hone-testnet"`).
     /// `prev_finality_epoch` is the most recently announced epoch (0 if none).
     pub fn announce(
         &self,

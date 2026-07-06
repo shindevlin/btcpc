@@ -1,6 +1,6 @@
 //! Encrypted secret store.
 //!
-//! Source of truth: `~/.honemesh/secrets.enc` (AES-256-GCM, key from hw fingerprint or
+//! Source of truth: `~/.hone/secrets.enc` (AES-256-GCM, key from hw fingerprint or
 //! `HONE_SECRETS_PASSPHRASE` env var). RocksDB CF_META prefix `secret:` is a runtime
 //! index populated at boot and kept in sync on every write. Deleting the file wipes all
 //! secrets cleanly.

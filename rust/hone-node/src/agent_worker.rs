@@ -15,7 +15,7 @@ use std::time::Duration;
 use sha2::{Digest, Sha256};
 use tracing::{info, warn, error};
 
-use honemesh_types::{LedgerEntry, epoch_duration_ms};
+use hone_types::{LedgerEntry, epoch_duration_ms};
 use crate::chain::Chain;
 use crate::agent_task::{AgentTask, TaskStatus};
 use crate::agent_tools;

@@ -21,10 +21,10 @@ The real substrate is already richer than that prototype implied.
 
 ---
 
-## 0. What already exists (verified in `rust/honemesh-node`)
+## 0. What already exists (verified in `rust/hone-node`)
 
 The canonical node ships a **complete runtime job-market lifecycle** — this is
-not greenfield. The `LedgerEntry` variants (`crates/honemesh-types/src/entry.rs`)
+not greenfield. The `LedgerEntry` variants (`crates/hone-types/src/entry.rs`)
 and their API routes (`src/api.rs`) already present:
 
 | Entry | Route | Purpose |

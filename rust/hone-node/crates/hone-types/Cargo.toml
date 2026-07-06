@@ -1,9 +1,9 @@
 [package]
-name = "honemesh-types"
+name = "hone-types"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
-description = "HoneMesh protocol types — block format, ledger entries, account state"
+description = "HONE protocol types — block format, ledger entries, account state"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

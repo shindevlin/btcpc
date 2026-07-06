@@ -1,24 +1,24 @@
 [Unit]
-Description=HoneMesh Testnet Node (hone-testnet)
-After=network-online.target honemesh-node.service
+Description=HONE Testnet Node (hone-testnet)
+After=network-online.target hone-node.service
 Wants=network-online.target
 
 [Service]
 Type=simple
-User=honemesh
-WorkingDirectory=/var/lib/honemesh-testnet
+User=hone
+WorkingDirectory=/var/lib/hone-testnet
 
-ExecStart=/usr/local/bin/honemesh-node
+ExecStart=/usr/local/bin/hone-node
 
 Environment="HONE_CHAIN_ID=hone-testnet"
-Environment="HONE_DATA_DIR=/var/lib/honemesh-testnet"
-Environment="HONE_GENESIS_FILE=/var/lib/honemesh-testnet/genesis.json"
+Environment="HONE_DATA_DIR=/var/lib/hone-testnet"
+Environment="HONE_GENESIS_FILE=/var/lib/hone-testnet/genesis.json"
 Environment="HONE_GENESIS_TIMESTAMP=1783191600000"
 Environment="HONE_API_PORT=4343"
 Environment="HONE_P2P_PORT=6943"
 Environment="HONE_MINER=true"
 Environment="HONE_CLOCK=true"
-Environment="HONE_LOG_LEVEL=honemesh_node=info"
+Environment="HONE_LOG_LEVEL=hone_node=info"
 # Required — set these before enabling the service:
 Environment="HONE_ACCOUNT=your-account-name"
 Environment="HONE_NODE_ID=MachineName(your-account-name)-testnet"
@@ -30,7 +30,7 @@ Restart=on-failure
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=honemesh-testnet
+SyslogIdentifier=hone-testnet
 
 [Install]
 WantedBy=multi-user.target

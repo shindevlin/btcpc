@@ -18,7 +18,7 @@
 //!   1. TCP connect to SAM host:port (default 127.0.0.1:7656)
 //!   2. Handshake:  HELLO VERSION MIN=3.0 MAX=3.3\n
 //!      Response:   HELLO REPLY RESULT=OK VERSION=3.x
-//!   3. Session:    SESSION CREATE STYLE=DATAGRAM ID=honemesh-i2p DESTINATION=TRANSIENT PORT=<udp>\n
+//!   3. Session:    SESSION CREATE STYLE=DATAGRAM ID=hone-i2p DESTINATION=TRANSIENT PORT=<udp>\n
 //!      Response:   SESSION STATUS RESULT=OK DESTINATION=<base64>
 //!   4. Actual datagrams arrive on the UDP port specified in step 3.
 //!      The TCP control connection must stay open — dropping it kills the session.
@@ -30,7 +30,7 @@
 
 use std::sync::Arc;
 
-use honemesh_types::LedgerEntry;
+use hone_types::LedgerEntry;
 use serde_json::Value;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::{TcpStream, UdpSocket};
@@ -147,7 +147,7 @@ async fn try_start(
 
     // ── SESSION CREATE (DATAGRAM) ────────────────────────────────────────────
     let session_cmd = format!(
-        "SESSION CREATE STYLE=DATAGRAM ID=honemesh-i2p DESTINATION=TRANSIENT PORT={}\n",
+        "SESSION CREATE STYLE=DATAGRAM ID=hone-i2p DESTINATION=TRANSIENT PORT={}\n",
         udp_port
     );
     writer.write_all(session_cmd.as_bytes()).await.ok()?;

@@ -1,8 +1,8 @@
 //! Phase 3 — Hive verifier.
 //!
-//! Fetches the Hive transaction, parses the HoneMesh-FS custom_json payload,
+//! Fetches the Hive transaction, parses the HONE-FS custom_json payload,
 //! verifies CID / payload_sha256 / merkle_root, computes the per-epoch
-//! challenge hash, then submits HiveReplicaVerify to the HoneMesh node.
+//! challenge hash, then submits HiveReplicaVerify to the HONE node.
 
 use anyhow::{bail, Context, Result};
 use sha2::{Digest, Sha256};
@@ -14,7 +14,7 @@ use crate::hive_client::HiveClient;
 pub struct VerifierConfig {
     #[allow(dead_code)]
     pub hone_node_id: String,          // the storage node being verified (kept for config symmetry)
-    pub hone_verifier_id: String,      // this verifier's HoneMesh account
+    pub hone_verifier_id: String,      // this verifier's HONE account
     pub hone_verifier_key_hex: String, // ed25519 hex key for HONE_VERIFIER_KEY
     pub hone_api_url: String,
     pub hive_api_url: String,
@@ -48,8 +48,8 @@ impl VerifierConfig {
 /// 1. Fetch the Hive block operation at (hive_block_num, op_index).
 /// 2. Parse the custom_json body from the operation.
 /// 3. Verify: CID matches, payload_sha256 matches, merkle_root matches.
-/// 4. Compute the per-epoch challenge hash using prev_seal_hash from HoneMesh.
-/// 5. Submit HiveReplicaVerify to the HoneMesh node.
+/// 4. Compute the per-epoch challenge hash using prev_seal_hash from HONE.
+/// 5. Submit HiveReplicaVerify to the HONE node.
 pub async fn run_verify(
     cfg: VerifierConfig,
     node_id: String,
@@ -104,7 +104,7 @@ pub async fn run_verify(
     let prev_seal_hash = hone.block_hash(prev_epoch).await?;
     if prev_seal_hash.is_empty() {
         bail!(
-            "epoch {} block hash not available from HoneMesh node — is the epoch finalized?",
+            "epoch {} block hash not available from HONE node — is the epoch finalized?",
             prev_epoch
         );
     }

@@ -1,10 +1,10 @@
 [package]
-name = "honemesh-sdk"
+name = "hone-sdk"
 autobins = false
 version = "1.0.0"
 edition = "2021"
 authors = ["Shin Devlin <shindevlin@proton.me>"]
-description = "HoneMesh chain client SDK"
+description = "HONE chain client SDK"
 
 # Standalone crate — deliberately NOT a member of rust/Cargo.toml's workspace, so
 # it can be published / vendored into consumer CI independently of the node build.
@@ -15,7 +15,7 @@ name = "hone"
 path = "src/bin/hone.rs"
 
 [[bin]]
-name = "honemesh-keycheck"
+name = "hone-keycheck"
 path = "src/bin/keycheck.rs"
 
 [dependencies]

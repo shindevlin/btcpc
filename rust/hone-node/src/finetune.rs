@@ -5,7 +5,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::chain::Chain;
-use honemesh_types::NATIVE_TOKEN;
+use hone_types::NATIVE_TOKEN;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -127,10 +127,10 @@ mod tests {
     }
 
     fn fund(chain: &Chain, account: &str, amount: u64) {
-        chain.apply_entry(&honemesh_types::LedgerEntry::GenesisAlloc {
+        chain.apply_entry(&hone_types::LedgerEntry::GenesisAlloc {
             account: account.to_string(),
             amount,
-            token: honemesh_types::NATIVE_TOKEN.to_string(),
+            token: hone_types::NATIVE_TOKEN.to_string(),
         }).unwrap();
     }
 

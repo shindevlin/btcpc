@@ -57,7 +57,7 @@ async fn try_camoufox(url: &str) -> anyhow::Result<Vec<Value>> {
 
     let script = dirs_next::home_dir()
         .unwrap_or_default()
-        .join("repos/honemesh/scripts/amazon-scrape.py");
+        .join("repos/hone/scripts/amazon-scrape.py");
 
     if !script.exists() {
         anyhow::bail!("amazon-scrape.py not found at {:?}", script);
@@ -113,7 +113,7 @@ fn parse_amazon_html(html: &str, source_url: &str) -> Vec<Value> {
             "price": price,
             "image_url": image,
             "source_url": source_url,
-            "token": "HoneMesh",
+            "token": "HONE",
         })];
     }
 
@@ -136,7 +136,7 @@ fn parse_jsonld(html: &str) -> Option<Vec<Value>> {
                             "price": val["offers"]["price"].as_f64(),
                             "image_url": val["image"].as_str()
                                 .or_else(|| val["image"][0].as_str()),
-                            "token": "HoneMesh",
+                            "token": "HONE",
                         }));
                     }
                 }

@@ -4,7 +4,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{info, warn};
-use honemesh_types::{LedgerEntry, CLOCK_REWARD_HUNITS, epoch_duration_ms};
+use hone_types::{LedgerEntry, CLOCK_REWARD_HUNITS, epoch_duration_ms};
 
 use crate::chain::Chain;
 use crate::inference::{self, JobStatus};
