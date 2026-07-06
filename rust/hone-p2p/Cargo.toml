@@ -10,7 +10,7 @@ name = "honemesh-p2p"
 path = "src/main.rs"
 
 [dependencies]
-honemesh-types = { path = "../honemesh-node/crates/honemesh-types" }
+honemesh-types = { path = "../hone-node/crates/hone-types" }
 libp2p = { version = "0.56", features = [
     "tcp", "quic", "noise", "yamux",
     "gossipsub", "kad", "identify", "ping", "macros", "tokio",

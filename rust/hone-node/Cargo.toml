@@ -10,8 +10,8 @@ name = "honemesh-node"
 path = "src/main.rs"
 
 [dependencies]
-honemesh-types = { path = "crates/honemesh-types" }
-honemesh-contract-runtime = { path = "../honemesh-contract-runtime" }
+honemesh-types = { path = "crates/hone-types" }
+honemesh-contract-runtime = { path = "../hone-contract-runtime" }
 wasmtime = { version = "23" }
 # Async
 tokio = { version = "1", features = ["full"] }

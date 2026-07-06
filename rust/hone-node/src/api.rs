@@ -1356,7 +1356,7 @@ async fn get_node_info(State(s): State<AppState>) -> Json<serde_json::Value> {
 // drifts from source. We embed that CI-verified artifact at compile time and
 // serve it verbatim, so `hone sync --node <url>` always gets exactly the
 // manifest that shipped with this binary — no runtime file dependency, no drift.
-static INTEGRATION_MANIFEST_JSON: &str = include_str!("../../../honemesh-manifest.json");
+static INTEGRATION_MANIFEST_JSON: &str = include_str!("../../../hone-manifest.json");
 
 // GET /api/integration/manifest — the machine-readable capability manifest.
 // Consumed by `hone sync --node <url>`.

@@ -10,7 +10,7 @@ name = "honemesh-market"
 path = "src/main.rs"
 
 [dependencies]
-honemesh-types = { path = "../honemesh-node/crates/honemesh-types" }
+honemesh-types = { path = "../hone-node/crates/hone-types" }
 axum = { version = "0.7", features = ["json", "multipart"] }
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
