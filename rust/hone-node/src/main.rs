@@ -1056,12 +1056,20 @@ async fn main() -> Result<()> {
         });
     }
 
-    // ── Model healer ──────────────────────────────────────────────────────────
-    {
-        let chain_ref   = chain.clone();
-        let ollama_url  = std::env::var("OLLAMA_URL").unwrap_or_else(|_| "http://localhost:11434".to_owned());
-        let pref_model  = std::env::var("HONE_MODEL").unwrap_or_else(|_| "qwen2.5:0.5b".to_owned());
-        tokio::spawn(async move { model_healer::run(chain_ref, ollama_url, pref_model).await; });
+    // ── Model healer (legacy Ollama helper — OFF by default) ────────────────────
+    // The healer polls an external Ollama daemon to keep a named model resident.
+    // HONE is model-agnostic and never chases a hardcoded model, so this only
+    // runs when the operator explicitly opts in with an external Ollama by setting
+    // HONE_MODEL_HEALER=1 AND OLLAMA_URL. Embedded candle inference does not use it.
+    if std::env::var("HONE_MODEL_HEALER").ok().as_deref() == Some("1") {
+        if let (Ok(ollama_url), Ok(pref_model)) =
+            (std::env::var("OLLAMA_URL"), std::env::var("HONE_MODEL"))
+        {
+            let chain_ref = chain.clone();
+            tokio::spawn(async move { model_healer::run(chain_ref, ollama_url, pref_model).await; });
+        } else {
+            tracing::warn!("model-healer: HONE_MODEL_HEALER=1 but OLLAMA_URL/HONE_MODEL unset — not started");
+        }
     }
 
     // ── Chain health monitor ──────────────────────────────────────────────────

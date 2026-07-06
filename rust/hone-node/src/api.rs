@@ -7833,8 +7833,6 @@ async fn post_v1_chat_completions(
         }))).into_response();
     }
 
-    let ollama_url = std::env::var("OLLAMA_URL")
-        .unwrap_or_else(|_| "http://localhost:11434".to_owned());
     let default_model = s.current_model.read().await.clone();
     let model = req.model.filter(|m| !m.is_empty()).unwrap_or(default_model);
     let model_clone = model.clone();
@@ -7846,88 +7844,83 @@ async fn post_v1_chat_completions(
     let chat_id = format!("chatcmpl-{created:x}");
     let chat_id_clone = chat_id.clone();
 
-    let messages: Vec<serde_json::Value> = req.messages.iter().map(|m| {
-        serde_json::json!({ "role": m.role, "content": m.content })
-    }).collect();
-
     if req.stream {
-        let body = serde_json::json!({ "model": model, "messages": messages, "stream": true });
+        // SSE path. The embedded engine returns a complete response rather than
+        // a token stream, so we emit it as a single delta chunk followed by
+        // [DONE] — still valid OpenAI SSE. (Token-level streaming can be added
+        // when the embedded backend exposes a streaming interface.)
         let (tx, rx) = tokio::sync::mpsc::channel::<Result<Event, Infallible>>(64);
         let s_stream = s.clone();
         let caller_stream = caller.clone();
+        // Build engine messages up front (OpenAiMessage isn't Clone) and move the
+        // owned vecs into the task.
+        let eng_messages: Vec<crate::inference_engine::Message> = req.messages.iter()
+            .map(|m| crate::inference_engine::Message { role: m.role.clone(), content: m.content.clone() })
+            .collect();
+        let prompt_tokens: u64 = req.messages.iter()
+            .map(|m| m.content.split_whitespace().count() as u64).sum();
 
         tokio::spawn(async move {
-            use tokio_stream::StreamExt as _;
-
-            let client = reqwest::Client::new();
-            let resp = match client.post(format!("{}/api/chat", ollama_url)).json(&body).send().await {
-                Ok(r) => r,
+            let eng_req = crate::inference_engine::ChatRequest {
+                model: model_clone.clone(),
+                messages: eng_messages,
+                max_tokens: 1024,
+            };
+            let content = match crate::inference_engine::chat(eng_req).await {
+                Ok(r) => r.content,
                 Err(_) => {
                     let _ = tx.send(Ok(Event::default().data("[DONE]"))).await;
                     return;
                 }
             };
 
-            let mut stream = resp.bytes_stream();
-            let mut buf = String::new();
+            let chunk_json = serde_json::json!({
+                "id": chat_id_clone,
+                "object": "chat.completion.chunk",
+                "created": created,
+                "model": model_clone,
+                "choices": [{ "index": 0, "delta": { "content": content.clone() }, "finish_reason": "stop" }]
+            });
+            let _ = tx.send(Ok(Event::default().data(chunk_json.to_string()))).await;
 
-            while let Some(chunk) = stream.next().await {
-                let Ok(bytes) = chunk else { break };
-                buf.push_str(&String::from_utf8_lossy(&bytes));
-
-                while let Some(pos) = buf.find('\n') {
-                    let line = buf[..pos].trim().to_owned();
-                    buf = buf[pos + 1..].to_owned();
-                    if line.is_empty() { continue; }
-
-                    if let Ok(v) = serde_json::from_str::<serde_json::Value>(&line) {
-                        let token = v["message"]["content"].as_str().unwrap_or("");
-                        let done = v["done"].as_bool().unwrap_or(false);
-                        let finish_reason = if done { serde_json::json!("stop") } else { serde_json::Value::Null };
-                        let chunk_json = serde_json::json!({
-                            "id": chat_id_clone,
-                            "object": "chat.completion.chunk",
-                            "created": created,
-                            "model": model_clone,
-                            "choices": [{ "index": 0, "delta": { "content": token }, "finish_reason": finish_reason }]
-                        });
-                        if tx.send(Ok(Event::default().data(chunk_json.to_string()))).await.is_err() { return; }
-                        if done {
-                            // Apply per-token fee now that we know actual usage.
-                            let prompt_tokens = v["prompt_eval_count"].as_u64().unwrap_or(0);
-                            let completion_tokens = v["eval_count"].as_u64().unwrap_or(0);
-                            let total_tokens = prompt_tokens + completion_tokens;
-                            let fee = (total_tokens * HUNITS_PER_TOKEN).max(MIN_INFERENCE_FEE_HUNITS);
-                            let balance = s_stream.chain.store.get_balance(&caller_stream, hone_types::NATIVE_TOKEN);
-                            let actual_fee = fee.min(balance);
-                            if actual_fee > 0 {
-                                let _ = s_stream.chain.store.debit(&caller_stream, hone_types::NATIVE_TOKEN, actual_fee);
-                                let _ = s_stream.chain.store.credit(s_stream.node_account.as_str(), hone_types::NATIVE_TOKEN, actual_fee);
-                            }
-                            let _ = tx.send(Ok(Event::default().data("[DONE]"))).await;
-                            return;
-                        }
-                    }
-                }
+            // Fee, approximated from content (embedded engine gives no token counts).
+            // prompt_tokens was computed before the task from the request messages.
+            let completion_tokens = (content.split_whitespace().count() as u64).max(1);
+            let total_tokens = prompt_tokens + completion_tokens;
+            let fee = (total_tokens * HUNITS_PER_TOKEN).max(MIN_INFERENCE_FEE_HUNITS);
+            let balance = s_stream.chain.store.get_balance(&caller_stream, hone_types::NATIVE_TOKEN);
+            let actual_fee = fee.min(balance);
+            if actual_fee > 0 {
+                let _ = s_stream.chain.store.debit(&caller_stream, hone_types::NATIVE_TOKEN, actual_fee);
+                let _ = s_stream.chain.store.credit(s_stream.node_account.as_str(), hone_types::NATIVE_TOKEN, actual_fee);
             }
             let _ = tx.send(Ok(Event::default().data("[DONE]"))).await;
         });
 
         Sse::new(ReceiverStream::new(rx)).into_response()
     } else {
-        let body = serde_json::json!({ "model": model, "messages": messages, "stream": false });
-        let client = reqwest::Client::new();
-        let resp = match client.post(format!("{}/api/chat", ollama_url)).json(&body).timeout(std::time::Duration::from_secs(120)).send().await {
-            Ok(r) => r,
-            Err(e) => return (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({
-                "error": { "message": format!("inference unavailable: {}", e), "type": "server_error" }
-            }))).into_response(),
+        // Route through the node's inference engine. It selects the backend
+        // itself: embedded candle GGUF by default (native, no daemon), or an
+        // external OpenAI/Ollama-compatible server only if INFERENCE_URL /
+        // OLLAMA_URL is explicitly set. This replaces the previous hardcoded
+        // Ollama HTTP call so the OpenAI-compatible gateway is native by default.
+        let eng_req = crate::inference_engine::ChatRequest {
+            model: model.clone(),
+            messages: req.messages.iter().map(|m| crate::inference_engine::Message {
+                role: m.role.clone(),
+                content: m.content.clone(),
+            }).collect(),
+            max_tokens: 1024,
         };
-        match resp.json::<serde_json::Value>().await {
-            Ok(v) => {
-                let content = v["message"]["content"].as_str().unwrap_or("").to_owned();
-                let prompt_tokens = v["prompt_eval_count"].as_u64().unwrap_or(0);
-                let completion_tokens = v["eval_count"].as_u64().unwrap_or(0);
+        match crate::inference_engine::chat(eng_req).await {
+            Ok(resp) => {
+                let content = resp.content;
+                // The embedded engine does not report token counts; approximate
+                // from content length so the fee model still applies. External
+                // backends can be extended to surface exact counts later.
+                let completion_tokens = (content.split_whitespace().count() as u64).max(1);
+                let prompt_tokens: u64 = req.messages.iter()
+                    .map(|m| m.content.split_whitespace().count() as u64).sum();
                 let total_tokens = prompt_tokens + completion_tokens;
                 let fee = (total_tokens * HUNITS_PER_TOKEN).max(MIN_INFERENCE_FEE_HUNITS);
                 let balance = s.chain.store.get_balance(&caller, hone_types::NATIVE_TOKEN);
@@ -7951,8 +7944,8 @@ async fn post_v1_chat_completions(
                 });
                 Json(completion).into_response()
             }
-            Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
-                "error": { "message": format!("inference error: {}", e), "type": "server_error" }
+            Err(e) => (StatusCode::SERVICE_UNAVAILABLE, Json(serde_json::json!({
+                "error": { "message": format!("inference unavailable: {}", e), "type": "server_error" }
             }))).into_response(),
         }
     }

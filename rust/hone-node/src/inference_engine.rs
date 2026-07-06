@@ -158,13 +158,15 @@ mod candle_backend {
     use std::path::{Path, PathBuf};
     use std::sync::OnceLock;
 
-    // Default model — matches the phone tier (hone-android). Overridable via env.
-    const HF_REPO: &str = "Qwen/Qwen2.5-0.5B-Instruct-GGUF";
-    const GGUF_FILE: &str = "qwen2.5-0.5b-instruct-q4_k_m.gguf";
-    const TOKENIZER_REPO: &str = "Qwen/Qwen2.5-0.5B-Instruct";
+    // HONE is model-agnostic: there is NO hardcoded default model and the node
+    // never auto-downloads one. The operator selects a GGUF that already exists
+    // in the central model store, by filename, via HONE_MODEL. With nothing
+    // selected, the embedded backend is simply unavailable. See
+    // docs/MODEL_REGISTRY_PROTOCOL.md.
 
-    static MODEL_PATH: OnceLock<PathBuf> = OnceLock::new();
+    static MODEL_PATH: OnceLock<Option<PathBuf>> = OnceLock::new();
 
+    /// The central model store directory (shared across engines).
     fn model_dir() -> PathBuf {
         std::env::var("HONE_MODEL_DIR")
             .map(PathBuf::from)
@@ -176,66 +178,75 @@ mod candle_backend {
             })
     }
 
-    fn model_path() -> &'static PathBuf {
-        MODEL_PATH.get_or_init(|| model_dir().join(GGUF_FILE))
-    }
-
-    /// True once the GGUF is on disk.
-    pub fn available() -> bool {
-        model_path().exists()
-    }
-
-    /// Download the model + tokenizer once, if missing. Idempotent.
-    pub async fn ensure_ready() -> bool {
-        if available() {
-            return true;
-        }
-        let dir = model_dir();
-        let _ = std::fs::create_dir_all(&dir);
-        let res = tokio::task::spawn_blocking(move || -> Result<()> {
-            let api = hf_hub::api::sync::ApiBuilder::new()
-                .with_cache_dir(dir.clone())
-                .build()?;
-            let gguf = api.model(HF_REPO.to_owned()).get(GGUF_FILE)?;
-            let _ = std::fs::copy(&gguf, dir.join(GGUF_FILE));
-            let tok = api.model(TOKENIZER_REPO.to_owned()).get("tokenizer.json")?;
-            let _ = std::fs::copy(&tok, dir.join("tokenizer.json"));
-            Ok(())
+    /// The operator-selected GGUF path, or None if no model has been enabled.
+    /// HONE_MODEL is a filename within the store (e.g. "qwen2.5-0.5b-q4.gguf");
+    /// an absolute path is also accepted.
+    fn model_path() -> &'static Option<PathBuf> {
+        MODEL_PATH.get_or_init(|| {
+            let sel = std::env::var("HONE_MODEL").ok().filter(|s| !s.trim().is_empty())?;
+            let p = PathBuf::from(&sel);
+            Some(if p.is_absolute() { p } else { model_dir().join(&sel) })
         })
-        .await;
-        match res {
-            Ok(Ok(())) => {
-                tracing::info!("inference-engine: embedded model ready at {}", model_path().display());
+    }
+
+    /// True once the operator-selected GGUF is present on disk.
+    pub fn available() -> bool {
+        model_path().as_ref().map(|p| p.exists()).unwrap_or(false)
+    }
+
+    /// No-op download: HONE never auto-fetches a model. Readiness means the
+    /// operator selected one (HONE_MODEL) and its file is present in the store.
+    pub async fn ensure_ready() -> bool {
+        match model_path() {
+            None => {
+                tracing::info!(
+                    "inference-engine: no model enabled (set HONE_MODEL to a GGUF in {}); \
+                     embedded inference unavailable until the operator enables one",
+                    model_dir().display()
+                );
+                false
+            }
+            Some(p) if p.exists() => {
+                tracing::info!("inference-engine: embedded model ready at {}", p.display());
                 true
             }
-            Ok(Err(e)) => {
-                tracing::warn!("inference-engine: embedded model download failed: {e}");
-                false
-            }
-            Err(e) => {
-                tracing::warn!("inference-engine: embedded model download task failed: {e}");
+            Some(p) => {
+                tracing::warn!(
+                    "inference-engine: HONE_MODEL points at {} which is not present in the store — \
+                     enable a model that exists (no auto-download)",
+                    p.display()
+                );
                 false
             }
         }
     }
 
-    /// Flatten chat messages into a Qwen-template prompt.
+    /// Flatten chat messages into a prompt. Uses a plain, model-neutral format
+    /// (role-labelled turns) rather than a family-specific chat template, so it
+    /// works across llama/qwen/etc. GGUFs. A future improvement is to read the
+    /// model's own chat_template from GGUF metadata and apply it.
     fn format_prompt(messages: &[Message]) -> String {
         let mut s = String::new();
         for m in messages {
-            s.push_str(&format!("<|im_start|>{}\n{}<|im_end|>\n", m.role, m.content));
+            let label = match m.role.as_str() {
+                "system" => "System",
+                "assistant" => "Assistant",
+                _ => "User",
+            };
+            s.push_str(&format!("{label}: {}\n", m.content));
         }
-        s.push_str("<|im_start|>assistant\n");
+        s.push_str("Assistant:");
         s
     }
 
     pub async fn chat(req: &ChatRequest) -> Result<ChatResponse> {
-        if !available() {
-            bail!("embedded model not ready (still downloading?)");
-        }
+        let path = match model_path() {
+            Some(p) if p.exists() => p.clone(),
+            Some(p) => bail!("enabled model {} is not present in the store", p.display()),
+            None => bail!("no model enabled — set HONE_MODEL to a GGUF in the model store"),
+        };
         let prompt = format_prompt(&req.messages);
         let max_tokens = req.max_tokens.max(1);
-        let path = model_path().clone();
         let content =
             tokio::task::spawn_blocking(move || generate_sync(&path, &prompt, max_tokens)).await??;
         Ok(ChatResponse { content })
@@ -254,41 +265,109 @@ mod candle_backend {
         let gguf = gguf_file::Content::read(&mut file)?;
         let mut model = ModelWeights::from_gguf(gguf, &mut file, &device)?;
 
-        let tok_path = model_path.parent().unwrap().join("tokenizer.json");
-        let tokenizer = if tok_path.exists() {
-            Tokenizer::from_file(&tok_path).map_err(|e| anyhow!("tokenizer load: {e}"))?
-        } else {
-            let api = hf_hub::api::sync::Api::new()?;
-            let f = api.model(TOKENIZER_REPO.to_owned()).get("tokenizer.json")?;
-            let _ = std::fs::copy(&f, &tok_path);
-            Tokenizer::from_file(&f).map_err(|e| anyhow!("tokenizer load: {e}"))?
-        };
+        // Tokenizer must live in the store next to the model (no auto-download).
+        // Accept either "<model-stem>.tokenizer.json" or a shared "tokenizer.json".
+        let dir = model_path.parent().unwrap_or_else(|| Path::new("."));
+        let stem = model_path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+        let per_model = dir.join(format!("{stem}.tokenizer.json"));
+        let shared = dir.join("tokenizer.json");
+        let tok_path = if per_model.exists() { per_model } else { shared };
+        let tokenizer = Tokenizer::from_file(&tok_path)
+            .map_err(|e| anyhow!("tokenizer not found beside model at {} ({e}) — \
+                place its tokenizer.json in the store next to the GGUF", tok_path.display()))?;
 
         let encoding = tokenizer.encode(prompt, true).map_err(|e| anyhow!("tokenize: {e}"))?;
         let mut tokens: Vec<u32> = encoding.get_ids().to_vec();
         let vocab = tokenizer.get_vocab(true);
-        let eos = vocab
-            .get("<|im_end|>")
-            .or_else(|| vocab.get("<|endoftext|>"))
-            .copied()
-            .unwrap_or(151643);
+        // Resolve EOS generically across model families: try the common special
+        // tokens each vocab might use; if none exist, fall back to token 2 (the
+        // llama `</s>` convention). Prevents Qwen-specific hardcoding.
+        let eos = ["<|im_end|>", "<|endoftext|>", "</s>", "<|eot_id|>", "<end_of_turn>"]
+            .iter()
+            .find_map(|t| vocab.get(*t).copied())
+            .unwrap_or(2);
 
-        let mut out = String::new();
-        for _ in 0..max_tokens {
+        // Standard candle incremental decode with the model's internal KV-cache:
+        // prefill the whole prompt once at position 0, then feed ONE new token per
+        // step at its actual position (index_pos). The previous code re-fed the
+        // full sequence every step while passing index_pos = len-1, which desyncs
+        // the KV-cache and RoPE and panics with a broadcast-shape mismatch.
+        let mut generated: Vec<u32> = Vec::new();
+        let mut next: u32;
+
+        // Prefill.
+        {
             let input = Tensor::new(tokens.as_slice(), &device)?.unsqueeze(0)?;
-            let logits = model.forward(&input, tokens.len().saturating_sub(1))?;
-            let logits = logits.squeeze(0)?;
-            let next = logits.argmax(candle_core::D::Minus1)?.to_scalar::<u32>()?;
+            let logits = model.forward(&input, 0)?.squeeze(0)?;
+            // forward may return logits for the whole sequence or just the last
+            // position; take the final row either way.
+            let last = if logits.dims().len() == 2 {
+                logits.get(logits.dim(0)? - 1)?
+            } else {
+                logits
+            };
+            next = last.argmax(candle_core::D::Minus1)?.to_scalar::<u32>()?;
+        }
+
+        for _ in 0..max_tokens {
             if next == eos {
                 break;
             }
-            let piece = tokenizer.decode(&[next], true).map_err(|e| anyhow!("decode: {e}"))?;
-            out.push_str(&piece);
+            generated.push(next);
             tokens.push(next);
             if tokens.len() >= MAX_SEQ_LEN {
                 break;
             }
+            // Feed only the new token at its position.
+            let index_pos = tokens.len() - 1;
+            let input = Tensor::new(&[next], &device)?.unsqueeze(0)?;
+            let logits = model.forward(&input, index_pos)?.squeeze(0)?;
+            let last = if logits.dims().len() == 2 {
+                logits.get(logits.dim(0)? - 1)?
+            } else {
+                logits
+            };
+            next = last.argmax(candle_core::D::Minus1)?.to_scalar::<u32>()?;
         }
+        // Decode the whole generated sequence at once so the tokenizer can
+        // reconstruct spacing correctly (per-token decode drops metaspace).
+        let out = tokenizer
+            .decode(&generated, true)
+            .map_err(|e| anyhow!("decode: {e}"))?;
         Ok(out)
+    }
+}
+
+// ── Live inference smoke test ────────────────────────────────────────────────
+//
+// Verifies the real embedded candle path (GGUF load + tokenizer + generation)
+// against an operator-selected model, without needing a running server. Gated
+// behind env so it only runs when a model is actually available:
+//
+//   HONE_MODEL_DIR=/mnt/x/hone-models/gguf HONE_MODEL=qwen2.5-0.5b.gguf \
+//     cargo +1.90.0 test -p hone-node --release embedded_candle_smoke -- --ignored --nocapture
+//
+#[cfg(all(test, feature = "inference-embedded"))]
+mod smoke {
+    use super::*;
+
+    #[tokio::test]
+    #[ignore] // requires an operator-selected model present on disk
+    async fn embedded_candle_smoke() {
+        assert!(
+            candle_backend::available(),
+            "no model available — set HONE_MODEL_DIR + HONE_MODEL to a GGUF in the store"
+        );
+        let req = ChatRequest {
+            model: std::env::var("HONE_MODEL").unwrap_or_default(),
+            messages: vec![Message {
+                role: "user".to_string(),
+                content: "Reply with exactly: HELLO FROM CANDLE".to_string(),
+            }],
+            max_tokens: 24,
+        };
+        let resp = candle_backend::chat(&req).await.expect("candle chat failed");
+        eprintln!("=== candle output ===\n{}\n=====================", resp.content);
+        assert!(!resp.content.trim().is_empty(), "candle returned empty content");
     }
 }
