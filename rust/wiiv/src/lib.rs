@@ -16,6 +16,7 @@
 use serde::{Deserialize, Serialize};
 
 pub mod api;
+pub mod worker;
 
 /// Schema version for the canonical render-job document. Bump on breaking changes.
 pub const SCHEMA_VERSION: u32 = 1;

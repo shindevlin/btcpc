@@ -67,7 +67,7 @@ role key.
 
 | Entry type | Who signs | What it does |
 |---|---|---|
-| `WiivWorkerRegister` | worker (posting) | Advertises a worker's capability classes, modalities, price hints, and hardware attestation. Stake-backed; slashable for fraud. |
+| `WiivWorkerRegister` | worker (posting) | Advertises a worker's capability classes, modalities, price hints, and hardware attestation. Emitted only after each advertised capability's provider model+runtime is resident and a local self-test render passed (see Render Worker Provisioning). Stake-backed; slashable for fraud. |
 | `WiivWorkerHeartbeat` | worker (posting) | Keeps a worker's capability listing live and updates availability. Stale workers drop out of matching. |
 | `WiivRenderJobPost` | buyer (posting) | Posts a render job: modality, compiled plan (milestones, deliverable kinds, required capabilities), max budget, revision policy, artifact retention policy, visibility. |
 | `WiivJobFund` | buyer (active) | Commits escrow to a posted job. In dry-run / pre-cutover builds this is simulated and never moves value. |
@@ -138,6 +138,66 @@ filters by the job's required capabilities, and awards bids. The chain records t
 awards and deliveries, not the matching algorithm. Registrations are stake-backed and
 slashable for capability fraud (advertising work a worker cannot deliver) or
 censorship / double-award abuse.
+
+---
+
+## Render Worker Provisioning
+
+A miner does **not** ship with rendering ability. The base node runs only the small
+embedded text model (candle GGUF) — a few hundred MB, already the default. Rendering
+models and runtimes are **large** (a video diffusion model is many GB, plus a GPU
+inference runtime and codecs), so they are pulled **only when a node opts in to a
+specific render capability**. You choose to render; then, and only then, your machine
+downloads what that capability needs.
+
+### Opt-in per capability
+
+```
+enable <capability>  →  check hardware gate  →  pull provider manifest
+                     →  fetch model + runtime →  self-test  →  WiivWorkerRegister
+```
+
+- Enabling is explicit and per-capability: a node can serve `video_generation` without
+  ever pulling `threed_generation`. `disable <capability>` stops offering it, emits a
+  register update dropping that capability, and may reclaim the model's disk.
+- Enabling a capability the hardware can't meet is refused **before** any large download,
+  with the shortfall reported (e.g. "video_generation needs ≥12 GB VRAM, found 8 GB").
+- Only after the model is resident **and** a local self-test render succeeds does the node
+  emit `WiivWorkerRegister` advertising that capability. A node never advertises a
+  capability it hasn't proven locally — this is what makes capability-fraud slashing fair.
+
+### Provider manifest
+
+Each capability resolves to a **provider manifest** describing exactly what to pull and
+run. Manifests are content-addressed and versioned, so every worker offering a capability
+runs a known, verifiable stack:
+
+| Field | Meaning |
+|---|---|
+| `capability` | The capability class this provider serves (e.g. `video_generation`). |
+| `provider_id` | Named provider implementation (there can be several per capability). |
+| `models` | Model artifacts to fetch: CID or URL, sha256, size, target path. |
+| `runtime` | Runtime dependencies (inference engine, codecs/ffmpeg) and versions. |
+| `min_hardware` | Gate: min VRAM, min RAM, GPU class, disk. Checked before download. |
+| `self_test` | A small deterministic render used to prove the stack works locally. |
+| `output_kinds` | Which deliverable kinds this provider can produce. |
+
+Model weights are pulled from HONE-FS (CID) where mirrored, falling back to an origin
+URL; every artifact is hash-verified against the manifest before use. A provider is a
+pluggable seam (`RenderProvider` in `rust/wiiv`): the node holds the enable/gate/pull/
+register logic; the provider supplies "how to fetch this model" and "how to render one
+job." This keeps model/runtime specifics out of consensus — the chain only sees the
+capability advertised and the artifacts delivered.
+
+### Trust and safety
+
+- **Hardware attestation** (GPU serial / machine-id, reusing HONE's anti-sybil identity)
+  is bound into `WiivWorkerRegister`, so one physical machine can't sybil many workers.
+- **Stake-backed**: advertising a capability requires stake; failing awarded jobs or
+  advertising work the node can't deliver is slashable.
+- **No auto-pull, no surprise downloads.** Nothing large is fetched without an explicit
+  `enable`. Auto-detecting hardware may *suggest* capabilities a machine could serve, but
+  suggesting is not enabling.
 
 ---
 
