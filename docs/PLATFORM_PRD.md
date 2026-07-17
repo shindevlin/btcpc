@@ -801,24 +801,29 @@ every future sensor type without a code change per sensor.
   is trust-boundary-based (`IngestSource::ChainConfirmed{signed}` vs.
   `Unconfirmed`, defaulting to unconfirmed/fail-closed), not a re-verification
   of ed25519 signatures — documented as a v1 limitation in `ingest.rs`.
-- [ ] **Tests**: ingest correctness (readings from 3+ sensor types
+- [x] **Tests**: ingest correctness (readings from 3+ sensor types
   aggregate independently and correctly), query correctness, and a
   self-heal test (aggregation service restart does not lose or double-count
-  in-flight readings). **Partial — see branch `platform/p1-verasens-aggregation`
-  (commit `7ef5aa2e`).** 25/25 unit tests passing (ingest parsing, dedup via
-  `HashSet<(sensor_id, epoch, data_hash)>`, query filters, per-class grouping)
-  covering ingest correctness and query correctness. **Remaining:** the
-  specific restart/self-heal test is NOT built — the `AggregationIndex` is
-  in-memory only (no persistence across process restart yet), so there is
-  nothing to test a restart against. Exact-duplicate-reading rejection
-  (the mechanism a self-heal test would exercise) has one direct unit test,
-  but no test exercises an actual process restart. Also remaining: an
-  end-to-end test exercising 3+ live sensor classes together through the
-  full ingest path in one scenario (current tests cover classes
-  independently). Next step: either add persistence to `AggregationIndex`
-  (v2, API-compatible per `state.rs`/`agg.rs` comments) and a restart test,
-  or explicitly scope self-heal out and re-file it against
-  `docs/SELF_HEAL_PRD.md`.
+  in-flight readings). **Done — branch `platform/p1-verasens-selfheal-tests`
+  (commit `7eb38c05f4332202c954f501bb5b479f2362d87f`), branched off
+  `platform/p1-verasens-aggregation` (`7ef5aa2e8`).** Closed both remaining
+  gaps: (1) added opt-in JSON-snapshot persistence to `AggregationIndex`
+  (atomic temp-file-write + fsync + rename, versioned `PersistedIndex`
+  format, wired via `AppState::with_persistence`/`VERASENS_STATE_PATH`,
+  fully backward-compatible — unset env var preserves the old in-memory-only
+  behavior) plus the self-heal restart test
+  (`restart_does_not_lose_or_double_count_inflight_readings` in `agg.rs`):
+  ingest, persist, drop the in-memory index, reload from disk, re-ingest a
+  batch that replays some pre-restart readings and adds new ones — asserts
+  nothing lost, no double-counting, and byte-for-byte parity with a
+  no-restart baseline; (2) added
+  `three_plus_sensor_classes_aggregate_independently_in_one_scenario`
+  exercising gnss/subghz/nfc/ble together in one ingest scenario sharing the
+  same geo bucket/window, proving `class` alone separates groups. 30/30
+  `cargo test -p verasens` passing (25 pre-existing + 5 new), `cargo clippy
+  -p verasens --all-targets` clean. Worktree left at
+  `X:/hone/.claude/worktrees/p1-verasens-selfheal-tests`; not pushed, not
+  merged to main.
 
 ### 1.3 — Flipper Zero custom firmware (full sensor suite)
 
@@ -1157,17 +1162,109 @@ every future sensor type without a code change per sensor.
   revisited (flag per ground rule 5). No dependency on aggregation internals
   beyond this public contract.
 
-- [ ] **Build the dashboard** (new web app, e.g. `verasens/dashboard/` or
+- [x] **Build the dashboard** (new web app, e.g. `verasens/dashboard/` or
   a service alongside `website/`) — login, query builder against the
-  aggregation service's API, USD invoicing/billing, usage history.
-- [ ] **USD → BTCPC settlement bridge** — when a company pays USD, the
+  aggregation service's API, USD invoicing/billing, usage history. **Done —
+  branch `platform/p1-verasens-dashboard` (commit `020711bcb`)**, worktree
+  `X:/hone/.claude/worktrees/p1-verasens-dashboard`. New crate
+  `rust/verasens-dashboard/` (Axum, added to the `rust/` workspace), docs/env
+  at `verasens/dashboard/`. Implements the Decision Record above: org
+  signup + member login with argon2id + mandatory TOTP 2FA, HttpOnly/Secure/
+  SameSite=Lax session cookies backed by a Postgres session store,
+  `btcpc_live_…` API keys (salted-hash storage, scoped, revocable), a query
+  builder that forwards to the Phase 1.2 aggregation service's real
+  `GET /api/verasens/query` contract and renders grouped results +
+  provenance, and a metering pipeline that writes the `usage_event` ledger
+  row and one `settlement_intent` row per provenance tuple in a single DB
+  transaction before reporting a Stripe Meter Event (idempotency key =
+  `usage_event.id`), with `billing::reconcile_unreported_usage` for retry.
+  Postgres schema at `rust/verasens-dashboard/migrations/0001_init.sql`
+  (org/member/session/api_key/usage_event/settlement_intent, matching this
+  section's data model). Stripe integration is behind a `StripeClient`
+  trait — `HttpStripeClient` is real/complete but untested against a live
+  account (no credentials in this environment); all automated tests run
+  against `MockStripeClient`. 25 tests passing: 10 unit + 11 HTTP
+  integration tests (MemStore + MockStripeClient + fake aggregation client)
+  covering signup/TOTP-gated login, empty-vs-billable query metering,
+  idempotent meter reporting, API-key issuance/revocation, session logout;
+  plus 4/4 tests against a real ephemeral Postgres container exercising the
+  actual migration schema (container torn down after). `cargo build -p
+  verasens-dashboard` clean, zero warnings. Not wired: SSO/SAML for
+  Enterprise (falls back to password+TOTP), per-query "heavy query" units
+  multiplier (flat 1 unit/query for now), and cron-scheduling of the
+  reconciliation job (function exists and is tested, nothing calls it on a
+  timer yet). Not pushed, not merged to main.
+- [x] **USD → BTCPC settlement bridge** — when a company pays USD, the
   underlying `SensorDataPurchase` fee still needs to be posted on-chain in
   BTCPC/dreams so sensor owners get paid in the native token regardless of
   how the buyer paid. Design and implement this conversion step explicitly;
-  do not let USD payments bypass on-chain settlement.
+  do not let USD payments bypass on-chain settlement. **Done — branch
+  `platform/p1-usd-btcpc-settlement-bridge` (commit
+  `2d8428ce3f20fcc681f47af6766b7898461d50fd`)**, worktree
+  `X:/hone/.claude/worktrees/p1-usd-btcpc-settlement-bridge`. New workspace
+  crate `rust/hone-settlement-bridge` (lib + bin). **Provenance-gap
+  resolution (load-bearing decision):** confirmed by direct code read that
+  the aggregator's `Provenance` has no `batch_hash`, and that
+  `hone-node/src/chain.rs` (~L2484) discards `sensor_id`/`batch_hash` on
+  `SensorDataPurchase` apply and pays only the `owner` field — so
+  `owner_account` is the economically load-bearing field, not `batch_hash`.
+  Bridge therefore settles per-(`sensor_id`, `owner_account`) and carries
+  the aggregator's `data_hash` as the on-chain `batch_hash` label (truthful
+  attestable label instead of a fabricated batch_hash); an additive
+  `Provenance.batch_hash: Option<String>` is filed as a Phase 1.2 follow-up,
+  not applied (verasens isn't in this branch's workspace). Implements: a
+  `pending → posting → posted|failed` `SettlementIntent` state machine with
+  crash-safe fsync+atomic-rename `JsonFileStore` (+ `MemStore` for tests)
+  enforcing app-level unique `(sensor_id, batch_hash, usage_event_id)`;
+  `fx.rs` pinning the USD→BTCPC rate at intent creation (rejects
+  stale/missing/zero rates); a `ChainSubmit` trait boundary constructing
+  the real `SensorDataPurchase` entry + canonical signing message + ed25519
+  signing, prod-wired to `apply_and_broadcast`; and a `redrive()`
+  crash-recovery loop so every non-`posted` intent is re-driven on restart,
+  checking `find_sealed` by the pinned nonce before resubmitting so a
+  sealed-but-unrecorded post is never duplicated. Idempotency is two
+  composed keys: the app-level unique constraint above, plus the
+  settlement account's nonce (chain accepts a given nonce at most once).
+  Adversarial analysis written inline in the commit/PRD covering
+  double-settle, wrong-owner payout, fx manipulation, and
+  collected-but-unsettled. **What's mocked:** exactly one boundary, the
+  `ChainSubmit` call itself — the documented pre-existing rustc ICE (see
+  "URGENT infrastructure blocker" below) blocks building the full
+  `hone-node` binary, so a `MockChain` modeling the real nonce/no-peers/
+  balance semantics stands in; no test claims a real on-chain post
+  succeeded. 23/23 tests passing (12 unit + 11 integration: duplicate
+  intent rejected, posted intent not re-driven, reused nonce reconciled not
+  re-credited, crash-before-submit and crash-in-flight-after-seal both
+  recovered without double-post, no-peers-then-peers eventually settles,
+  underfunded-then-topup settles, stale/missing fx rejected, correct payout
+  amount/owner/signer on a posted entry). `cargo clippy -p
+  hone-settlement-bridge --all-targets` — zero warnings in this crate. Left
+  for follow-up (documented in the commit): the real `ChainSubmit` →
+  `apply_and_broadcast` adapter (blocked only by the rustc ICE, interface
+  is ready), a real USD→HONE fx oracle/treasury feed, real settlement-
+  account treasury funding, the additive verasens `Provenance.batch_hash`
+  field, and swapping the JSON-file store for the dashboard's Postgres
+  `settlement_intent` table. Not pushed, not merged to main.
 - [ ] **Tests**: end-to-end — company account created, query made, USD
   charged, on-chain `SensorDataPurchase` posted with correct amount, sensor
-  owner credited.
+  owner credited. **Partial.** The settlement half is covered by the 23
+  settlement-bridge tests above (fx pin → intent → chain-submit boundary →
+  correct owner/amount, against `MockChain`). The dashboard half is covered
+  by its own 25 tests (signup → query → billable-usage-event →
+  settlement_intent row written) above. What's still missing for a true
+  single end-to-end test: (1) the dashboard and settlement bridge are
+  separate crates with separate stores (dashboard writes `settlement_intent`
+  to its own Postgres table per the Decision Record; the bridge currently
+  reads from its own `JsonFileStore`/`MemStore`) — no test yet drives one
+  scenario through both in sequence; (2) no test exercises a real on-chain
+  `SensorDataPurchase` seal end-to-end, since both the dashboard's Stripe
+  calls and the bridge's chain submission are mocked/boundary-isolated in
+  every current test, and the `hone-node` binary ICE (see "URGENT
+  infrastructure blocker" below) still blocks a real full-binary run. Next
+  step: wire the bridge's `IntentStore` trait to the dashboard's Postgres
+  `settlement_intent` table (flagged as a follow-up on both items above),
+  then write the single cross-crate test once the rustc ICE is resolved or
+  a workaround is found.
 
 ---
 
