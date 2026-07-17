@@ -2309,11 +2309,41 @@ impl Chain {
                 let key = format!("linkgit:pr:{}:{}", repo_id, pr_id);
                 if let Some(bytes) = self.store.get_meta(&key) {
                     if let Ok(mut pr) = serde_json::from_slice::<serde_json::Value>(&bytes) {
-                        pr["status"] = serde_json::json!("merged");
-                        pr["merge_commit"] = serde_json::json!(merge_commit);
-                        pr["merged_epoch"] = serde_json::json!(epoch);
-                        pr["updated_epoch"] = serde_json::json!(epoch);
-                        self.store.set_meta(&key, pr.to_string().as_bytes())?;
+                        // Idempotency / safety: only an OPEN PR can be merged. A PR that is
+                        // already merged or closed must not re-advance the target ref (that
+                        // would let a replayed merge silently rewind/rewrite a branch).
+                        let status = pr["status"].as_str().unwrap_or("");
+                        if status == "open" && !merge_commit.is_empty() {
+                            pr["status"] = serde_json::json!("merged");
+                            pr["merge_commit"] = serde_json::json!(merge_commit);
+                            pr["merged_epoch"] = serde_json::json!(epoch);
+                            pr["updated_epoch"] = serde_json::json!(epoch);
+                            self.store.set_meta(&key, pr.to_string().as_bytes())?;
+
+                            // ── Close the merge round-trip ─────────────────────────────
+                            // A merge is only real if the TARGET BRANCH actually moves to
+                            // the merge commit — otherwise the merged code is invisible to
+                            // `git clone`/`git pull` and LinkGit is just chain-recorded
+                            // events nobody reads. Advance refs/heads/<target_branch> to the
+                            // merge commit, mirroring LinkGitRefUpdate's ref write so the
+                            // git-serve layer (info/refs, upload-pack) reflects the merge.
+                            if let Some(target) = pr["target_branch"].as_str() {
+                                if !target.is_empty() {
+                                    let ref_name = if target.starts_with("refs/") {
+                                        target.to_string()
+                                    } else {
+                                        format!("refs/heads/{}", target)
+                                    };
+                                    let repo_key = format!("linkgit:repo:{}", repo_id);
+                                    if let Some(rb) = self.store.get_meta(&repo_key) {
+                                        if let Ok(mut repo) = serde_json::from_slice::<serde_json::Value>(&rb) {
+                                            repo["refs"][&ref_name] = serde_json::json!(merge_commit);
+                                            self.store.set_meta(&repo_key, repo.to_string().as_bytes())?;
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -6451,5 +6481,91 @@ mod property_tests {
         let runtime = chain.store.state_get("runtime:rt-2").expect("runtime rt-2 persisted");
         let runtime_json: serde_json::Value = serde_json::from_slice(&runtime).expect("runtime json");
         assert_eq!(runtime_json["status"], "undeployed");
+    }
+
+    /// A LinkGit PR merge must close the round-trip: the target branch ref has to
+    /// advance to the merge commit, or the merged code stays invisible to
+    /// `git clone`/`git pull` and the merge is just a chain event nobody reads.
+    /// Also guards the safety invariant: only an OPEN PR moves the ref; a replayed
+    /// merge on an already-merged PR is a no-op and must not rewrite the branch.
+    #[test]
+    fn linkgit_pr_merge_advances_target_branch_ref() {
+        let (chain, _dir) = prop_chain();
+        let repo_id = "alice/proj".to_string();
+
+        // 1. Create the repo (refs start empty).
+        chain.apply_entry(&LedgerEntry::LinkGitRepoCreate {
+            repo_id: repo_id.clone(),
+            owner: "alice".into(),
+            name: "proj".into(),
+            visibility: "public".into(),
+            hide_key: None,
+            epoch: 1,
+            signed_by: "alice".into(),
+        }).expect("repo create");
+
+        // 2. Establish an initial main tip (the branch the PR will target).
+        let base_commit = "1111111111111111111111111111111111111111111111111111111111111111";
+        chain.apply_entry(&LedgerEntry::LinkGitRefUpdate {
+            repo_id: repo_id.clone(),
+            owner: "alice".into(),
+            ref_name: "refs/heads/main".into(),
+            commit_hash: base_commit.into(),
+            prev_hash: None,
+            epoch: 1,
+            signed_by: "alice".into(),
+        }).expect("initial ref");
+
+        let repo_key = format!("linkgit:repo:{}", repo_id);
+        let read_main = |chain: &Chain| -> String {
+            let rb = chain.store.get_meta(&repo_key).expect("repo meta");
+            let repo: serde_json::Value = serde_json::from_slice(&rb).expect("repo json");
+            repo["refs"]["refs/heads/main"].as_str().unwrap_or("").to_string()
+        };
+        assert_eq!(read_main(&chain), base_commit, "precondition: main at base");
+
+        // 3. Open a PR from feature → main.
+        chain.apply_entry(&LedgerEntry::LinkGitPrCreate {
+            repo_id: repo_id.clone(),
+            pr_id: "pr1".into(),
+            title: "add feature".into(),
+            body: "".into(),
+            source_branch: "feature".into(),
+            target_branch: "main".into(),
+            head_commit: "2222222222222222222222222222222222222222222222222222222222222222".into(),
+            author: "bob".into(),
+            epoch: 2,
+            signed_by: "bob".into(),
+        }).expect("pr create");
+
+        // 4. Merge it — the merge commit is what main must point to afterward.
+        let merge_commit = "3333333333333333333333333333333333333333333333333333333333333333";
+        chain.apply_entry(&LedgerEntry::LinkGitPrMerge {
+            repo_id: repo_id.clone(),
+            pr_id: "pr1".into(),
+            merge_commit: merge_commit.into(),
+            actor: "alice".into(),
+            epoch: 3,
+            signed_by: "alice".into(),
+        }).expect("pr merge");
+
+        // PR is marked merged …
+        let prb = chain.store.get_meta(&format!("linkgit:pr:{}:pr1", repo_id)).expect("pr meta");
+        let pr: serde_json::Value = serde_json::from_slice(&prb).expect("pr json");
+        assert_eq!(pr["status"], "merged");
+        assert_eq!(pr["merge_commit"], merge_commit);
+        // … AND — the point of the fix — main now points at the merge commit.
+        assert_eq!(read_main(&chain), merge_commit, "target branch must advance to merge commit");
+
+        // 5. Replay the merge on the now-merged PR: must be a no-op, no ref rewrite.
+        chain.apply_entry(&LedgerEntry::LinkGitPrMerge {
+            repo_id: repo_id.clone(),
+            pr_id: "pr1".into(),
+            merge_commit: "4444444444444444444444444444444444444444444444444444444444444444".into(),
+            actor: "alice".into(),
+            epoch: 4,
+            signed_by: "alice".into(),
+        }).expect("pr merge replay");
+        assert_eq!(read_main(&chain), merge_commit, "replayed merge must not rewind/rewrite the branch");
     }
 }

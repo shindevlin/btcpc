@@ -1360,6 +1360,22 @@ storage + versioning work landing first.
   `LinkGitIssueComment`/`LinkGitIssueClose`/`LinkGitIssueReopen` entries —
   confirm these drive an actual review/merge UI or CLI flow, not just
   chain-recorded events nobody reads.
+    - [x] **Merge now moves the target branch ref** (branch
+      `linkgit/pr-merge-advances-target-ref`). Previously `LinkGitPrMerge`
+      only marked the PR record `merged` and stored `merge_commit` — it never
+      advanced `refs/heads/<target_branch>`, so the merged commits were
+      invisible to `git clone`/`git pull`: a merge nobody could read. The
+      merge handler in `chain.rs` now fast-forwards the target branch ref to
+      the merge commit (mirroring `LinkGitRefUpdate`'s ref write), so the
+      git-serve layer (`info/refs`, `upload-pack`) reflects the merge and the
+      clone→branch→PR→merge→pull round-trip actually closes. Safety: only an
+      **open** PR with a non-empty merge commit advances the ref, so a
+      replayed/duplicate merge cannot rewind or rewrite a branch. Covered by
+      `linkgit_pr_merge_advances_target_branch_ref` in `chain.rs` tests.
+    - [ ] Remaining: issue lifecycle already records on-chain
+      (open/comment/close/reopen) but has no reviewer-facing CLI/UI; PR
+      review approvals and a merge-eligibility gate (target-branch ACL,
+      up-to-date check) are not yet wired.
 - [ ] **CI/build marketplace** (new vertical, folds in here): nodes run a
   repo's build/test pipeline for a fee, using the same "prove real work"
   compute-mining infrastructure as inference mining (`LinkGitBuildReward`
