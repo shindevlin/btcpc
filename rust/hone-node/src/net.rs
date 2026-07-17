@@ -454,14 +454,30 @@ impl Network {
                 info!("Listening on {}", address);
             }
 
-            // Peer lifecycle
-            SwarmEvent::ConnectionEstablished { peer_id, .. } => {
-                info!("Peer connected: {}", peer_id);
-                self.emit(NetworkEvent::PeerConnected { peer_id: peer_id.to_string() });
+            // Peer lifecycle. `num_established` is libp2p's own per-peer connection
+            // count (all transports/dials to this peer_id, not just this one). Without
+            // gating on it, a simultaneous mutual dial (both sides connect to each
+            // other at ~the same time — routine at startup between static peers) opens
+            // two separate connections to the same peer_id, and each one fires its own
+            // ConnectionEstablished/ConnectionClosed. Emitting PeerConnected/
+            // PeerDisconnected per *connection* instead of per *peer* double-counts the
+            // increment and can leave `peer_count` stale-high after a real peer death,
+            // since the second connection's close may lag (idle-timeout, not an
+            // immediate RST) or never have been observed as a distinct peer to begin
+            // with. Gate on the 0/1 boundary so the shared counter tracks unique
+            // connected peers, matching what `peer_count == 0` (the hardline
+            // reject-all-submissions gate) assumes.
+            SwarmEvent::ConnectionEstablished { peer_id, num_established, .. } => {
+                info!("Peer connected: {} (connections to peer: {})", peer_id, num_established);
+                if num_established.get() == 1 {
+                    self.emit(NetworkEvent::PeerConnected { peer_id: peer_id.to_string() });
+                }
             }
-            SwarmEvent::ConnectionClosed { peer_id, cause, .. } => {
-                debug!("Peer disconnected: {} ({:?})", peer_id, cause);
-                self.emit(NetworkEvent::PeerDisconnected { peer_id: peer_id.to_string() });
+            SwarmEvent::ConnectionClosed { peer_id, cause, num_established, .. } => {
+                debug!("Peer disconnected: {} ({:?}), remaining connections to peer: {}", peer_id, cause, num_established);
+                if num_established == 0 {
+                    self.emit(NetworkEvent::PeerDisconnected { peer_id: peer_id.to_string() });
+                }
             }
 
             // Gossipsub message
