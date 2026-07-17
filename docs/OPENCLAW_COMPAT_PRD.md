@@ -28,11 +28,56 @@ it, test it, commit, and tick the box.
   which is what every downstream phase actually needs, is complete. Actually
   standing up a live Gateway is folded into Phase 1's "Wire BTCPC as a provider"
   step, where it's needed for the real round-trip.) Commit on `main`.
-- [ ] **Confirm BTCPC's OpenAI-compatible endpoint works standalone** —
+- [~] **Confirm HONE's OpenAI-compatible endpoint works standalone** —
   `curl -X POST https://honemesh.net/v1/chat/completions -H "Authorization:
-  Bearer btcpc_..." -d '{"model":"auto","messages":[...]}'`. If this endpoint
+  Bearer hone_..." -d '{"model":"auto","messages":[...]}'`. If this endpoint
   is only documented and not live/tested, get a real API key via the faucet
-  flow and prove one request round-trips.
+  flow and prove one request round-trips. **PARTIAL — endpoint wiring & the full
+  auth/payment gate are confirmed working; the paid generation round-trip is
+  BLOCKED (see open question O1).** Verified against a live local node
+  (`http://localhost:4242`, v1.2.2, chain_id `hone`, epoch 37113, 8 peers) 2026-07-17:
+  - **Production `honemesh.net` is offline.** DNS resolves to `162.255.119.201`
+    (a Namecheap parking-page IP), and `:443` connection times out. There is no
+    live public Gateway to hit today — so Phase 1's "point OpenClaw at
+    `https://honemesh.net/v1`" cannot be exercised end-to-end until the
+    production node/reverse-proxy is actually stood up. Whoever does the Phase 1
+    round-trip must first bring `honemesh.net/v1` (or an equivalent public host)
+    online, or test against a reachable node.
+  - **The `/v1/chat/completions` route is wired and the auth+payment gate works
+    end-to-end** (`rust/hone-node/src/api.rs:7868` `post_v1_chat_completions`).
+    Confirmed by curl against the local node — three distinct, correct gate
+    responses:
+    - no `Authorization` header → **401** `authentication_error`
+      ("Authorization required…").
+    - `Authorization: Bearer <unknown-account>` → **401** `authentication_error`
+      ("Invalid API key…"). (Bearer resolves via `get_account_by_api_key`, else
+      falls back to a literal account name — `api.rs:7925`.)
+    - `Authorization: Bearer adam` (an account that exists on-chain, zero balance)
+      → **402** `insufficient_quota` ("Insufficient balance. Need at least 1000
+      hunits, have 0."). This is `MIN_INFERENCE_FEE_HUNITS = 1_000` at
+      `api.rs:7847`; per-token fee is `HUNITS_PER_TOKEN = 100`.
+  - **The last mile — actual generation after payment — could NOT be exercised**
+    because no funded account is available on this node: the faucet is empty
+    (`GET /api/faucet/status` → `available:false`, `reserve_hunits:0`) and every
+    one of the 1164 accounts in `GET /api/accounts` has zero balance. The
+    embedded inference engine is loaded (node reports
+    `model: …/gguf/llama2-uncensored.gguf`), so the generation path is present;
+    it just can't be driven past the payment gate without funds. Minting/crediting
+    an account to force it was deliberately NOT done — that would manipulate a
+    shared live-testnet's consensus state and violates the repo's
+    "No Local Submission Without Peers" hardline. See open question O1.
+
+  **Open question O1 (blocks the true standalone round-trip):** proving one paid
+  `/v1/chat/completions` request round-trips end-to-end needs a funded HONE
+  account, but the testnet faucet reserve is empty (0 hunits) and no local
+  account carries a balance. This is a fund-availability/operational gap, not a
+  code gap — the code path is verified up to the payment gate. Resolve by one of:
+  (a) refill the testnet faucet reserve (`__testnet_fund__`) so
+  `POST /api/faucet/claim` can issue the 1 HONE claim, then claim → set an API key
+  (`hone wallet api-key-gen` → `AccountApiKeySet`) → curl a real turn; or
+  (b) run/point at a node whose state already has a funded account. This same
+  funded account is a prerequisite for Phase 1's "Wire BTCPC as a provider" and
+  "Verify the round trip on-chain" items, so resolving O1 unblocks those too.
 - [ ] **Confirm `/api/bot/*` surface is stable enough to build on** — this is
   what `bots/btcpcwalletbot` already uses; an OpenClaw plugin would call the
   same routes. Read `src/routes/botRoutes.js` and note which endpoints exist
