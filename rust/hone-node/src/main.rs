@@ -49,6 +49,7 @@ mod hardware;
 mod inference;
 mod inference_engine;
 mod inference_daemon;
+mod shuffler;
 mod miner;
 mod reserved_names;
 mod sensor;
