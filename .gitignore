@@ -53,6 +53,9 @@ website/HONE-desktop-linux.AppImage
 website/hone-desktop-linux.deb
 website/downloads/
 android/hone-release.keystore
+android/*.keystore
+android/*.jks
+android/keystore.properties
 android/app/build/
 **/android/build/
 **/android/app/build/
