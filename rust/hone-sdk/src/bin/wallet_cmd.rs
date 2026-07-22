@@ -67,6 +67,21 @@ fn require_password() -> Result<String> {
     Ok(pw)
 }
 
+/// Restrict a just-written file to owner-only (0600) on unix. Use for any file
+/// that contains plaintext secret material (mnemonic, private keys) — otherwise
+/// `std::fs::write` leaves it world-readable at the process umask (usually 0644).
+fn restrict_to_owner(path: &std::path::Path) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if let Err(e) = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600)) {
+            eprintln!("warning: could not chmod 600 {}: {e}", path.display());
+        }
+    }
+    #[cfg(not(unix))]
+    { let _ = path; }
+}
+
 fn keystore_path(vault: &str, account: &str) -> PathBuf {
     Path::new(vault).join(format!("{account}.keystore.json"))
 }
@@ -335,6 +350,7 @@ fn cmd_export_node_key(args: &[String]) -> Result<i32> {
         ks.account, ks.account, priv_hex
     );
     std::fs::write(&out, body).with_context(|| format!("writing {}", out.display()))?;
+    restrict_to_owner(&out); // this file holds a PRIVATE key — never world-readable
     println!(
         "wrote {} (HONE_ACCOUNT={}, HONE_POSTING_KEY set; {role} public = {}).\n\
          Source it into the node env, then delete it: `set -a; . {}; set +a`",
@@ -407,6 +423,7 @@ fn cmd_export_all(args: &[String]) -> Result<i32> {
         .map(std::path::PathBuf::from)
         .unwrap_or_else(|| std::path::PathBuf::from(format!("{}.keys.txt", ks.account)));
     std::fs::write(&out, s).with_context(|| format!("writing {}", out.display()))?;
+    restrict_to_owner(&out); // mnemonic + every private key — never world-readable
     println!("wrote full key record for '{}' -> {}", ks.account, out.display());
     Ok(0)
 }

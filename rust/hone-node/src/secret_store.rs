@@ -89,6 +89,14 @@ impl SecretStore {
         let map = self.load_file().unwrap_or_default();
         let json = serde_json::to_vec_pretty(&map)?;
         std::fs::write(path, json)?;
+        // Plaintext secrets: owner-only, never world-readable at the process umask.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Err(e) = std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600)) {
+                tracing::warn!("secret_store: could not chmod 600 {}: {}", path.display(), e);
+            }
+        }
         Ok(())
     }
 
