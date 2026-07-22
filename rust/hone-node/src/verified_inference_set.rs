@@ -225,8 +225,9 @@ mod tests {
         // Guards the exact scenario the design doc calls out: a same-named but
         // different-build/different-quant file must not slip in under the label.
         let s = set(vec![model("qwen3.6-27b", REAL_HASH)], "vault-sig-abc123");
-        let impostor_hash = "0000000000000000000000000000000000000000000000000000000000000";
-        assert!(!s.admits("candle-gguf", &impostor_hash[..64]));
+        let impostor_hash = "0".repeat(64);
+        assert_ne!(impostor_hash, REAL_HASH);
+        assert!(!s.admits("candle-gguf", &impostor_hash));
     }
 
     #[test]
