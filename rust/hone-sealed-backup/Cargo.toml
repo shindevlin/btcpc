@@ -1,0 +1,26 @@
+[package]
+name = "hone-sealed-backup"
+version = "0.1.0"
+edition = "2021"
+authors = ["Shin Devlin <shindevlin@proton.me>"]
+description = "HONE Sealed Backup — portable core: derivation + envelope + addresses"
+
+# Standalone crate, like hone-sdk: not a rust/Cargo.toml workspace member, so it
+# builds independently of the node (no rocksdb/libclang) and can target wasm32.
+[workspace]
+
+[dependencies]
+hone-sdk = { path = "../hone-sdk" }
+anyhow = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+hex = "0.4"
+rand = "0.8"
+argon2 = "0.5"
+aes-gcm = "0.10"
+x25519-dalek = { version = "2", features = ["static_secrets"] }
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+curve25519-dalek = "4"
+hkdf = "0.12"
+sha2 = "0.10"
+zeroize = { version = "1", features = ["derive"] }
