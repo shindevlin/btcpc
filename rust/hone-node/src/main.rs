@@ -50,6 +50,7 @@ mod inference;
 mod inference_engine;
 mod inference_daemon;
 mod shuffler;
+mod verified_inference_set;
 mod miner;
 mod reserved_names;
 mod sensor;
