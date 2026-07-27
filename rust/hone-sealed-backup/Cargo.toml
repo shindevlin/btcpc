@@ -24,3 +24,11 @@ curve25519-dalek = "4"
 hkdf = "0.12"
 sha2 = "0.10"
 zeroize = { version = "1", features = ["derive"] }
+
+# CLI-only dependencies for the standalone `hone-seal` air-gapped tool.
+clap = { version = "4", features = ["derive"] }
+rpassword = "7"
+
+[[bin]]
+name = "hone-seal"
+path = "src/bin/hone-seal.rs"
