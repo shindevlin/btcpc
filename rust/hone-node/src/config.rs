@@ -41,6 +41,16 @@ pub struct Config {
     /// contaminated by live-network peers, so state_root convergence between the
     /// test nodes can be asserted. NOT for production nodes.
     pub isolated: bool,
+    /// Posting-only mode (HONE_POSTING_ONLY=true): refuse to start if the account's
+    /// `wallet.key` holds anything beyond the posting role key — a populated
+    /// `mnemonic`, or a non-empty owner/active private key. A running node/clock is
+    /// least-privilege by design: it seals with posting only, never owner/active,
+    /// and never the seed those derive from. Off by default because every existing
+    /// `wallet.key` in the fleet today holds the full bundle (mnemonic + all 6
+    /// roles) — turning this on is a per-node decision made only after that
+    /// account has been re-keyed to a posting-only credential; it must never flip
+    /// on by surprise and silently brick an existing node.
+    pub posting_only: bool,
 }
 
 impl Config {
@@ -111,6 +121,8 @@ impl Config {
             ),
             posting_key: std::env::var("HONE_POSTING_KEY").ok(),
             isolated,
+            posting_only: std::env::var("HONE_POSTING_ONLY")
+                .map(|v| v == "true" || v == "1").unwrap_or(false),
         }
     }
 }

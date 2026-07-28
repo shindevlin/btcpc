@@ -198,6 +198,30 @@ async fn main() -> Result<()> {
 
     // Wallet: restore / load / generate all chain keys (HONE, Bitcoin, Ethereum).
     let mut wallet_keys = wallet::init(&cfg.data_dir)?;
+
+    // Least-privilege boot guard (HONE_POSTING_ONLY=true, opt-in — see Config::posting_only).
+    // A running node/clock should hold nothing beyond its posting key: not the mnemonic that
+    // regenerates every role, not owner (key rotation/governance), not active (transfers/
+    // staking). Refuse to start rather than silently running with all of it resident, same
+    // spirit as the BUG-1 "no usable posting key" guard below. Checked structurally — field
+    // emptiness only, no key material is read for its value here.
+    if cfg.posting_only {
+        let holds_more_than_posting = !wallet_keys.mnemonic.is_empty()
+            || !wallet_keys.hone_owner_private_key.is_empty()
+            || !wallet_keys.hone_active_private_key.is_empty();
+        if holds_more_than_posting {
+            error!(
+                "[posting-only] refusing to start — '{}' wallet.key holds more than a posting \
+                 key (mnemonic and/or owner/active private key present). HONE_POSTING_ONLY \
+                 requires a wallet.key re-keyed to a posting-only credential; move the \
+                 mnemonic/owner/active material to the vault and re-provision this node with \
+                 just its posting key before enabling this flag.",
+                cfg.account
+            );
+            std::process::exit(1);
+        }
+    }
+
     // Backfill ton_address if missing (async call to tonapi.io).
     wallet::ensure_ton_address(&cfg.data_dir, &mut wallet_keys).await;
     // Keep ~/.hone/{account}.wallet.key in sync so TUI/CLI can find keys without knowing data_dir.
