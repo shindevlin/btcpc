@@ -10,6 +10,8 @@ state machine, block production, contract execution, and HTTP API.
     HONE_ACCOUNT         — this node's account name
     HONE_NODE_ID         — libp2p node identity label
     HONE_API_PORT        — HTTP API port (default: 4242)
+    HONE_API_BIND_HOST      — HTTP API bind host (default: 127.0.0.1; set to 0.0.0.0
+                                to expose on all interfaces — explicit opt-in only)
     HONE_P2P_PORT        — libp2p listen port (default: 6942)
     HONE_MINER               — "true" to enable mining
     HONE_CLOCK               — "true" to participate in clock consensus
@@ -35,6 +37,9 @@ state machine, block production, contract execution, and HTTP API.
     HONE_AUTO_UPDATE         — "1" to enable auto-update from HONE_UPDATE_URL
     HONE_UPDATE_URL          — URL to poll for binary updates (requires HONE_AUTO_UPDATE=1)
     HONE_ALERT_WEBHOOK       — HTTP POST URL for health alert notifications
+    HONE_WRITE_MNEMONIC_BACKUP — "true" to also write a plaintext {account}.txt recovery
+                                phrase into HONE_DATA_DIR on startup. Default: off — a
+                                cleartext mnemonic is not written to disk unless asked for.
 */
 
 mod api;
@@ -142,13 +147,74 @@ use contracts::ContractEngine;
 use net::{NetCmd, NetworkEvent};
 use store::Store;
 
+/// Parses argv before any config/env/side-effecting code runs. `--help` and `--version`
+/// must never boot a node — that was the footgun: with no arg parsing at all, `--help`
+/// silently ignored the flag and booted a real node with production defaults (account
+/// `genesis`, chain `hone` mainnet, API on `0.0.0.0`).
+fn handle_early_exit_flags() {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    for arg in &args {
+        match arg.as_str() {
+            "--help" | "-h" => {
+                println!("hone-node {}", env!("CARGO_PKG_VERSION"));
+                println!("Usage: hone-node [OPTIONS]");
+                println!(
+                    "\nhone-node takes no positional arguments. All configuration is via \
+                     environment variables — see the module doc comment at the top of \
+                     main.rs (HONE_ACCOUNT, HONE_DATA_DIR, HONE_CHAIN_ID, HONE_API_PORT, ...)."
+                );
+                println!("\nOptions:\n  -h, --help       Print this help and exit\n  -V, --version    Print version and exit");
+                std::process::exit(0);
+            }
+            "--version" | "-V" => {
+                println!("hone-node {}", env!("CARGO_PKG_VERSION"));
+                std::process::exit(0);
+            }
+            other => {
+                eprintln!(
+                    "hone-node: unrecognized argument '{}' — refusing to start with unknown \
+                     arguments rather than silently booting with default/production settings. \
+                     Run --help for usage.",
+                    other
+                );
+                std::process::exit(1);
+            }
+        }
+    }
+}
+
+/// A bare `hone-node` with zero configuration must not silently become a genesis-account
+/// mainnet node — that combination should only ever happen on purpose. Require
+/// `HONE_ACCOUNT` to be set explicitly (or `HONE_CHAIN_ID` to opt out of mainnet) before
+/// allowing the genesis+mainnet combination to boot.
+fn guard_against_silent_genesis_mainnet(cfg: &Config) {
+    let account_explicit = std::env::var("HONE_ACCOUNT").is_ok();
+    let chain_explicit = std::env::var("HONE_CHAIN_ID").is_ok();
+    if !account_explicit
+        && !chain_explicit
+        && cfg.account == "genesis"
+        && cfg.chain_id == hone_types::MAINNET_CHAIN_ID
+    {
+        eprintln!(
+            "hone-node: refusing to start — no HONE_ACCOUNT (or HONE_CHAIN_ID) set, which \
+             would silently boot as account 'genesis' on the mainnet chain ('{}'). Set \
+             HONE_ACCOUNT explicitly (and HONE_CHAIN_ID if not mainnet) to boot intentionally.",
+            hone_types::MAINNET_CHAIN_ID
+        );
+        std::process::exit(1);
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
+    handle_early_exit_flags();
+
     // Install ring as the rustls 0.23 crypto provider before any TLS code runs.
     // Required when multiple providers (ring + aws-lc-rs) are in the dep tree.
     let _ = rustls::crypto::ring::default_provider().install_default();
 
     let cfg = Config::from_env();
+    guard_against_silent_genesis_mainnet(&cfg);
 
     // Prevent multiple instances on the same machine.
     // Port pre-check works everywhere including WSL↔Windows cross-instance conflicts,
@@ -201,7 +267,7 @@ async fn main() -> Result<()> {
     // Backfill ton_address if missing (async call to tonapi.io).
     wallet::ensure_ton_address(&cfg.data_dir, &mut wallet_keys).await;
     // Keep ~/.hone/{account}.wallet.key in sync so TUI/CLI can find keys without knowing data_dir.
-    wallet::backup_to_home(&cfg.account, &wallet_keys);
+    wallet::backup_to_home(&cfg.data_dir, &cfg.account, &wallet_keys);
 
     // Seal-signing key = the wallet's posting role key (SLIP-10 m/44'/6942'/2'/0').
     // This is the SAME key registered on-chain as the account's posting key, so
@@ -1580,7 +1646,7 @@ async fn main() -> Result<()> {
         i2p_handle,
         lorawan_handle,
     };
-    api::serve(app_state, cfg.api_port).await?;
+    api::serve(app_state, cfg.api_bind_host.clone(), cfg.api_port).await?;
 
     Ok(())
 }

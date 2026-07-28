@@ -10603,9 +10603,9 @@ async fn get_ton_activation_status(
 
 // ═════════════════════════════════════════════════════════════════════════════
 
-pub async fn serve(state: AppState, port: u16) -> anyhow::Result<()> {
+pub async fn serve(state: AppState, bind_host: String, port: u16) -> anyhow::Result<()> {
     let app = router(state);
-    let addr = format!("0.0.0.0:{}", port);
+    let addr = format!("{}:{}", bind_host, port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!("API listening on http://{}", addr);
     axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await?;

@@ -15,6 +15,9 @@ pub struct Config {
     pub account: AccountId,
     pub data_dir: PathBuf,
     pub api_port: u16,
+    /// HTTP API bind host. Defaults to `127.0.0.1` (loopback-only) — binding all
+    /// interfaces is an explicit opt-in via `HONE_API_BIND_HOST=0.0.0.0`, never a default.
+    pub api_bind_host: String,
     pub p2p_port: u16,
     pub bootstrap_peers: Vec<String>,
     pub is_miner: bool,
@@ -64,6 +67,8 @@ impl Config {
             data_dir,
             api_port: std::env::var("HONE_API_PORT")
                 .ok().and_then(|s| s.parse().ok()).unwrap_or(4242),
+            api_bind_host: std::env::var("HONE_API_BIND_HOST")
+                .unwrap_or_else(|_| "127.0.0.1".to_string()),
             p2p_port: std::env::var("HONE_P2P_PORT")
                 .ok().and_then(|s| s.parse().ok()).unwrap_or(6942),
             bootstrap_peers: {

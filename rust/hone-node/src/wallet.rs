@@ -296,27 +296,36 @@ pub fn init(data_dir: &Path) -> Result<WalletKeys> {
     Ok(keys)
 }
 
-/// Copy the wallet to ~/.hone/{account}.wallet.key and ~/.hone/{account}.txt so
-/// TUI/CLI can find it without knowing the node's data directory.
-/// Called every startup — safe to repeat. User can encrypt the ~/.hone/ folder.
-pub fn backup_to_home(account: &str, keys: &WalletKeys) {
-    let home = match std::env::var("HOME") {
-        Ok(h) => h,
-        Err(_) => return,
-    };
-    let dir = std::path::PathBuf::from(&home).join(".hone");
-    if let Err(e) = std::fs::create_dir_all(&dir) {
-        warn!("wallet: could not create ~/.hone: {}", e);
+/// Copy the wallet to `{data_dir}/{account}.wallet.key` so TUI/CLI can find it without
+/// separately being told the node's data directory. Called every startup — safe to repeat.
+///
+/// Takes `data_dir` rather than hardcoding `~/.hone`: a node run with an explicit
+/// `HONE_DATA_DIR` (e.g. an isolated test boot) must not also leave a copy of its wallet
+/// under the operator's real `~/.hone` — that isolation was previously incomplete because
+/// this always wrote to `$HOME/.hone` regardless of `data_dir`.
+///
+/// The plaintext mnemonic `.txt` backup is opt-in only (`HONE_WRITE_MNEMONIC_BACKUP=true`)
+/// — writing a recovery phrase to disk in cleartext by default is a real key-exposure risk,
+/// not something every startup should do silently.
+pub fn backup_to_home(data_dir: &std::path::Path, account: &str, keys: &WalletKeys) {
+    if let Err(e) = std::fs::create_dir_all(data_dir) {
+        warn!("wallet: could not create {}: {}", data_dir.display(), e);
         return;
     }
 
-    let json_dest = dir.join(format!("{}.wallet.key", account));
+    let json_dest = data_dir.join(format!("{}.wallet.key", account));
     match save(&json_dest, keys) {
         Ok(_)  => info!("wallet: backed up to {}", json_dest.display()),
         Err(e) => warn!("wallet: could not back up to {}: {}", json_dest.display(), e),
     }
 
-    let txt_dest = dir.join(format!("{}.txt", account));
+    let write_mnemonic = std::env::var("HONE_WRITE_MNEMONIC_BACKUP")
+        .map(|v| v == "true" || v == "1").unwrap_or(false);
+    if !write_mnemonic {
+        return;
+    }
+
+    let txt_dest = data_dir.join(format!("{}.txt", account));
     let txt = format_txt_backup(account, keys);
     match std::fs::write(&txt_dest, &txt) {
         Ok(_)  => info!("wallet: human-readable backup at {}", txt_dest.display()),
