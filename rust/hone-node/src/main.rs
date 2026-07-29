@@ -1903,6 +1903,26 @@ fn backfill_txglobal(chain: &Chain) {
 /// redundant AND dangerous — ClockReward's apply arm has no per-epoch idempotency guard,
 /// so a received-then-recomputed reward would double-credit. The EpochFinalize entry is
 /// the only thing that gossips; rewards are a pure function of it.
+/// Credit the recycle fund AND advance the durable cumulative counter.
+///
+/// The fund's *balance* is not the same as "total ever recycled": from
+/// RECYCLE_ERA onward the epoch budget is drawn FROM the fund, so the balance
+/// falls again. Anyone reading liquidity history off the balance alone would see
+/// recycling apparently reverse. `supply:recycled_cumulative` is monotonic and
+/// survives restarts, so it is the honest lifetime figure.
+fn recycle_credit(chain: &Chain, amount: u64) {
+    if amount == 0 { return; }
+    let _ = chain.store.credit(
+        hone_types::RECYCLE_FUND_ACCOUNT, hone_types::NATIVE_TOKEN, amount);
+    let prev = chain.store.state_get("supply:recycled_cumulative")
+        .and_then(|v| String::from_utf8(v).ok())
+        .and_then(|s| s.trim().parse::<u128>().ok())
+        .unwrap_or(0);
+    let _ = chain.store.state_set(
+        "supply:recycled_cumulative",
+        prev.saturating_add(amount as u128).to_string().as_bytes());
+}
+
 fn emit_epoch_rewards(
     epoch: u64,
     clock_sealers: &[String],
@@ -1938,7 +1958,7 @@ fn emit_epoch_rewards(
     let adjusted_pool     = (raw_pool as u128 * long_term_scalar as u128 / LAYER_A_SCALAR_DENOM as u128) as u64;
     let layer_a_damped    = raw_pool.saturating_sub(adjusted_pool);
     if layer_a_damped > 0 {
-        let _ = chain.store.credit(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN, layer_a_damped);
+        recycle_credit(chain, layer_a_damped);
     }
     let raw_pool = adjusted_pool; // shadow: all downstream logic operates on the scaled pool
 
@@ -1971,7 +1991,7 @@ activity pool starved (sealing clock-node count too high for era budget)",
     let activity_pool  = post_reserve.saturating_sub(clock_allotment);
 
     if recycle_split > 0 {
-        let _ = chain.store.credit(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN, recycle_split);
+        recycle_credit(chain, recycle_split);
     }
     if testnet_top_up > 0 {
         let _ = chain.store.credit(TESTNET_FUND_ACCOUNT, NATIVE_TOKEN, testnet_top_up);
@@ -2056,7 +2076,7 @@ activity pool starved (sealing clock-node count too high for era budget)",
     // minted beyond the epoch budget carved above.
     let clock_recycle = clock_allotment.saturating_sub(clock_paid);
     if clock_recycle > 0 {
-        let _ = chain.store.credit(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN, clock_recycle);
+        recycle_credit(chain, clock_recycle);
     }
 
     // ── Layer E: testnet operator rewards (from testnet fund) ────────────────
@@ -2434,7 +2454,7 @@ activity pool starved (sealing clock-node count too high for era budget)",
     let gated_pool   = gated_pool_base.saturating_add(fee_boost);
     let idle_recycle = idle_before_c.saturating_sub(fee_boost);
     if idle_recycle > 0 {
-        let _ = chain.store.credit(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN, idle_recycle);
+        recycle_credit(chain, idle_recycle);
     }
 
     // Budget allocation: proportional to each pool's normalized utilization
@@ -2479,7 +2499,7 @@ activity pool starved (sealing clock-node count too high for era budget)",
                          + scatter_verify + scatter_svc + scatter_mem + scatter_track
                          + scatter_git + scatter_build;
     if scarcity_recycle > 0 {
-        let _ = chain.store.credit(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN, scarcity_recycle);
+        recycle_credit(chain, scarcity_recycle);
     }
 
     distribute_rewards_desktop(epoch, &mines, inference_pool, chain, |miner, amount, ep| {
@@ -2600,7 +2620,7 @@ activity pool starved (sealing clock-node count too high for era budget)",
                      + linkgit_pool + build_pool;
     let remainder    = gated_pool.saturating_sub(distributed).saturating_sub(scarcity_recycle);
     if remainder > 0 {
-        let _ = chain.store.credit(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN, remainder);
+        recycle_credit(chain, remainder);
     }
 
     info!(
@@ -2941,6 +2961,84 @@ mod reward_driver_tests {
         let store = crate::store::Store::open(dir.path()).unwrap();
         let chain = Chain::new(store, format!("node-{}", label), "hone-test".to_string());
         (chain, dir)
+    }
+
+
+    // ── Native emission conservation (Beastly e5b9d2f74a13, Shin's framing) ──
+    //
+    // The chain has ONE emission rule, not a set of features: each epoch's budget
+    // is block_reward_at(epoch), and every hunit of it is either PAID to something
+    // that earned it or CREDITED to __recycle_fund__. Never more (no minting "just
+    // for emitting"), never less (nothing forfeited). The genesis "reclaim" is not
+    // a separate mechanism — it is this same rule applied to a run of epochs that
+    // had zero earners.
+    //
+    // This asserts that invariant directly on total supply, so it covers every lane
+    // at once — layer_a damping, reserve splits, the clock carve, idle/scarcity
+    // recycle, rounding remainder, and all reward payouts — without enumerating
+    // them. A new lane that mints outside the budget fails this test even if nobody
+    // remembers to update it, which is the point: the clock lane was exactly such a
+    // leak and no existing test caught it.
+    fn total_supply(chain: &Chain) -> u128 {
+        // MUST come from CF_BALANCES, not scan_account_ids() — the reserve pools
+        // (__recycle_fund__ etc.) hold balances with no account record.
+        chain.store.total_supply(hone_types::NATIVE_TOKEN)
+    }
+
+    #[test]
+    fn emission_conserves_epoch_budget_exactly() {
+        let (chain, _d) = make_chain("emit_conserve");
+        let chain = std::sync::Arc::new(chain);
+        let sealers = vec!["clockA".to_string(), "clockB".to_string()];
+
+        // Several epochs inside era < RECYCLE_ERA, where the budget is
+        // block_reward_at(epoch) rather than drawn from the recycle fund.
+        for e in [1u64, 5, 121, 1_000, 71_603] {
+            assert!(hone_types::era(e) < hone_types::RECYCLE_ERA,
+                    "epoch {e} must be pre-recycle-era for this assertion");
+            let before = total_supply(&chain);
+            emit_epoch_rewards(e, &sealers, &chain);
+            let minted = total_supply(&chain) - before;
+            let budget = hone_types::block_reward_at(e) as u128;
+            assert_eq!(
+                minted, budget,
+                "epoch {e}: minted {minted} != budget {budget} (delta {}) — \
+                 something minted outside the ceiling or forfeited tokens",
+                minted as i128 - budget as i128
+            );
+        }
+    }
+
+    /// The same rule with NO sealers: nobody earned, so the entire budget must
+    /// land in the recycle fund — identical to a pre-launch epoch. This is the
+    /// genesis-gap case expressed as what it actually is.
+    #[test]
+    fn epoch_with_no_earners_recycles_whole_budget() {
+        let (chain, _d) = make_chain("emit_empty");
+        let chain = std::sync::Arc::new(chain);
+        let before_total = total_supply(&chain);
+        let before_recycle = chain.store.get_balance(
+            hone_types::RECYCLE_FUND_ACCOUNT, hone_types::NATIVE_TOKEN);
+
+        emit_epoch_rewards(500, &[], &chain);
+
+        let budget = hone_types::block_reward_at(500) as u128;
+        let minted = total_supply(&chain) - before_total;
+        let recycled = (chain.store.get_balance(
+            hone_types::RECYCLE_FUND_ACCOUNT, hone_types::NATIVE_TOKEN)
+            .saturating_sub(before_recycle)) as u128;
+        let treasury = chain.store.get_balance(
+            hone_types::TREASURY_ACCOUNT, hone_types::NATIVE_TOKEN) as u128;
+        let testnet = chain.store.get_balance(
+            hone_types::TESTNET_FUND_ACCOUNT, hone_types::NATIVE_TOKEN) as u128;
+        assert_eq!(minted, budget, "empty epoch still minted != budget");
+        // With no earners nothing is PAID for work, but the fixed reserve splits
+        // (treasury 0.1%, testnet 0.4%) are legitimate non-recycle destinations by
+        // design — so the invariant is that recycle + reserves account for all of
+        // it, not that recycle alone does.
+        assert_eq!(recycled + treasury + testnet, budget,
+            "empty epoch: recycle {recycled} + treasury {treasury} + testnet {testnet} \
+             != budget {budget} — some of an unearned budget went to an earner");
     }
 
     fn mark_done(chain: &Chain, epochs: &[u64]) {

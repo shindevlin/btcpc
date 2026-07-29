@@ -275,6 +275,7 @@ pub fn router(state: AppState) -> Router {
         // ── State Proofs (Phase 7) ────────────────────────────────────────
         .route("/api/proof/balance/:account/:token", get(get_balance_proof))
         .route("/api/chain/state_root", get(get_state_root))
+        .route("/api/supply", get(get_supply))
         // ── Clock node reputation (Phase 8) ───────────────────────────────
         .route("/api/clock/register", post(post_clock_register))
         .route("/api/clock/self-register", post(post_clock_self_register))
@@ -1974,6 +1975,57 @@ fn non_empty(s: &str) -> Option<&str> {
 // GET /api/sync/snapshot — full account state export for bootstrapping a diverged node.
 // Returns the current epoch checkpoint + every account record. A node can load this
 // as its starting state instead of replaying from genesis and diverging.
+/// GET /api/supply — the permanent supply ledger.
+///
+/// Reads that a person can audit: what the chain is allowed to emit, what
+/// actually exists, what is genuinely in someone's hands, and what has been
+/// recycled over the chain's whole life.
+///
+/// `recycled_cumulative` is a durable monotonic counter, NOT the recycle fund's
+/// balance. From RECYCLE_ERA onward the epoch budget is drawn from the fund, so
+/// the balance falls; reading lifetime recycling off the balance would show it
+/// going backwards. Both figures are returned so the difference is visible
+/// rather than hidden.
+async fn get_supply(State(s): State<AppState>) -> Json<serde_json::Value> {
+    let total = s.chain.store.total_supply(hone_types::NATIVE_TOKEN);
+    let recycle = s.chain.store.get_balance(
+        hone_types::RECYCLE_FUND_ACCOUNT, hone_types::NATIVE_TOKEN) as u128;
+    let treasury = s.chain.store.get_balance(
+        hone_types::TREASURY_ACCOUNT, hone_types::NATIVE_TOKEN) as u128;
+    let testnet = s.chain.store.get_balance(
+        hone_types::TESTNET_FUND_ACCOUNT, hone_types::NATIVE_TOKEN) as u128;
+    let reserves = recycle + treasury + testnet;
+    let circulating = total.saturating_sub(reserves);
+    let recycled_cumulative: u128 = s.chain.store.state_get("supply:recycled_cumulative")
+        .and_then(|v| String::from_utf8(v).ok())
+        .and_then(|x| x.trim().parse::<u128>().ok())
+        .unwrap_or(0);
+    let cap = hone_types::SUPPLY_CAP_HUNITS as u128;
+    let hone = |h: u128| -> String { format!("{}.{:010}", h / 10_000_000_000, h % 10_000_000_000) };
+
+    Json(serde_json::json!({
+        "token": hone_types::NATIVE_TOKEN,
+        "cap_hunits": cap,
+        "cap_hone": hone(cap),
+        "total_supply_hunits": total,
+        "total_supply_hone": hone(total),
+        "circulating_hunits": circulating,
+        "circulating_hone": hone(circulating),
+        "reserves": {
+            "recycle_fund_hunits": recycle,
+            "treasury_hunits": treasury,
+            "testnet_fund_hunits": testnet,
+            "total_hunits": reserves,
+        },
+        "recycled_cumulative_hunits": recycled_cumulative,
+        "recycled_cumulative_hone": hone(recycled_cumulative),
+        "headroom_to_cap_hunits": cap.saturating_sub(total),
+        "over_cap": total > cap,
+        "epoch": s.chain.current_epoch(),
+        "note": "recycled_cumulative is lifetime-monotonic; recycle_fund_hunits is the current balance and falls once RECYCLE_ERA draws from it",
+    }))
+}
+
 async fn get_sync_snapshot(State(s): State<AppState>) -> Json<serde_json::Value> {
     let epoch = s.chain.store.latest_epoch().unwrap_or(0);
     let ids = s.chain.store.scan_account_ids();

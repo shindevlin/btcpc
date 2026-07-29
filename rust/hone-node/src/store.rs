@@ -267,6 +267,33 @@ impl Store {
     }
 
     /// Iterate all account IDs. Used by the entropy decay sweep in finalize.
+    /// Sum of every balance held in `token`, across ALL accounts — including
+    /// reserve accounts like `__recycle_fund__` that hold a balance but never get
+    /// a CF_ACCOUNTS record.
+    ///
+    /// Deliberately iterates CF_BALANCES rather than `scan_account_ids()`: the
+    /// latter reads CF_ACCOUNTS, so it cannot see the reserve pools, and a supply
+    /// total built on it silently undercounts by everything that recycled. That
+    /// mistake is what made a first pass at the emission-conservation test report a
+    /// 99.9% shortfall that did not exist.
+    pub fn total_supply(&self, token: &str) -> u128 {
+        let Some(cf) = self.db.cf_handle(CF_BALANCES) else { return 0 };
+        let mut total: u128 = 0;
+        let suffix = {
+            let mut v = vec![0u8];
+            v.extend_from_slice(token.as_bytes());
+            v
+        };
+        for item in self.db.iterator_cf(&cf, IteratorMode::Start) {
+            let Ok((k, v)) = item else { continue };
+            if !k.ends_with(&suffix) { continue; }
+            if let Ok(b) = <[u8; 8]>::try_from(v.as_ref()) {
+                total += u64::from_le_bytes(b) as u128;
+            }
+        }
+        total
+    }
+
     pub fn scan_account_ids(&self) -> Vec<String> {
         let Some(cf) = self.db.cf_handle(CF_ACCOUNTS) else { return vec![] };
         let iter = self.db.iterator_cf(&cf, IteratorMode::Start);
