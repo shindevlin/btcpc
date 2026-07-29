@@ -477,39 +477,6 @@ async fn main() -> Result<()> {
                         cold_start_skip_done = true; // walk already works, no skip needed
                     }
                 }
-                // ── BUG 6 genesis gap credit (write-once, possession-gated) ──
-                // When genesis predates go-live, epochs 1..F (F = the first epoch a real
-                // quorum ever sealed) were never negative-attested by anyone — not a
-                // finalized-empty recycle case, just no epoch_meta at all — so their block
-                // reward was neither paid nor recycled: silently forfeited against the
-                // supply cap. `genesis_gap_recycle_hunits(F)` is the exact amount; credit it
-                // to the recycle fund exactly ONCE, durable-guarded by `genesis_gap_recycled`.
-                //
-                // Gated on chain POSSESSION, not a local scan window (ruling, Beastly
-                // a7c3f5e2 / Grouchly 085b741f): `find_genesis_first_sealed_epoch` only
-                // returns a value when this node has locally-tracked, contiguous epoch_meta
-                // from epoch 1 up through F. A late joiner's negative attestation only ever
-                // covers the recent `cur-64..cur` window (see `last_tracked` above), so it
-                // has no epoch_meta for epoch 1 and this returns None forever — it does NOT
-                // credit, and is correctly left in the "needs state-sync" bucket (deferred
-                // go-live gap, no client wiring yet). A launch-cohort node negative-attests
-                // every real epoch as it happens, so its epoch_meta is genuinely contiguous
-                // from 1, and this is a real chain-sourced fact, not a heuristic.
-                if chain_ref.store.state_get("genesis_gap_recycled").is_none() {
-                    if let Some(fse) = find_genesis_first_sealed_epoch(&chain_ref) {
-                        let _ = chain_ref.store.state_set(
-                            "genesis_first_sealed_epoch", fse.to_string().as_bytes());
-                        let credit = hone_types::genesis_gap_recycle_hunits(fse);
-                        if credit > 0 {
-                            let _ = chain_ref.store.credit(
-                                hone_types::RECYCLE_FUND_ACCOUNT, hone_types::NATIVE_TOKEN, credit);
-                        }
-                        let _ = chain_ref.store.state_set("genesis_gap_recycled", b"1");
-                        info!("[genesis-gap] possession-gated one-time credit: F={} (first real \
-                            sealed epoch), {} hunits -> recycle fund (backdated genesis gap)",
-                            fse, credit);
-                    }
-                }
                 if safe_tip > last_rewarded {
                     // Bound the catch-up so a large backlog can't stall the tick — but
                     // bound it by the END, never the START (BUG 6 residual, Grouchly
@@ -549,6 +516,79 @@ async fn main() -> Result<()> {
                             .map(|a| a.iter().filter_map(|v| v.as_str().map(str::to_owned)).collect())
                             .unwrap_or_default();
                         if !sealers.is_empty() {
+                            // ── BUG 6 genesis gap credit — epoch-anchored, possession-gated,
+                            // write-once, guard-after-success (ruling Beastly c1f8b2e6).
+                            //
+                            // When genesis predates go-live, epochs 1..F (F = the first epoch a
+                            // real quorum ever sealed) were never negative-attested by anyone —
+                            // not a finalized-empty recycle case, just no epoch_meta at all — so
+                            // their block reward was neither paid nor recycled: silently
+                            // forfeited against the supply cap. `genesis_gap_recycle_hunits(F)`
+                            // is the exact amount to return to the recycle fund, exactly once.
+                            //
+                            // Anchored HERE, inside the depth-gated epoch-ordered finalized
+                            // replay, at the moment epoch F itself finalizes — NOT on the
+                            // wall-clock tick. Applying it on the tick meant each node credited
+                            // whenever it happened to restart on the new binary, so two cohort
+                            // nodes upgrading minutes apart disagreed on `__recycle_fund__` for
+                            // that interval — a transient state_root fork during rollout that
+                            // the 2-clock gate cannot see. Anchoring to F's finalize makes every
+                            // node apply it at the same CHAIN HEIGHT; the possession gate already
+                            // makes the amount identical.
+                            //
+                            // Possession, not a local window: `find_genesis_first_sealed_epoch`
+                            // only returns a value when this node has contiguous epoch_meta from
+                            // epoch 1 through F. A late joiner's negative attestation only covers
+                            // `cur-64..cur`, so it has no epoch_meta for epoch 1 and this returns
+                            // None forever — it does NOT credit, and is correctly left in the
+                            // "needs state-sync" bucket.
+                            if chain_ref.store.state_get("genesis_gap_recycled").is_none()
+                                && find_genesis_first_sealed_epoch(&chain_ref) == Some(e)
+                            {
+                                let credit = hone_types::genesis_gap_recycle_hunits(e);
+                                // Guard AFTER success only. Previously the credit result was
+                                // discarded with `let _` while the durable guard was set
+                                // regardless: a failed credit left `genesis_gap_recycled` set
+                                // with no balance applied, and write-once meant it could never
+                                // retry — that node's `__recycle_fund__` stayed permanently short
+                                // versus every node where the credit succeeded, a permanent
+                                // state_root divergence with no self-healing path. That is the
+                                // exact fork class this change exists to close, so the guard now
+                                // follows the credit, never precedes it — same discipline as
+                                // `epoch_finalized_done:{e}` below.
+                                let applied = if credit > 0 {
+                                    match chain_ref.store.credit(
+                                        hone_types::RECYCLE_FUND_ACCOUNT,
+                                        hone_types::NATIVE_TOKEN,
+                                        credit,
+                                    ) {
+                                        Ok(_) => true,
+                                        Err(err) => {
+                                            error!("[genesis-gap] credit FAILED at F={} ({} hunits): {} \
+                                                — guard NOT set, will retry; this node has not \
+                                                applied the gap credit", e, credit, err);
+                                            false
+                                        }
+                                    }
+                                } else {
+                                    true // nothing to credit (F==1): trivially applied
+                                };
+                                if applied {
+                                    let _ = chain_ref.store.state_set(
+                                        "genesis_first_sealed_epoch", e.to_string().as_bytes());
+                                    if let Err(err) =
+                                        chain_ref.store.state_set("genesis_gap_recycled", b"1")
+                                    {
+                                        error!("[genesis-gap] credit applied at F={} but guard \
+                                            write failed: {} — MUST NOT double-credit; \
+                                            investigate before restart", e, err);
+                                    } else {
+                                        info!("[genesis-gap] epoch-anchored one-time credit at \
+                                            F={} (first real sealed epoch), {} hunits → recycle \
+                                            fund (backdated genesis gap)", e, credit);
+                                    }
+                                }
+                            }
                             // Sealed by quorum → replay-derive and apply its rewards.
                             emit_epoch_rewards(e, &sealers, &chain_ref);
                         } else {
