@@ -231,12 +231,68 @@ pub async fn ensure_ton_address(data_dir: &Path, keys: &mut WalletKeys) {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
+/// The only key material a RUNNING node needs: its posting identity.
+///
+/// `WalletKeys` is a *vault* value — mnemonic, all six HONE roles, and ten
+/// external-chain private keys in one struct. That shape is right for recovery
+/// and rotation and wrong for a long-running node process, which seals with the
+/// posting key and nothing else. A node should construct and hold one of these
+/// instead, so a compromise of the process leaks a posting credential rather
+/// than the master key to the account (and to ten other chains).
+///
+/// P1 least-privilege order a7e2d4c8, item 1.
+#[derive(Clone, Debug)]
+pub struct PostingIdentity {
+    pub private_key: String,
+    pub public_key:  String,
+}
+
+impl WalletKeys {
+    /// Narrow a vault-shaped `WalletKeys` down to just the posting credential.
+    /// The returned value carries no mnemonic, no owner/active key, and no
+    /// external-chain material.
+    pub fn posting_identity(&self) -> PostingIdentity {
+        PostingIdentity {
+            private_key: self.hone_private_key.clone(),
+            public_key:  self.hone_public_key.clone(),
+        }
+    }
+}
+
+/// True when `raw` looks like a BIP39 mnemonic (a seed) rather than a single
+/// derived key. Checked by shape only — the value is never logged or returned.
+///
+/// A seed regenerates every role including owner, so handing one to a running
+/// node is the privilege inversion this guard exists to catch: the env var is
+/// named `HONE_POSTING_KEY`, but `restore_from_input` will happily accept a
+/// mnemonic and re-derive (and persist) the whole bundle from it.
+pub fn looks_like_seed(raw: &str) -> bool {
+    let words = raw.split_whitespace().count();
+    matches!(words, 12 | 15 | 18 | 21 | 24)
+}
+
 pub fn init(data_dir: &Path) -> Result<WalletKeys> {
     let key_path = data_dir.join("wallet.key");
 
     // 1. Env override — reinstall / migration
     if let Ok(raw) = std::env::var("HONE_POSTING_KEY") {
         let raw = raw.trim().to_owned();
+        // Provisioning is not running (P1 order a7e2d4c8, item 2). Deriving every
+        // role from a mnemonic and persisting the full bundle is a legitimate
+        // *provisioning* step; it is not something a running node should do. Under
+        // HONE_POSTING_ONLY this path therefore refuses a seed outright rather than
+        // silently re-deriving owner/active from it and writing them to disk.
+        if looks_like_seed(&raw)
+            && std::env::var("HONE_POSTING_ONLY").map(|v| v == "true" || v == "1").unwrap_or(false)
+        {
+            anyhow::bail!(
+                "HONE_POSTING_KEY was handed a {}-word mnemonic (a seed), but HONE_POSTING_ONLY \
+                 is set: a running node must be given a derived posting key, not the seed that \
+                 regenerates owner/active and every external-chain key. Provision the account \
+                 separately and pass only its posting credential.",
+                raw.split_whitespace().count()
+            );
+        }
         match restore_from_input(&raw) {
             Ok(keys) => {
                 save(&key_path, &keys)?;
@@ -896,3 +952,56 @@ fn save(path: &Path, keys: &WalletKeys) -> Result<()> {
     Ok(())
 }
 
+
+#[cfg(test)]
+mod posting_only_tests {
+    use super::*;
+
+    #[test]
+    fn seed_shapes_are_detected() {
+        // BIP39 valid word counts — all must be rejected as "this is a seed".
+        for n in [12usize, 15, 18, 21, 24] {
+            let phrase = vec!["abandon"; n].join(" ");
+            assert!(looks_like_seed(&phrase), "{n}-word phrase must read as a seed");
+        }
+    }
+
+    #[test]
+    fn a_derived_posting_key_is_not_a_seed() {
+        // A bare hex/base58-ish credential is a single derived key, not a phrase.
+        // Synthetic vector — never a real account's key, so the test can't tie
+        // itself to a live identity.
+        assert!(!looks_like_seed(
+            "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"));
+        assert!(!looks_like_seed(""));
+        assert!(!looks_like_seed("   "));
+        // Word counts that are not valid BIP39 lengths are not seeds either.
+        assert!(!looks_like_seed(&vec!["abandon"; 11].join(" ")));
+        assert!(!looks_like_seed(&vec!["abandon"; 13].join(" ")));
+    }
+
+    #[test]
+    fn posting_identity_drops_seed_owner_active_and_external_chains() {
+        let mut k = WalletKeys::default();
+        k.mnemonic                  = "should not survive narrowing".into();
+        k.hone_owner_private_key    = "owner-secret".into();
+        k.hone_active_private_key   = "active-secret".into();
+        k.ethereum_private_key      = "eth-secret".into();
+        k.solana_private_key        = "sol-secret".into();
+        k.hone_private_key          = "posting-secret".into();
+        k.hone_public_key           = "posting-pub".into();
+
+        let id = k.posting_identity();
+
+        // Carries exactly the posting credential...
+        assert_eq!(id.private_key, "posting-secret");
+        assert_eq!(id.public_key,  "posting-pub");
+        // ...and structurally cannot carry anything else: the type has no field
+        // for a mnemonic, an owner/active key, or any external-chain key.
+        let rendered = format!("{id:?}");
+        for leaked in ["should not survive narrowing", "owner-secret",
+                       "active-secret", "eth-secret", "sol-secret"] {
+            assert!(!rendered.contains(leaked), "PostingIdentity leaked {leaked}");
+        }
+    }
+}
