@@ -536,15 +536,34 @@ async fn main() -> Result<()> {
                             // node apply it at the same CHAIN HEIGHT; the possession gate already
                             // makes the amount identical.
                             //
-                            // Possession, not a local window: `find_genesis_first_sealed_epoch`
+                            // Possession, not a local window: the ordered-replay derivation below
                             // only returns a value when this node has contiguous epoch_meta from
                             // epoch 1 through F. A late joiner's negative attestation only covers
                             // `cur-64..cur`, so it has no epoch_meta for epoch 1 and this returns
                             // None forever — it does NOT credit, and is correctly left in the
                             // "needs state-sync" bucket.
-                            if chain_ref.store.state_get("genesis_gap_recycled").is_none()
-                                && find_genesis_first_sealed_epoch(&chain_ref) == Some(e)
-                            {
+                            // F is derived from the ORDERED REPLAY, not from arrival and not
+                            // from a storage scan (ruling Beastly c2a8f5d1).
+                            //
+                            // This walk is strictly ascending and contiguous — it refuses to
+                            // process e+1 until e is applied — so the first quorum-sealed epoch
+                            // it reaches is the MINIMUM sealed epoch of the applied set. That is
+                            // a commutative function of the set, so every node computes the same
+                            // F no matter what order gossip delivered the finalizes in.
+                            //
+                            // Both earlier derivations failed for the opposite reasons, and both
+                            // were caught by the 3-clock gate rather than by review:
+                            //  - "contiguous epoch_meta from epoch 1" never fired at all: under a
+                            //    backdated genesis nobody exists during 1..F-1, so no node holds
+                            //    meta for epoch 1.
+                            //  - "first finalize I apply that has sealers" forked the cohort:
+                            //    A applied 122's finalize first and locked F=122 while B locked
+                            //    F=121, so their credits differed by 2 HONE and state_root split.
+                            //
+                            // `genesis_gap_recycled` being unset is what makes "first reached"
+                            // meaningful: once the credit lands the guard is set, so this can
+                            // only ever fire on the lowest sealed epoch the replay walks.
+                            if chain_ref.store.state_get("genesis_gap_recycled").is_none() {
                                 let credit = hone_types::genesis_gap_recycle_hunits(e);
                                 // Guard AFTER success only. Previously the credit result was
                                 // discarded with `let _` while the durable guard was set
@@ -1839,41 +1858,6 @@ fn highest_contiguous_rewarded(chain: &Chain) -> u64 {
     e
 }
 
-/// BUG 6 genesis gap credit: find F, the first epoch a real quorum ever sealed, but ONLY
-/// if this node's local epoch_meta is contiguous from epoch 1 up through F.
-///
-/// A node negative-attests every epoch as it lives through it (see `last_tracked` /
-/// `ensure_epoch_tracked` in the driver loop), so a node present since genesis has real,
-/// locally-written `epoch_meta` for every epoch starting at 1 — a chain-sourced fact. A
-/// late joiner's attestation window only ever covers the recent `cur-64..cur` range, so it
-/// has no `epoch_meta` for epoch 1 and this returns `None` at the very first step — cheap,
-/// and correctly refuses to guess a window-local F (that's the exact fork this function
-/// exists to prevent; see Beastly a7c3f5e2 / Grouchly 085b741f).
-///
-/// Returns `None` (not yet resolvable — retry next tick) if:
-/// - epoch 1 has no local meta (late joiner, or not tracked yet), or
-/// - any epoch before the first real seal is missing meta (a genuine gap, not this node's
-///   to call), or
-/// - no real seal has happened yet anywhere in `1..=chain.current_epoch()`.
-fn find_genesis_first_sealed_epoch(chain: &Chain) -> Option<u64> {
-    let cur = chain.current_epoch();
-    let mut e = 1u64;
-    loop {
-        let meta = chain.store.get_epoch_meta(e).ok().flatten()?;
-        if !meta["finalized"].as_bool().unwrap_or(false) {
-            return None;
-        }
-        let sealed = meta["sealed_by"].as_array().map(|a| !a.is_empty()).unwrap_or(false);
-        if sealed {
-            return Some(e);
-        }
-        if e >= cur {
-            return None; // contiguous so far, but no real seal has happened yet
-        }
-        e += 1;
-    }
-}
-
 // ── txglobal backfill ─────────────────────────────────────────────────────────
 
 /// Scan txhist: and write any missing txglobal: entries.
@@ -2995,53 +2979,8 @@ mod reward_driver_tests {
         })).unwrap();
     }
 
-    /// A fresh node has no local epoch_meta at all — must not guess a window-local F.
-    #[test]
-    fn genesis_gap_fresh_node_none() {
-        let (chain, _d) = make_chain("gg_fresh");
-        assert_eq!(find_genesis_first_sealed_epoch(&chain), None);
-    }
 
-    /// The core case: epochs 1..4 finalized-empty (negative-attested, nobody sealed),
-    /// epoch 5 is the first real quorum seal. Contiguous from 1 -> F=5 is trustworthy.
-    #[test]
-    fn genesis_gap_finds_first_sealed() {
-        let (chain, _d) = make_chain("gg_find");
-        for e in 1..=4 { mark_epoch(&chain, e, false); }
-        mark_epoch(&chain, 5, true);
-        *chain.current_epoch.write() = 5;
-        assert_eq!(find_genesis_first_sealed_epoch(&chain), Some(5));
-    }
 
-    /// A gap before the first real seal (epoch 2 never locally attested) means this
-    /// node's view of F can't be trusted — must return None, not a wrong F.
-    #[test]
-    fn genesis_gap_gap_before_seal_returns_none() {
-        let (chain, _d) = make_chain("gg_gap");
-        mark_epoch(&chain, 1, false);
-        // epoch 2 missing
-        mark_epoch(&chain, 3, false);
-        mark_epoch(&chain, 4, true);
-        *chain.current_epoch.write() = 4;
-        assert_eq!(find_genesis_first_sealed_epoch(&chain), None);
-    }
 
-    /// Late-joiner shape: local epoch_meta only exists in a recent window (no epoch 1) —
-    /// must return None even though a real seal is visible further out.
-    #[test]
-    fn genesis_gap_late_joiner_no_epoch_one() {
-        let (chain, _d) = make_chain("gg_late");
-        mark_epoch(&chain, 1_000, true);
-        *chain.current_epoch.write() = 1_000;
-        assert_eq!(find_genesis_first_sealed_epoch(&chain), None);
-    }
 
-    /// Contiguous from 1, but no real seal anywhere yet — resolvable later, not now.
-    #[test]
-    fn genesis_gap_no_seal_yet_returns_none() {
-        let (chain, _d) = make_chain("gg_noseal");
-        for e in 1..=5 { mark_epoch(&chain, e, false); }
-        *chain.current_epoch.write() = 5;
-        assert_eq!(find_genesis_first_sealed_epoch(&chain), None);
-    }
 }
