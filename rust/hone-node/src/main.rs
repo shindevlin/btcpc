@@ -1971,8 +1971,12 @@ fn emit_epoch_rewards(
     // 0.4% every epoch whether or not a single testnet operator existed — tokens
     // emitted, nobody earned them, and they sat in a pool instead of recycling,
     // which is the one thing the conservation rule forbids.
+    // Neither testnet nor treasury skims the ceiling any more (Shin, 2026-07-29).
+    // Both are funded as a share of EARNINGS, carved from the earners' pool further
+    // down, so a dead epoch funds neither. What used to be their 0.5% of the budget
+    // now stays in the 2% reserve and recycles.
     let testnet_top_up = 0u64;
-    let treasury_split = (raw_pool as u128 / 1000) as u64;              // 0.1%
+    let treasury_split = 0u64;
     let recycle_split  = reserve_total
         .saturating_sub(testnet_top_up)
         .saturating_sub(treasury_split);                                  // 1.5%
@@ -2002,9 +2006,8 @@ activity pool starved (sealing clock-node count too high for era budget)",
     if testnet_top_up > 0 {
         let _ = chain.store.credit(TESTNET_FUND_ACCOUNT, NATIVE_TOKEN, testnet_top_up);
     }
-    if treasury_split > 0 {
-        let _ = chain.store.credit(TREASURY_ACCOUNT, NATIVE_TOKEN, treasury_split);
-    }
+    // treasury is paid from earnings at the bottom of this function, not here
+    let _ = treasury_split;
 
     // ── Layer D: era-scaled clock reward (infrastructure base) ──────────────
     // Reward is scaled by uptime reputation: 0.5× (low uptime) → 1.0× (perfect).
@@ -2465,8 +2468,11 @@ activity pool starved (sealing clock-node count too high for era budget)",
     // is paid to testnet at the bottom of this function; the rest of the carve
     // recycles, so a quiet epoch funds testnet proportionally less and an epoch
     // that earns nothing funds it with nothing.
-    let testnet_carve = ((gated_pool_pre_testnet as u128 * 4) / 1000) as u64;
-    let gated_pool   = gated_pool_pre_testnet.saturating_sub(testnet_carve);
+    let testnet_carve  = ((gated_pool_pre_testnet as u128 * 4) / 1000) as u64;   // 0.4%
+    let treasury_carve = ((gated_pool_pre_testnet as u128 * 1) / 1000) as u64;   // 0.1%
+    let gated_pool     = gated_pool_pre_testnet
+        .saturating_sub(testnet_carve)
+        .saturating_sub(treasury_carve);
     let idle_recycle = idle_before_c.saturating_sub(fee_boost);
     if idle_recycle > 0 {
         recycle_credit(chain, idle_recycle);
@@ -2642,16 +2648,26 @@ activity pool starved (sealing clock-node count too high for era budget)",
     // so it dilutes earners by 0.4% rather than being minted on top. Whatever the
     // carve holds beyond the earned-proportional share recycles, so testnet is
     // never funded for activity that did not happen.
-    let earned_total  = clock_paid.saturating_add(distributed);
-    let testnet_share = ((earned_total as u128 * 4) / 1000) as u64;
-    let testnet_paid  = testnet_share.min(testnet_carve);
+    let earned_total   = clock_paid.saturating_add(distributed);
+    let testnet_share  = ((earned_total as u128 * 4) / 1000) as u64;
+    let treasury_share = ((earned_total as u128 * 1) / 1000) as u64;
+    let testnet_paid   = testnet_share.min(testnet_carve);
+    let treasury_paid  = treasury_share.min(treasury_carve);
     if testnet_paid > 0 {
         let _ = chain.store.credit(TESTNET_FUND_ACCOUNT, NATIVE_TOKEN, testnet_paid);
-        info!("[testnet] epoch {} earned {} -> testnet {} (0.4% of earned; carve {} , \
-              {} recycled)", epoch, earned_total, testnet_paid, testnet_carve,
-              testnet_carve.saturating_sub(testnet_paid));
     }
-    let carve_unused = testnet_carve.saturating_sub(testnet_paid);
+    if treasury_paid > 0 {
+        let _ = chain.store.credit(TREASURY_ACCOUNT, NATIVE_TOKEN, treasury_paid);
+    }
+    if testnet_paid > 0 || treasury_paid > 0 {
+        info!("[earnings-share] epoch {} earned {} -> testnet {} (0.4%), treasury {} (0.1%); \
+              carves {}/{}, {} recycled", epoch, earned_total, testnet_paid, treasury_paid,
+              testnet_carve, treasury_carve,
+              testnet_carve.saturating_sub(testnet_paid)
+                  .saturating_add(treasury_carve.saturating_sub(treasury_paid)));
+    }
+    let carve_unused = testnet_carve.saturating_sub(testnet_paid)
+        .saturating_add(treasury_carve.saturating_sub(treasury_paid));
     let remainder = remainder.saturating_add(carve_unused);
     if remainder > 0 {
         recycle_credit(chain, remainder);
@@ -3066,13 +3082,14 @@ mod reward_driver_tests {
         let testnet = chain.store.get_balance(
             hone_types::TESTNET_FUND_ACCOUNT, hone_types::NATIVE_TOKEN) as u128;
         assert_eq!(minted, budget, "empty epoch still minted != budget");
-        // With no earners nothing is PAID for work, but the fixed reserve splits
-        // (treasury 0.1%, testnet 0.4%) are legitimate non-recycle destinations by
-        // design — so the invariant is that recycle + reserves account for all of
-        // it, not that recycle alone does.
-        assert_eq!(recycled + treasury + testnet, budget,
-            "empty epoch: recycle {recycled} + treasury {treasury} + testnet {testnet} \
-             != budget {budget} — some of an unearned budget went to an earner");
+        // Now that BOTH testnet and treasury are funded from earnings rather than
+        // from the ceiling, an epoch with no earners must recycle the whole budget —
+        // nothing is entitled to a cut of activity that did not happen.
+        assert_eq!(treasury, 0, "empty epoch paid the treasury {treasury}");
+        assert_eq!(testnet, 0, "empty epoch paid testnet {testnet}");
+        assert_eq!(recycled, budget,
+            "empty epoch: recycled {recycled} != budget {budget} — an epoch with no \
+             earners must recycle all of it");
     }
 
 
