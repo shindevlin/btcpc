@@ -160,6 +160,29 @@ Gate exactly like the other consensus changes tonight — **asymmetric cohort + 
   ANY accidental local-state or wall-clock dependency, including ones added later. **This is the key
   assertion of the whole change.**
 
+### 9.1 Implementation of the anchor (why purity alone is not enough)
+
+The weight *function* being pure is necessary but NOT sufficient — the system must also read the
+same *inputs* on every node and after a restart. A mutable "latest weights" field fails this: a
+node whose per-epoch handler lagged (GC, disk stall, or a fresh restart) would resolve epoch `E`
+against a *different* anchor than its peers and fork — the §3-class bug moved from *what* is read
+to *when*. So weights are **epoch-anchored**:
+
+- The decision for epoch `E` uses `epoch_weights[E]` only, derived from committed-state-through-`E−1`
+  — never a shared latest. Injected when `E−1` seals (`set_clock_weights(E, …)` from main.rs) and
+  **re-seeded at startup** for the pending epoch, so a restart under an active gate never runs one
+  epoch on the flat rule while peers run weighted.
+- `epoch_clock_weights:{E}` is persisted per epoch (mirroring `epoch_validators:{E}`) so the cohort
+  can **byte-diff** each epoch's weight vector across x86_64/aarch64 during the gate — turning
+  "determinism" from an assertion into an artifact.
+- **Engagement is logged** (winner weight / total, signer count) at each weighted seal, so a green
+  gate run PROVES weighted quorum actually engaged rather than silently falling back to flat on
+  empty/zero weight — a silent fallback would make a passing gate indistinguishable from a no-op.
+
+Implemented in `feat/reputation-weighted-quorum` (`clock.rs` pure fns + `Inner.epoch_weights`,
+`main.rs` inject/seed). 11 property tests including a 100k `isqrt` sweep, no-split-brain,
+no-stall-on-low-weight-drop, floor, 1/3 cap, and the store-read gate path. Ships gated OFF.
+
 Gate host: **Beastly (x86_64) against Nebra (aarch64)** — the right pair to catch the float/one-ULP
 determinism class, since that's where a cross-arch weight disagreement would surface. Beastly offered.
 
