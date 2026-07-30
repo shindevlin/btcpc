@@ -7,7 +7,45 @@ floor, and 11 property tests are all in and correct; the gap is where `uptime_te
 Consensus change; gate before landing, Shin-in-person to merge. Author intent captured from Shin,
 2026-07-30.
 
-## 0. BLOCKER + the fix Shin chose: lagged closed-window uptime over tx-applied seal records
+## 0b. DEEPER FINDING (2026-07-31): per-device attendance is not agreed — and today's uptime discriminates nothing
+
+Designing the seal-anchored uptime surfaced two facts that reframe the whole feature. Both are
+verified against the tree, not inferred:
+
+1. **`clock_uptime` measures registration, not attendance.** It is updated (main.rs:2237-2257) with
+   `sealer_set = clock_sealers = the winning EpochFinalize's sealed_by = epoch_validators = the
+   REGISTERED set` (clock.rs:845-848). So every staked, registered clock gets `seals++` every epoch:
+   uptime sits at ~100% for everyone and distinguishes a rock-solid box from a flaky laptop by
+   nothing. The uptime term Shin approved in (b) would not discriminate even if it were made
+   deterministic. This is the load-bearing correction.
+
+2. **The chain agrees on attendance only as a COUNT, never per-device — by design.** Every
+   consensus-relevant per-epoch input is the registered-set snapshot `epoch_validators` (sorted,
+   dedup'd, gossip-timing-independent). `compute_rewards_hash` (clock.rs:851) hashes it; rewards
+   derive from it; `EpochFinalize.quorum` is a COUNT of agreeing clocks and is the fork-choice key
+   (chain.rs:1128). Fix `e86a03730` (BUG 6) deliberately REMOVED all use of local per-node seal
+   observations because they are gossip-timing-dependent and forked the chain. `epoch_node_seal`
+   records exist but are local subsets, never an agreed per-device set. Committing per-device
+   attendance would require the winning finalize to bind an agreed signer SET (not just a count) —
+   a protocol change to fork choice + what finalize commits, i.e. re-opening exactly what BUG 6
+   closed.
+
+**Consequence — the real fork (Shin's call, not an engineering choice):**
+- **(A) Stake + registered-tenure reputation.** Weight from what IS agreed and per-device: stake
+  (tx-applied) and continuous tenure in the registered set (derivable from `role_stake` staked_epoch
+  + presence across `epoch_validators` snapshots). Deterministic at the tip TODAY, no protocol
+  change. Weaker: it rewards staking-and-staying; it does NOT punish a registered device that goes
+  dark (staying registered while offline keeps tenure). "The laptop earns in by staking and
+  persisting," but "flaky sinks" is only partial.
+- **(B) Make per-device attendance agreed.** A protocol change so the winning finalize commits an
+  agreed per-epoch signer set (bound into the fork-choice key), then weight by real seal attendance.
+  Delivers "flaky sinks" fully. Much larger change, re-touches the fork-choice + reward path just
+  stabilized for the 42M reconciliation, and must clear the same determinism bar BUG 6 set.
+
+The lagged-closed-window design in §0 below was the right shape for a determinism problem, but it
+cannot manufacture a discriminating signal that the chain does not record. §0 stands only under (B).
+
+## 0. (under option B) lagged closed-window uptime over tx-applied seal records
 
 **The blocker (found in build review).** `clock_weight` read `clock_uptime:{node}`. That record is
 written **only** inside `emit_epoch_rewards` (main.rs:2238/2264), driven by the **contiguous reward
