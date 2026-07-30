@@ -180,6 +180,35 @@ async fn main() -> Result<()> {
         lf // keep alive until process exits
     };
 
+    // BOX-LEVEL single-instance guard for PRODUCTION chains. The per-data-dir lock above
+    // only catches two nodes sharing a data dir — it does NOT catch a second node with a
+    // different data dir/port joining the same production chain from the same machine.
+    // That is exactly how a leftover replay node (HONE_ISOLATED=true, HONE_CHAIN_ID=hone,
+    // loopback bind, but mDNS still discovering the LAN) joined the mainnet mesh and
+    // inflated peer_count. Enforce at most ONE node per box per REAL chain. Test/gate
+    // chains use their own HONE_CHAIN_ID and are exempt, so isolated local meshes (which
+    // run several nodes on one box under a throwaway chain id) still work. flock releases
+    // on process exit, so a crash never leaves a stale lock.
+    #[cfg(unix)]
+    let _box_lock_file = if cfg.chain_id == hone_types::MAINNET_CHAIN_ID
+        || cfg.chain_id == hone_types::TESTNET_CHAIN_ID
+    {
+        use std::os::unix::io::AsRawFd;
+        let path = std::env::temp_dir().join(format!("hone-node.{}.boxlock", cfg.chain_id));
+        let lf = std::fs::OpenOptions::new().create(true).write(true).open(&path)?;
+        let locked = unsafe { libc::flock(lf.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
+        if locked != 0 {
+            eprintln!("hone-node: another '{}' node is already running on this box (lock: {:?}). \
+                       Refusing to start a second — one production node per box. An isolated \
+                       test/replay MUST use a distinct HONE_CHAIN_ID, not a real chain.",
+                       cfg.chain_id, path);
+            std::process::exit(1);
+        }
+        Some(lf) // hold until process exit
+    } else {
+        None
+    };
+
     // Signing key is derived from the wallet's posting role key below, AFTER
     // wallet::init() — so the seal-signing identity is byte-identical to the
     // posting key registered on-chain. (Historically this parsed HONE_POSTING_KEY
