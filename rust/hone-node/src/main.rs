@@ -2256,6 +2256,54 @@ activity pool starved (sealing clock-node count too high for era budget)",
         ).unwrap_or_default());
     }
 
+    // ── Real per-device attendance (seal-anchored) for reputation-weighted quorum ──
+    // GATED behind the weighted-quorum chain param: this writes NEW state, so it stays
+    // dormant until a coordinated, Shin-in-person activation — the live chain's state_root
+    // is untouched while the param is off.
+    //
+    // clock_uptime above measures REGISTRATION, not reliability: it is fed by `sealer_set`
+    // = the registered snapshot, so it sits at ~100% for every staked clock and cannot tell
+    // a rock-solid box from a flaky laptop. This record instead reads the ACTUAL per-device
+    // seal — `epoch_node_seal:{epoch}:{node}`, the equivocation-guarded, never-pruned entry
+    // written on EpochSeal apply (chain.rs:1064). A registered device that goes dark has no
+    // seal for those epochs → its attendance rate decays → its consensus weight sinks. That
+    // is the "flaky sinks" signal registration-fed uptime can't provide.
+    //
+    // DETERMINISM: consumed HERE, inside the ordered contiguous reward walk, which runs at
+    // REWARD_FINALITY_DEPTH (~10 min) behind the tip. By then `epoch`'s seals have long since
+    // flood-propagated to every node, so this update is replay-identical across the cohort —
+    // the same "settled and propagated ahead" bar the reward derivation already trusts. The
+    // residual risk is a straggler seal for `epoch` arriving on one node after its walk passed
+    // `epoch`; that is exactly what the cross-arch / cross-NAT gate must stress before
+    // activation (§0 of docs/REPUTATION_WEIGHTED_QUORUM.md), and why this is gate-then-Shin,
+    // not a live flip.
+    if clock::weighted_quorum_enabled(&chain.store) {
+        for node_id in &registered_nodes {
+            let attend_key = format!("device_attend:{}", node_id);
+            let prev: serde_json::Value = chain.store.state_get(&attend_key)
+                .and_then(|b| serde_json::from_slice(&b).ok())
+                .unwrap_or(serde_json::json!({"sealed": 0, "epochs": 0}));
+            let mut sealed_ct = prev["sealed"].as_u64().unwrap_or(0);
+            let mut epochs = prev["epochs"].as_u64().unwrap_or(0);
+
+            epochs = (epochs + 1).min(CLOCK_UPTIME_WINDOW);
+            // ACTUAL attendance: did THIS device's own seal for `epoch` land on-chain?
+            let attended = chain.store
+                .state_get(&format!("epoch_node_seal:{}:{}", epoch, node_id))
+                .is_some();
+            if attended {
+                sealed_ct = (sealed_ct + 1).min(epochs);
+            } else if epochs == CLOCK_UPTIME_WINDOW {
+                // Steady-state: a missed epoch leaks one point from the window.
+                sealed_ct = sealed_ct.saturating_sub(1);
+            }
+
+            let _ = chain.store.state_set(&attend_key, &serde_json::to_vec(
+                &serde_json::json!({ "sealed": sealed_ct, "epochs": epochs })
+            ).unwrap_or_default());
+        }
+    }
+
     // Emit ClockReward for each sealer, scaled by uptime. Whatever of the carved
     // clock allotment is not earned here recycles below (paid-or-recycled).
     let mut clock_paid: u64 = 0;
@@ -3472,6 +3520,50 @@ mod reward_driver_tests {
              earners must recycle all of it");
     }
 
+
+    /// Seal-anchored attendance: gated ON, `emit_epoch_rewards` credits attendance from the
+    /// ACTUAL per-device seal record — the device that sealed gets a point, the dark one does
+    /// not — and gated OFF it writes nothing (live state_root untouched until activation).
+    #[test]
+    fn seal_anchored_attendance_credits_real_sealers_only_and_is_gated() {
+        let (chain, _d) = make_chain("attend_gate");
+        let chain = std::sync::Arc::new(chain);
+        let epoch = 5_000u64; // past bootstrap grace
+
+        // Two registered, staked clocks.
+        for n in ["present", "dark"] {
+            chain.store.state_set(
+                &format!("clock_reg:{n}"),
+                &serde_json::to_vec(&serde_json::json!({
+                    "node_id": n, "stake": 100_000_000_000u64, "registered_epoch": 0, "pubkey": "aa"
+                })).unwrap(),
+            ).unwrap();
+        }
+        // Only `present` actually sealed this epoch (its EpochSeal landed on-chain).
+        chain.store.state_set(
+            &format!("epoch_node_seal:{epoch}:present"), b"seal_hash_hex").unwrap();
+
+        // ── Gated OFF (default): no device_attend is written at all. ──
+        emit_epoch_rewards(epoch, &["present".to_string(), "dark".to_string()], &chain);
+        assert!(chain.store.state_get("device_attend:present").is_none(),
+            "attendance must NOT be recorded while the weighted-quorum param is off");
+        assert!(chain.store.state_get("device_attend:dark").is_none());
+
+        // ── Gated ON: attendance accrues from the real seal record. ──
+        chain.store.state_set("chain_param:weighted_quorum",
+            &serde_json::to_vec(&1u64).unwrap()).unwrap();
+        emit_epoch_rewards(epoch, &["present".to_string(), "dark".to_string()], &chain);
+
+        let present: serde_json::Value = serde_json::from_slice(
+            &chain.store.state_get("device_attend:present").expect("present attendance written")).unwrap();
+        let dark: serde_json::Value = serde_json::from_slice(
+            &chain.store.state_get("device_attend:dark").expect("dark attendance written")).unwrap();
+        // Both had an epoch counted; only the real sealer got a seal credit.
+        assert_eq!(present["epochs"].as_u64(), Some(1));
+        assert_eq!(present["sealed"].as_u64(), Some(1), "the device that sealed must be credited");
+        assert_eq!(dark["epochs"].as_u64(), Some(1));
+        assert_eq!(dark["sealed"].as_u64(), Some(0), "a registered device that did NOT seal earns no attendance");
+    }
 
     /// Testnet is funded from EARNED, not from the ceiling (Shin, 2026-07-29).
     ///

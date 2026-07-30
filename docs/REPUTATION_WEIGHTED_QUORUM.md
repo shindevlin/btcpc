@@ -30,7 +30,30 @@ verified against the tree, not inferred:
    a protocol change to fork choice + what finalize commits, i.e. re-opening exactly what BUG 6
    closed.
 
-**Consequence — the real fork (Shin's call, not an engineering choice):**
+**RESOLVED (Shin, 2026-07-31): "build a reputational profile per device, real and measurable."**
+Implemented on branch `feat/reputation-weighted-quorum`, gated OFF:
+- **Source = the actual per-device seal.** `emit_epoch_rewards` (main.rs) now accrues
+  `device_attend:{node}` = {sealed, epochs} from `epoch_node_seal:{epoch}:{node}` — the
+  equivocation-guarded, never-pruned record of whether THAT device's own seal for the epoch landed
+  on-chain. A registered device that goes dark accrues epochs but no seals → its attendance ratio
+  falls → its `uptime_term` and thus its consensus weight sink. That is the "flaky sinks" signal
+  clock_uptime (registration-fed, ~100% for all) never had. `compute_clock_weights` reads
+  `device_attend`, not `clock_uptime`.
+- **Determinism = the ordered reward walk at depth 20.** Attendance is consumed inside the BUG-6
+  ordered contiguous finalized-epoch walk, which runs `REWARD_FINALITY_DEPTH = 20` (~10 min) behind
+  the tip. By then the epoch's seals have flood-propagated to every node, so the accrual is
+  replay-identical — the same "settled + propagated ahead" bar the reward derivation already trusts.
+- **Gated.** The accrual writes NEW state, so it is fenced behind `chain_param:weighted_quorum`:
+  off (default) → nothing written, live state_root untouched; on → all nodes begin accruing from the
+  same activation height, windows fill, weighted quorum engages as probation clears.
+- **The one gate question (not a fork, an empirical bound):** a *straggler* seal for the epoch
+  arriving on one node after its walk passed that epoch would diverge `device_attend`. At depth 20
+  this is not observed for honest nodes, but it is exactly what the cross-arch / cross-NAT gate must
+  stress before activation. If it ever fires, the fix is a deeper depth or a chain-agreed
+  completeness marker — a tuning of L, not a redesign. Tests: `real_attendance_makes_a_dark_device_sink`,
+  `seal_anchored_attendance_credits_real_sealers_only_and_is_gated`, + the 11 weighted-quorum props.
+
+**The fork that WAS on the table (now decided for real attendance, kept for the record):**
 - **(A) Stake + registered-tenure reputation.** Weight from what IS agreed and per-device: stake
   (tx-applied) and continuous tenure in the registered set (derivable from `role_stake` staked_epoch
   + presence across `epoch_validators` snapshots). Deterministic at the tip TODAY, no protocol

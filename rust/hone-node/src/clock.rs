@@ -973,13 +973,18 @@ pub fn compute_clock_weights(store: &Store, registered: &[String]) -> HashMap<St
     let mut out = HashMap::new();
     for node in registered {
         let stake_hunits = stake.get(node).copied().unwrap_or(0);
-        let up: serde_json::Value = store
-            .state_get(&format!("clock_uptime:{}", node))
+        // REAL attendance, not registration: read `device_attend:{node}` ({sealed, epochs}),
+        // accrued in the ordered reward walk from the actual per-device seal record — NOT
+        // `clock_uptime` (which is fed by the registered set and reads ~100% for everyone, so
+        // it discriminates nothing). A device dark for a stretch has a low sealed/epochs ratio
+        // here → low uptime_term → sinking weight. See emit_epoch_rewards + §0 of the spec.
+        let att: serde_json::Value = store
+            .state_get(&format!("device_attend:{}", node))
             .and_then(|b| serde_json::from_slice(&b).ok())
-            .unwrap_or(serde_json::json!({ "seals": 0, "epochs": 0 }));
-        let seals = up["seals"].as_u64().unwrap_or(0);
-        let epochs = up["epochs"].as_u64().unwrap_or(0);
-        out.insert(node.clone(), clock_weight(seals, epochs, stake_hunits));
+            .unwrap_or(serde_json::json!({ "sealed": 0, "epochs": 0 }));
+        let sealed = att["sealed"].as_u64().unwrap_or(0);
+        let epochs = att["epochs"].as_u64().unwrap_or(0);
+        out.insert(node.clone(), clock_weight(sealed, epochs, stake_hunits));
     }
     out
 }
@@ -1263,25 +1268,25 @@ mod weighted_quorum_tests {
         s.state_set("chain_param:weighted_quorum", &serde_json::to_vec(&0u64).unwrap()).unwrap();
         assert!(!weighted_quorum_enabled(&s));
 
-        // established clock: 10 HONE self-stake, 95/100 uptime
+        // established clock: 10 HONE self-stake, 95/100 REAL attendance
         s.state_set(
             "role_stake:clock:estab:estab",
             &serde_json::to_vec(&serde_json::json!({"amount": 100_000_000_000u64, "staked_epoch": 1}))
                 .unwrap(),
         ).unwrap();
         s.state_set(
-            "clock_uptime:estab",
-            &serde_json::to_vec(&serde_json::json!({"seals": 95, "epochs": 100})).unwrap(),
+            "device_attend:estab",
+            &serde_json::to_vec(&serde_json::json!({"sealed": 95, "epochs": 100})).unwrap(),
         ).unwrap();
-        // fresh clock: staked but only 3 epochs old → still in probation
+        // fresh clock: staked but only 3 epochs of attendance → still in probation
         s.state_set(
             "role_stake:clock:fresh:fresh",
             &serde_json::to_vec(&serde_json::json!({"amount": 100_000_000_000u64, "staked_epoch": 90}))
                 .unwrap(),
         ).unwrap();
         s.state_set(
-            "clock_uptime:fresh",
-            &serde_json::to_vec(&serde_json::json!({"seals": 3, "epochs": 3})).unwrap(),
+            "device_attend:fresh",
+            &serde_json::to_vec(&serde_json::json!({"sealed": 3, "epochs": 3})).unwrap(),
         ).unwrap();
 
         let registered = reg(&["estab", "fresh"]);
@@ -1300,6 +1305,42 @@ mod weighted_quorum_tests {
         let registered2 = reg(&["estab", "estab2", "fresh"]);
         let v2 = votes(&[("estab", "X"), ("estab2", "X")]);
         assert!(weighted_winner(&v2, &registered2, &w2, 2).is_some());
+    }
+
+    // ── real attendance discriminates: a dark device sinks below a reliable one ──
+    // The whole point of the seal-anchored record over registration-fed clock_uptime:
+    // two equally-staked, equally-tenured devices get DIFFERENT weight when one actually
+    // seals and the other goes dark.
+    #[test]
+    fn real_attendance_makes_a_dark_device_sink() {
+        let dir = tempfile::Builder::new().prefix("hone_attend_").tempdir().unwrap();
+        let s = crate::store::Store::open(dir.path()).unwrap();
+        // identical stake
+        for n in ["reliable", "flaky"] {
+            s.state_set(
+                &format!("role_stake:clock:{n}:{n}"),
+                &serde_json::to_vec(&serde_json::json!({"amount": 100_000_000_000u64, "staked_epoch": 1}))
+                    .unwrap(),
+            ).unwrap();
+        }
+        // same window length, very different ACTUAL attendance
+        s.state_set("device_attend:reliable",
+            &serde_json::to_vec(&serde_json::json!({"sealed": 99, "epochs": 100})).unwrap()).unwrap();
+        s.state_set("device_attend:flaky",
+            &serde_json::to_vec(&serde_json::json!({"sealed": 20, "epochs": 100})).unwrap()).unwrap();
+
+        let registered = reg(&["reliable", "flaky"]);
+        let weights = compute_clock_weights(&s, &registered);
+        assert!(
+            weights["reliable"] > weights["flaky"] * 3,
+            "a device that seals 99/100 must massively outweigh one that seals 20/100 at equal stake — got {} vs {}",
+            weights["reliable"], weights["flaky"]
+        );
+        // and the reliable device alone can't be outvoted by the flaky one under the weighted rule
+        let v = votes(&[("reliable", "X"), ("flaky", "Y")]);
+        // neither reaches >51% on its own here (2 clocks, split) → no seal, but reliable holds
+        // the larger share, so if flaky drops, reliable + any peer carries. Sanity: weights sane.
+        assert!(weighted_winner(&v, &registered, &weights, 2).is_none());
     }
 
     // ── unregistered votes carry no weight ──────────────────────────────────────
