@@ -513,68 +513,34 @@ async fn main() -> Result<()> {
                             continue;
                         }
                         // Must be finalized locally before we can apply it. If not yet,
-                        // either WAIT (it may still finalize) or, if it provably never can,
-                        // recycle its budget and move on — see below.
+                        // STOP — do not advance past this gap; retry from here next tick.
+                        //
+                        // REMOVED (2026-07-30): a rule that declared an epoch "permanently
+                        // unfinalizable" once the chain passed its attestation window with no
+                        // local quorum EpochFinalize, and recycled its whole budget.
+                        //
+                        // It was UNSOUND. "No quorum finalize exists" is not a fact about the
+                        // chain, only about THIS NODE'S COPY of it. A node that was merely away
+                        // — while consensus continued perfectly well without it — returns behind
+                        // on finalizes that genuinely exist, concludes nobody earned, and
+                        // recycles other accounts' rewards.
+                        //
+                        // Mainnet: Nebra is named in sealed_by for epoch 72792, which grouchly
+                        // holds as quorum=2 finalized, and Nebra wrote it off. 137 epochs that
+                        // way. gate8 reproduced it in a controlled 3-clock run: the lagging node
+                        // declared 33 epochs dead that the quorum had finalized, while the two
+                        // nodes that kept quorum declared zero.
+                        //
+                        // The predicate is not locally decidable, so no tightening of the local
+                        // condition can fix it. The replacement is backfill, not a death
+                        // certificate: a node behind on finalizes should fetch them from peers
+                        // (/api/sync/blocks already exists) and pay the real earners. See
+                        // proposal p1a4f0c7. Until that lands, blocking is correct — a stalled
+                        // driver is visible and recoverable, silently recycling someone else's
+                        // rewards is neither.
                         let meta = match chain_ref.store.get_epoch_meta(e) {
                             Ok(Some(m)) if m["finalized"].as_bool().unwrap_or(false) => m,
-                            _ => {
-                                // ── PERMANENTLY UNFINALIZABLE EPOCH ───────────────────────
-                                // Blocking here forever was a real mainnet outage. When the
-                                // cohort drops below quorum (≥2 registered clocks) the
-                                // remaining node keeps SEALING epochs but cannot FINALIZE
-                                // them, so no `EpochFinalize` is ever produced for that run.
-                                // Once the chain moves more than NEGATIVE_ATTESTATION_WINDOW
-                                // past them they fall out of the attestation window and no
-                                // quorum can ever form. The walk was then waiting on epochs
-                                // that can never arrive: rewards stopped permanently, on
-                                // EVERY node — including the survivor that never went down,
-                                // which ended up further behind than the node that died.
-                                //
-                                // The fix is the native emission rule, not a new mechanism
-                                // (Beastly e5b9d2f7): an epoch nobody could finalize has no
-                                // earners, so its whole budget recycles and the cursor
-                                // advances. Identical in kind to the finalized-but-empty lane
-                                // right below, and to a slow epoch, and to the genesis gap.
-                                //
-                                // The verdict is derived from CHAIN CONTENT, never wall-clock.
-                                // We require positive evidence: some epoch ABOVE e's
-                                // attestation window has actually been finalized on this node.
-                                // That proves the chain progressed past e with quorum intact,
-                                // so e's absence is permanent rather than gossip lag. Keying
-                                // it on `cur` instead would make the verdict a function of
-                                // when each node happened to look — the arrival-order
-                                // dependence that made receiver-inferred F fork the cohort
-                                // (stash: F=122 vs F=121). Two nodes can reach this verdict at
-                                // different WALL-CLOCK times, but the amount is
-                                // `block_reward_at(e)` — a pure function of e — and it applies
-                                // at most once per node, so the end state is identical.
-                                let Some(proof_epoch) =
-                                    unfinalizable_proof(&chain_ref, e, safe_tip)
-                                else {
-                                    break; // may still finalize — wait, do not skip
-                                };
-                                let reward = hone_types::block_reward_at(e);
-                                if reward > 0 {
-                                    recycle_credit(&chain_ref, reward);
-                                }
-                                if let Err(err) = chain_ref.store
-                                    .state_set(&done_key, b"1")
-                                {
-                                    error!("[finalize] epoch {} unfinalizable, {} hunits \
-                                        recycled, but done-marker write failed: {} — \
-                                        MUST NOT double-recycle; stopping the walk here",
-                                        e, reward, err);
-                                    break;
-                                }
-                                warn!("[finalize] epoch {} can NEVER be finalized (no quorum \
-                                    EpochFinalize, and epoch {} is finalized above its \
-                                    attestation window of {}) — no earners, so its full \
-                                    budget of {} hunits recycles and the reward cursor \
-                                    advances", e, proof_epoch,
-                                    hone_types::NEGATIVE_ATTESTATION_WINDOW, reward);
-                                last_rewarded = e;
-                                continue;
-                            }
+                            _ => break, // not finalized yet — leave last_rewarded before e
                         };
                         let sealers: Vec<String> = meta["sealed_by"].as_array()
                             .map(|a| a.iter().filter_map(|v| v.as_str().map(str::to_owned)).collect())
@@ -2008,40 +1974,6 @@ fn backfill_txglobal(chain: &Chain) {
 /// falls again. Anyone reading liquidity history off the balance alone would see
 /// recycling apparently reverse. `supply:recycled_cumulative` is monotonic and
 /// survives restarts, so it is the honest lifetime figure.
-/// Proof that epoch `e` can NEVER be finalized, or `None` if it might still finalize.
-///
-/// Returns the epoch that constitutes the proof: a locally-finalized epoch sitting
-/// ABOVE `e`'s attestation window. Because negative attestation only reaches back
-/// `NEGATIVE_ATTESTATION_WINDOW` epochs, a chain that has finalized past that horizon
-/// has permanently left `e` behind — no quorum can form for it again.
-///
-/// Deliberately requires POSITIVE evidence from the applied set rather than testing the
-/// current epoch. `cur` advances on any peer's `EpochSeal`, so keying the verdict on it
-/// would make "is e dead?" a function of when a node happened to look — the same
-/// arrival-order dependence that made receiver-inferred F fork the cohort. Keyed on a
-/// finalized epoch instead, the verdict is a function of chain content: every node
-/// reaches it, and reaches the same one, whatever order gossip arrived in.
-///
-/// Waiting is always the safe answer, so `None` on any doubt: if quorum is merely down
-/// right now and nothing above has finalized yet, the walk blocks (correct) rather than
-/// recycling epochs that could still pay out.
-///
-/// The scan is bounded so a long unfinalizable run cannot stall a single tick; the
-/// driver retries every second, so it resolves across successive passes.
-fn unfinalizable_proof(chain: &Chain, e: u64, safe_tip: u64) -> Option<u64> {
-    const MAX_PROBES: u64 = 4_096;
-    let horizon = e.saturating_add(hone_types::NEGATIVE_ATTESTATION_WINDOW);
-    if safe_tip <= horizon {
-        return None; // still inside the window where e could yet be attested
-    }
-    let scan_end = safe_tip.min(horizon.saturating_add(MAX_PROBES));
-    (horizon.saturating_add(1)..=scan_end).find(|probe| {
-        chain.store.get_epoch_meta(*probe).ok().flatten()
-            .map(|m| m["finalized"].as_bool().unwrap_or(false))
-            .unwrap_or(false)
-    })
-}
-
 fn recycle_credit(chain: &Chain, amount: u64) {
     let _ = recycle_credit_checked(chain, amount);
 }
@@ -3233,77 +3165,17 @@ mod reward_driver_tests {
         })).unwrap();
     }
 
-    // ── Permanently-unfinalizable epochs (quorum-loss outage, live mainnet) ──────
-    //
-    // When the cohort drops below quorum the survivor keeps sealing but cannot
-    // finalize, so a run of epochs never gets an EpochFinalize. Once they age past
-    // the attestation window nothing can finalize them, and the contiguous reward
-    // walk used to block on them forever — rewards stopped permanently on every
-    // node. These pin the verdict that lets the walk pass them.
+    // NOTE: the tests that pinned a "permanently unfinalizable" verdict were removed
+    // with the rule itself (2026-07-30). They asserted the verdict was independent of
+    // tip position, which was true — and irrelevant, because the verdict also has to be
+    // independent of what each node LOCALLY holds, and it was not. Tests that check the
+    // wrong property are worse than no tests: these were cited as evidence the rule was
+    // safe. See the removal comment in the driver, and proposal p1a4f0c7.
 
-    /// Inside the attestation window the answer must be "wait", never "dead" —
-    /// recycling an epoch that could still pay out would destroy real earnings.
-    #[test]
-    fn unfinalizable_waits_while_still_inside_the_attestation_window() {
-        let (chain, _d) = make_chain("unfinal-window");
-        let e = 100u64;
-        // A finalized epoch exists above e, but not above e's horizon.
-        mark_finalized(&chain, e + 10, &["clk1"]);
-        let horizon = e + hone_types::NEGATIVE_ATTESTATION_WINDOW;
-        assert_eq!(unfinalizable_proof(&chain, e, horizon), None,
-            "safe_tip exactly at the horizon must still wait");
-        assert_eq!(unfinalizable_proof(&chain, e, horizon - 1), None);
-    }
 
-    /// Past the horizon but with NO finalized epoch above it, the verdict is still
-    /// "wait": quorum may simply be down right now. Requiring positive evidence is
-    /// what keeps this from becoming a wall-clock decision.
-    #[test]
-    fn unfinalizable_waits_without_positive_evidence() {
-        let (chain, _d) = make_chain("unfinal-noproof");
-        let e = 100u64;
-        let safe_tip = e + hone_types::NEGATIVE_ATTESTATION_WINDOW + 500;
-        assert_eq!(unfinalizable_proof(&chain, e, safe_tip), None,
-            "no finalized epoch above the horizon → cannot conclude e is dead");
-    }
 
-    /// With a finalized epoch above the horizon, e is provably dead and the proof is
-    /// returned so the log can name it.
-    #[test]
-    fn unfinalizable_proven_by_a_finalized_epoch_above_the_horizon() {
-        let (chain, _d) = make_chain("unfinal-proof");
-        let e = 100u64;
-        let horizon = e + hone_types::NEGATIVE_ATTESTATION_WINDOW;
-        mark_finalized(&chain, horizon + 5, &["clk1", "clk2"]);
-        let safe_tip = horizon + 50;
-        assert_eq!(unfinalizable_proof(&chain, e, safe_tip), Some(horizon + 5));
-    }
 
-    /// The verdict must be a function of chain CONTENT, not of how far the tip has
-    /// run: any safe_tip large enough to expose the same proof yields the same
-    /// answer. This is the property whose absence forked the cohort on F=122/121.
-    #[test]
-    fn unfinalizable_verdict_is_independent_of_how_far_the_tip_has_advanced() {
-        let (chain, _d) = make_chain("unfinal-order");
-        let e = 100u64;
-        let horizon = e + hone_types::NEGATIVE_ATTESTATION_WINDOW;
-        mark_finalized(&chain, horizon + 3, &["clk1"]);
-        let answers: Vec<Option<u64>> = [horizon + 3, horizon + 4, horizon + 100, horizon + 5_000]
-            .iter().map(|t| unfinalizable_proof(&chain, e, *t)).collect();
-        assert!(answers.iter().all(|a| *a == Some(horizon + 3)),
-            "verdict varied with the tip: {answers:?} — that is arrival-order dependence");
-    }
 
-    /// An unfinalized epoch does not become "dead" just because a LOWER epoch
-    /// finalized; only evidence above the horizon counts.
-    #[test]
-    fn unfinalizable_ignores_finalized_epochs_below_the_horizon() {
-        let (chain, _d) = make_chain("unfinal-below");
-        let e = 100u64;
-        for probe in [e - 1, e + 1, e + 63] { mark_finalized(&chain, probe, &["clk1"]); }
-        let safe_tip = e + hone_types::NEGATIVE_ATTESTATION_WINDOW + 200;
-        assert_eq!(unfinalizable_proof(&chain, e, safe_tip), None);
-    }
 
     // ── recycled_cumulative repair ───────────────────────────────────────────────
 
