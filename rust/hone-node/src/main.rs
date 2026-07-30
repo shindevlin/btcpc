@@ -369,7 +369,7 @@ async fn main() -> Result<()> {
         // epoch on the flat rule while its peers run weighted. Recomputed from the same anchor a
         // live node would have, so it matches byte-for-byte. Anchored to current_epoch + 1 — the
         // next epoch this node will help resolve.
-        let wq_enabled = clock::weighted_quorum_enabled(&chain.store);
+        let wq_enabled = clock::weighted_quorum_active_for(&chain.store, epoch_now + 1);
         let weights_now = clock::compute_clock_weights(&chain.store, &reg_now);
         clock.set_registered_clocks(reg_now);
         clock.set_clock_weights(epoch_now + 1, weights_now, wq_enabled);
@@ -871,7 +871,7 @@ async fn main() -> Result<()> {
                         // flat count rule governs and these weights are ignored. Branch-only until
                         // gated + Shin-in-person activation.
                         let govern_epoch = sealed_epoch + 1;
-                        let wq_enabled = clock::weighted_quorum_enabled(&chain_ref.store);
+                        let wq_enabled = clock::weighted_quorum_active_for(&chain_ref.store, govern_epoch);
                         let clock_weights = clock::compute_clock_weights(&chain_ref.store, &reg_clocks);
                         let _ = chain_ref.store.state_set(
                             &format!("epoch_clock_weights:{}", govern_epoch),
@@ -2277,30 +2277,43 @@ activity pool starved (sealing clock-node count too high for era budget)",
     // `epoch`; that is exactly what the cross-arch / cross-NAT gate must stress before
     // activation (§0 of docs/REPUTATION_WEIGHTED_QUORUM.md), and why this is gate-then-Shin,
     // not a live flip.
-    if clock::weighted_quorum_enabled(&chain.store) {
-        for node_id in &registered_nodes {
-            let attend_key = format!("device_attend:{}", node_id);
-            let prev: serde_json::Value = chain.store.state_get(&attend_key)
-                .and_then(|b| serde_json::from_slice(&b).ok())
-                .unwrap_or(serde_json::json!({"sealed": 0, "epochs": 0}));
-            let mut sealed_ct = prev["sealed"].as_u64().unwrap_or(0);
-            let mut epochs = prev["epochs"].as_u64().unwrap_or(0);
+    // Epoch-anchored gate: accrue only for epochs at/after the agreed activation height (NOT a
+    // bare "is the flag set now" — the walk runs behind the tip, so "now" is always past
+    // activation and reading it here would fold a per-node pre-activation tail into the record).
+    // Write-once per epoch (`device_attend_done:{epoch}`) so the accrual is idempotent regardless
+    // of how emit_epoch_rewards is reached — it must never depend on an upstream caller's
+    // dedup. Set derived from `registered_clock_nodes` — the SAME set the quorum denominator and
+    // compute_clock_weights use — so a device never has weight without an attendance record or
+    // vice versa.
+    if clock::weighted_quorum_active_for(&chain.store, epoch) {
+        let attend_done_key = format!("device_attend_done:{}", epoch);
+        if chain.store.state_get(&attend_done_key).is_none() {
+            let attend_set = clock::registered_clock_nodes(&chain.store, epoch);
+            for node_id in &attend_set {
+                let attend_key = format!("device_attend:{}", node_id);
+                let prev: serde_json::Value = chain.store.state_get(&attend_key)
+                    .and_then(|b| serde_json::from_slice(&b).ok())
+                    .unwrap_or(serde_json::json!({"sealed": 0, "epochs": 0}));
+                let mut sealed_ct = prev["sealed"].as_u64().unwrap_or(0);
+                let mut epochs = prev["epochs"].as_u64().unwrap_or(0);
 
-            epochs = (epochs + 1).min(CLOCK_UPTIME_WINDOW);
-            // ACTUAL attendance: did THIS device's own seal for `epoch` land on-chain?
-            let attended = chain.store
-                .state_get(&format!("epoch_node_seal:{}:{}", epoch, node_id))
-                .is_some();
-            if attended {
-                sealed_ct = (sealed_ct + 1).min(epochs);
-            } else if epochs == CLOCK_UPTIME_WINDOW {
-                // Steady-state: a missed epoch leaks one point from the window.
-                sealed_ct = sealed_ct.saturating_sub(1);
+                epochs = (epochs + 1).min(CLOCK_UPTIME_WINDOW);
+                // ACTUAL attendance: did THIS device's own seal for `epoch` land on-chain?
+                let attended = chain.store
+                    .state_get(&format!("epoch_node_seal:{}:{}", epoch, node_id))
+                    .is_some();
+                if attended {
+                    sealed_ct = (sealed_ct + 1).min(epochs);
+                } else if epochs == CLOCK_UPTIME_WINDOW {
+                    // Steady-state: a missed epoch leaks one point from the window.
+                    sealed_ct = sealed_ct.saturating_sub(1);
+                }
+
+                let _ = chain.store.state_set(&attend_key, &serde_json::to_vec(
+                    &serde_json::json!({ "sealed": sealed_ct, "epochs": epochs })
+                ).unwrap_or_default());
             }
-
-            let _ = chain.store.state_set(&attend_key, &serde_json::to_vec(
-                &serde_json::json!({ "sealed": sealed_ct, "epochs": epochs })
-            ).unwrap_or_default());
+            let _ = chain.store.state_set(&attend_done_key, b"1");
         }
     }
 
@@ -3543,23 +3556,42 @@ mod reward_driver_tests {
         chain.store.state_set(
             &format!("epoch_node_seal:{epoch}:present"), b"seal_hash_hex").unwrap();
 
+        // Registration for the role_stake / registered_clock_nodes set the accrual now iterates
+        // (aligned with the quorum denominator). Past grace, needs self-stake >= min.
+        for n in ["present", "dark"] {
+            chain.store.state_set(
+                &format!("role_stake:clock:{n}:{n}"),
+                &serde_json::to_vec(&serde_json::json!({"amount": 100_000_000_000u64, "staked_epoch": 1}))
+                    .unwrap(),
+            ).unwrap();
+        }
+
         // ── Gated OFF (default): no device_attend is written at all. ──
         emit_epoch_rewards(epoch, &["present".to_string(), "dark".to_string()], &chain);
         assert!(chain.store.state_get("device_attend:present").is_none(),
-            "attendance must NOT be recorded while the weighted-quorum param is off");
+            "attendance must NOT be recorded before the activation epoch");
         assert!(chain.store.state_get("device_attend:dark").is_none());
 
-        // ── Gated ON: attendance accrues from the real seal record. ──
+        // ── Activation epoch is an EPOCH: set it ABOVE this epoch → still OFF here. ──
+        chain.store.state_set("chain_param:weighted_quorum",
+            &serde_json::to_vec(&(epoch + 100)).unwrap()).unwrap();
+        emit_epoch_rewards(epoch, &["present".to_string(), "dark".to_string()], &chain);
+        assert!(chain.store.state_get("device_attend:present").is_none(),
+            "epoch before the activation height must NOT accrue");
+
+        // ── Activation at/below this epoch → attendance accrues from the real seal record. ──
         chain.store.state_set("chain_param:weighted_quorum",
             &serde_json::to_vec(&1u64).unwrap()).unwrap();
+        emit_epoch_rewards(epoch, &["present".to_string(), "dark".to_string()], &chain);
+        // Idempotency: a second call for the SAME epoch must NOT double-count (write-once guard).
         emit_epoch_rewards(epoch, &["present".to_string(), "dark".to_string()], &chain);
 
         let present: serde_json::Value = serde_json::from_slice(
             &chain.store.state_get("device_attend:present").expect("present attendance written")).unwrap();
         let dark: serde_json::Value = serde_json::from_slice(
             &chain.store.state_get("device_attend:dark").expect("dark attendance written")).unwrap();
-        // Both had an epoch counted; only the real sealer got a seal credit.
-        assert_eq!(present["epochs"].as_u64(), Some(1));
+        // One epoch counted (NOT two, despite two calls); only the real sealer got a seal credit.
+        assert_eq!(present["epochs"].as_u64(), Some(1), "write-once guard must prevent double-count");
         assert_eq!(present["sealed"].as_u64(), Some(1), "the device that sealed must be credited");
         assert_eq!(dark["epochs"].as_u64(), Some(1));
         assert_eq!(dark["sealed"].as_u64(), Some(0), "a registered device that did NOT seal earns no attendance");

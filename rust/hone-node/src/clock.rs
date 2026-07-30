@@ -989,15 +989,29 @@ pub fn compute_clock_weights(store: &Store, registered: &[String]) -> HashMap<St
     out
 }
 
-/// Whether reputation-weighted quorum is activated. Chain param `chain_param:weighted_quorum`
-/// (u64, nonzero = on). Default OFF — the feature ships dormant until deliberately activated
-/// (branch-only, Shin-in-person), so the flat count rule governs consensus until then.
-pub fn weighted_quorum_enabled(store: &Store) -> bool {
+/// Activation epoch for reputation-weighted quorum. Chain param `chain_param:weighted_quorum`
+/// holds the epoch AT WHICH the feature turns on (0 / absent = never = OFF). It is an EPOCH,
+/// not a bool, on purpose: the attendance accrual and the weighted decision are anchored to the
+/// epoch being processed (`epoch >= activation`), NOT to "is the flag set right now". Reading a
+/// bool "now" would retroactively change how already-settled epochs accrue — the walk runs ~20
+/// epochs behind the tip, so "now" is always past activation and every node would fold in a
+/// different pre-activation tail. Set via a tx-applied `ChainParameterSet` (agreed at a height),
+/// with the activation epoch chosen comfortably in the future so every node holds the param
+/// before its walk reaches it. Default OFF — ships dormant until deliberately activated
+/// (branch-only, gate-then-Shin-in-person).
+pub fn weighted_quorum_activation_epoch(store: &Store) -> u64 {
     store
         .state_get("chain_param:weighted_quorum")
         .and_then(|b| serde_json::from_slice::<u64>(&b).ok())
-        .map(|v| v != 0)
-        .unwrap_or(false)
+        .unwrap_or(0)
+}
+
+/// Whether weighted quorum governs the decision/accrual for a SPECIFIC epoch: activated AND the
+/// epoch is at or past the activation height. Epoch-anchored so it is a pure function of agreed
+/// state, identical on every node and across restarts.
+pub fn weighted_quorum_active_for(store: &Store, epoch: u64) -> bool {
+    let act = weighted_quorum_activation_epoch(store);
+    act != 0 && epoch >= act
 }
 
 // ── Epoch entropy ─────────────────────────────────────────────────────────────
@@ -1261,12 +1275,15 @@ mod weighted_quorum_tests {
         let s = crate::store::Store::open(dir.path()).unwrap();
 
         // gate defaults OFF when the chain param is unset
-        assert!(!weighted_quorum_enabled(&s));
-        // …and reads ON when set nonzero
-        s.state_set("chain_param:weighted_quorum", &serde_json::to_vec(&1u64).unwrap()).unwrap();
-        assert!(weighted_quorum_enabled(&s));
+        assert!(!weighted_quorum_active_for(&s, 1_000_000));
+        // activation epoch is an EPOCH, not a bool: active only for epochs >= activation
+        s.state_set("chain_param:weighted_quorum", &serde_json::to_vec(&500u64).unwrap()).unwrap();
+        assert!(!weighted_quorum_active_for(&s, 499), "must be OFF before the activation epoch");
+        assert!(weighted_quorum_active_for(&s, 500), "must be ON at the activation epoch");
+        assert!(weighted_quorum_active_for(&s, 5_000), "must stay ON after activation");
+        // 0 = never
         s.state_set("chain_param:weighted_quorum", &serde_json::to_vec(&0u64).unwrap()).unwrap();
-        assert!(!weighted_quorum_enabled(&s));
+        assert!(!weighted_quorum_active_for(&s, 5_000));
 
         // established clock: 10 HONE self-stake, 95/100 REAL attendance
         s.state_set(
