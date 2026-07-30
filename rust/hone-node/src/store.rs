@@ -27,7 +27,7 @@ pub struct Store {
 /// the lowest epoch this node ever rewarded — never to epoch 1. On a backdated chain
 /// epochs below the floor are covered by the genesis-gap credit and are not this
 /// node's work to do.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RewardCursor {
     /// Lowest epoch this node has applied rewards for. 0 if it has applied none.
     pub floor: u64,
@@ -41,6 +41,16 @@ pub struct RewardCursor {
     /// The epoch the walk is blocked on: the lowest missing epoch that has applied
     /// work above it. `None` means no hole — the driver is simply at the tip.
     pub first_gap: Option<u64>,
+    /// Every epoch in `floor..=highest` that has NOT been applied.
+    ///
+    /// Needed to state supply conservation exactly. While the driver holds a hole it
+    /// has legitimately credited epochs ABOVE the hole, so issued supply exceeds the
+    /// emission of any contiguous range — comparing against `cumulative_emission_
+    /// through(contiguous)` reports a phantom surplus of precisely the above-the-gap
+    /// credits. Measured on live mainnet mid-recovery: a 2,319,539,999,948 hunit
+    /// "surplus" that was entirely this artefact. Capped, since the only consumer
+    /// needs a correction term rather than a complete list.
+    pub missing: Vec<u64>,
 }
 
 impl RewardCursor {
@@ -339,7 +349,10 @@ impl Store {
             .filter_map(|(k, _)| k.rsplit(':').next().and_then(|s| s.parse::<u64>().ok()))
             .collect();
         let Some(&floor) = done.iter().next() else {
-            return RewardCursor { floor: 0, highest: 0, contiguous: 0, applied: 0, first_gap: None };
+            return RewardCursor {
+                floor: 0, highest: 0, contiguous: 0, applied: 0,
+                first_gap: None, missing: Vec::new(),
+            };
         };
         let highest = *done.iter().next_back().unwrap_or(&floor);
         // Walk up from the floor while each successive epoch is present.
@@ -349,7 +362,20 @@ impl Store {
         }
         // A real hole exists only if work was applied ABOVE the contiguous frontier.
         let first_gap = if c < highest { Some(c + 1) } else { None };
-        RewardCursor { floor, highest, contiguous: c, applied: done.len(), first_gap }
+        // Holes inside the applied span. Capped: the consumer needs a correction term,
+        // and an unbounded list on a badly fragmented chain would be a memory hazard on
+        // an endpoint anyone can call.
+        const MAX_MISSING: usize = 8_192;
+        let mut missing = Vec::new();
+        if first_gap.is_some() {
+            for e in (c + 1)..highest {
+                if !done.contains(&e) {
+                    missing.push(e);
+                    if missing.len() >= MAX_MISSING { break; }
+                }
+            }
+        }
+        RewardCursor { floor, highest, contiguous: c, applied: done.len(), first_gap, missing }
     }
 
     /// Sum of every balance held in `token`, across ALL accounts — including

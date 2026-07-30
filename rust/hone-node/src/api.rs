@@ -2051,17 +2051,28 @@ async fn get_supply(State(s): State<AppState>) -> Json<serde_json::Value> {
     // which on a backdated chain is 0 (epoch 1 was never applied) and so compared real
     // issued supply against zero and declared every healthy node broken.
     let gap_credited = s.chain.store.state_get("genesis_gap_recycled").is_some();
+    // Reckon against the epochs ACTUALLY APPLIED, up to `highest` — not a contiguous
+    // range. While the driver holds a hole it has legitimately credited epochs above it,
+    // so any contiguous-range comparison shows a phantom surplus exactly equal to the
+    // above-the-gap credits. Seen on live mainnet mid-recovery: a 2,319,539,999,948 hunit
+    // "surplus" that was entirely this artefact, on a chain that was perfectly conserved.
+    // Reporting a breach while the driver is catching up is the worst possible time to be
+    // wrong, because that is when someone is actually reading it.
+    let span_end = hone_types::cumulative_emission_through(cur.highest);
+    let missing_total: u64 = cur.missing.iter()
+        .map(|e| hone_types::block_reward_at(*e))
+        .fold(0u64, |a, b| a.saturating_add(b));
     let scheduled: u128 = if cur.floor == 0 {
         0 // nothing applied yet
     } else if gap_credited {
-        // Gap covers 1..floor-1, this node covers floor..contiguous → 1..contiguous.
-        hone_types::cumulative_emission_through(cur.contiguous) as u128
+        // Genesis gap covers 1..floor-1; this node covers the applied set in
+        // floor..=highest. Subtract the holes it has not yet credited.
+        span_end.saturating_sub(missing_total) as u128
     } else {
-        // No gap credit (genesis not backdated, or it has not fired): only this node's
-        // own span is accounted for.
-        (hone_types::cumulative_emission_through(cur.contiguous)
-            .saturating_sub(hone_types::cumulative_emission_through(cur.floor.saturating_sub(1))))
-            as u128
+        // No gap credit: only this node's own applied set counts.
+        span_end
+            .saturating_sub(hone_types::cumulative_emission_through(cur.floor.saturating_sub(1)))
+            .saturating_sub(missing_total) as u128
     };
     // Signed delta without going through i128 formatting surprises.
     let (delta_abs, delta_sign) = if issued >= scheduled {
@@ -2114,8 +2125,10 @@ async fn get_supply(State(s): State<AppState>) -> Json<serde_json::Value> {
             "delta_hunits": delta_abs,
             "delta_sign": delta_sign,
             "conserved": conserved,
-            "through_epoch": cur.contiguous,
+            "through_epoch": cur.highest,
             "from_epoch": cur.floor,
+            "uncredited_epochs_in_span": cur.missing.len(),
+            "uncredited_hunits": missing_total,
             "genesis_gap_credited": gap_credited,
             "explain": "issued (balances+stakes) must equal what the schedule defined as \
                         emittable over the epochs actually accounted for: the genesis-gap \

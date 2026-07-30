@@ -3397,6 +3397,46 @@ mod reward_driver_tests {
         assert!(c.stalled());
     }
 
+    /// The holes must be enumerated, because supply conservation is stated against the
+    /// epochs actually APPLIED, not against a contiguous range. While the driver holds a
+    /// hole it has legitimately credited epochs above it, so a contiguous comparison
+    /// shows a phantom surplus equal to exactly those credits — measured live on mainnet
+    /// mid-recovery as a 2,319,539,999,948 hunit "surplus" on a perfectly conserved chain.
+    #[test]
+    fn reward_cursor_enumerates_holes_so_conservation_can_exclude_them() {
+        let (chain, _d) = make_chain("cursor-missing");
+        // Applied 100..110 except 103, 104 and 107.
+        mark_done(&chain, &[100, 101, 102, 105, 106, 108, 109, 110]);
+        let c = chain.store.reward_cursor();
+        assert_eq!(c.floor, 100);
+        assert_eq!(c.contiguous, 102, "frontier stops below the first hole");
+        assert_eq!(c.highest, 110, "but work HAS been applied up to 110");
+        assert_eq!(c.first_gap, Some(103));
+        assert_eq!(c.missing, vec![103, 104, 107],
+            "every hole in the applied span must be reported, not just the first");
+
+        // The conservation correction: emission through `highest` minus the holes must
+        // equal emission over exactly the applied set.
+        let span = hone_types::cumulative_emission_through(c.highest);
+        let holes: u64 = c.missing.iter().map(|e| hone_types::block_reward_at(*e)).sum();
+        let applied_only: u64 = (1..=c.highest)
+            .filter(|e| !c.missing.contains(e))
+            .map(hone_types::block_reward_at)
+            .sum();
+        assert_eq!(span - holes, applied_only,
+            "span-minus-holes must equal the emission of the applied set");
+    }
+
+    /// No hole → nothing to exclude.
+    #[test]
+    fn reward_cursor_reports_no_holes_when_contiguous() {
+        let (chain, _d) = make_chain("cursor-nomissing");
+        mark_done(&chain, &[200, 201, 202, 203]);
+        let c = chain.store.reward_cursor();
+        assert!(c.missing.is_empty());
+        assert_eq!((c.contiguous, c.highest), (203, 203));
+    }
+
 
     // ── Native emission conservation (Beastly e5b9d2f74a13, Shin's framing) ──
     //
