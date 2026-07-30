@@ -7,34 +7,52 @@ floor, and 11 property tests are all in and correct; the gap is where `uptime_te
 Consensus change; gate before landing, Shin-in-person to merge. Author intent captured from Shin,
 2026-07-30.
 
-## 0. BLOCKER: uptime is not deterministic at the tip (found in build review)
+## 0. BLOCKER + the fix Shin chose: lagged closed-window uptime over tx-applied seal records
 
-`clock_weight` reads `clock_uptime:{node}`. That record is written **only** inside
-`emit_epoch_rewards` (main.rs), which is driven by the **contiguous reward walk** off
-`highest_contiguous_rewarded` — a cursor whose position is a function of gossip arrival and lags
-`current_epoch()` by a node-dependent amount. It is NOT tx-applied on `apply_entry`. Contrast
-`epoch_validators:{E}`, which works as a per-epoch deterministic artifact precisely because its
-source (`role_stake:clock`, `clock_reg`) IS tx-applied — every node has it the instant it has the
-entries.
+**The blocker (found in build review).** `clock_weight` read `clock_uptime:{node}`. That record is
+written **only** inside `emit_epoch_rewards` (main.rs:2238/2264), driven by the **contiguous reward
+walk** off `highest_contiguous_rewarded` (main.rs:691) — a cursor whose position is a function of
+gossip arrival and lags `current_epoch()` per-node. Two nodes deciding the same epoch read uptime
+as-of their own cursor → different weights → fork.
 
-Consequence: any weight computed at seal-time or startup-time reads uptime as-of the node's LOCAL
-reward cursor, so two nodes deciding the same epoch can compute different weights → fork under
-weighted quorum. Epoch-anchoring the *injection* (§9.1) does not fix this — no anchoring scheme
-fixes a source that is only settled behind a node-local cursor, and a "weights absent → flat"
-fallback inherits the same non-synchronization (waiting in the seal path would trade a fork for a
-stall). **stake_term is fine** (tx-applied, deterministic at tip); **uptime_term is not.**
+**The real discriminator (not "finalized vs live").** Flat quorum already reads *unfinalized-at-
+decision-time* state — `role_stake:clock`, `clock_reg` — and never forks, because those are
+**tx-applied and slow-moving**: every node converges on them from gossip well before the epoch they
+gate, and they change only on rare registration entries. Determinism at a live decision needs inputs
+that are *agreed and slow relative to the decision*, NOT inputs that are *finalized*. So:
+- `role_stake:clock` → tx-applied, changes rarely → **safe** at a live seal decision (`stake_term`).
+- `clock_uptime` → local-cursor-written, changes every epoch → **unsafe** (the blocker).
+This is why weighting stays at the **seal** layer (who can seal — Shin's "the laptop might become one
+of the three"); folding it into fork choice (chain.rs:1128) is a far larger blast radius than
+approved and doesn't deliver that.
 
-The fork (Shin decides, not tonight):
-- **(a) Narrow v1 to stake-only weights.** Deterministic at the tip today; keeps per-device
-  staking (§5), the 1/3 cap (§6), the floor, and every test except the uptime term. But it LOSES
-  the reputation core — the thing actually asked for — so it is a partial, not the design.
-- **(b) Add a seal-anchored per-epoch uptime record** so uptime becomes tx/seal-derived instead of
-  reward-driver-derived, settled at the tip like the validator set. This delivers what Shin asked
-  for. It adds consensus state adjacent to the reward path just stabilized for the 42M
-  reconciliation, so it is a deliberate, Shin-in-person change — not a patch. **Recommended as the
-  real v1.** Hold the branch until then.
+**The fix Shin chose (2026-07-30): make uptime tx-applied AND stale, via a lagged CLOSED window.**
+Compute `uptime_term` for epoch `E` over a fixed window `[E − W − L, E − L − 1]` of already-tx-applied
+per-epoch seal records, with lag `L` large enough that the window is settled on every node before
+any of them decide `E`. The window is fixed by `E` alone → order-independent, no incremental
+mutation, no per-node cursor. Source of truth = **`epoch_node_seal:{e}:{node}`**, written when each
+`EpochSeal` applies (chain.rs:1076) — tx-applied, one idempotent key per node-epoch (NOT `sealed_by`,
+which is the registered-set snapshot from `epoch_validators`, not the actual signers). Numerator =
+epochs in-window where the node has a seal record; denominator = window length. `stake_term` already
+qualifies as-is.
 
-Everything below is the design as intended; §0 is the one thing standing between it and activation.
+**Two design points to close with Beastly before wiring (they decide if the window is truly
+order-independent):**
+1. **Window completeness.** A node can be missing `epoch_node_seal` for a window epoch while sealing
+   a later one (gossip delivers seal subsets at different times). The decision must require a
+   COMPLETE window and fall back to flat otherwise — and that fallback predicate must itself be
+   deterministic across nodes, or the fallback forks. Candidate: gate on a chain-agreed
+   completeness marker, not "what this node happens to hold."
+2. **Choosing L.** Large enough to dominate real seal-gossip delay, small enough that reputation
+   stays responsive. Bound it against observed delivery lag on the gate cohort.
+
+At activation all clocks start with empty windows → `uptime_term ≈ 0` → probation → flat, then
+weighted engages smoothly as windows fill (§3 probation, for free). Gate the whole thing behind the
+chain param so the live chain's state_root is untouched until coordinated, Shin-in-person activation.
+
+Everything below is the design as intended; §0 is what stands between it and activation.
+The stake-only narrowing (deterministic today, but loses the reputation core) was considered and
+rejected as a partial.
 
 ## 1. Why
 
