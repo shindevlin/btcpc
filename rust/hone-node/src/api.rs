@@ -2036,8 +2036,33 @@ async fn get_supply(State(s): State<AppState>) -> Json<serde_json::Value> {
     // `unissued = cap - issued` is deliberately NOT the invariant: `issued + unissued`
     // reads exactly 42,000,000 HONE by construction, including when the accounting is
     // broken. It is there for readability, not for proof.
-    let (last_rewarded, done_count, first_gap) = s.chain.store.reward_cursor();
-    let scheduled = hone_types::cumulative_emission_through(last_rewarded) as u128;
+    let cur = s.chain.store.reward_cursor();
+    // The schedule side must be reckoned the way the chain actually emits, which is NOT
+    // "everything from epoch 1 that this node rewarded".
+    //
+    // Two segments make up issued supply:
+    //   epochs 1..floor-1  — never applied by this node (the driver aligns its start to
+    //                        the tracking window on a backdated chain). Those are covered
+    //                        by the ONE genesis-gap credit, which recycled their entire
+    //                        budget. Present only once `genesis_gap_recycled` is set.
+    //   epochs floor..contiguous — this node's own applied work.
+    //
+    // A first cut used `cumulative_emission_through(highest_contiguous_from_epoch_1)`,
+    // which on a backdated chain is 0 (epoch 1 was never applied) and so compared real
+    // issued supply against zero and declared every healthy node broken.
+    let gap_credited = s.chain.store.state_get("genesis_gap_recycled").is_some();
+    let scheduled: u128 = if cur.floor == 0 {
+        0 // nothing applied yet
+    } else if gap_credited {
+        // Gap covers 1..floor-1, this node covers floor..contiguous → 1..contiguous.
+        hone_types::cumulative_emission_through(cur.contiguous) as u128
+    } else {
+        // No gap credit (genesis not backdated, or it has not fired): only this node's
+        // own span is accounted for.
+        (hone_types::cumulative_emission_through(cur.contiguous)
+            .saturating_sub(hone_types::cumulative_emission_through(cur.floor.saturating_sub(1))))
+            as u128
+    };
     // Signed delta without going through i128 formatting surprises.
     let (delta_abs, delta_sign) = if issued >= scheduled {
         (issued - scheduled, 1i8)
@@ -2089,11 +2114,14 @@ async fn get_supply(State(s): State<AppState>) -> Json<serde_json::Value> {
             "delta_hunits": delta_abs,
             "delta_sign": delta_sign,
             "conserved": conserved,
-            "through_epoch": last_rewarded,
+            "through_epoch": cur.contiguous,
+            "from_epoch": cur.floor,
+            "genesis_gap_credited": gap_credited,
             "explain": "issued (balances+stakes) must equal what the schedule defined as \
-                        emittable through the last epoch this node applied rewards for; \
-                        delta_sign -1 means under-issued (budget neither paid nor recycled), \
-                        +1 means minted outside the budget",
+                        emittable over the epochs actually accounted for: the genesis-gap \
+                        credit covers 1..from_epoch-1 and this node's applied work covers \
+                        from_epoch..through_epoch. delta_sign -1 means under-issued (budget \
+                        neither paid nor recycled), +1 means minted outside the budget",
         },
 
         // Reward-driver progress. Surfaced because a stalled driver is indistinguishable
@@ -2101,11 +2129,14 @@ async fn get_supply(State(s): State<AppState>) -> Json<serde_json::Value> {
         // the contiguous walk is waiting on. A non-null first_gap that does not move is
         // the signature of an epoch that can never be finalized.
         "reward_driver": {
-            "last_rewarded_epoch": last_rewarded,
-            "epochs_applied": done_count,
-            "first_gap_epoch": first_gap,
-            "epochs_behind_head": s.chain.current_epoch().saturating_sub(last_rewarded),
-            "stalled": first_gap.is_some(),
+            "last_rewarded_epoch": cur.contiguous,
+            "reward_floor_epoch": cur.floor,
+            "highest_applied_epoch": cur.highest,
+            "epochs_applied": cur.applied,
+            "first_gap_epoch": cur.first_gap,
+            "epochs_behind_head": s.chain.current_epoch().saturating_sub(cur.contiguous),
+            // A cold-start floor is not a stall — only a hole above the frontier is.
+            "stalled": cur.stalled(),
         },
 
         "recycled_cumulative_hunits": recycled_cumulative,

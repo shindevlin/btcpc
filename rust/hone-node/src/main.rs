@@ -3344,25 +3344,57 @@ mod reward_driver_tests {
     #[test]
     fn reward_cursor_reports_the_hole_the_walk_is_waiting_on() {
         let (chain, _d) = make_chain("cursor-gap");
-        for e in [1u64, 2, 3, 5, 6] {
-            chain.store.state_set(&format!("epoch_finalized_done:{}", e), b"1").unwrap();
-        }
-        let (contiguous, count, first_gap) = chain.store.reward_cursor();
-        assert_eq!(contiguous, 3, "contiguous frontier stops below the hole");
-        assert_eq!(count, 5);
-        assert_eq!(first_gap, Some(4), "epoch 4 is what the walk is blocked on");
+        mark_done(&chain, &[1, 2, 3, 5, 6]);
+        let c = chain.store.reward_cursor();
+        assert_eq!(c.contiguous, 3, "frontier stops below the hole");
+        assert_eq!(c.applied, 5);
+        assert_eq!(c.first_gap, Some(4), "epoch 4 is what the walk is blocked on");
+        assert!(c.stalled());
     }
 
-    /// No hole → not stalled, and the cursor is the frontier.
+    /// No hole → not stalled, and the frontier is the highest applied epoch.
     #[test]
     fn reward_cursor_reports_no_gap_when_contiguous() {
         let (chain, _d) = make_chain("cursor-clean");
-        for e in 1u64..=7 {
-            chain.store.state_set(&format!("epoch_finalized_done:{}", e), b"1").unwrap();
-        }
-        assert_eq!(chain.store.reward_cursor(), (7, 7, None));
+        mark_done(&chain, &[1, 2, 3, 4, 5, 6, 7]);
+        let c = chain.store.reward_cursor();
+        assert_eq!((c.floor, c.contiguous, c.highest, c.applied), (1, 7, 7, 7));
+        assert!(!c.stalled());
+
         let (empty, _d2) = make_chain("cursor-empty");
-        assert_eq!(empty.store.reward_cursor(), (0, 0, None));
+        let e = empty.store.reward_cursor();
+        assert_eq!((e.floor, e.contiguous, e.applied), (0, 0, 0));
+        assert!(!e.stalled(), "a node that has rewarded nothing is not stalled");
+    }
+
+    /// THE COLD-START CASE. On a backdated chain the driver aligns its start to the
+    /// tracking window, so epochs 1..floor-1 were never applied by this node and never
+    /// will be — the genesis-gap credit covers them. Measuring contiguity from epoch 1
+    /// reported a phantom hole at epoch 1 and a frontier of 0 on a perfectly healthy
+    /// node, which made /api/supply compare real issued supply against zero and declare
+    /// `accounting_ok: false` permanently. Caught on a live gate node, not in review.
+    #[test]
+    fn reward_cursor_treats_a_cold_start_floor_as_healthy_not_stalled() {
+        let (chain, _d) = make_chain("cursor-coldstart");
+        mark_done(&chain, &[121, 122, 123, 124, 125]);
+        let c = chain.store.reward_cursor();
+        assert_eq!(c.floor, 121, "floor is the lowest epoch this node ever rewarded");
+        assert_eq!(c.contiguous, 125, "contiguous is measured FROM the floor, not epoch 1");
+        assert_eq!(c.highest, 125);
+        assert_eq!(c.first_gap, None, "epochs below the floor are not a hole");
+        assert!(!c.stalled(), "a cold-start floor must never read as a stall");
+    }
+
+    /// A hole ABOVE a cold-start floor is still a real stall.
+    #[test]
+    fn reward_cursor_still_detects_a_hole_above_a_cold_start_floor() {
+        let (chain, _d) = make_chain("cursor-coldstart-gap");
+        mark_done(&chain, &[121, 122, 124, 125]);
+        let c = chain.store.reward_cursor();
+        assert_eq!(c.floor, 121);
+        assert_eq!(c.contiguous, 122);
+        assert_eq!(c.first_gap, Some(123));
+        assert!(c.stalled());
     }
 
 

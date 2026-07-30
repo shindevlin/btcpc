@@ -21,6 +21,33 @@ pub struct Store {
     db: Arc<DB>,
 }
 
+/// Where the reward driver has actually got to. See `Store::reward_cursor`.
+///
+/// All fields are absolute epoch numbers, and everything is relative to `floor` —
+/// the lowest epoch this node ever rewarded — never to epoch 1. On a backdated chain
+/// epochs below the floor are covered by the genesis-gap credit and are not this
+/// node's work to do.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RewardCursor {
+    /// Lowest epoch this node has applied rewards for. 0 if it has applied none.
+    pub floor: u64,
+    /// Highest epoch applied, contiguous or not.
+    pub highest: u64,
+    /// Highest epoch applied with no hole between it and `floor`. This is what the
+    /// driver resumes from, so it is the figure that stops moving when it stalls.
+    pub contiguous: u64,
+    /// How many epochs have been applied in total.
+    pub applied: usize,
+    /// The epoch the walk is blocked on: the lowest missing epoch that has applied
+    /// work above it. `None` means no hole — the driver is simply at the tip.
+    pub first_gap: Option<u64>,
+}
+
+impl RewardCursor {
+    /// True when a hole is holding the walk back. A cold-start floor is NOT a stall.
+    pub fn stalled(&self) -> bool { self.first_gap.is_some() }
+}
+
 impl Store {
     pub fn open(path: &Path) -> Result<Self> {
         std::fs::create_dir_all(path)?;
@@ -288,34 +315,41 @@ impl Store {
         total
     }
 
-    /// Reward-driver progress: `(highest_contiguous, done_count, first_gap)`.
+    /// Reward-driver progress, reckoned from the node's own reward FLOOR.
     ///
-    /// Exists because the driver's stall was invisible. The walk applies each
-    /// finalized epoch exactly once and refuses to step over a gap (skipping is what
-    /// forks state), so a single epoch that can never be finalized halts reward
-    /// emission permanently — on every node, including ones that were never down.
-    /// That happened on live mainnet and presented as "the clocks don't earn", with
-    /// nothing in the API to distinguish it from a reward-schedule problem.
+    /// Exists because the driver's stall was invisible. The walk applies each finalized
+    /// epoch exactly once and refuses to step over a gap (skipping is what forks state),
+    /// so a single epoch that can never be finalized halts reward emission permanently —
+    /// on every node, including ones that were never down. That happened on live mainnet
+    /// and presented as "the clocks don't earn", with nothing in the API to distinguish
+    /// it from a reward-schedule problem.
     ///
-    /// `first_gap` is the epoch the walk is waiting on: `highest_contiguous + 1` when
-    /// anything above it has already been applied (a real hole), else `None`.
-    pub fn reward_cursor(&self) -> (u64, usize, Option<u64>) {
-        let done: std::collections::HashSet<u64> = self
+    /// Everything here is relative to `floor` (the lowest epoch this node ever rewarded)
+    /// rather than to epoch 1. On a backdated chain the driver deliberately aligns its
+    /// start to the tracking window, so epochs `1..floor` were never applied by this node
+    /// and never will be — they are covered by the genesis-gap credit instead. Measuring
+    /// contiguity from epoch 1 therefore reports a permanent phantom hole at epoch 1 and
+    /// a cursor of 0 on a perfectly healthy node, which is exactly what a first cut of
+    /// this did: it made `/api/supply` report `accounting_ok: false` always. A check that
+    /// always cries wolf is worse than no check, because it gets ignored.
+    pub fn reward_cursor(&self) -> RewardCursor {
+        let done: std::collections::BTreeSet<u64> = self
             .state_scan_prefix("epoch_finalized_done:")
             .into_iter()
             .filter_map(|(k, _)| k.rsplit(':').next().and_then(|s| s.parse::<u64>().ok()))
             .collect();
-        if done.is_empty() {
-            return (0, 0, None);
+        let Some(&floor) = done.iter().next() else {
+            return RewardCursor { floor: 0, highest: 0, contiguous: 0, applied: 0, first_gap: None };
+        };
+        let highest = *done.iter().next_back().unwrap_or(&floor);
+        // Walk up from the floor while each successive epoch is present.
+        let mut c = floor;
+        while c < highest && done.contains(&(c + 1)) {
+            c += 1;
         }
-        let max = done.iter().copied().max().unwrap_or(0);
-        let mut e = 0u64;
-        while e < max && done.contains(&(e + 1)) {
-            e += 1;
-        }
-        // A hole only exists if work was applied ABOVE the contiguous frontier.
-        let first_gap = if e < max { Some(e + 1) } else { None };
-        (e, done.len(), first_gap)
+        // A real hole exists only if work was applied ABOVE the contiguous frontier.
+        let first_gap = if c < highest { Some(c + 1) } else { None };
+        RewardCursor { floor, highest, contiguous: c, applied: done.len(), first_gap }
     }
 
     /// Sum of every balance held in `token`, across ALL accounts — including
