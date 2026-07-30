@@ -46,6 +46,22 @@ Implemented on branch `feat/reputation-weighted-quorum`, gated OFF:
 - **Gated.** The accrual writes NEW state, so it is fenced behind `chain_param:weighted_quorum`:
   off (default) → nothing written, live state_root untouched; on → all nodes begin accruing from the
   same activation height, windows fill, weighted quorum engages as probation clears.
+- **Activation mechanism (confirmed).** `chain_param:weighted_quorum` holds the activation EPOCH
+  (0/absent = off), set by a `ChainParameterSet` entry — tx-applied, 2-epoch timelocked, no key
+  whitelist (chain.rs:1189), so it is agreed across nodes at a height. Accrual and the weighted
+  decision gate on `epoch >= activation` (`weighted_quorum_active_for`), a pure function of that
+  agreed value — never a bare "is it set now". The accrual set is the per-epoch
+  `epoch_validators:{e}` snapshot (the reward path's own set, identical across nodes by BUG-6),
+  NOT a live registration scan.
+- **Operational precondition (must be in the activation runbook):** set the activation epoch
+  comfortably in the future (≥ a few hundred epochs ahead) so every node has applied the
+  `ChainParameterSet` before its reward walk reaches the activation height. An epoch processed
+  before the param propagates writes nothing and is never revisited (write-once), leaving a
+  per-node hole — choosing the height well ahead is the mitigation, not an assumption.
+- **Known v1 limitation:** a device that UNSTAKES drops out of `epoch_validators`, so its
+  attendance ratio freezes rather than decaying — unstaking-before-going-dark preserves reputation.
+  Acceptable for v1 (unstaking forfeits the stake_term and quorum standing anyway); a decay-on-exit
+  rule can come later if it matters.
 - **The one gate question (not a fork, an empirical bound):** a *straggler* seal for the epoch
   arriving on one node after its walk passed that epoch would diverge `device_attend`. At depth 20
   this is not observed for honest nodes, but it is exactly what the cross-arch / cross-NAT gate must

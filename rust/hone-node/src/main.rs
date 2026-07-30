@@ -2288,7 +2288,17 @@ activity pool starved (sealing clock-node count too high for era budget)",
     if clock::weighted_quorum_active_for(&chain.store, epoch) {
         let attend_done_key = format!("device_attend_done:{}", epoch);
         if chain.store.state_get(&attend_done_key).is_none() {
-            let attend_set = clock::registered_clock_nodes(&chain.store, epoch);
+            // Set is EPOCH-ANCHORED: the `epoch_validators:{epoch}` snapshot persisted when this
+            // epoch sealed (main.rs, seal handler) — the SAME bytes `sealed_by` and
+            // compute_rewards_hash are built on, identical across nodes by the BUG-6 guarantee.
+            // NOT a live registered_clock_nodes() scan, which reads today's registration state and
+            // would diverge between nodes whose walks reach this epoch at different moments. If the
+            // snapshot is absent, do NOT fall back to a live scan — skip accrual for this epoch
+            // (deterministic: every node that finalized the epoch holds the snapshot).
+            let attend_set: Vec<String> = chain.store
+                .state_get(&format!("epoch_validators:{}", epoch))
+                .and_then(|b| serde_json::from_slice::<Vec<String>>(&b).ok())
+                .unwrap_or_default();
             for node_id in &attend_set {
                 let attend_key = format!("device_attend:{}", node_id);
                 let prev: serde_json::Value = chain.store.state_get(&attend_key)
@@ -3556,15 +3566,12 @@ mod reward_driver_tests {
         chain.store.state_set(
             &format!("epoch_node_seal:{epoch}:present"), b"seal_hash_hex").unwrap();
 
-        // Registration for the role_stake / registered_clock_nodes set the accrual now iterates
-        // (aligned with the quorum denominator). Past grace, needs self-stake >= min.
-        for n in ["present", "dark"] {
-            chain.store.state_set(
-                &format!("role_stake:clock:{n}:{n}"),
-                &serde_json::to_vec(&serde_json::json!({"amount": 100_000_000_000u64, "staked_epoch": 1}))
-                    .unwrap(),
-            ).unwrap();
-        }
+        // Epoch-anchored validator snapshot the accrual iterates (the same bytes the reward path
+        // uses), persisted per epoch when the epoch sealed.
+        chain.store.state_set(
+            &format!("epoch_validators:{epoch}"),
+            &serde_json::to_vec(&vec!["present".to_string(), "dark".to_string()]).unwrap(),
+        ).unwrap();
 
         // ── Gated OFF (default): no device_attend is written at all. ──
         emit_epoch_rewards(epoch, &["present".to_string(), "dark".to_string()], &chain);
