@@ -288,6 +288,36 @@ impl Store {
         total
     }
 
+    /// Reward-driver progress: `(highest_contiguous, done_count, first_gap)`.
+    ///
+    /// Exists because the driver's stall was invisible. The walk applies each
+    /// finalized epoch exactly once and refuses to step over a gap (skipping is what
+    /// forks state), so a single epoch that can never be finalized halts reward
+    /// emission permanently — on every node, including ones that were never down.
+    /// That happened on live mainnet and presented as "the clocks don't earn", with
+    /// nothing in the API to distinguish it from a reward-schedule problem.
+    ///
+    /// `first_gap` is the epoch the walk is waiting on: `highest_contiguous + 1` when
+    /// anything above it has already been applied (a real hole), else `None`.
+    pub fn reward_cursor(&self) -> (u64, usize, Option<u64>) {
+        let done: std::collections::HashSet<u64> = self
+            .state_scan_prefix("epoch_finalized_done:")
+            .into_iter()
+            .filter_map(|(k, _)| k.rsplit(':').next().and_then(|s| s.parse::<u64>().ok()))
+            .collect();
+        if done.is_empty() {
+            return (0, 0, None);
+        }
+        let max = done.iter().copied().max().unwrap_or(0);
+        let mut e = 0u64;
+        while e < max && done.contains(&(e + 1)) {
+            e += 1;
+        }
+        // A hole only exists if work was applied ABOVE the contiguous frontier.
+        let first_gap = if e < max { Some(e + 1) } else { None };
+        (e, done.len(), first_gap)
+    }
+
     /// Sum of every balance held in `token`, across ALL accounts — including
     /// reserve accounts like `__recycle_fund__` that hold a balance but never get
     /// a CF_ACCOUNTS record.

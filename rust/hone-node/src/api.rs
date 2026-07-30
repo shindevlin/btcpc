@@ -1987,7 +1987,15 @@ fn non_empty(s: &str) -> Option<&str> {
 /// going backwards. Both figures are returned so the difference is visible
 /// rather than hidden.
 async fn get_supply(State(s): State<AppState>) -> Json<serde_json::Value> {
-    let total = s.chain.store.total_supply(hone_types::NATIVE_TOKEN);
+    // ISSUED, measured from the ledger: balances plus stakes. Stakes are NOT in
+    // CF_BALANCES — `set_stake` writes straight to CF_STAKES with nothing credited to
+    // a balance — so a balances-only total silently loses every hunit a clock has
+    // staked from its earnings. That is not hypothetical: the earnings->stake top-up
+    // routes a clock's whole reward there until it reaches the minimum.
+    let balances = s.chain.store.total_supply(hone_types::NATIVE_TOKEN);
+    let staked   = s.chain.store.total_staked();
+    let issued   = balances.saturating_add(staked);
+
     let recycle = s.chain.store.get_balance(
         hone_types::RECYCLE_FUND_ACCOUNT, hone_types::NATIVE_TOKEN) as u128;
     let treasury = s.chain.store.get_balance(
@@ -1995,34 +2003,112 @@ async fn get_supply(State(s): State<AppState>) -> Json<serde_json::Value> {
     let testnet = s.chain.store.get_balance(
         hone_types::TESTNET_FUND_ACCOUNT, hone_types::NATIVE_TOKEN) as u128;
     let reserves = recycle + treasury + testnet;
-    let circulating = total.saturating_sub(reserves);
+    // Circulating excludes stake: staked hunits exist and are issued, but they are
+    // bonded, not spendable. Reported separately rather than folded into either side.
+    let circulating = balances.saturating_sub(reserves);
+
     let recycled_cumulative: u128 = s.chain.store.state_get("supply:recycled_cumulative")
         .and_then(|v| String::from_utf8(v).ok())
         .and_then(|x| x.trim().parse::<u128>().ok())
         .unwrap_or(0);
+
     let cap = hone_types::SUPPLY_CAP_HUNITS as u128;
+    let unissued = cap.saturating_sub(issued);
+
+    // ── The cross-check ───────────────────────────────────────────────────────────
+    // Two INDEPENDENT measurements of the same quantity:
+    //   ledger side   — what RocksDB says exists (balances + stakes)
+    //   schedule side — what the emission schedule DEFINED as emittable over every
+    //                   epoch this node has actually applied rewards for
+    // By the native emission rule every hunit of the budget is either paid to an
+    // earner or credited to a reserve, so these must be equal. This is the invariant
+    // that can fail and catch a leak.
+    //
+    // `unissued = cap - issued` is deliberately NOT the invariant: `issued + unissued`
+    // reads exactly 42,000,000 HONE by construction, including when the accounting is
+    // broken. It is there for readability, not for proof.
+    let (last_rewarded, done_count, first_gap) = s.chain.store.reward_cursor();
+    let scheduled = hone_types::cumulative_emission_through(last_rewarded) as u128;
+    // Signed delta without going through i128 formatting surprises.
+    let (delta_abs, delta_sign) = if issued >= scheduled {
+        (issued - scheduled, 1i8)
+    } else {
+        (scheduled - issued, -1i8)
+    };
+    let conserved = delta_abs == 0;
+    let over_cap  = issued > cap;
+
     let hone = |h: u128| -> String { format!("{}.{:010}", h / 10_000_000_000, h % 10_000_000_000) };
 
     Json(serde_json::json!({
         "token": hone_types::NATIVE_TOKEN,
+
+        // 42,000,000 HONE, decomposed. These six add to the cap, always.
         "cap_hunits": cap,
         "cap_hone": hone(cap),
-        "total_supply_hunits": total,
-        "total_supply_hone": hone(total),
+        "ledger": {
+            "circulating_hunits": circulating,
+            "staked_hunits": staked,
+            "recycle_fund_hunits": recycle,
+            "treasury_hunits": treasury,
+            "testnet_fund_hunits": testnet,
+            "unissued_hunits": unissued,
+            "sums_to_cap": circulating
+                .saturating_add(staked).saturating_add(reserves)
+                .saturating_add(unissued) == cap,
+        },
+
+        "issued_hunits": issued,
+        "issued_hone": hone(issued),
+        "unissued_hunits": unissued,
+        "unissued_hone": hone(unissued),
         "circulating_hunits": circulating,
         "circulating_hone": hone(circulating),
+        "staked_hunits": staked,
+        "staked_hone": hone(staked),
         "reserves": {
             "recycle_fund_hunits": recycle,
             "treasury_hunits": treasury,
             "testnet_fund_hunits": testnet,
             "total_hunits": reserves,
         },
+
+        // The real invariant.
+        "conservation": {
+            "issued_from_ledger_hunits": issued,
+            "scheduled_from_emission_hunits": scheduled,
+            "delta_hunits": delta_abs,
+            "delta_sign": delta_sign,
+            "conserved": conserved,
+            "through_epoch": last_rewarded,
+            "explain": "issued (balances+stakes) must equal what the schedule defined as \
+                        emittable through the last epoch this node applied rewards for; \
+                        delta_sign -1 means under-issued (budget neither paid nor recycled), \
+                        +1 means minted outside the budget",
+        },
+
+        // Reward-driver progress. Surfaced because a stalled driver is indistinguishable
+        // from a reward bug without it: rewards simply stop, and `first_gap` is the epoch
+        // the contiguous walk is waiting on. A non-null first_gap that does not move is
+        // the signature of an epoch that can never be finalized.
+        "reward_driver": {
+            "last_rewarded_epoch": last_rewarded,
+            "epochs_applied": done_count,
+            "first_gap_epoch": first_gap,
+            "epochs_behind_head": s.chain.current_epoch().saturating_sub(last_rewarded),
+            "stalled": first_gap.is_some(),
+        },
+
         "recycled_cumulative_hunits": recycled_cumulative,
         "recycled_cumulative_hone": hone(recycled_cumulative),
-        "headroom_to_cap_hunits": cap.saturating_sub(total),
-        "over_cap": total > cap,
+        "headroom_to_cap_hunits": cap.saturating_sub(issued),
+        "over_cap": over_cap,
+        "accounting_ok": conserved && !over_cap,
         "epoch": s.chain.current_epoch(),
-        "note": "recycled_cumulative is lifetime-monotonic; recycle_fund_hunits is the current balance and falls once RECYCLE_ERA draws from it",
+        "note": "issued = balances + stakes. recycled_cumulative is lifetime-monotonic and \
+                 counts what the chain defined as emittable but nobody earned; \
+                 recycle_fund_hunits is the CURRENT balance, which also holds inference \
+                 escrow and falls once RECYCLE_ERA draws from it, so the two differ by design",
     }))
 }
 

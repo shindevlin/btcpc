@@ -243,6 +243,11 @@ async fn main() -> Result<()> {
     // transactions appear in the explorer even before the txglobal index existed.
     backfill_txglobal(&chain);
 
+    // One-time repair: chains that credited the genesis gap before the counter bypass
+    // was fixed under-report lifetime recycling by exactly that credit. Idempotent,
+    // touches no balances, cannot fork (the counter is not in state_root).
+    repair_recycled_cumulative(&chain);
+
     // Register this account on-chain (no-op if already exists) — links all public keys.
     if let Err(e) = wallet::register_account(&chain, &cfg.account, &wallet_keys) {
         warn!("wallet: account registration failed (non-fatal): {}", e);
@@ -386,7 +391,8 @@ async fn main() -> Result<()> {
                 if cur > last_tracked {
                     // Cap the catch-up so a huge genesis-to-now gap can't stall the loop;
                     // only the recent window matters for finalization.
-                    let start = last_tracked.saturating_add(1).max(cur.saturating_sub(64));
+                    let start = last_tracked.saturating_add(1)
+                        .max(cur.saturating_sub(hone_types::NEGATIVE_ATTESTATION_WINDOW));
                     for e in start..=cur {
                         clock_ref.ensure_epoch_tracked(e);
                     }
@@ -428,7 +434,7 @@ async fn main() -> Result<()> {
                     // stale value before it syncs to wall-clock, and marking aligned then
                     // with last_rewarded still 0 latches the guard permanently → driver stuck
                     // at epoch 1 forever. Retry every tick until cur > 65, THEN align once.
-                    let window_floor = cur.saturating_sub(64);
+                    let window_floor = cur.saturating_sub(hone_types::NEGATIVE_ATTESTATION_WINDOW);
                     if window_floor > 1 {
                         last_rewarded = window_floor.saturating_sub(1);
                         reward_floor_aligned = true;
@@ -507,10 +513,68 @@ async fn main() -> Result<()> {
                             continue;
                         }
                         // Must be finalized locally before we can apply it. If not yet,
-                        // STOP — do not advance past this gap; retry from here next tick.
+                        // either WAIT (it may still finalize) or, if it provably never can,
+                        // recycle its budget and move on — see below.
                         let meta = match chain_ref.store.get_epoch_meta(e) {
                             Ok(Some(m)) if m["finalized"].as_bool().unwrap_or(false) => m,
-                            _ => break, // not finalized yet — leave last_rewarded before e
+                            _ => {
+                                // ── PERMANENTLY UNFINALIZABLE EPOCH ───────────────────────
+                                // Blocking here forever was a real mainnet outage. When the
+                                // cohort drops below quorum (≥2 registered clocks) the
+                                // remaining node keeps SEALING epochs but cannot FINALIZE
+                                // them, so no `EpochFinalize` is ever produced for that run.
+                                // Once the chain moves more than NEGATIVE_ATTESTATION_WINDOW
+                                // past them they fall out of the attestation window and no
+                                // quorum can ever form. The walk was then waiting on epochs
+                                // that can never arrive: rewards stopped permanently, on
+                                // EVERY node — including the survivor that never went down,
+                                // which ended up further behind than the node that died.
+                                //
+                                // The fix is the native emission rule, not a new mechanism
+                                // (Beastly e5b9d2f7): an epoch nobody could finalize has no
+                                // earners, so its whole budget recycles and the cursor
+                                // advances. Identical in kind to the finalized-but-empty lane
+                                // right below, and to a slow epoch, and to the genesis gap.
+                                //
+                                // The verdict is derived from CHAIN CONTENT, never wall-clock.
+                                // We require positive evidence: some epoch ABOVE e's
+                                // attestation window has actually been finalized on this node.
+                                // That proves the chain progressed past e with quorum intact,
+                                // so e's absence is permanent rather than gossip lag. Keying
+                                // it on `cur` instead would make the verdict a function of
+                                // when each node happened to look — the arrival-order
+                                // dependence that made receiver-inferred F fork the cohort
+                                // (stash: F=122 vs F=121). Two nodes can reach this verdict at
+                                // different WALL-CLOCK times, but the amount is
+                                // `block_reward_at(e)` — a pure function of e — and it applies
+                                // at most once per node, so the end state is identical.
+                                let Some(proof_epoch) =
+                                    unfinalizable_proof(&chain_ref, e, safe_tip)
+                                else {
+                                    break; // may still finalize — wait, do not skip
+                                };
+                                let reward = hone_types::block_reward_at(e);
+                                if reward > 0 {
+                                    recycle_credit(&chain_ref, reward);
+                                }
+                                if let Err(err) = chain_ref.store
+                                    .state_set(&done_key, b"1")
+                                {
+                                    error!("[finalize] epoch {} unfinalizable, {} hunits \
+                                        recycled, but done-marker write failed: {} — \
+                                        MUST NOT double-recycle; stopping the walk here",
+                                        e, reward, err);
+                                    break;
+                                }
+                                warn!("[finalize] epoch {} can NEVER be finalized (no quorum \
+                                    EpochFinalize, and epoch {} is finalized above its \
+                                    attestation window of {}) — no earners, so its full \
+                                    budget of {} hunits recycles and the reward cursor \
+                                    advances", e, proof_epoch,
+                                    hone_types::NEGATIVE_ATTESTATION_WINDOW, reward);
+                                last_rewarded = e;
+                                continue;
+                            }
                         };
                         let sealers: Vec<String> = meta["sealed_by"].as_array()
                             .map(|a| a.iter().filter_map(|v| v.as_str().map(str::to_owned)).collect())
@@ -575,12 +639,17 @@ async fn main() -> Result<()> {
                                 // exact fork class this change exists to close, so the guard now
                                 // follows the credit, never precedes it — same discipline as
                                 // `epoch_finalized_done:{e}` below.
+                                // Goes through recycle_credit, NOT store.credit directly: the
+                                // gap is the single largest recycle event in the chain's life,
+                                // and crediting it straight to the fund left it invisible to
+                                // `supply:recycled_cumulative`. On live mainnet that under-counted
+                                // the lifetime recycle figure by 145,534 HONE — the recycle ledger
+                                // is supposed to be the honest public record of what the chain
+                                // defined as emittable but nobody earned, so a bypass here is not
+                                // a cosmetic bug. See `repair_recycled_cumulative` for chains
+                                // where the credit already fired uncounted.
                                 let applied = if credit > 0 {
-                                    match chain_ref.store.credit(
-                                        hone_types::RECYCLE_FUND_ACCOUNT,
-                                        hone_types::NATIVE_TOKEN,
-                                        credit,
-                                    ) {
+                                    match recycle_credit_checked(&chain_ref, credit) {
                                         Ok(_) => true,
                                         Err(err) => {
                                             error!("[genesis-gap] credit FAILED at F={} ({} hunits): {} \
@@ -595,6 +664,9 @@ async fn main() -> Result<()> {
                                 if applied {
                                     let _ = chain_ref.store.state_set(
                                         "genesis_first_sealed_epoch", e.to_string().as_bytes());
+                                    // Credited AND counted in the same breath, so a chain that
+                                    // starts on this code never needs the repair path.
+                                    let _ = chain_ref.store.state_set("genesis_gap_counted", b"1");
                                     if let Err(err) =
                                         chain_ref.store.state_set("genesis_gap_recycled", b"1")
                                     {
@@ -612,10 +684,13 @@ async fn main() -> Result<()> {
                             emit_epoch_rewards(e, &sealers, &chain_ref);
                         } else {
                             // Earned nothing (empty sealer set) → its block reward recycles.
+                            // Also via recycle_credit: this lane bypassed the cumulative counter
+                            // too, so every empty finalized epoch went unrecorded in the lifetime
+                            // recycle figure. Same defect class as the genesis-gap bypass above,
+                            // and unlike that one it recurred every quiet epoch.
                             let reward = hone_types::block_reward_at(e);
                             if reward > 0 {
-                                let _ = chain_ref.store.credit(
-                                    hone_types::RECYCLE_FUND_ACCOUNT, hone_types::NATIVE_TOKEN, reward);
+                                recycle_credit(&chain_ref, reward);
                                 info!("[finalize] epoch {} earned nothing (finalized) — {} hunits → recycle fund", e, reward);
                             }
                         }
@@ -1910,17 +1985,125 @@ fn backfill_txglobal(chain: &Chain) {
 /// falls again. Anyone reading liquidity history off the balance alone would see
 /// recycling apparently reverse. `supply:recycled_cumulative` is monotonic and
 /// survives restarts, so it is the honest lifetime figure.
+/// Proof that epoch `e` can NEVER be finalized, or `None` if it might still finalize.
+///
+/// Returns the epoch that constitutes the proof: a locally-finalized epoch sitting
+/// ABOVE `e`'s attestation window. Because negative attestation only reaches back
+/// `NEGATIVE_ATTESTATION_WINDOW` epochs, a chain that has finalized past that horizon
+/// has permanently left `e` behind — no quorum can form for it again.
+///
+/// Deliberately requires POSITIVE evidence from the applied set rather than testing the
+/// current epoch. `cur` advances on any peer's `EpochSeal`, so keying the verdict on it
+/// would make "is e dead?" a function of when a node happened to look — the same
+/// arrival-order dependence that made receiver-inferred F fork the cohort. Keyed on a
+/// finalized epoch instead, the verdict is a function of chain content: every node
+/// reaches it, and reaches the same one, whatever order gossip arrived in.
+///
+/// Waiting is always the safe answer, so `None` on any doubt: if quorum is merely down
+/// right now and nothing above has finalized yet, the walk blocks (correct) rather than
+/// recycling epochs that could still pay out.
+///
+/// The scan is bounded so a long unfinalizable run cannot stall a single tick; the
+/// driver retries every second, so it resolves across successive passes.
+fn unfinalizable_proof(chain: &Chain, e: u64, safe_tip: u64) -> Option<u64> {
+    const MAX_PROBES: u64 = 4_096;
+    let horizon = e.saturating_add(hone_types::NEGATIVE_ATTESTATION_WINDOW);
+    if safe_tip <= horizon {
+        return None; // still inside the window where e could yet be attested
+    }
+    let scan_end = safe_tip.min(horizon.saturating_add(MAX_PROBES));
+    (horizon.saturating_add(1)..=scan_end).find(|probe| {
+        chain.store.get_epoch_meta(*probe).ok().flatten()
+            .map(|m| m["finalized"].as_bool().unwrap_or(false))
+            .unwrap_or(false)
+    })
+}
+
 fn recycle_credit(chain: &Chain, amount: u64) {
-    if amount == 0 { return; }
-    let _ = chain.store.credit(
-        hone_types::RECYCLE_FUND_ACCOUNT, hone_types::NATIVE_TOKEN, amount);
-    let prev = chain.store.state_get("supply:recycled_cumulative")
-        .and_then(|v| String::from_utf8(v).ok())
-        .and_then(|s| s.trim().parse::<u128>().ok())
-        .unwrap_or(0);
+    let _ = recycle_credit_checked(chain, amount);
+}
+
+/// As `recycle_credit`, but surfaces the credit failure instead of swallowing it.
+///
+/// The genesis-gap caller needs this: it must only set its write-once guard if the
+/// credit actually landed, because a guard set over a failed credit can never retry
+/// and leaves that node permanently short against every node where it succeeded.
+/// The counter is advanced only on a successful credit, so the two can never
+/// disagree about whether the tokens exist.
+fn recycle_credit_checked(chain: &Chain, amount: u64) -> anyhow::Result<()> {
+    if amount == 0 { return Ok(()); }
+    chain.store.credit(
+        hone_types::RECYCLE_FUND_ACCOUNT, hone_types::NATIVE_TOKEN, amount)?;
+    bump_recycled_cumulative(chain, amount as u128);
+    Ok(())
+}
+
+fn bump_recycled_cumulative(chain: &Chain, amount: u128) {
+    let prev = read_recycled_cumulative(chain);
     let _ = chain.store.state_set(
         "supply:recycled_cumulative",
-        prev.saturating_add(amount as u128).to_string().as_bytes());
+        prev.saturating_add(amount).to_string().as_bytes());
+}
+
+fn read_recycled_cumulative(chain: &Chain) -> u128 {
+    chain.store.state_get("supply:recycled_cumulative")
+        .and_then(|v| String::from_utf8(v).ok())
+        .and_then(|s| s.trim().parse::<u128>().ok())
+        .unwrap_or(0)
+}
+
+/// One-time repair for chains where the genesis-gap credit landed WITHOUT being
+/// counted (any chain that ran a binary before the bypass was fixed).
+///
+/// Live mainnet is such a chain: the gap credit fired at F and went straight to the
+/// fund via `store.credit`, so `supply:recycled_cumulative` under-reported lifetime
+/// recycling by exactly `genesis_gap_recycle_hunits(F)` — 145,534 HONE. The write-once
+/// `genesis_gap_recycled` guard means the credit itself can never re-fire, so no code
+/// change fixes the figure going forward; it has to be repaired once, explicitly.
+///
+/// Deterministic and node-independent: the amount is a pure function of `F`, which is
+/// durable in `genesis_first_sealed_epoch`, so every node computes the same number
+/// from its own state. Safe to run on every startup — `genesis_gap_counted` makes it
+/// idempotent, and a chain that started on the fixed code sets that guard at credit
+/// time and skips this entirely.
+///
+/// This does NOT touch balances, only the counter. The counter is not part of
+/// `state_root` (which covers the balance tree) and has no consensus reader — it is
+/// read by `/api/supply` alone — so repairing it cannot fork the chain. Balances were
+/// already correct; it was only the record of them that was wrong.
+fn repair_recycled_cumulative(chain: &Chain) {
+    if chain.store.state_get("genesis_gap_counted").is_some() {
+        return; // already counted, or credited by the fixed path
+    }
+    if chain.store.state_get("genesis_gap_recycled").is_none() {
+        return; // gap credit has not fired yet — the fixed path will count it
+    }
+    let Some(f) = chain.store.state_get("genesis_first_sealed_epoch")
+        .and_then(|v| String::from_utf8(v).ok())
+        .and_then(|s| s.trim().parse::<u64>().ok())
+    else {
+        warn!("[supply] genesis gap credited but genesis_first_sealed_epoch is unreadable — \
+               cannot compute the uncounted amount; recycled_cumulative stays low. \
+               /api/supply will report accounting_ok=false rather than hide it.");
+        return;
+    };
+    let missed = hone_types::genesis_gap_recycle_hunits(f) as u128;
+    if missed == 0 {
+        let _ = chain.store.state_set("genesis_gap_counted", b"1");
+        return;
+    }
+    let before = read_recycled_cumulative(chain);
+    bump_recycled_cumulative(chain, missed);
+    if let Err(err) = chain.store.state_set("genesis_gap_counted", b"1") {
+        error!("[supply] recycled_cumulative repaired ({} -> {}) but the guard write failed: {} \
+                — MUST NOT repair twice; investigate before restart",
+               before, before.saturating_add(missed), err);
+        return;
+    }
+    info!("[supply] one-time repair: genesis-gap credit at F={} was applied but never counted; \
+           recycled_cumulative {} -> {} (+{} hunits). Balances unchanged — the tokens were always \
+           in the fund, only the lifetime record was short.",
+          f, before, before.saturating_add(missed), missed);
 }
 
 fn emit_epoch_rewards(
@@ -3018,6 +3201,168 @@ mod reward_driver_tests {
         let store = crate::store::Store::open(dir.path()).unwrap();
         let chain = Chain::new(store, format!("node-{}", label), "hone-test".to_string());
         (chain, dir)
+    }
+
+    fn mark_finalized(chain: &Chain, epoch: u64, sealers: &[&str]) {
+        chain.store.set_epoch_meta(epoch, &serde_json::json!({
+            "finalized": true,
+            "sealed_by": sealers,
+        })).unwrap();
+    }
+
+    // ── Permanently-unfinalizable epochs (quorum-loss outage, live mainnet) ──────
+    //
+    // When the cohort drops below quorum the survivor keeps sealing but cannot
+    // finalize, so a run of epochs never gets an EpochFinalize. Once they age past
+    // the attestation window nothing can finalize them, and the contiguous reward
+    // walk used to block on them forever — rewards stopped permanently on every
+    // node. These pin the verdict that lets the walk pass them.
+
+    /// Inside the attestation window the answer must be "wait", never "dead" —
+    /// recycling an epoch that could still pay out would destroy real earnings.
+    #[test]
+    fn unfinalizable_waits_while_still_inside_the_attestation_window() {
+        let (chain, _d) = make_chain("unfinal-window");
+        let e = 100u64;
+        // A finalized epoch exists above e, but not above e's horizon.
+        mark_finalized(&chain, e + 10, &["clk1"]);
+        let horizon = e + hone_types::NEGATIVE_ATTESTATION_WINDOW;
+        assert_eq!(unfinalizable_proof(&chain, e, horizon), None,
+            "safe_tip exactly at the horizon must still wait");
+        assert_eq!(unfinalizable_proof(&chain, e, horizon - 1), None);
+    }
+
+    /// Past the horizon but with NO finalized epoch above it, the verdict is still
+    /// "wait": quorum may simply be down right now. Requiring positive evidence is
+    /// what keeps this from becoming a wall-clock decision.
+    #[test]
+    fn unfinalizable_waits_without_positive_evidence() {
+        let (chain, _d) = make_chain("unfinal-noproof");
+        let e = 100u64;
+        let safe_tip = e + hone_types::NEGATIVE_ATTESTATION_WINDOW + 500;
+        assert_eq!(unfinalizable_proof(&chain, e, safe_tip), None,
+            "no finalized epoch above the horizon → cannot conclude e is dead");
+    }
+
+    /// With a finalized epoch above the horizon, e is provably dead and the proof is
+    /// returned so the log can name it.
+    #[test]
+    fn unfinalizable_proven_by_a_finalized_epoch_above_the_horizon() {
+        let (chain, _d) = make_chain("unfinal-proof");
+        let e = 100u64;
+        let horizon = e + hone_types::NEGATIVE_ATTESTATION_WINDOW;
+        mark_finalized(&chain, horizon + 5, &["clk1", "clk2"]);
+        let safe_tip = horizon + 50;
+        assert_eq!(unfinalizable_proof(&chain, e, safe_tip), Some(horizon + 5));
+    }
+
+    /// The verdict must be a function of chain CONTENT, not of how far the tip has
+    /// run: any safe_tip large enough to expose the same proof yields the same
+    /// answer. This is the property whose absence forked the cohort on F=122/121.
+    #[test]
+    fn unfinalizable_verdict_is_independent_of_how_far_the_tip_has_advanced() {
+        let (chain, _d) = make_chain("unfinal-order");
+        let e = 100u64;
+        let horizon = e + hone_types::NEGATIVE_ATTESTATION_WINDOW;
+        mark_finalized(&chain, horizon + 3, &["clk1"]);
+        let answers: Vec<Option<u64>> = [horizon + 3, horizon + 4, horizon + 100, horizon + 5_000]
+            .iter().map(|t| unfinalizable_proof(&chain, e, *t)).collect();
+        assert!(answers.iter().all(|a| *a == Some(horizon + 3)),
+            "verdict varied with the tip: {answers:?} — that is arrival-order dependence");
+    }
+
+    /// An unfinalized epoch does not become "dead" just because a LOWER epoch
+    /// finalized; only evidence above the horizon counts.
+    #[test]
+    fn unfinalizable_ignores_finalized_epochs_below_the_horizon() {
+        let (chain, _d) = make_chain("unfinal-below");
+        let e = 100u64;
+        for probe in [e - 1, e + 1, e + 63] { mark_finalized(&chain, probe, &["clk1"]); }
+        let safe_tip = e + hone_types::NEGATIVE_ATTESTATION_WINDOW + 200;
+        assert_eq!(unfinalizable_proof(&chain, e, safe_tip), None);
+    }
+
+    // ── recycled_cumulative repair ───────────────────────────────────────────────
+
+    /// The live-mainnet case: the gap credit landed via a path that bypassed the
+    /// counter, so the lifetime figure is short by exactly the gap. Repair once.
+    #[test]
+    fn repair_counts_a_genesis_gap_that_was_credited_but_never_counted() {
+        let (chain, _d) = make_chain("repair-gap");
+        let f = 5_000u64;
+        let gap = hone_types::genesis_gap_recycle_hunits(f);
+        assert!(gap > 0, "test needs a real gap");
+        // Simulate the old bypass: credit applied, guard set, counter never advanced.
+        chain.store.credit(hone_types::RECYCLE_FUND_ACCOUNT, hone_types::NATIVE_TOKEN, gap).unwrap();
+        chain.store.state_set("genesis_gap_recycled", b"1").unwrap();
+        chain.store.state_set("genesis_first_sealed_epoch", f.to_string().as_bytes()).unwrap();
+        assert_eq!(read_recycled_cumulative(&chain), 0, "precondition: uncounted");
+
+        repair_recycled_cumulative(&chain);
+        assert_eq!(read_recycled_cumulative(&chain), gap as u128,
+            "repair must add exactly the gap amount");
+
+        // Idempotent — a restart must not double-count.
+        repair_recycled_cumulative(&chain);
+        repair_recycled_cumulative(&chain);
+        assert_eq!(read_recycled_cumulative(&chain), gap as u128,
+            "repair ran more than once — lifetime figure is now overstated");
+    }
+
+    /// Balances are NOT touched: the tokens were always in the fund, only the
+    /// record of them was short.
+    #[test]
+    fn repair_does_not_move_any_tokens() {
+        let (chain, _d) = make_chain("repair-nobalance");
+        let f = 5_000u64;
+        let gap = hone_types::genesis_gap_recycle_hunits(f);
+        chain.store.credit(hone_types::RECYCLE_FUND_ACCOUNT, hone_types::NATIVE_TOKEN, gap).unwrap();
+        chain.store.state_set("genesis_gap_recycled", b"1").unwrap();
+        chain.store.state_set("genesis_first_sealed_epoch", f.to_string().as_bytes()).unwrap();
+        let before = chain.store.total_supply(hone_types::NATIVE_TOKEN);
+        repair_recycled_cumulative(&chain);
+        assert_eq!(chain.store.total_supply(hone_types::NATIVE_TOKEN), before,
+            "repair must be record-only — it altered issued supply");
+    }
+
+    /// A chain that never credited the gap must not be "repaired" — the fixed
+    /// credit path will count it when it fires.
+    #[test]
+    fn repair_is_a_noop_before_the_gap_credit_has_fired() {
+        let (chain, _d) = make_chain("repair-early");
+        chain.store.state_set("genesis_first_sealed_epoch", b"5000").unwrap();
+        repair_recycled_cumulative(&chain);
+        assert_eq!(read_recycled_cumulative(&chain), 0);
+        assert!(chain.store.state_get("genesis_gap_counted").is_none(),
+            "must not latch the guard before the credit exists");
+    }
+
+    // ── reward cursor visibility ─────────────────────────────────────────────────
+
+    /// The stall must be observable. A hole below applied work is the signature of
+    /// an epoch the walk is waiting on.
+    #[test]
+    fn reward_cursor_reports_the_hole_the_walk_is_waiting_on() {
+        let (chain, _d) = make_chain("cursor-gap");
+        for e in [1u64, 2, 3, 5, 6] {
+            chain.store.state_set(&format!("epoch_finalized_done:{}", e), b"1").unwrap();
+        }
+        let (contiguous, count, first_gap) = chain.store.reward_cursor();
+        assert_eq!(contiguous, 3, "contiguous frontier stops below the hole");
+        assert_eq!(count, 5);
+        assert_eq!(first_gap, Some(4), "epoch 4 is what the walk is blocked on");
+    }
+
+    /// No hole → not stalled, and the cursor is the frontier.
+    #[test]
+    fn reward_cursor_reports_no_gap_when_contiguous() {
+        let (chain, _d) = make_chain("cursor-clean");
+        for e in 1u64..=7 {
+            chain.store.state_set(&format!("epoch_finalized_done:{}", e), b"1").unwrap();
+        }
+        assert_eq!(chain.store.reward_cursor(), (7, 7, None));
+        let (empty, _d2) = make_chain("cursor-empty");
+        assert_eq!(empty.store.reward_cursor(), (0, 0, None));
     }
 
 
