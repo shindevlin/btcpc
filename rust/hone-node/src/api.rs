@@ -589,7 +589,16 @@ async fn get_account(
         "key_policies":   slot_policies,      // which slots have 2FA enabled (no addresses)
         "chains_proven":  proven_chains,      // which external chains, no addresses
         "nonce":          data["nonce"],
-        "stake":          data["stake"],
+        // CF_STAKES, not the account record's legacy `stake` field. `set_stake` writes
+        // CF_STAKES and `get_stake`/`stake_weight` read it, but nothing maintains the
+        // copy on the account record — so this endpoint reported stake: 0 for clocks
+        // that were visibly accumulating stake every epoch. That is not a cosmetic
+        // difference: it is the surface used to answer "is this node staked yet", and
+        // reading it wrong led to the conclusion that the earnings->stake top-up was
+        // not firing when it was working correctly.
+        "stake":          s.chain.store.get_stake(
+                              data["account_id"].as_str().unwrap_or("")),
+        "stake_legacy_account_field": data["stake"],
     })))
 }
 
