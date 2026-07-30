@@ -1914,7 +1914,30 @@ async fn run_inference_verifier(
 /// first missing epoch and return the one before it, so an unresolved gap is where we
 /// resume, never something we start above. Returns 0 on a fresh node (no keys), which
 /// correctly means "nothing rewarded yet."
+/// Where the driver resumes after a restart: the highest epoch applied contiguously
+/// **from this node's own reward floor**.
+///
+/// It used to walk up from epoch 1, and on a backdated chain that is catastrophic: epoch 1
+/// is never applied (the driver aligns its start to the tracking window), so this returned
+/// 0 on a node with real history. Returning 0 makes the driver treat the restart as a COLD
+/// START, which jumps the floor to `cur - NEGATIVE_ATTESTATION_WINDOW` and **silently skips
+/// the entire backlog below it** — exactly the silent fork the residual fix
+/// (Grouchly 7c1f9e83) exists to prevent, reintroduced through the front door.
+///
+/// Observed on live mainnet after the quorum-loss deploy: floor 72768, contiguous 72790,
+/// highest applied 73215, but only 152 epochs applied across a 447-epoch span. The driver
+/// was paying the tip and had abandoned ~295 epochs, so the recycle divergence between the
+/// two clocks stayed frozen at 3,139,6xx,xxx,xxx hunits instead of closing.
+///
+/// Floor-relative resume keeps the guarantee that matters — a restart can never outrun an
+/// unresolved gap — while not mistaking "started above epoch 1" for "has done nothing".
 fn highest_contiguous_rewarded(chain: &Chain) -> u64 {
+    chain.store.reward_cursor().contiguous
+}
+
+/// Retained for the tests that pin the old epoch-1-relative behaviour explicitly.
+#[cfg(test)]
+fn highest_contiguous_rewarded_from_epoch_one(chain: &Chain) -> u64 {
     let done: std::collections::HashSet<u64> = chain.store
         .state_scan_prefix("epoch_finalized_done:")
         .into_iter()
@@ -3620,6 +3643,7 @@ mod reward_driver_tests {
     #[test]
     fn fresh_node_resumes_at_zero() {
         let (chain, _d) = make_chain("fresh");
+        assert_eq!(highest_contiguous_rewarded_from_epoch_one(&chain), 0);
         assert_eq!(highest_contiguous_rewarded(&chain), 0);
     }
 
@@ -3640,12 +3664,32 @@ mod reward_driver_tests {
         assert_eq!(highest_contiguous_rewarded(&chain), 3);
     }
 
-    /// A gap at the very first epoch means nothing is contiguously done.
+    /// A node that never applied epoch 1 has a FLOOR of 2 — it has not "done nothing".
+    ///
+    /// This test previously asserted 0, encoding the epoch-1-relative reading, and that
+    /// premise is retired deliberately. Returning 0 here is what made a restarted mainnet
+    /// node look fresh: the driver took the cold-start branch, jumped its floor to
+    /// `cur - 64`, and silently abandoned ~295 epochs of backlog. On a backdated chain
+    /// EVERY node has a floor above 1, so the old reading misfired on all of them.
     #[test]
-    fn gap_at_one_resumes_at_zero() {
+    fn a_floor_above_epoch_one_is_not_a_fresh_node() {
         let (chain, _d) = make_chain("gap1");
-        mark_done(&chain, &[2, 3, 4]); // 1 missing
-        assert_eq!(highest_contiguous_rewarded(&chain), 0);
+        mark_done(&chain, &[2, 3, 4]);
+        assert_eq!(highest_contiguous_rewarded_from_epoch_one(&chain), 0,
+            "the old epoch-1-relative reading — retained only to document the bug");
+        assert_eq!(highest_contiguous_rewarded(&chain), 4,
+            "floor-relative: floor is 2, and 2..4 are contiguous, so resume at 4");
+    }
+
+    /// The guarantee that must survive the change: a restart can never outrun a gap
+    /// ABOVE the floor. Skipping one would drop that epoch's reward permanently on this
+    /// node while a node that finalized it sooner applies it → state_root fork.
+    #[test]
+    fn restart_cannot_outrun_a_gap_above_a_high_floor() {
+        let (chain, _d) = make_chain("gap-high-floor");
+        mark_done(&chain, &[72768, 72769, 72770, 72790, 72791]); // hole at 72771
+        assert_eq!(highest_contiguous_rewarded(&chain), 72770,
+            "must resume below the hole and retry it, not jump to the tip");
     }
 
     /// Restart recovery must survive a real reopen of the DB, not just an in-memory read —
