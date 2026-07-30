@@ -42,29 +42,42 @@ signed a given `rewards_hash` have combined weight:
 ## 3. The weight function
 
 ```
-w_i = stake_term(i) · uptime_term(i) · (1 − outlier_penalty(i))
+w_i = stake_term(i) · uptime_term(i)          [v1 — TWO inputs, both genuinely on-chain]
 ```
 
-All three inputs already exist on-chain — this composes them, it does not invent new tracking:
+**Corrected per Beastly's source review (940a6577).** The earlier draft added a third factor,
+`(1 − outlier_penalty)`, sourced from `clock_scores`. That is **in-memory only** (`clock.rs:116`,
+rebuilt from zero each process start), **wall-clock contaminated** (`SystemTime::now()`,
+`clock.rs:783`), and **locally observed** — three independent fork sources. Using it for quorum
+weight is the unsound-rule mistake in a worse place: it changes *who can seal*. **Dropped from v1.**
+The outlier signal is already reflected in uptime — a clock submitting bad timestamps doesn't make
+the winning seal set (`clock.rs:563-566`), so it fails to accrue `seals` and its uptime term decays
+on its own. An explicit outlier term, if ever wanted, must first become real chain state (an on-chain
+counter written through `apply_entry` in the epoch-finalize path, replay-derived) — its own change,
+not smuggled into this one.
 
-- **stake_term** — from `role_stake:clock:{node}` / `stake_weight` / `clock_min_stake`. A clock is
-  bound to a **per-device stake** (§5). **Diminishing returns (§4):** `stake_term = sqrt(stake)` or
-  `log1p(stake)`, NOT linear — so weight can't be bought 1:1, and a whale can't dominate by staking.
-- **uptime_term** — an EMA of `seals / epochs_elapsed_while_registered` (the same signal that
-  already scales clock reward, `CLOCK_UPTIME_MIN_EPOCHS`). A device that's up 40% of the time gets
-  ~0.4× weight. This is the reputation core: presence measured over time.
-- **outlier_penalty** — from the existing timestamp-outlier scoring (`clock.rs:573`, "non-voting
-  outliers get scored down"). A clock that repeatedly submits out-of-consensus timestamps decays
-  toward zero weight.
+Both remaining inputs are genuinely on-chain and integer:
+
+- **stake_term** — from `role_stake:clock:{node}` / `stake_weight` / `clock_min_stake` (per-device
+  stake, §5). Diminishing returns (§4) via **integer `isqrt`**, NOT `sqrt`/`log1p`: floating-point
+  `sqrt` disagrees by one ULP across x86_64 (Beastly) and aarch64 (Nebra), and with 3 clocks a single
+  divergent weight flips a 51% boundary → fork. `stake_term = isqrt(stake / GRANULE)` in u128, a
+  fixed granule, bit-exact on every arch. Follow the existing integer-millipct pattern
+  (`main.rs:1971-1976`, `500 + 500 * seals / epochs`, u128 intermediate).
+- **uptime_term** — `seals * 1000 / epochs` from the ON-CHAIN `clock_uptime:{node}` record
+  (`{seals, epochs}`, state_get/state_set, `main.rs:2209`), over the existing `CLOCK_UPTIME_WINDOW =
+  100` sliding window. Integer, deterministic, no new EMA window (a second window is a second thing
+  to diverge on). Up 40% → ~0.4× weight. This is the reputation core: presence measured over time.
 
 **Probation:** a freshly registered clock starts at `uptime_term ≈ 0` and low stake, so `w_i ≈ 0`.
 It seals and its signatures are *recorded* (so it builds uptime), but it contributes ~nothing to
 quorum. It earns weight only by proving reliable. This is what makes registering a flaky laptop
 safe: it can't stall the chain (the established clocks carry the 51%) and it can't be a free rider.
 
-Weights are **deterministic** — computed on every node from the same on-chain inputs at a fixed
-epoch anchor, exactly like the reward derivation. They are NOT read from wall-clock or local
-observation (that was the unsound-rule mistake).
+Weights are **deterministic** — integer-only, computed on every node from the same on-chain inputs
+(`role_stake:clock`, `clock_uptime`) at a fixed epoch anchor, exactly like the reward derivation. NO
+wall-clock, NO local observation, NO floats in the sum or comparison path (the unsound-rule / one-ULP
+mistakes). Enforced by the restart-invariance assertion in §9.
 
 ## 4. Economics: clocks are NOT the primary earning method
 
@@ -92,9 +105,15 @@ Reputation must be anchored to something costly, or fake high-reputation clocks 
 
 ## 6. Anti-concentration backstop
 
-Even with diminishing returns, cap a single clock's weight at some fraction of the total (e.g. no
-clock may exceed `1/3` of `Σ w_registered`). Reliability is rewarded with influence, but no single
-box can ever carry a majority alone. Belt-and-suspenders with §4.
+Cap a single clock's weight at `1/3` of the total. Reliability is rewarded with influence, but no
+single box can ever carry a majority alone. Belt-and-suspenders with §4.
+
+**Cap against the PRE-CAP total, and do NOT renormalize** (per Beastly's review). If you cap `w_i`
+at `floor(total/3)` and don't renormalize, `Σ w_registered` shrinks slightly — that's fine and
+intended. Renormalizing (cap → recompute total → re-cap, since capping one clock can push another
+over) requires a deterministic fixed-point iteration with a bounded iteration count; unbounded
+"iterate to convergence" in the seal path is a liveness hazard. Cap-against-pre-cap-total is simpler,
+monotone, and integer. With `1/3` and 3+ clocks the §2 floor (`max(…,2)`) is the real protection.
 
 ## 7. Living, rotating set — "the laptop might become one of the three"
 
@@ -134,14 +153,26 @@ Gate exactly like the other consensus changes tonight — **asymmetric cohort + 
   weights.
 - **Probation:** a freshly registered clock cannot influence quorum until it has accrued uptime;
   assert a day-one clock with `w≈0` neither stalls nor swings a seal.
+- **Restart-invariance (added per Beastly):** a clock's computed weight for epoch `e` must be
+  IDENTICAL before and after a process restart with no intervening chain activity. Snapshot `w_i`
+  for all `i`, restart a cohort member, recompute at the same epoch anchor, assert unchanged. This
+  is the assertion that would have caught the `clock_scores` blocker, and it generalizes — it catches
+  ANY accidental local-state or wall-clock dependency, including ones added later. **This is the key
+  assertion of the whole change.**
 
-## 10. Open questions for Shin / Beastly
+Gate host: **Beastly (x86_64) against Nebra (aarch64)** — the right pair to catch the float/one-ULP
+determinism class, since that's where a cross-arch weight disagreement would surface. Beastly offered.
 
-- Exact `stake_term` curve (`sqrt` vs `log1p`) and the clock-reward diminishing-returns shape.
-- The per-clock weight cap fraction (`1/3`? `1/4`?).
-- uptime EMA window (fast enough to reward returning devices, slow enough that a brief outage
-  doesn't tank a good clock).
-- Whether weight also feeds the **reward split** (reputation → influence AND modest reward), or
+## 10. Answers (resolved with Beastly, 940a6577)
+
+- **stake_term curve:** integer **`isqrt(stake / GRANULE)`** in u128. NOT `sqrt`/`log1p` — floats fork
+  cross-arch, and `log1p` is worse to make exact in integers for no benefit at these magnitudes.
+- **Weight cap:** `1/3`, against the **pre-cap** total, **no renormalization** (§6).
+- **uptime window:** reuse the existing on-chain `CLOCK_UPTIME_WINDOW = 100`; do NOT add a second EMA
+  window (a second thing to diverge on).
+- **Weight → reward split:** keep influence and reward **SEPARATE in v1.** Reward already tracks
+  uptime (`main.rs:1971-1976`). Coupling them makes a weight bug a *supply* bug — and tonight's 42M
+  reconciliation is too recent to take that on. Original open question, now closed:
   influence only. Leaning: reward tracks uptime as it already does; keep the two aligned but
   diminishing.
 
