@@ -42,7 +42,11 @@ pub const STAKE_EXEMPT_ACCOUNTS: &[&str] = &["shindevlin", "__testnet_fund__", "
 /// minimum is reached. After this epoch, the normal minimum-stake rule applies and
 /// the auto-build stops. Consensus-critical: every node MUST use this exact value.
 /// See docs/CLOCK_BOOTSTRAP_GRACE.md.
-pub const CLOCK_BOOTSTRAP_GRACE_END_EPOCH: u64 = 100_000;
+// Extended 100_000 -> 250_000 (Shin, 2026-07-30). At 30s epochs, 100k is ~35 days
+// from genesis and the chain was already 25 days in when it first sealed, leaving
+// ~10 days of grace. 250k is ~87 days, giving operators time to accumulate balance
+// and stake before fees and the stake gate take effect.
+pub const CLOCK_BOOTSTRAP_GRACE_END_EPOCH: u64 = 250_000;
 
 /// Confirmation depth before an epoch's reward/recycle/decay mutation is applied.
 ///

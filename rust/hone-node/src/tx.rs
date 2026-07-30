@@ -138,8 +138,19 @@ pub fn validate_and_apply(
 
     // Fee pre-flight: reject non-system entries whose payer cannot cover the fee (T3-1).
     // AccountCreate is exempt here — it is subsidized from __testnet_fund__ (see end of fn).
+    //
+    // BOOTSTRAP GRACE: during the first CLOCK_BOOTSTRAP_GRACE_END_EPOCH epochs no
+    // account is funded yet — rewards have not paid out, so nobody can cover a fee.
+    // Charging fees then is a deadlock: fees need balance, balance needs earning,
+    // earning needs the registration/fingerprint entries that the fee is blocking.
+    // The grace was already honoured in five places (clock.rs:680, main.rs:924,
+    // chain.rs:2374/3182) and chain.rs:3174 documents exactly this condition — the
+    // fee gate simply never consulted it, so a fresh chain rejected every startup
+    // entry forever. Observed live at epoch 72,810: 'natoshisakamoto' needed
+    // 14,762,240 hunits and held 0, every epoch.
+    let in_bootstrap_grace = chain.current_epoch() <= hone_types::CLOCK_BOOTSTRAP_GRACE_END_EPOCH;
     let fee_weight = entry_weight(entry);
-    if fee_weight > 0 && !matches!(entry, LedgerEntry::AccountCreate { .. }) {
+    if !in_bootstrap_grace && fee_weight > 0 && !matches!(entry, LedgerEntry::AccountCreate { .. }) {
         let base_fee = read_base_fee(chain);
         let total_fee = base_fee.saturating_mul(fee_weight);
         if total_fee > 0 {

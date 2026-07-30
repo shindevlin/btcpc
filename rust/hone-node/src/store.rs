@@ -267,6 +267,27 @@ impl Store {
     }
 
     /// Iterate all account IDs. Used by the entropy decay sweep in finalize.
+    /// Total staked across all accounts (CF_STAKES).
+    ///
+    /// Staked tokens are EMITTED supply that no longer sits in CF_BALANCES, so a
+    /// supply total built only from balances undercounts by everything staked. That
+    /// is not hypothetical: during the clock bootstrap grace a ClockReward is paid
+    /// into stake rather than balance (chain.rs, CLOCK_BOOTSTRAP_GRACE), so a fresh
+    /// chain's first rewards are invisible to a balances-only total — which is
+    /// exactly how a conservation check reported 10,000,000 hunits "missing" when
+    /// they had been correctly paid into a node's stake.
+    pub fn total_staked(&self) -> u128 {
+        let Some(cf) = self.db.cf_handle(CF_STAKES) else { return 0 };
+        let mut total: u128 = 0;
+        for item in self.db.iterator_cf(&cf, IteratorMode::Start) {
+            let Ok((_, v)) = item else { continue };
+            if let Ok(b) = <[u8; 8]>::try_from(v.as_ref()) {
+                total += u64::from_le_bytes(b) as u128;
+            }
+        }
+        total
+    }
+
     /// Sum of every balance held in `token`, across ALL accounts — including
     /// reserve accounts like `__recycle_fund__` that hold a balance but never get
     /// a CF_ACCOUNTS record.

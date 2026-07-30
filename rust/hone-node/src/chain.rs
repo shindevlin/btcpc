@@ -2365,42 +2365,57 @@ impl Chain {
                 let _ = CLOCK_REWARD_HUNITS;
                 let node_credit = self.distribute_role_backer_reward("clock", node_id, *amount)?;
 
-                // Bootstrap grace (POW genesis fix): during the grace window, a clock
-                // that registered under the minimum stake accumulates its stake from
-                // its own rewards instead of receiving them as spendable balance —
-                // until it reaches the minimum, after which rewards flow to balance
-                // as usual. The auto-build applies ONLY inside the window and ONLY
-                // while under the minimum. See docs/CLOCK_BOOTSTRAP_GRACE.md.
-                let to_balance = if *epoch <= hone_types::CLOCK_BOOTSTRAP_GRACE_END_EPOCH {
-                    let reg_key = format!("clock_reg:{}", node_id);
-                    if let Some(raw) = self.store.state_get(&reg_key) {
-                        if let Ok(mut reg) = serde_json::from_slice::<serde_json::Value>(&raw) {
-                            let cur_stake = reg["stake"].as_u64().unwrap_or(0);
-                            let min: u64 = self.store.state_get("chain_param:clock_min_stake")
-                                .and_then(|b| serde_json::from_slice::<u64>(&b).ok())
-                                .unwrap_or(5 * 10_000_000_000); // 5 HONE default
-                            if cur_stake < min {
-                                let need = min - cur_stake;
-                                let into_stake = node_credit.min(need);
-                                let new_stake = cur_stake + into_stake;
-                                reg["stake"] = serde_json::json!(new_stake);
-                                self.store.state_set(&reg_key, &serde_json::to_vec(&reg)?)?;
-                                info!(
-                                    "[clock] bootstrap: '{}' stake {} -> {} hunits (min {}) at epoch {}",
-                                    node_id, cur_stake, new_stake, min, epoch
-                                );
-                                node_credit - into_stake // spillover above the minimum → balance
-                            } else {
-                                node_credit
+                // Earnings top up stake to the minimum, then flow to balance. PERMANENT,
+                // not a grace-window special case (Shin, 2026-07-30).
+                //
+                // Kept permanent deliberately: this is not "all earnings become stake",
+                // it is "maintain the minimum from earnings, pay the rest out", which
+                // has a natural cap and is self-healing — a slashed or newly-raised
+                // minimum refills itself from future rewards with no operator action.
+                // Making it permanent also removes an epoch-boundary conditional from
+                // consensus code: while it was gated on CLOCK_BOOTSTRAP_GRACE_END_EPOCH,
+                // two nodes disagreeing on that constant would credit differently at the
+                // boundary and fork. One rule always is strictly safer than two rules
+                // either side of a height.
+                //
+                // Tokens are REAL: the stake portion is credited via set_stake so it is
+                // token-backed and visible to get_stake()/stake_weight(). Previously the
+                // amount was only written as a number into the clock_reg JSON and never
+                // credited anywhere — the epoch under-issued its budget by exactly the
+                // clock allotment (neither paid nor recycled) while the registration
+                // record claimed the node held stake, and that stake was invisible to
+                // stake_weight because get_stake reads CF_STAKES. Both are fixed here by
+                // making CF_STAKES the single store of truth.
+                let to_balance = {
+                    let min: u64 = self.store.state_get("chain_param:clock_min_stake")
+                        .and_then(|b| serde_json::from_slice::<u64>(&b).ok())
+                        .unwrap_or(5 * 10_000_000_000); // 5 HONE default
+                    let cur_stake = self.store.get_stake(node_id);
+                    if cur_stake < min {
+                        let need = min - cur_stake;
+                        let into_stake = node_credit.min(need);
+                        if into_stake > 0 {
+                            // Real tokens into CF_STAKES — conserved, and visible to
+                            // get_stake()/stake_weight() rather than only to the clock filter.
+                            self.store.set_stake(node_id, cur_stake + into_stake)?;
+                            // Keep the registration record in step for the clock-eligibility
+                            // filter, which reads reg["stake"]; CF_STAKES remains canonical.
+                            let reg_key = format!("clock_reg:{}", node_id);
+                            if let Some(raw) = self.store.state_get(&reg_key) {
+                                if let Ok(mut reg) = serde_json::from_slice::<serde_json::Value>(&raw) {
+                                    reg["stake"] = serde_json::json!(cur_stake + into_stake);
+                                    self.store.state_set(&reg_key, &serde_json::to_vec(&reg)?)?;
+                                }
                             }
-                        } else {
-                            node_credit
+                            info!(
+                                "[clock] stake top-up: '{}' {} -> {} hunits (min {}) at epoch {}",
+                                node_id, cur_stake, cur_stake + into_stake, min, epoch
+                            );
                         }
+                        node_credit - into_stake // spillover above the minimum → balance
                     } else {
-                        node_credit // no registration record → nothing to build into; pay balance
+                        node_credit
                     }
-                } else {
-                    node_credit
                 };
 
                 if to_balance > 0 {
@@ -4563,10 +4578,15 @@ mod tests {
             "reward fully to balance once staked");
     }
 
-    /// After the grace window, a reward to an under-staked clock does NOT build
-    /// stake — it flows to balance normally (auto-build is grace-only).
+    /// The earnings->stake top-up is PERMANENT, not grace-only (Shin, 2026-07-30):
+    /// an under-staked clock refills toward the minimum from its rewards at ANY
+    /// height, and only the spillover above the minimum reaches balance. This test
+    /// previously asserted the opposite ("auto-build is grace-only"); that premise
+    /// was retired deliberately — one rule at all heights removes an epoch-boundary
+    /// conditional from consensus code, where two nodes disagreeing on the grace
+    /// constant would credit differently at the boundary and fork.
     #[test]
-    fn test_clock_reward_post_grace_no_autostake() {
+    fn test_clock_reward_tops_up_stake_at_any_height() {
         let (chain, _dir) = make_chain("clock-postgrace");
         seal_epoch(&chain, 0);
         // Simulate a clock recorded with under-min stake (e.g. registered during grace).
@@ -4580,10 +4600,25 @@ mod tests {
         chain.apply_entry(&LedgerEntry::ClockReward {
             node_id: "late".to_string(), amount: reward, epoch: post,
         }).expect("post-grace clock reward");
+        // The record seeds stake ONLY in the clock_reg JSON; CF_STAKES starts at 0.
+        // Since CF_STAKES is now canonical, cur_stake reads 0 and the full 2 HONE
+        // reward goes into stake (min is 5 HONE, so still under).
+        //
+        // MIGRATION NOTE: any pre-existing clock_reg record whose `stake` number was
+        // written before CF_STAKES became canonical is not counted by get_stake, so
+        // such a node re-accumulates from 0 while its record shows the older figure.
+        // Harmless on this chain — the eligibility filter dropped unstaked clocks, so
+        // no node ever accumulated a bootstrap figure — but a chain that HAD run the
+        // old path would need those records reconciled into CF_STAKES.
+        assert_eq!(chain.store.get_stake("late"), 2 * 10_000_000_000,
+            "stake should top up toward the 5 HONE minimum at any height");
+        assert_eq!(chain.get_balance("late", NATIVE_TOKEN), 0,
+            "still under the minimum, so nothing should spill to balance yet");
+        // CF_STAKES is canonical; the clock_reg record is kept in step for the
+        // eligibility filter that reads it.
         let raw = chain.store.state_get(reg_key).unwrap();
-        let stake = serde_json::from_slice::<serde_json::Value>(&raw).unwrap()["stake"].as_u64().unwrap();
-        assert_eq!(stake, 1 * 10_000_000_000, "stake unchanged post-grace");
-        assert_eq!(chain.get_balance("late", NATIVE_TOKEN), reward, "reward to balance post-grace");
+        let reg_stake = serde_json::from_slice::<serde_json::Value>(&raw).unwrap()["stake"].as_u64().unwrap();
+        assert_eq!(reg_stake, 2 * 10_000_000_000, "clock_reg out of step with CF_STAKES");
     }
 
     /// ClockDoubleSignEvidence: correct slash distribution, replay guard.
@@ -5031,13 +5066,17 @@ mod tests {
         // Fund alice with LESS than the fee so transfer + fee is unaffordable.
         fund(&chain, "alice", fee / 2);
         fund(&chain, "bob",   0);
-        seal_epoch(&chain, 0);
+        // Must be POST-grace: inside CLOCK_BOOTSTRAP_GRACE_END_EPOCH the fee
+        // pre-flight is waived by design (no account is funded yet on a fresh
+        // chain), so fee enforcement can only be asserted after the window.
+        let post_grace = hone_types::CLOCK_BOOTSTRAP_GRACE_END_EPOCH + 1;
+        seal_epoch(&chain, post_grace);
 
         let r = tx::validate_and_apply(&chain, &LedgerEntry::Transfer {
             from: "alice".to_string(), to: "bob".to_string(),
             amount: 0, // zero-value transfer still costs the fee
             token: NATIVE_TOKEN.to_string(),
-            memo: None, epoch: 1, nonce: 1,
+            memo: None, epoch: post_grace, nonce: 1,
             signed_by: "alice".to_string(), twofactor: None,
         }, None);
         // Zero-amount transfer is blocked by the existing "must be positive" check.
@@ -5046,7 +5085,7 @@ mod tests {
             from: "alice".to_string(), to: "bob".to_string(),
             amount: 1,
             token: NATIVE_TOKEN.to_string(),
-            memo: None, epoch: 1, nonce: 1,
+            memo: None, epoch: post_grace, nonce: 1,
             signed_by: "alice".to_string(), twofactor: None,
         }, None);
         assert!(r.is_err(), "must reject when balance < fee");

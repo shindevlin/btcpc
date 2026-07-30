@@ -2021,8 +2021,15 @@ activity pool starved (sealing clock-node count too high for era budget)",
         .into_iter()
         .filter_map(|(_, v)| {
             let j = serde_json::from_slice::<serde_json::Value>(&v).ok()?;
-            // Only track nodes that still have stake (not slashed).
-            if j["stake"].as_u64().unwrap_or(0) == 0 { return None; }
+            // Only track nodes that still have stake (not slashed) — EXCEPT during
+            // the bootstrap grace, when no operator can be staked yet: staking
+            // debits balance, balance comes from rewards, and rewards were gated on
+            // stake. Observed live: both clocks sealed at quorum 2/2 for 19 epochs,
+            // were counted for consensus, and earned nothing because this filter
+            // dropped them — clock_uptime:<node> stayed null. Sealing was never
+            // stake-gated; only earning was, which made the two disagree.
+            let staked = j["stake"].as_u64().unwrap_or(0) > 0;
+            if !staked && epoch > hone_types::CLOCK_BOOTSTRAP_GRACE_END_EPOCH { return None; }
             j["node_id"].as_str().map(|s| s.to_owned())
         })
         .collect();
@@ -3030,9 +3037,12 @@ mod reward_driver_tests {
     // remembers to update it, which is the point: the clock lane was exactly such a
     // leak and no existing test caught it.
     fn total_supply(chain: &Chain) -> u128 {
-        // MUST come from CF_BALANCES, not scan_account_ids() — the reserve pools
-        // (__recycle_fund__ etc.) hold balances with no account record.
-        chain.store.total_supply(hone_types::NATIVE_TOKEN)
+        // Balances AND stake. CF_BALANCES alone undercounts: reserve pools hold
+        // balances with no account record (so scan_account_ids() misses them), and
+        // staked tokens have left CF_BALANCES entirely — during the clock bootstrap
+        // grace a ClockReward is paid into stake, so a balances-only total reports
+        // correctly-paid rewards as missing supply.
+        chain.store.total_supply(hone_types::NATIVE_TOKEN) + chain.store.total_staked()
     }
 
     #[test]
@@ -3123,12 +3133,65 @@ mod reward_driver_tests {
         let chain = std::sync::Arc::new(chain);
         let sealers = vec!["clockA".to_string(), "clockB".to_string()];
         for e in [50u64, 121, 5_000] {
-            let before = chain.store.total_supply(hone_types::NATIVE_TOKEN);
+            let before = total_supply(&chain);
             emit_epoch_rewards(e, &sealers, &chain);
-            let minted = chain.store.total_supply(hone_types::NATIVE_TOKEN) - before;
+            let minted = total_supply(&chain) - before;
             assert_eq!(minted, hone_types::block_reward_at(e) as u128,
                 "epoch {e}: testnet share pushed minted off the budget");
         }
+    }
+
+
+    /// Bootstrap grace: a clock with ZERO stake must still be tracked for uptime and
+    /// earn, because during grace nobody can be staked — staking debits balance,
+    /// balance comes from rewards, rewards were gated on stake. Observed live: both
+    /// clocks sealed at 2/2 for 19 epochs and earned nothing.
+    #[test]
+    fn unstaked_clock_earns_during_bootstrap_grace() {
+        let (chain, _d) = make_chain("clk_grace");
+        let chain = std::sync::Arc::new(chain);
+        // Register a clock with no stake, exactly as a fresh node does.
+        chain.store.state_set("clock_reg:nodeA", br#"{"node_id":"nodeA","stake":0}"#).unwrap();
+        let in_grace = hone_types::CLOCK_BOOTSTRAP_GRACE_END_EPOCH - 1;
+        let before = total_supply(&chain);
+        emit_epoch_rewards(in_grace, &["nodeA".to_string()], &chain);
+        // It must now be in the uptime window at all — null was the live symptom.
+        assert!(chain.store.state_get("clock_uptime:nodeA").is_some(),
+            "unstaked clock was not tracked during grace — this is the live bug");
+        // During grace the reward builds STAKE, not balance (CLOCK_BOOTSTRAP_GRACE).
+        let reg = chain.store.state_get("clock_reg:nodeA")
+            .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
+            .expect("clock_reg should still exist");
+        assert!(reg["stake"].as_u64().unwrap_or(0) > 0,
+            "clock_reg record not kept in step with CF_STAKES — the eligibility filter reads it");
+        // Conservation now HOLDS: the stake portion is credited via set_stake, so the
+        // tokens are real and counted, and the spillover above the minimum goes to
+        // balance. Previously this shortfell by exactly one clock allotment because the
+        // amount was only written as a number into clock_reg JSON and never credited —
+        // neither paid nor recycled.
+        assert_eq!(total_supply(&chain) - before,
+                   hone_types::block_reward_at(in_grace) as u128,
+                   "grace-era epoch minted off-budget");
+        // And the stake must be visible where stake_weight() looks — CF_STAKES —
+        // not only in the clock_reg record the eligibility filter reads.
+        assert!(chain.store.get_stake("nodeA") > 0,
+            "stake top-up not visible via get_stake() — CF_STAKES must be canonical, \
+             or stake_weight() cannot see it");
+    }
+
+    /// After grace the stake GATE returns (an unstaked clock stops being tracked) —
+    /// but the earnings->stake top-up itself is permanent, so a clock that is tracked
+    /// still refills its minimum from rewards at any height. These are two separate
+    /// rules and only the gate is height-dependent.
+    #[test]
+    fn unstaked_clock_not_tracked_after_grace() {
+        let (chain, _d) = make_chain("clk_postgrace");
+        let chain = std::sync::Arc::new(chain);
+        chain.store.state_set("clock_reg:nodeB", br#"{"node_id":"nodeB","stake":0}"#).unwrap();
+        let post = hone_types::CLOCK_BOOTSTRAP_GRACE_END_EPOCH + 1;
+        emit_epoch_rewards(post, &["nodeB".to_string()], &chain);
+        assert!(chain.store.state_get("clock_uptime:nodeB").is_none(),
+            "unstaked clock should be dropped once grace ends");
     }
 
     fn mark_done(chain: &Chain, epochs: &[u64]) {
