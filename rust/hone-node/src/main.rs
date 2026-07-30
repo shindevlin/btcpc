@@ -361,7 +361,19 @@ async fn main() -> Result<()> {
     // ── Clock consensus ───────────────────────────────────────────────────────
     let clock = Arc::new(clock::ClockConsensus::new());
     // Populate registered_clocks immediately from store so quorum is correct from epoch 1.
-    clock.set_registered_clocks(clock::registered_clock_nodes(&chain.store, chain.current_epoch()));
+    {
+        let epoch_now = chain.current_epoch();
+        let reg_now = clock::registered_clock_nodes(&chain.store, epoch_now);
+        // Restart-invariance (spec §9): seed the weights for the pending epoch from committed
+        // state, so a node that restarts under an active weighted-quorum gate does NOT run one
+        // epoch on the flat rule while its peers run weighted. Recomputed from the same anchor a
+        // live node would have, so it matches byte-for-byte. Anchored to current_epoch + 1 — the
+        // next epoch this node will help resolve.
+        let wq_enabled = clock::weighted_quorum_enabled(&chain.store);
+        let weights_now = clock::compute_clock_weights(&chain.store, &reg_now);
+        clock.set_registered_clocks(reg_now);
+        clock.set_clock_weights(epoch_now + 1, weights_now, wq_enabled);
+    }
     {
         let clock_ref = clock.clone();
         let chain_ref = chain.clone();
@@ -849,7 +861,24 @@ async fn main() -> Result<()> {
                             &format!("epoch_validators:{}", sealed_epoch),
                             &serde_json::to_vec(&reg_clocks).unwrap_or_default(),
                         );
+                        // Reputation-weighted quorum (v1) — compute each registered clock's
+                        // on-chain weight from committed-state-through-`sealed_epoch`, and anchor
+                        // it to the NEXT epoch it governs (`sealed_epoch + 1`). Every node derives
+                        // the identical weights for that epoch from the identical committed state,
+                        // and a restarted node recomputes the same anchor (spec §9). Persist the
+                        // snapshot like epoch_validators so the cohort can byte-diff it during the
+                        // gate. Gate defaults OFF: until chain_param:weighted_quorum is set, the
+                        // flat count rule governs and these weights are ignored. Branch-only until
+                        // gated + Shin-in-person activation.
+                        let govern_epoch = sealed_epoch + 1;
+                        let wq_enabled = clock::weighted_quorum_enabled(&chain_ref.store);
+                        let clock_weights = clock::compute_clock_weights(&chain_ref.store, &reg_clocks);
+                        let _ = chain_ref.store.state_set(
+                            &format!("epoch_clock_weights:{}", govern_epoch),
+                            &serde_json::to_vec(&clock_weights).unwrap_or_default(),
+                        );
                         clock_ref.set_registered_clocks(reg_clocks);
+                        clock_ref.set_clock_weights(govern_epoch, clock_weights, wq_enabled);
 
                         // Epoch entropy: XOR all winning seal hashes → SHA-256.
                         let seal_hashes: Vec<&str> = sealed.signing_clocks.iter().map(|_| {
