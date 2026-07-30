@@ -476,9 +476,11 @@ pub fn validate_and_apply(
         // ── Sensor entries (PR #7): reward-/sale-bearing, authentication
         // required once the claimed owner has a posting key. Bootstrap-
         // compatible via check_signature's "key not set yet" skip.
-        LedgerEntry::SensorReading { owner, signed_by, .. } => {
-            let claimed_signer = if signed_by.is_empty() { owner.as_str() } else { signed_by.as_str() };
-            check_signature(chain, claimed_signer, entry, sig_hex, "posting")?;
+        LedgerEntry::SensorReading { sensor_id, owner, .. } => {
+            // Device-key aware: verify against the enrolled device key when present,
+            // else the owner's posting key. Always signed. (signed_by is retained on the
+            // entry for attribution; the cryptographic origin is the verified key.)
+            check_sensor_signature(chain, sensor_id, owner, entry, sig_hex)?;
             chain.apply_entry(entry)?;
         }
         LedgerEntry::SensorRegister { signed_by, .. }
@@ -542,9 +544,12 @@ pub fn validate_and_apply(
 
         // SensorDataCommit reward is attributed to `owner`
         // (sensor_commit:{epoch}:{sensor_id} → SensorReward to owner).
-        LedgerEntry::SensorDataCommit { owner, signed_by, .. } => {
+        LedgerEntry::SensorDataCommit { sensor_id, owner, signed_by, .. } => {
+            // signed_by stays == owner for reward attribution (reward routes to owner);
+            // the SIGNATURE is verified against the enrolled device key when one exists,
+            // so josh's posting key never has to live on the device. Always signed.
             if signed_by != owner { bail!("SensorDataCommit: signed_by must equal owner"); }
-            check_signature(chain, signed_by, entry, sig_hex, "posting")?;
+            check_sensor_signature(chain, sensor_id, owner, entry, sig_hex)?;
             chain.apply_entry(entry)?;
         }
         // StorageHeartbeat reward is attributed to `node_id` (storage_beat:… →
@@ -2409,6 +2414,94 @@ fn check_signature(
     Ok(())
 }
 
+/// Verify an entry's signature against an EXPLICIT ed25519 public key (hex), rather
+/// than a key looked up from an account. Used for device-key sensor commits, where the
+/// signer is an enrolled device, not an on-chain account. Same canonical message and
+/// strict verification as `check_signature`; a signature is always mandatory.
+fn verify_against_pubkey(
+    chain: &Chain,
+    pubkey_hex: &str,
+    entry: &LedgerEntry,
+    sig_hex: Option<&str>,
+) -> Result<()> {
+    let sig_str = sig_hex
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| anyhow::anyhow!("signature required (device-signed sensor entry)"))?;
+    let pk_bytes = hex::decode(pubkey_hex)
+        .map_err(|_| anyhow::anyhow!("device pubkey is not valid hex"))?;
+    let pk_array: [u8; 32] = pk_bytes
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("device pubkey must be 32 bytes"))?;
+    let verifying_key = VerifyingKey::from_bytes(&pk_array)
+        .map_err(|e| anyhow::anyhow!("invalid device ed25519 public key: {}", e))?;
+    let sig_bytes = hex::decode(sig_str)
+        .map_err(|_| anyhow::anyhow!("signature is not valid hex"))?;
+    let sig_array: [u8; 64] = sig_bytes
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("signature must be 64 bytes"))?;
+    let signature = Signature::from_bytes(&sig_array);
+    let message = canonical_signing_message(entry, &chain.chain_id)?;
+    verifying_key
+        .verify_strict(message.as_bytes(), &signature)
+        .map_err(|e| anyhow::anyhow!("device signature verification failed: {}", e))?;
+    Ok(())
+}
+
+/// Authorize a sensor entry (`SensorReading` / `SensorDataCommit`) under the
+/// device-key model. Blockchain-101: EVERY sensor commit is signed, and the signature
+/// identifies its origin.
+///
+/// - If a device key is enrolled for `sensor_id` (via `SensorKeyRegister`, itself signed
+///   once by the owner's posting key), the commit MUST be signed by that DEVICE key. The
+///   signature is the cryptographic proof of which physical device produced the reading,
+///   and the owner's posting key never has to live on the device. The enrolled owner is
+///   pinned, so a device can only submit for the account it was enrolled under.
+/// - If no device key is enrolled, the owner signs with their own posting key (a
+///   self-operated sensor).
+///
+/// Unlike the generic keyless-skip in `check_signature`, a sensor entry is NEVER accepted
+/// unsigned: an owner with neither a posting key nor an enrolled device key is rejected.
+fn check_sensor_signature(
+    chain: &Chain,
+    sensor_id: &str,
+    owner: &str,
+    entry: &LedgerEntry,
+    sig_hex: Option<&str>,
+) -> Result<()> {
+    if let Some(raw) = chain.store.state_get(&format!("sensor_devkey:{}", sensor_id)) {
+        let rec: serde_json::Value = serde_json::from_slice(&raw)
+            .map_err(|_| anyhow::anyhow!("corrupt device-key record for sensor '{}'", sensor_id))?;
+        let enrolled_owner = rec["device_pubkey"].as_str()
+            .filter(|k| !k.is_empty())
+            .map(|_| rec["owner"].as_str().unwrap_or(""));
+        match enrolled_owner {
+            Some(o) if o == owner => {
+                let pubkey = rec["device_pubkey"].as_str().unwrap_or("");
+                return verify_against_pubkey(chain, pubkey, entry, sig_hex);
+            }
+            Some(o) => bail!(
+                "sensor '{}' is enrolled to '{}', not '{}' — commit rejected", sensor_id, o, owner
+            ),
+            // Empty pubkey = revoked. Fall through to owner posting-key path.
+            None => {}
+        }
+    }
+    // No enrolled device key: the owner must sign, and must have a posting key.
+    let has_posting = chain.store.get_account(owner)?
+        .and_then(|s| s.get("keys")
+            .and_then(|k| k.get("posting"))
+            .and_then(|v| v.as_str())
+            .map(|k| !k.is_empty()))
+        .unwrap_or(false);
+    if !has_posting {
+        bail!(
+            "sensor '{}': owner '{}' has neither a posting key nor an enrolled device key — \
+             a signed commit is required", sensor_id, owner
+        );
+    }
+    check_signature(chain, owner, entry, sig_hex, "posting")
+}
+
 /// Canonical signing message for a LedgerEntry.
 ///
 /// Includes `chain_id` as the first field to prevent cross-chain replay attacks.
@@ -3260,16 +3353,18 @@ mod tests {
     }
 
     #[test]
-    fn sensor_reading_keyless_owner_applies_unsigned() {
-        // Bootstrap case: a fresh account with no posting key can still submit
-        // unsigned, matching check_signature's existing "key not set yet" skip.
-        // signed_by = owner so the owner pays the entry fee; no posting key is
-        // registered, so the signature requirement is skipped (bootstrap).
+    fn sensor_reading_keyless_owner_rejected_unsigned() {
+        // PREMISE RETIRED (Shin, 2026-07-30): "all commits MUST be signed, and the
+        // signature is the provenance." The sensor path no longer honours the generic
+        // keyless-skip — a fresh owner with no posting key AND no enrolled device key
+        // cannot submit an unsigned reading. To contribute, an owner either signs with
+        // their own posting key or enrolls a device key (SensorKeyRegister) and lets the
+        // device sign. This test previously asserted the opposite ("must still apply").
         let (chain, _dir) = make_chain();
         fund_keyless(&chain, "fresh", 1_000_000_000_000);
         let entry = sensor_reading("fresh", "fresh");
-        validate_and_apply(&chain, &entry, None)
-            .expect("unsigned reading for a keyless owner must still apply (bootstrap)");
+        assert!(validate_and_apply(&chain, &entry, None).is_err(),
+            "a keyless owner with no enrolled device must NOT be able to submit unsigned");
     }
 
     #[test]
@@ -3554,6 +3649,123 @@ mod tests {
             validate_and_apply(&chain, &entry, Some(&sig)).is_err(),
             "signed_by must equal owner — cannot commit reward-bearing data for another account"
         );
+    }
+
+    // ── Device-key sensor commits (josh runs many independent devices) ──────────
+    //
+    // The model: josh enrolls a device's OWN ed25519 key for a sensor_id via
+    // SensorKeyRegister (signed once by josh's posting key). Thereafter the device signs
+    // its own commits with its own key — josh's posting key never leaves the Pi — and the
+    // reward still routes to josh. Every commit is signed; the signature is the proof of
+    // which device produced it.
+
+    /// Enroll a device key for `sensor_id` under `owner`, returning the device SigningKey.
+    /// The enrollment itself is authorized by the owner's posting key.
+    fn enroll_device(chain: &Chain, sensor_id: &str, owner: &str, owner_key: &SigningKey, dev_seed: u8) -> SigningKey {
+        let dev = SigningKey::from_bytes(&[dev_seed; 32]);
+        let entry = LedgerEntry::SensorKeyRegister {
+            sensor_id: sensor_id.into(),
+            owner: owner.into(),
+            device_pubkey: hex::encode(dev.verifying_key().to_bytes()),
+            epoch: 1,
+            signed_by: owner.into(),
+        };
+        let sig = sign(owner_key, &entry);
+        validate_and_apply(chain, &entry, Some(&sig)).expect("owner may enroll a device key");
+        dev
+    }
+
+    fn sensor_commit(sensor_id: &str, owner: &str) -> LedgerEntry {
+        LedgerEntry::SensorDataCommit {
+            sensor_id: sensor_id.into(), owner: owner.into(),
+            batch_hash: "bh".into(), reading_count: 42, sensor_type: "gnss".into(),
+            epoch: 0, signed_by: owner.into(), gateway_account: None,
+        }
+    }
+
+    #[test]
+    fn device_signed_commit_verifies_without_owner_key_on_device() {
+        let (chain, _dir) = make_chain();
+        fund(&chain, "josh", 1_000_000_000_000); // josh has a posting key (seed 'j')
+        let owner_key = SigningKey::from_bytes(&[b'j'; 32]);
+        let dev = enroll_device(&chain, "phone-gnss", "josh", &owner_key, b'D');
+
+        // The DEVICE signs the commit with its own key — not josh's posting key.
+        let entry = sensor_commit("phone-gnss", "josh");
+        let sig = sign(&dev, &entry);
+        assert!(validate_and_apply(&chain, &entry, Some(&sig)).is_ok(),
+            "a commit signed by the enrolled device key must be accepted");
+    }
+
+    #[test]
+    fn commit_signed_by_unenrolled_key_is_rejected() {
+        let (chain, _dir) = make_chain();
+        fund(&chain, "josh", 1_000_000_000_000);
+        let owner_key = SigningKey::from_bytes(&[b'j'; 32]);
+        let _dev = enroll_device(&chain, "phone-gnss", "josh", &owner_key, b'D');
+
+        // A different key (not the enrolled device, not josh) signs — must fail.
+        let rogue = SigningKey::from_bytes(&[b'X'; 32]);
+        let entry = sensor_commit("phone-gnss", "josh");
+        let sig = sign(&rogue, &entry);
+        assert!(validate_and_apply(&chain, &entry, Some(&sig)).is_err(),
+            "once a device key is enrolled, only that key may sign the sensor's commits");
+    }
+
+    #[test]
+    fn josh_runs_many_independent_devices_each_with_its_own_key() {
+        let (chain, _dir) = make_chain();
+        fund(&chain, "josh", 1_000_000_000_000);
+        let owner_key = SigningKey::from_bytes(&[b'j'; 32]);
+        let phone = enroll_device(&chain, "phone-gnss",  "josh", &owner_key, b'1');
+        let pi    = enroll_device(&chain, "pi-baro",     "josh", &owner_key, b'2');
+
+        // Each device signs ITS OWN sensor with ITS OWN key; both attribute to josh.
+        let e1 = sensor_commit("phone-gnss", "josh");
+        let e2 = sensor_commit("pi-baro", "josh");
+        assert!(validate_and_apply(&chain, &e1, Some(&sign(&phone, &e1))).is_ok());
+        assert!(validate_and_apply(&chain, &e2, Some(&sign(&pi, &e2))).is_ok());
+        // A device cannot sign for the OTHER device's sensor.
+        let cross = sensor_commit("pi-baro", "josh");
+        assert!(validate_and_apply(&chain, &cross, Some(&sign(&phone, &cross))).is_err(),
+            "the phone's key must not be valid for the Pi's sensor");
+    }
+
+    #[test]
+    fn commit_for_sensor_enrolled_to_another_owner_is_rejected() {
+        let (chain, _dir) = make_chain();
+        fund(&chain, "josh", 1_000_000_000_000);
+        fund(&chain, "mallory", 1_000_000_000_000);
+        let josh_key = SigningKey::from_bytes(&[b'j'; 32]);
+        let dev = enroll_device(&chain, "phone-gnss", "josh", &josh_key, b'D');
+
+        // Mallory names herself owner of josh's enrolled sensor, signing with josh's
+        // device key she somehow observed. The enrolled-owner pin must still reject it.
+        let entry = sensor_commit("phone-gnss", "mallory");
+        let sig = sign(&dev, &entry);
+        assert!(validate_and_apply(&chain, &entry, Some(&sig)).is_err(),
+            "a device is bound to the owner it was enrolled under");
+    }
+
+    #[test]
+    fn self_operated_sensor_still_uses_owner_posting_key() {
+        let (chain, _dir) = make_chain();
+        fund(&chain, "josh", 1_000_000_000_000);
+        let owner_key = SigningKey::from_bytes(&[b'j'; 32]);
+        // No device enrolled for this sensor → josh signs with his own posting key.
+        let entry = sensor_commit("laptop-sensor", "josh");
+        assert!(validate_and_apply(&chain, &entry, Some(&sign(&owner_key, &entry))).is_ok(),
+            "with no device enrolled, the owner's posting key signs directly");
+    }
+
+    #[test]
+    fn sensor_commit_is_never_accepted_unsigned() {
+        let (chain, _dir) = make_chain();
+        // Fresh keyless owner: the generic keyless-skip would accept this, but the sensor
+        // path must not. Blockchain-101: a sensor commit is always signed.
+        let entry = sensor_commit("ghost-sensor", "nobody");
+        assert!(validate_and_apply(&chain, &entry, None).is_err(),
+            "a keyless owner with no enrolled device cannot submit an unsigned commit");
     }
 
     #[test]

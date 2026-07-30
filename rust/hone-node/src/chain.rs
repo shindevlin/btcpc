@@ -1963,8 +1963,23 @@ impl Chain {
                         "last_heartbeat_epoch": epoch,
                     })).unwrap_or_default());
             }
-            LedgerEntry::SensorKeyRegister { .. }
-            | LedgerEntry::SensorVouch { .. }
+            LedgerEntry::SensorKeyRegister { sensor_id, owner, device_pubkey, .. } => {
+                // Enroll a DEVICE key for this sensor. The register entry is already
+                // authorized (tx.rs requires the owner's posting-key signature), so by
+                // the time we apply it the owner has proven control. Store the mapping
+                // so later commits can be verified against the DEVICE key rather than
+                // requiring the owner's posting key on the device itself. Write-last-
+                // wins is deliberate: re-registering rotates the key, and registering an
+                // empty pubkey revokes it. Deterministic → identical on every node.
+                self.store.state_set(
+                    &format!("sensor_devkey:{}", sensor_id),
+                    &serde_json::to_vec(&serde_json::json!({
+                        "device_pubkey": device_pubkey,
+                        "owner": owner,
+                    })).unwrap_or_default(),
+                )?;
+            }
+            LedgerEntry::SensorVouch { .. }
             | LedgerEntry::DeviceKeyRegister { .. } => {
                 // Recorded in the ledger only; state managed by protocol sidecars.
             }
