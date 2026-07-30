@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tokio::sync::broadcast;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 use crate::store::Store;
 
@@ -325,11 +325,24 @@ impl ClockConsensus {
                     .map(|p| (p.node_id.clone(), p.rewards_hash.clone()))
                     .collect();
                 match weighted_winner(&votes, &reg, &clock_weights, quorum()) {
-                    Some((best_hash, count, _weight)) => {
+                    Some((best_hash, count, weight)) => {
+                        info!(
+                            "[clock] epoch {} reward: WEIGHTED finalize — winner weight {} / {} registered ({} signers)",
+                            epoch, weight, reg_weight_total, count
+                        );
                         state.finalized = true;
                         Some(FinalizedEpoch { epoch, rewards_hash: best_hash, quorum: count })
                     }
-                    None => None,
+                    None => {
+                        // Distinguish "weighted rejected the tally" from "no weights present" so a
+                        // gate run can't mistake reward finalization silently running flat for a
+                        // weighted pass (parity with the seal-path engagement log).
+                        debug!(
+                            "[clock] epoch {} reward: weighted tally below threshold (total weight {})",
+                            epoch, reg_weight_total
+                        );
+                        None
+                    }
                 }
             } else {
                 // Tally votes from valid (registered) proposals only (flat count rule).
@@ -483,9 +496,14 @@ impl ClockConsensus {
     pub fn set_clock_weights(&self, epoch: u64, weights: HashMap<String, u128>, enabled: bool) {
         let mut inner = self.inner.lock().unwrap();
         inner.epoch_weights.insert(epoch, (enabled, weights));
-        // Bound the map — keep a generous window behind the newest injected epoch.
-        let cutoff = epoch.saturating_sub(40);
-        inner.epoch_weights.retain(|e, _| *e >= cutoff);
+        // Bound the map behind the TRUE newest key, not just the epoch we happened to inject —
+        // two writers feed this (startup seed + seal handler) and the startup seed can be ahead
+        // of the seal handler's first injection, so pruning relative to `epoch` alone could wipe
+        // entries the seal path still needs. Compute the max over all keys.
+        if let Some(&newest) = inner.epoch_weights.keys().max() {
+            let cutoff = newest.saturating_sub(40);
+            inner.epoch_weights.retain(|e, _| *e >= cutoff);
+        }
     }
 
     /// Update the number of external (non-loopback) peers seen by the net layer.

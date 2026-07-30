@@ -1,7 +1,40 @@
 # Reputation-Weighted Quorum
 
-Status: **DESIGN — not implemented.** Consensus change; gate before landing, Shin-in-person to merge.
-Author intent captured from Shin, 2026-07-30.
+Status: **v1 BUILT, gated OFF, NOT ACTIVATABLE AS-IS.** Branch `feat/reputation-weighted-quorum`.
+A determinism blocker in the *uptime source* (§0 below) means the reputation core cannot go live
+until a design decision from Shin. The pure weight math, the seal/reward wiring, the 1/3 cap, the
+floor, and 11 property tests are all in and correct; the gap is where `uptime_term` reads from.
+Consensus change; gate before landing, Shin-in-person to merge. Author intent captured from Shin,
+2026-07-30.
+
+## 0. BLOCKER: uptime is not deterministic at the tip (found in build review)
+
+`clock_weight` reads `clock_uptime:{node}`. That record is written **only** inside
+`emit_epoch_rewards` (main.rs), which is driven by the **contiguous reward walk** off
+`highest_contiguous_rewarded` — a cursor whose position is a function of gossip arrival and lags
+`current_epoch()` by a node-dependent amount. It is NOT tx-applied on `apply_entry`. Contrast
+`epoch_validators:{E}`, which works as a per-epoch deterministic artifact precisely because its
+source (`role_stake:clock`, `clock_reg`) IS tx-applied — every node has it the instant it has the
+entries.
+
+Consequence: any weight computed at seal-time or startup-time reads uptime as-of the node's LOCAL
+reward cursor, so two nodes deciding the same epoch can compute different weights → fork under
+weighted quorum. Epoch-anchoring the *injection* (§9.1) does not fix this — no anchoring scheme
+fixes a source that is only settled behind a node-local cursor, and a "weights absent → flat"
+fallback inherits the same non-synchronization (waiting in the seal path would trade a fork for a
+stall). **stake_term is fine** (tx-applied, deterministic at tip); **uptime_term is not.**
+
+The fork (Shin decides, not tonight):
+- **(a) Narrow v1 to stake-only weights.** Deterministic at the tip today; keeps per-device
+  staking (§5), the 1/3 cap (§6), the floor, and every test except the uptime term. But it LOSES
+  the reputation core — the thing actually asked for — so it is a partial, not the design.
+- **(b) Add a seal-anchored per-epoch uptime record** so uptime becomes tx/seal-derived instead of
+  reward-driver-derived, settled at the tip like the validator set. This delivers what Shin asked
+  for. It adds consensus state adjacent to the reward path just stabilized for the 42M
+  reconciliation, so it is a deliberate, Shin-in-person change — not a patch. **Recommended as the
+  real v1.** Hold the branch until then.
+
+Everything below is the design as intended; §0 is the one thing standing between it and activation.
 
 ## 1. Why
 
