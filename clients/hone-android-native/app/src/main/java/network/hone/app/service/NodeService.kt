@@ -6,59 +6,138 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import network.hone.app.data.NodeConfig
+import network.hone.app.data.SensorCapture
+import network.hone.app.data.SensorSubmitter
+import network.hone.app.data.SubmitResult
+import network.hone.app.data.SigningKeyStore
 
 /**
- * Foreground service that KEEPS THE HONE NODE ALIVE when the app is backgrounded.
+ * Foreground service that KEEPS THE HONE SENSOR NODE ALIVE in the background — the piece a
+ * webview cannot do (Android kills a webview when it loses focus).
  *
- * This is the piece the old webview fundamentally could not do: Android kills a
- * webview when it loses focus, so the phone stopped mining/clocking the moment
- * the user switched apps. A foreground service with an ongoing notification lets
- * the phone be the full node HONE specifies (miner + clock + sensor).
+ * Running behaviour:
+ *   - captures every sensor the device has (SensorCapture),
+ *   - once per COMMIT_INTERVAL, for each available channel with new readings, builds a
+ *     signed on-chain commit (owner-signed with the placed posting key) and submits it,
+ *   - holds a partial wakelock across each submit tick so the CPU doesn't sleep mid-batch,
+ *   - reports live status in the ongoing notification.
  *
- * Phase 1 status: SKELETON. It runs as a foreground service with a live
- * notification. Phase 0b wires the actual Rust node (`HoneNode.start()` from the
- * uniffi bridge) into onStartCommand, and pushes live epoch/balance into the
- * notification. WorkManager (Phase 1) will restart this on boot / after kill.
+ * specialUse FGS (not dataSync) so Android 15+ does not force-stop it after ~6h/day.
+ * START_STICKY + BootReceiver so it self-heals after a kill or reboot.
  */
 class NodeService : Service() {
 
+    private val scope = CoroutineScope(Dispatchers.IO)
+    private var loop: Job? = null
+    private lateinit var capture: SensorCapture
+    private var submitter: SensorSubmitter? = null
+    private var hasKey: Boolean = false
+    private var wakeLock: PowerManager.WakeLock? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        capture = SensorCapture(applicationContext)
+        val keys = SigningKeyStore.loadOrNull(applicationContext)
+        hasKey = keys != null
+        submitter = SensorSubmitter(NodeConfig(), keys)
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "hone:sensor-node")
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(NOTIF_ID, buildNotification("Starting…"))
-        // TODO(phase-0b): honeNode = HoneNode(); honeNode.start(configFromPrefs())
-        //                 then observe status and updateNotification() on each epoch.
-        return START_STICKY // Android restarts the service if it's killed.
+        startForegroundCompat(buildNotification("Starting sensor node…"))
+        capture.start()
+        if (loop?.isActive != true) loop = scope.launch { runLoop() }
+        return START_STICKY
+    }
+
+    private suspend fun runLoop() {
+        val sub = submitter ?: return
+        while (scope.isActive) {
+            val channels = capture.channels.value.filter { it.available }
+            var accepted = 0; var attempted = 0; var lastErr: String? = null
+            wakeLock?.acquire(30_000L)
+            try {
+                for (ch in channels) {
+                    val n = capture.drainSampleCount(ch.id)
+                    if (n <= 0L) continue
+                    attempted++
+                    sub.ensureRegistered(ch)
+                    when (val r = sub.commit(ch, n)) {
+                        is SubmitResult.Accepted -> accepted++
+                        is SubmitResult.Rejected -> lastErr = r.error
+                        is SubmitResult.Skipped -> lastErr = r.reason
+                    }
+                }
+            } finally {
+                if (wakeLock?.isHeld == true) wakeLock?.release()
+            }
+            val avail = capture.availableCount()
+            val status = when {
+                !hasKey -> "$avail sensors · read-only (no key placed)"
+                attempted == 0 -> "$avail sensors · warming up"
+                else -> "$avail sensors · $accepted/$attempted committed" +
+                        (lastErr?.let { " · $it" } ?: "")
+            }
+            updateNotification(status)
+            delay(COMMIT_INTERVAL_MS)
+        }
     }
 
     override fun onDestroy() {
-        // TODO(phase-0b): honeNode.stop()
+        capture.stop()
+        loop?.cancel()
+        scope.cancel()
+        if (wakeLock?.isHeld == true) wakeLock?.release()
         super.onDestroy()
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun startForegroundCompat(n: Notification) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else {
+            startForeground(NOTIF_ID, n)
+        }
     }
 
     private fun buildNotification(status: String): Notification =
         NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("HONE node")
+            .setContentTitle("HONE sensor node")
             .setContentText(status)
-            .setSmallIcon(android.R.drawable.ic_lock_idle_charging) // placeholder icon
+            .setSmallIcon(android.R.drawable.ic_menu_compass)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
 
-    override fun onBind(intent: Intent?): IBinder? = null
+    private fun updateNotification(status: String) {
+        getSystemService(NotificationManager::class.java).notify(NOTIF_ID, buildNotification(status))
+    }
 
     companion object {
         private const val CHANNEL_ID = "hone_node"
         private const val NOTIF_ID = 1001
+        private const val COMMIT_INTERVAL_MS = 30_000L // one commit cycle per ~epoch
 
-        /** Create the notification channel (call once, e.g. from Application). */
         fun ensureChannel(ctx: Context) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 val channel = NotificationChannel(
-                    CHANNEL_ID, "HONE node",
-                    NotificationManager.IMPORTANCE_LOW,
-                ).apply { description = "Keeps your node mining/clocking in the background." }
+                    CHANNEL_ID, "HONE node", NotificationManager.IMPORTANCE_LOW,
+                ).apply { description = "Keeps your sensor node submitting in the background." }
                 ctx.getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
             }
         }
