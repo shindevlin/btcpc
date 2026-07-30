@@ -570,10 +570,12 @@ impl ClockConsensus {
                 for s in voting_inliers.iter().filter(|s| s.seal_hash != winner_hash) {
                     inner.update_clock_score(&s.node_id, false);
                 }
-                // Non-voting outliers (unregistered or timestamp outliers) get scored down.
-                for s in &outliers {
-                    inner.update_clock_score(&s.node_id, false);
-                }
+                // Timestamp outliers were ALREADY scored down at the top of this block (where the
+                // outlier warning is logged). The duplicate loop that used to be here scored the
+                // same set a second time — a −20 / +2 double-rate decay per epoch, not −10 / +1
+                // (Beastly review 940a6577). Harmless while scores are API-only, but a consensus
+                // bug the moment scores feed quorum weight, and it already inflated the
+                // outlier_count reported by get_scores(). Removed — score outliers exactly once.
 
                 mark_resolved!();
                 let winner = winner_seals[0].clone();
