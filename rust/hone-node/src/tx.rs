@@ -3683,6 +3683,26 @@ mod tests {
         }
     }
 
+    /// FORMAT LOCK for the mobile/device SDK. The canonical signing message is
+    /// INSERTION-ORDERED, not alphabetical (serde_json is built with preserve_order in
+    /// this workspace). Any device that signs a SensorDataCommit MUST reproduce these
+    /// exact bytes or verification fails. If this string ever changes, every deployed
+    /// device signer breaks — treat a change here as a wire-format break, not a refactor.
+    #[test]
+    fn canonical_sensor_commit_format_is_locked() {
+        let entry = LedgerEntry::SensorDataCommit {
+            sensor_id: "phone-gnss".into(), owner: "josh".into(),
+            batch_hash: "abc123".into(), reading_count: 42, sensor_type: "continuous".into(),
+            epoch: 0, signed_by: "josh".into(), gateway_account: None,
+        };
+        let msg = canonical_signing_message(&entry, "hone").unwrap();
+        assert_eq!(
+            msg,
+            "{\"chain_id\":\"hone\",\"type\":\"SENSOR_DATA_COMMIT\",\"sensor_id\":\"phone-gnss\",\"owner\":\"josh\",\"batch_hash\":\"abc123\",\"reading_count\":42,\"sensor_type\":\"continuous\",\"signed_by\":\"josh\"}",
+            "sensor-commit canonical wire format changed — every device signer will break"
+        );
+    }
+
     #[test]
     fn device_signed_commit_verifies_without_owner_key_on_device() {
         let (chain, _dir) = make_chain();
