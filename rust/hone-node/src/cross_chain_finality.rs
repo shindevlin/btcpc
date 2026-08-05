@@ -340,4 +340,19 @@ mod tests {
         let key = "cc_finality:hone:100".to_owned();
         assert!(chain.store.state_get(&key).is_some());
     }
+
+    #[test]
+    fn announcement_hash_binds_state_root() {
+        let finality_hash = "same-finality";
+        let inference_hash = "same-inference";
+        let state_a = "a".repeat(64);
+        let state_b = "b".repeat(64);
+
+        let hash_a = compute_announcement_hash(&state_a, finality_hash, inference_hash);
+        let hash_b = compute_announcement_hash(&state_b, finality_hash, inference_hash);
+        let hash_a_again = compute_announcement_hash(&state_a, finality_hash, inference_hash);
+
+        assert_ne!(hash_a, hash_b, "divergent state roots must diverge externally");
+        assert_eq!(hash_a, hash_a_again, "identical inputs must be stable");
+    }
 }

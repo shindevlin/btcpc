@@ -63,10 +63,9 @@ pub async fn finalize_epoch(chain: &Arc<Chain>, epoch: u64) -> Result<()> {
     // Retrieve the latest block to extract its hash.
     let latest_block_hash = latest_block_hash(chain, epoch);
 
-    // Proxy state root: SHA-256 of (latest_block_hash || epoch_bytes).
-    // A full Merkle root over all balances can replace this once scan_all
-    // is available.
-    let state_root = compute_state_root(&latest_block_hash, epoch);
+    // External finality announcements sign this snapshot field. It must commit
+    // to real balance state, not just the latest block hash and epoch.
+    let state_root = chain.store.balance_merkle_root();
 
     let snapshot = serde_json::json!({
         "epoch": epoch,
@@ -243,10 +242,39 @@ pub fn apply_entropy_decay(chain: &Arc<Chain>, current_epoch: u64) {
     }
 }
 
-/// Proxy state root: SHA-256( latest_block_hash_bytes || epoch_le_bytes ).
-fn compute_state_root(latest_block_hash: &str, epoch: u64) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(latest_block_hash.as_bytes());
-    hasher.update(epoch.to_le_bytes());
-    hex::encode(hasher.finalize())
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hone_types::NATIVE_TOKEN;
+    use tempfile::TempDir;
+
+    fn make_chain() -> (Arc<Chain>, TempDir) {
+        let dir = TempDir::new().unwrap();
+        let store = crate::store::Store::open(dir.path()).expect("store");
+        let chain = Arc::new(Chain::new(store, "test-node".into(), "hone-testnet".into()));
+        (chain, dir)
+    }
+
+    #[tokio::test]
+    async fn finalize_snapshot_uses_balance_merkle_root() {
+        let (chain, _dir) = make_chain();
+        chain
+            .store
+            .credit("alice", NATIVE_TOKEN, 50)
+            .expect("alice credit");
+        let expected_root = chain.store.balance_merkle_root();
+
+        finalize_epoch(&chain, 10).await.expect("finalize epoch");
+
+        let raw = chain
+            .store
+            .read_finality(10)
+            .expect("read finality")
+            .expect("finality snapshot");
+        let snapshot: serde_json::Value =
+            serde_json::from_slice(&raw).expect("snapshot json");
+
+        assert_eq!(snapshot["state_root"].as_str(), Some(expected_root.as_str()));
+        assert_ne!(expected_root, "0".repeat(64));
+    }
 }
