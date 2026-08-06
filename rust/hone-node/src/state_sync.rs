@@ -24,6 +24,12 @@ struct Balance { account: String, token: String, amount: u64 }
 #[derive(Debug, Deserialize)]
 struct Blocks { #[serde(default)] blocks: Vec<serde_json::Value> }
 
+fn agreed_snapshot(snaps: &[(String, Snapshot)]) -> Option<(String, Snapshot)> {
+    snaps.iter()
+        .find(|(_, s)| snaps.iter().filter(|(_, x)| x.epoch == s.epoch && x.state_root == s.state_root).count() >= 2)
+        .cloned()
+}
+
 pub fn requires_catchup(chain: &Chain) -> bool {
     match chain.store.state_get("state_sync_status").as_deref() {
         Some(b"complete") => false,
@@ -55,7 +61,7 @@ pub async fn run(chain: Arc<Chain>, net: NetworkHandle, ready: Arc<AtomicBool>) 
             if snaps.len() >= 2 { break; }
         }
         if snaps.len() < 2 { tokio::time::sleep(Duration::from_secs(5)).await; continue; }
-        let agreed = snaps.iter().find(|(_, s)| snaps.iter().filter(|(_, x)| x.epoch == s.epoch && x.state_root == s.state_root).count() >= 2).cloned();
+        let agreed = agreed_snapshot(&snaps);
         let Some((peer_base, snapshot)) = agreed else {
             tracing::error!("[sync] peers disagree on snapshot epoch/state_root; refusing import");
             tokio::time::sleep(Duration::from_secs(10)).await; continue;
@@ -99,4 +105,38 @@ async fn import_verified(chain: &Chain, client: &reqwest::Client, peer_base: &st
     }
     chain.store.state_set("state_sync_status", b"complete").context("persist sync completion")?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{agreed_snapshot, Snapshot};
+
+    fn snapshot(epoch: u64, state_root: &str) -> Snapshot {
+        Snapshot { epoch, state_root: state_root.to_owned(), balances: Vec::new() }
+    }
+
+    #[test]
+    fn state_sync_accepts_two_matching_peer_commitments() {
+        let peers = vec![
+            ("http://peer-a".to_owned(), snapshot(7, "a")),
+            ("http://peer-b".to_owned(), snapshot(7, "a")),
+            ("http://peer-c".to_owned(), snapshot(8, "b")),
+        ];
+
+        let (peer, selected) = agreed_snapshot(&peers).expect("two peers agree");
+        assert_eq!(peer, "http://peer-a");
+        assert_eq!(selected.epoch, 7);
+        assert_eq!(selected.state_root, "a");
+    }
+
+    #[test]
+    fn state_sync_rejects_unmatched_peer_commitments() {
+        let peers = vec![
+            ("http://peer-a".to_owned(), snapshot(7, "a")),
+            ("http://peer-b".to_owned(), snapshot(7, "b")),
+            ("http://peer-c".to_owned(), snapshot(8, "c")),
+        ];
+
+        assert!(agreed_snapshot(&peers).is_none());
+    }
 }
