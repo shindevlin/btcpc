@@ -24,6 +24,24 @@ struct Balance { account: String, token: String, amount: u64 }
 #[derive(Debug, Deserialize)]
 struct Blocks { #[serde(default)] blocks: Vec<serde_json::Value> }
 
+/// Epoch represented by the durable balance snapshot.  The block tip can be
+/// ahead of reward application by the finality depth, so labeling balances with
+/// `latest_epoch()` would let a joiner import a root whose epoch lies in the
+/// middle of an unfinished reward window.
+pub fn snapshot_epoch(chain: &Chain) -> u64 {
+    let done: std::collections::HashSet<u64> = chain.store
+        .state_scan_prefix("epoch_finalized_done:")
+        .into_iter()
+        .filter_map(|(k, _)| k.rsplit(':').next().and_then(|s| s.parse::<u64>().ok()))
+        .collect();
+    let max = done.iter().copied().max().unwrap_or(0);
+    let mut contiguous = 0;
+    while contiguous < max && done.contains(&(contiguous + 1)) {
+        contiguous += 1;
+    }
+    contiguous.max(chain.store.reward_watermark())
+}
+
 fn agreed_snapshot(snaps: &[(String, Snapshot)]) -> Option<(String, Snapshot)> {
     snaps.iter()
         .find(|(_, s)| snaps.iter().filter(|(_, x)| x.epoch == s.epoch && x.state_root == s.state_root).count() >= 2)
@@ -31,10 +49,24 @@ fn agreed_snapshot(snaps: &[(String, Snapshot)]) -> Option<(String, Snapshot)> {
 }
 
 pub fn requires_catchup(chain: &Chain) -> bool {
+    // The isolated Pass-B harness labels its launch cohort explicitly.  This
+    // avoids mistaking a brand-new genesis node (which must be allowed to form
+    // the initial cohort) for a late joiner, while the late-joiner label forces
+    // the exact cold-start path under test.  Production leaves this unset.
+    match std::env::var("HONE_STATE_SYNC_MODE").ok().as_deref() {
+        Some("launch") => return false,
+        Some("late-joiner") => return true,
+        _ => {}
+    }
     match chain.store.state_get("state_sync_status").as_deref() {
         Some(b"complete") => false,
         Some(b"pending") => true,
-        _ => chain.store.latest_epoch().is_none() && chain.store.scan_balance_entries().is_empty(),
+        // A cold joiner necessarily has genesis block 0, so `latest_epoch() ==
+        // None` cannot identify it.  Treat a store containing only genesis and
+        // no balances as unsynced; a verified snapshot then flips the durable
+        // status to complete before sealing is enabled.
+        _ => chain.store.latest_epoch().map(|e| e <= 0).unwrap_or(true)
+            && chain.store.scan_balance_entries().is_empty(),
     }
 }
 
@@ -43,6 +75,14 @@ pub fn requires_catchup(chain: &Chain) -> bool {
 pub async fn run(chain: Arc<Chain>, net: NetworkHandle, ready: Arc<AtomicBool>) {
     if !requires_catchup(&chain) { ready.store(true, Ordering::Release); return; }
     let _ = chain.store.state_set("state_sync_status", b"pending");
+    // Test-only delay used by the isolated Pass-B harness to create a window
+    // where gossip reaches the joiner while verified HTTP catch-up is still
+    // pending.  The default is zero and production never sets this variable.
+    if let Ok(seconds) = std::env::var("HONE_STATE_SYNC_TEST_DELAY_SECS")
+        .ok().and_then(|s| s.parse::<u64>().ok()).ok_or(())
+    {
+        tokio::time::sleep(Duration::from_secs(seconds)).await;
+    }
     let client = match reqwest::Client::builder().timeout(Duration::from_secs(8)).build() {
         Ok(c) => c, Err(e) => { tracing::error!("[sync] HTTP client: {}", e); return; }
     };
@@ -66,6 +106,10 @@ pub async fn run(chain: Arc<Chain>, net: NetworkHandle, ready: Arc<AtomicBool>) 
             tracing::error!("[sync] peers disagree on snapshot epoch/state_root; refusing import");
             tokio::time::sleep(Duration::from_secs(10)).await; continue;
         };
+        if snapshot.epoch == 0 && snapshot.state_root != "0".repeat(64) {
+            tracing::error!("[sync] non-zero snapshot has no durable reward checkpoint; refusing import");
+            tokio::time::sleep(Duration::from_secs(10)).await; continue;
+        }
         let entries: Vec<(String, String, u64)> = snapshot.balances.iter()
             .map(|b| (b.account.clone(), b.token.clone(), b.amount)).collect();
         if entries.is_empty() && snapshot.state_root != "0".repeat(64) {

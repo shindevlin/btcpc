@@ -337,6 +337,7 @@ async fn main() -> Result<()> {
     {
         let clock_ref = clock.clone();
         let chain_ref = chain.clone();
+        let reward_sync_ready = sync_ready.clone();
         tokio::spawn(async move {
             // Track the last epoch we've seeded so empty epochs are only tracked once.
             let mut last_tracked: u64 = 0;
@@ -354,6 +355,14 @@ async fn main() -> Result<()> {
             // Deriving the highest CONTIGUOUS done epoch makes restart a no-op: we resume
             // exactly where we left off, and an unresolved gap stays the resume point
             // instead of ageing out of the window.
+            // A late joiner's snapshot worker writes the durable watermark
+            // asynchronously.  Do not initialize the replay cursor (or run
+            // cold-start floor alignment) until verified catch-up has enabled
+            // sealing; otherwise this task can observe watermark=0 and
+            // permanently take the pre-sync cold-start path.
+            while !reward_sync_ready.load(std::sync::atomic::Ordering::Acquire) {
+                tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
+            }
             let mut last_rewarded: u64 = highest_contiguous_rewarded(&chain_ref);
             // One-time cold-start alignment guard: a fresh node (last_rewarded==0) with a
             // past genesis aligns its reward start to the tracking window on the first tick,

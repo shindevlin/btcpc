@@ -307,7 +307,15 @@ impl Network {
         // dial in — an isolated N-clock test must not be reachable by (or reach) any
         // node outside its explicit HONE_BOOTSTRAP_PEERS set. Production binds all
         // interfaces so peers can connect from anywhere.
-        let bind_ip = if self.config.isolated { "127.0.0.1" } else { "0.0.0.0" };
+        // Isolated mode defaults to loopback so a local test cannot accidentally
+        // expose its swarm.  Namespace-only harnesses may explicitly provide
+        // their throwaway veth address; discovery remains disabled by
+        // `HONE_ISOLATED=true`.
+        let bind_ip = if self.config.isolated {
+            std::env::var("HONE_ISOLATED_BIND_IP").unwrap_or_else(|_| "127.0.0.1".to_owned())
+        } else {
+            "0.0.0.0".to_owned()
+        };
 
         let listen_tcp: Multiaddr =
             format!("/ip4/{}/tcp/{}", bind_ip, self.config.p2p_port).parse()?;

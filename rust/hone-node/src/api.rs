@@ -1978,7 +1978,7 @@ fn non_empty(s: &str) -> Option<&str> {
 // Returns the current epoch checkpoint + every account record. A node can load this
 // as its starting state instead of replaying from genesis and diverging.
 async fn get_sync_snapshot(State(s): State<AppState>) -> Json<serde_json::Value> {
-    let epoch = s.chain.store.latest_epoch().unwrap_or(0);
+    let epoch = crate::state_sync::snapshot_epoch(&s.chain);
     let ids = s.chain.store.scan_account_ids();
     let accounts: Vec<serde_json::Value> = ids.iter()
         .filter_map(|id| s.chain.store.get_account(id).ok().flatten())
