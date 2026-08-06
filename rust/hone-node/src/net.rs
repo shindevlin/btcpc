@@ -78,8 +78,18 @@ pub enum NetCmd {
 }
 
 /// Cheap clone handle used by other tasks to send commands to the network.
+#[derive(Clone)]
 pub struct NetworkHandle {
     pub cmd_tx: mpsc::Sender<NetCmd>,
+    peer_http_cache: Arc<parking_lot::Mutex<HashMap<String, String>>>,
+}
+
+impl NetworkHandle {
+    /// HTTP endpoints learned from Identify.  The list is a snapshot so the
+    /// sync worker never holds the network lock while doing HTTP I/O.
+    pub fn peer_http_urls(&self) -> Vec<String> {
+        self.peer_http_cache.lock().values().cloned().collect()
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -137,7 +147,7 @@ impl Network {
 
         let peer_http_cache = Arc::new(parking_lot::Mutex::new(HashMap::new()));
         let network = Self { config, store, cmd_rx, event_tx, peer_http_cache };
-        let handle  = NetworkHandle { cmd_tx };
+        let handle  = NetworkHandle { cmd_tx, peer_http_cache: network.peer_http_cache.clone() };
         (network, handle, event_rx)
     }
 

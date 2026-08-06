@@ -57,6 +57,8 @@ pub struct AppState {
     pub faucet_ip_claims: Arc<parking_lot::Mutex<HashMap<String, (u32, Instant)>>>,
     /// Live peer count updated by the net event loop.
     pub peer_count: Arc<std::sync::atomic::AtomicUsize>,
+    /// False while a cold joiner is waiting for verified snapshot catch-up.
+    pub sync_ready: Arc<std::sync::atomic::AtomicBool>,
     /// Clock consensus handle — used by public status endpoints.
     pub clock: Arc<crate::clock::ClockConsensus>,
     /// SHA-256 of this node's own binary, computed once at startup.
@@ -136,6 +138,7 @@ pub fn router(state: AppState) -> Router {
         .route("/api/latest", get(get_latest))
         .route("/api/sync/snapshot", get(get_sync_snapshot))
         .route("/api/sync/blocks", get(get_sync_blocks))
+        .route("/api/sync/status", get(get_sync_status))
         .route("/api/stake/:account", get(get_stake))
         .route("/api/epoch/:epoch", get(get_epoch))
         .route("/health", get(health))
@@ -1982,8 +1985,22 @@ async fn get_sync_snapshot(State(s): State<AppState>) -> Json<serde_json::Value>
         .collect();
     Json(serde_json::json!({
         "epoch": epoch,
+        "state_root": s.chain.store.balance_merkle_root(),
         "account_count": accounts.len(),
         "accounts": accounts,
+        "balances": s.chain.store.scan_balance_entries().into_iter()
+            .map(|(account, token, amount)| serde_json::json!({
+                "account": account, "token": token, "amount": amount
+            })).collect::<Vec<_>>(),
+    }))
+}
+
+async fn get_sync_status(State(s): State<AppState>) -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "required": crate::state_sync::requires_catchup(&s.chain),
+        "ready": s.sync_ready.load(std::sync::atomic::Ordering::Acquire),
+        "reward_watermark": s.chain.store.reward_watermark(),
+        "state_root": s.chain.store.balance_merkle_root(),
     }))
 }
 
@@ -10690,6 +10707,7 @@ mod partition_tests {
             hw_fingerprint: std::sync::Arc::new("test-fingerprint".to_string()),
             hw_summary: std::sync::Arc::new("test-hw".to_string()),
             peer_count: peer_count.clone(),
+            sync_ready: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true)),
             clock: std::sync::Arc::new(crate::clock::ClockConsensus::new()),
             software_hash: std::sync::Arc::new("test-software-hash".to_string()),
             git_serve_queries: std::sync::Arc::new(AtomicUsize::new(0)),

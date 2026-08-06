@@ -131,6 +131,44 @@ impl Store {
         Ok(())
     }
 
+    /// Return every balance record in canonical key order.  Used by the
+    /// verified late-join snapshot path; the key ordering is part of the
+    /// balance Merkle commitment.
+    pub fn scan_balance_entries(&self) -> Vec<(String, String, u64)> {
+        self.sorted_balance_entries().into_iter().filter_map(|(key, bytes)| {
+            let (account, token) = key.split_once('\0')?;
+            let amount = u64::from_le_bytes(bytes.as_slice().try_into().ok()?);
+            Some((account.to_owned(), token.to_owned(), amount))
+        }).collect()
+    }
+
+    /// Replace balances as one RocksDB batch.  Callers must verify the
+    /// resulting balance Merkle root before making the imported state live.
+    pub fn replace_balance_entries(&self, entries: &[(String, String, u64)]) -> Result<()> {
+        let cf = self.db.cf_handle(CF_BALANCES).context("balances CF")?;
+        let existing: Vec<Vec<u8>> = self.db.iterator_cf(&cf, IteratorMode::Start)
+            .filter_map(|r| r.ok().map(|(k, _)| k.to_vec())).collect();
+        let mut batch = WriteBatch::default();
+        for key in existing { batch.delete_cf(&cf, key); }
+        for (account, token, amount) in entries {
+            batch.put_cf(&cf, balance_key(account, token), amount.to_le_bytes());
+        }
+        self.db.write(batch)?;
+        Ok(())
+    }
+
+    /// Durable late-join reward watermark.  This is intentionally separate
+    /// from per-epoch done markers: a snapshot may cover a large epoch span.
+    pub fn set_reward_watermark(&self, epoch: u64) -> Result<()> {
+        self.set_meta("reward_watermark", &epoch.to_be_bytes())
+    }
+
+    pub fn reward_watermark(&self) -> u64 {
+        self.get_meta("reward_watermark")
+            .and_then(|v| <[u8; 8]>::try_from(v.as_slice()).ok())
+            .map(u64::from_be_bytes).unwrap_or(0)
+    }
+
     pub fn credit(&self, account: &str, token: &str, amount: u64) -> Result<u64> {
         let current = self.get_balance(account, token);
         let new_bal = current.checked_add(amount)

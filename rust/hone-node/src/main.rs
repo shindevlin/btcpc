@@ -107,6 +107,7 @@ mod nostr_transport;
 mod matrix_transport;
 mod i2p;
 mod lorawan;
+mod state_sync;
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -306,6 +307,11 @@ async fn main() -> Result<()> {
             tracing::error!("network error: {}", e);
         }
     });
+
+    // A cold joiner must finish quorum-agreed snapshot import before sealing.
+    // Existing nodes with history pass through immediately.
+    let sync_ready = Arc::new(std::sync::atomic::AtomicBool::new(!state_sync::requires_catchup(&chain)));
+    tokio::spawn(state_sync::run(chain.clone(), net_handle.clone(), sync_ready.clone()));
 
     // ── Self-announce to Hive + honemesh.net (best-effort, fire-and-forget) ───────
     // Skipped in isolated mode — an isolated node must make no outbound discovery
@@ -548,6 +554,7 @@ async fn main() -> Result<()> {
         let mut sealed_rx = clock.subscribe();
         let chain_ref = chain.clone();
         let clock_ref = clock.clone();
+        let sync_ready_for_seals = sync_ready.clone();
         let node_id_c = cfg.node_id.clone();
         let cmd_tx_for_seal = net_handle.cmd_tx.clone();
         // Hardware conflict check: after each epoch seal we verify our fingerprint is still ours.
@@ -558,6 +565,10 @@ async fn main() -> Result<()> {
             loop {
                 match sealed_rx.recv().await {
                     Ok(sealed) if sealed.sealed => {
+                        if !sync_ready_for_seals.load(std::sync::atomic::Ordering::Acquire) {
+                            warn!("[sync] refusing to seal epoch {} until verified catch-up completes", sealed.epoch);
+                            continue;
+                        }
                         let seal_hash = sealed.winner
                             .as_ref()
                             .map(|w| w.seal_hash.clone())
@@ -1567,6 +1578,7 @@ async fn main() -> Result<()> {
         hw_fingerprint:    Arc::new(hw.fingerprint),
         hw_summary:        Arc::new(hw.summary),
         peer_count:        shared_peer_count,
+        sync_ready:        sync_ready.clone(),
         clock:             clock.clone(),
         software_hash:     Arc::new(software_hash),
         git_serve_queries: git_serve_queries.clone(),
@@ -1761,9 +1773,8 @@ fn highest_contiguous_rewarded(chain: &Chain) -> u64 {
         .into_iter()
         .filter_map(|(k, _)| k.rsplit(':').next().and_then(|s| s.parse::<u64>().ok()))
         .collect();
-    if done.is_empty() {
-        return 0;
-    }
+    let watermark = chain.store.reward_watermark();
+    if done.is_empty() { return watermark; }
     // Walk up from 1 while each epoch is present. Bounded by the highest key, so a
     // sparse/corrupt set can't spin.
     let max = done.iter().copied().max().unwrap_or(0);
@@ -1771,7 +1782,7 @@ fn highest_contiguous_rewarded(chain: &Chain) -> u64 {
     while e < max && done.contains(&(e + 1)) {
         e += 1;
     }
-    e
+    e.max(watermark)
 }
 
 // ── txglobal backfill ─────────────────────────────────────────────────────────
