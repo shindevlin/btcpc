@@ -34,12 +34,34 @@ pub fn snapshot_epoch(chain: &Chain) -> u64 {
         .into_iter()
         .filter_map(|(k, _)| k.rsplit(':').next().and_then(|s| s.parse::<u64>().ok()))
         .collect();
-    let max = done.iter().copied().max().unwrap_or(0);
-    let mut contiguous = 0;
-    while contiguous < max && done.contains(&(contiguous + 1)) {
-        contiguous += 1;
+    contiguous_finalized(&done, chain.store.reward_watermark())
+}
+
+/// Highest epoch reachable by an unbroken run of finalized epochs, anchored at the
+/// LOWEST finalized epoch rather than at 1.
+///
+/// HONE's genesis is backdated, so a chain boots at a high epoch and a launch
+/// cohort only ever finalizes epochs from its launch epoch F onward — the key
+/// `epoch_finalized_done:1` never exists.  Anchoring the walk at 1 therefore broke
+/// on the first step and returned 0, labeling a real, fully-populated snapshot as
+/// epoch 0.  The importer's `epoch == 0 && state_root != 0*64` guard then refused
+/// the import (correctly — the guard is not the bug), so a late joiner could never
+/// complete catch-up and never enabled sealing.  Anchoring at `min(done)` yields
+/// the true highest contiguous finalized epoch.  The finality-depth-behind-tip
+/// semantics are unchanged and intended: the block tip may be ahead of reward
+/// application, so labeling with `latest_epoch()` would hand a joiner a root from
+/// the middle of an unfinished reward window.
+fn contiguous_finalized(done: &std::collections::HashSet<u64>, watermark: u64) -> u64 {
+    if done.is_empty() {
+        return watermark;
     }
-    contiguous.max(chain.store.reward_watermark())
+    let min = done.iter().copied().min().unwrap_or(0);
+    let max = done.iter().copied().max().unwrap_or(0);
+    let mut e = min;
+    while e < max && done.contains(&(e + 1)) {
+        e += 1;
+    }
+    e.max(watermark)
 }
 
 fn agreed_snapshot(snaps: &[(String, Snapshot)]) -> Option<(String, Snapshot)> {
@@ -153,7 +175,8 @@ async fn import_verified(chain: &Chain, client: &reqwest::Client, peer_base: &st
 
 #[cfg(test)]
 mod tests {
-    use super::{agreed_snapshot, Snapshot};
+    use super::{agreed_snapshot, contiguous_finalized, Snapshot};
+    use std::collections::HashSet;
 
     fn snapshot(epoch: u64, state_root: &str) -> Snapshot {
         Snapshot { epoch, state_root: state_root.to_owned(), balances: Vec::new() }
@@ -182,5 +205,38 @@ mod tests {
         ];
 
         assert!(agreed_snapshot(&peers).is_none());
+    }
+
+    /// Regression: HONE's genesis is backdated, so a launch cohort finalizes epochs
+    /// from a high launch epoch F onward and `epoch_finalized_done:1` never exists.
+    /// The old walk anchored at 1, broke immediately, and labeled a real snapshot
+    /// epoch 0 — which the importer refused, so no joiner could ever catch up.
+    #[test]
+    fn snapshot_epoch_anchors_at_first_finalized_epoch_for_backdated_genesis() {
+        let done: HashSet<u64> = (95_460..=95_475).collect();
+        assert_eq!(contiguous_finalized(&done, 0), 95_475);
+    }
+
+    #[test]
+    fn snapshot_epoch_stops_at_the_first_gap_above_the_anchor() {
+        let done: HashSet<u64> = [95_460, 95_461, 95_462, 95_470, 95_471].into_iter().collect();
+        assert_eq!(contiguous_finalized(&done, 0), 95_462);
+    }
+
+    #[test]
+    fn snapshot_epoch_handles_empty_and_single_finalized_sets() {
+        assert_eq!(contiguous_finalized(&HashSet::new(), 0), 0);
+        // Empty set falls back to the durable reward watermark.
+        assert_eq!(contiguous_finalized(&HashSet::new(), 95_400), 95_400);
+        let single: HashSet<u64> = [95_460].into_iter().collect();
+        assert_eq!(contiguous_finalized(&single, 0), 95_460);
+    }
+
+    #[test]
+    fn snapshot_epoch_never_regresses_below_the_reward_watermark() {
+        // A late joiner imports a snapshot and persists its watermark without ever
+        // applying those epochs locally, so `done` is empty or starts above them.
+        let done: HashSet<u64> = (95_480..=95_482).collect();
+        assert_eq!(contiguous_finalized(&done, 95_490), 95_490);
     }
 }
