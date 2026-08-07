@@ -77,7 +77,18 @@ echo "c_sync_status=$(api "${NS[2]}" "${API[2]}" /api/sync/status || true)"; ech
 echo "c_sync_status_final=$(api "${NS[2]}" "${API[2]}" /api/sync/status || true)"
 echo "c_refuse_lines_final=$(grep -iE 'refusing to seal epoch|verified catch-up|sealing enabled|refusing import' "$WORK/c/run.log" 2>/dev/null | head -40 || true)"
 echo "c_refuse_count_final=$(grep -icE 'refusing to seal epoch' "$WORK/c/run.log" 2>/dev/null || echo 0)"
-echo "c_snapshot_epoch_served_by_a=$(api "${NS[0]}" "${API[0]}" /api/sync/snapshot | jq -c '{epoch,state_root,account_count}' || true)"
+echo "c_snapshot_epoch_served_by_a=$(api "${NS[0]}" "${API[0]}" /api/sync/snapshot | jq -c '{epoch,state_root,digest,account_count}' || true)"
 ROOT_A=$(api "${NS[0]}" "${API[0]}" /api/chain/state_root); ROOT_B=$(api "${NS[1]}" "${API[1]}" /api/chain/state_root); ROOT_C=$(api "${NS[2]}" "${API[2]}" /api/chain/state_root)
 echo "final_root_a=$ROOT_A"; echo "final_root_b=$ROOT_B"; echo "final_root_c=$ROOT_C"; echo "final_roots_equal=$( [ "$ROOT_A" = "$ROOT_B" ] && [ "$ROOT_B" = "$ROOT_C" ] && echo true || echo false )"
+# reward_watermark == highest_contiguous_rewarded epoch (main.rs) — the epoch label the
+# snapshot-completeness fix (and the item-5 anchor fix) is scored against, sampled AFTER
+# the post-rejoin finalization boundary so it reflects applied rewards, not just seals.
+EPOCH_A=$(api "${NS[0]}" "${API[0]}" /api/sync/status | jq -r '.reward_watermark'); EPOCH_B=$(api "${NS[1]}" "${API[1]}" /api/sync/status | jq -r '.reward_watermark'); EPOCH_C=$(api "${NS[2]}" "${API[2]}" /api/sync/status | jq -r '.reward_watermark')
+echo "final_epoch_a=$EPOCH_A"; echo "final_epoch_b=$EPOCH_B"; echo "final_epoch_c=$EPOCH_C"; echo "final_epochs_equal=$( [ "$EPOCH_A" = "$EPOCH_B" ] && [ "$EPOCH_B" = "$EPOCH_C" ] && echo true || echo false )"
+# Per-epoch credit-vs-recycle lines for C: must show CREDIT (sealer credited N hunits),
+# not "earned nothing ... recycle fund", for epochs in the rejoin window.
+echo "c_reward_lines_final=$(grep -iE '\[finalize\] epoch .* (sealer .* credited|earned nothing)' "$WORK/c/run.log" 2>/dev/null | tail -40 || true)"
+# C's registered-clock count as seen by the reward path (main.rs reward-path log, added
+# for this gate's observability) — must read 3/3 once all three nodes are registered.
+echo "c_registered_clock_lines_final=$(grep -iE 'reward-path registered clock count' "$WORK/c/run.log" 2>/dev/null | tail -20 || true)"
 echo "qdisc_final_a=$(sudo -n ip netns exec "${NS[0]}" tc -s qdisc show dev "${NV[0]}")"; echo "qdisc_final_b=$(sudo -n ip netns exec "${NS[1]}" tc -s qdisc show dev "${NV[1]}")"; echo "qdisc_final_c=$(sudo -n ip netns exec "${NS[2]}" tc -s qdisc show dev "${NV[2]}")"; echo "raw_output_complete=true"

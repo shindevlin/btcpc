@@ -730,6 +730,12 @@ async fn main() -> Result<()> {
                         // nodes emit byte-identical ClockReward and balances stay convergent.
                         // (reg_count kept for the diagnostic below.)
                         let quorum = clock::quorum();
+                        // Unconditional (was only logged below-quorum) so the gate can confirm
+                        // the reward path's registered-clock view directly, not by absence.
+                        info!(
+                            "[clock] epoch {}: reward-path registered clock count = {} (quorum requirement {})",
+                            sealed_epoch, reg_count, quorum
+                        );
                         if reg_count < quorum {
                             info!(
                                 "[clock] epoch {}: {} registered clock(s) < quorum {} — sealing only, \
@@ -2040,6 +2046,9 @@ fn emit_epoch_rewards(
             warn!("clock: clock reward failed for {} epoch {}: {}", node_id, epoch, e);
             continue;
         }
+        // Symmetric with the "earned nothing ... recycle fund" log above — gives the
+        // credit-vs-recycle gate observability into which path an epoch actually took.
+        info!("[finalize] epoch {} sealer {} credited {} hunits (CREDIT, not recycle)", epoch, node_id, scaled_reward);
         // No broadcast: rewards are replay-derived from the winning EpochFinalize on
         // every node; gossiping ClockReward would double-credit (no idempotency guard).
     }
