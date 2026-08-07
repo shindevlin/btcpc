@@ -21,6 +21,18 @@ pub struct Store {
     db: Arc<DB>,
 }
 
+/// Full consensus-state materials for a verified late-join snapshot, all read
+/// through one RocksDB snapshot (see `Store::read_atomic_sync_state`).
+pub struct AtomicSyncState {
+    pub balances: Vec<(String, String, u64)>,
+    pub accounts: Vec<(String, serde_json::Value)>,
+    pub clock_registrations: Vec<(String, Vec<u8>)>,
+    pub alive_epochs: Vec<(String, u64)>,
+    pub epoch_done: std::collections::HashSet<u64>,
+    pub reward_watermark: u64,
+    pub state_root: String,
+}
+
 impl Store {
     pub fn open(path: &Path) -> Result<Self> {
         std::fs::create_dir_all(path)?;
@@ -312,6 +324,128 @@ impl Store {
             let (k, _) = item.ok()?;
             String::from_utf8(k.to_vec()).ok()
         }).collect()
+    }
+
+    /// Replace every CF_ACCOUNTS record as one RocksDB batch (mirrors
+    /// `replace_balance_entries`). Used by the verified late-join snapshot path.
+    pub fn replace_account_entries(&self, entries: &[(String, serde_json::Value)]) -> Result<()> {
+        let cf = self.db.cf_handle(CF_ACCOUNTS).context("accounts CF")?;
+        let existing: Vec<Vec<u8>> = self.db.iterator_cf(&cf, IteratorMode::Start)
+            .filter_map(|r| r.ok().map(|(k, _)| k.to_vec())).collect();
+        let mut batch = WriteBatch::default();
+        for key in existing { batch.delete_cf(&cf, key); }
+        for (id, state) in entries {
+            batch.put_cf(&cf, id.as_bytes(), serde_json::to_vec(state)?);
+        }
+        self.db.write(batch)?;
+        Ok(())
+    }
+
+    /// Replace every CF_META key under any of `prefixes` as one RocksDB batch.
+    /// Other CF_META keys (outside these prefixes) are untouched — CF_META is
+    /// shared by many unrelated subsystems, so this must not be a full-CF wipe.
+    /// Used to restore clock-registration (`role_stake:clock:`, `clock_reg:`) and
+    /// alive-epoch (`alive:`) state as part of the verified late-join snapshot.
+    pub fn replace_meta_prefixed_entries(&self, prefixes: &[&str], entries: &[(String, Vec<u8>)]) -> Result<()> {
+        let cf = self.db.cf_handle(CF_META).context("meta CF")?;
+        let mut batch = WriteBatch::default();
+        for prefix in prefixes {
+            let iter = self.db.iterator_cf(&cf, IteratorMode::From(prefix.as_bytes(), Direction::Forward));
+            for item in iter {
+                let Ok((k, _)) = item else { break };
+                if !k.starts_with(prefix.as_bytes()) { break; }
+                batch.delete_cf(&cf, k);
+            }
+        }
+        for (key, val) in entries {
+            batch.put_cf(&cf, key.as_bytes(), val);
+        }
+        self.db.write(batch)?;
+        Ok(())
+    }
+
+    /// Point-in-time-consistent read of every consensus-state component a verified
+    /// late-join snapshot must carry: balances, accounts, clock-registration state
+    /// (`role_stake:clock:` + `clock_reg:`), and the alive-epoch map (`alive:`),
+    /// plus the epoch-anchoring inputs (`epoch_finalized_done:*` + reward watermark).
+    /// All reads go through ONE `rocksdb::Snapshot` so a concurrent reward/decay
+    /// pass mid-scan cannot skew epoch against balances (the double-credit window
+    /// `get_sync_snapshot` used to have when it took 3-4 separate live reads).
+    pub fn read_atomic_sync_state(&self) -> AtomicSyncState {
+        let snap = self.db.snapshot();
+        let bal_cf = self.db.cf_handle(CF_BALANCES);
+        let acc_cf = self.db.cf_handle(CF_ACCOUNTS);
+        let meta_cf = self.db.cf_handle(CF_META);
+
+        let mut balances: Vec<(String, String, u64)> = Vec::new();
+        if let Some(cf) = &bal_cf {
+            for item in snap.iterator_cf(cf, IteratorMode::Start) {
+                let Ok((k, v)) = item else { break };
+                if let Some((account, token)) = std::str::from_utf8(&k).ok().and_then(|s| s.split_once('\0')) {
+                    if let Ok(amount) = <[u8; 8]>::try_from(v.as_ref()) {
+                        balances.push((account.to_owned(), token.to_owned(), u64::from_le_bytes(amount)));
+                    }
+                }
+            }
+        }
+        balances.sort();
+
+        let mut accounts: Vec<(String, serde_json::Value)> = Vec::new();
+        if let Some(cf) = &acc_cf {
+            for item in snap.iterator_cf(cf, IteratorMode::Start) {
+                let Ok((k, v)) = item else { break };
+                if let (Ok(id), Ok(state)) = (String::from_utf8(k.to_vec()), serde_json::from_slice(&v)) {
+                    accounts.push((id, state));
+                }
+            }
+        }
+        accounts.sort_by(|a, b| a.0.cmp(&b.0));
+
+        let scan_prefix = |prefix: &str| -> Vec<(String, Vec<u8>)> {
+            let Some(cf) = &meta_cf else { return vec![] };
+            let mut out = Vec::new();
+            let iter = snap.iterator_cf(cf, IteratorMode::From(prefix.as_bytes(), Direction::Forward));
+            for item in iter {
+                let Ok((k, v)) = item else { break };
+                if !k.starts_with(prefix.as_bytes()) { break; }
+                if let Ok(key_str) = String::from_utf8(k.to_vec()) {
+                    out.push((key_str, v.to_vec()));
+                }
+            }
+            out
+        };
+
+        let mut clock_registrations = scan_prefix("role_stake:clock:");
+        clock_registrations.extend(scan_prefix("clock_reg:"));
+        clock_registrations.sort_by(|a, b| a.0.cmp(&b.0));
+
+        let alive_epochs: Vec<(String, u64)> = scan_prefix("alive:").into_iter()
+            .filter_map(|(k, v)| {
+                let account = k.strip_prefix("alive:")?.to_owned();
+                let epoch = u64::from_le_bytes(v.as_slice().try_into().ok()?);
+                Some((account, epoch))
+            }).collect();
+
+        let epoch_done: std::collections::HashSet<u64> = scan_prefix("epoch_finalized_done:").into_iter()
+            .filter_map(|(k, _)| k.rsplit(':').next().and_then(|s| s.parse::<u64>().ok()))
+            .collect();
+
+        let reward_watermark = meta_cf.as_ref()
+            .and_then(|cf| snap.get_cf(cf, b"reward_watermark").ok().flatten())
+            .and_then(|v| <[u8; 8]>::try_from(v.as_slice()).ok())
+            .map(u64::from_be_bytes).unwrap_or(0);
+
+        let state_root = if balances.is_empty() {
+            "0".repeat(64)
+        } else {
+            let leaves: Vec<[u8; 32]> = balances.iter()
+                .map(|(a, t, amt)| merkle_leaf(format!("{}\0{}", a, t).as_bytes(), &amt.to_le_bytes()))
+                .collect();
+            let levels = build_merkle_tree(&leaves);
+            hex::encode(levels.last().unwrap()[0])
+        };
+
+        AtomicSyncState { balances, accounts, clock_registrations, alive_epochs, epoch_done, reward_watermark, state_root }
     }
 
     /// Scan all keys with the given prefix in CF_META.

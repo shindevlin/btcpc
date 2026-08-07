@@ -1974,24 +1974,34 @@ fn non_empty(s: &str) -> Option<&str> {
     if s.is_empty() { None } else { Some(s) }
 }
 
-// GET /api/sync/snapshot — full account state export for bootstrapping a diverged node.
-// Returns the current epoch checkpoint + every account record. A node can load this
-// as its starting state instead of replaying from genesis and diverging.
+// GET /api/sync/snapshot — full consensus-state export for bootstrapping a diverged
+// node: balances, accounts, clock-registration state, and the alive-epoch map, all
+// read through ONE RocksDB snapshot (`read_atomic_sync_state`) so a concurrent
+// reward/decay pass can't skew epoch against balances (the double-credit window a
+// prior version of this handler had from taking separate live reads). A node can
+// load this as its starting state instead of replaying from genesis and diverging.
 async fn get_sync_snapshot(State(s): State<AppState>) -> Json<serde_json::Value> {
-    let epoch = crate::state_sync::snapshot_epoch(&s.chain);
-    let ids = s.chain.store.scan_account_ids();
-    let accounts: Vec<serde_json::Value> = ids.iter()
-        .filter_map(|id| s.chain.store.get_account(id).ok().flatten())
-        .collect();
+    let atomic = s.chain.store.read_atomic_sync_state();
+    let epoch = crate::state_sync::contiguous_finalized(&atomic.epoch_done, atomic.reward_watermark);
+    let digest = crate::state_sync::consensus_digest(epoch, &atomic);
     Json(serde_json::json!({
         "epoch": epoch,
-        "state_root": s.chain.store.balance_merkle_root(),
-        "account_count": accounts.len(),
-        "accounts": accounts,
-        "balances": s.chain.store.scan_balance_entries().into_iter()
+        "state_root": atomic.state_root,
+        "digest": digest,
+        "account_count": atomic.accounts.len(),
+        "accounts": atomic.accounts.iter()
+            .map(|(id, state)| serde_json::json!({ "id": id, "state": state }))
+            .collect::<Vec<_>>(),
+        "balances": atomic.balances.iter()
             .map(|(account, token, amount)| serde_json::json!({
                 "account": account, "token": token, "amount": amount
             })).collect::<Vec<_>>(),
+        "clock_registrations": atomic.clock_registrations.iter()
+            .map(|(key, value)| serde_json::json!({ "key": key, "value_hex": hex::encode(value) }))
+            .collect::<Vec<_>>(),
+        "alive_epochs": atomic.alive_epochs.iter()
+            .map(|(account, epoch)| serde_json::json!({ "account": account, "epoch": epoch }))
+            .collect::<Vec<_>>(),
     }))
 }
 

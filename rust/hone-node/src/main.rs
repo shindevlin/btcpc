@@ -574,8 +574,7 @@ async fn main() -> Result<()> {
             loop {
                 match sealed_rx.recv().await {
                     Ok(sealed) if sealed.sealed => {
-                        if !sync_ready_for_seals.load(std::sync::atomic::Ordering::Acquire) {
-                            warn!("[sync] refusing to seal epoch {} until verified catch-up completes", sealed.epoch);
+                        if seal_refused_pending_sync(&sync_ready_for_seals, sealed.epoch) {
                             continue;
                         }
                         let seal_hash = sealed.winner
@@ -1772,26 +1771,84 @@ async fn run_inference_verifier(
 /// crash, no adversarial network needed. `epoch_finalized_done` is already persisted per
 /// epoch, so the durable truth is right there; we just have to read it back.
 ///
-/// CONTIGUOUS is the whole point, mirroring the driver's own advance rule: we stop at the
-/// first missing epoch and return the one before it, so an unresolved gap is where we
-/// resume, never something we start above. Returns 0 on a fresh node (no keys), which
-/// correctly means "nothing rewarded yet."
+/// Anchored at `min(done)` via `state_sync::contiguous_finalized`, not at 1 — HONE's
+/// genesis is backdated, so a launch cohort only ever finalizes epochs from its launch
+/// epoch F onward and `epoch_finalized_done:1` never exists. Anchoring at 1 broke on the
+/// first step and returned watermark-or-0 for a fully-populated launch node. Same fix as
+/// `state_sync::snapshot_epoch`.
 fn highest_contiguous_rewarded(chain: &Chain) -> u64 {
     let done: std::collections::HashSet<u64> = chain.store
         .state_scan_prefix("epoch_finalized_done:")
         .into_iter()
         .filter_map(|(k, _)| k.rsplit(':').next().and_then(|s| s.parse::<u64>().ok()))
         .collect();
-    let watermark = chain.store.reward_watermark();
-    if done.is_empty() { return watermark; }
-    // Walk up from 1 while each epoch is present. Bounded by the highest key, so a
-    // sparse/corrupt set can't spin.
-    let max = done.iter().copied().max().unwrap_or(0);
-    let mut e = 0u64;
-    while e < max && done.contains(&(e + 1)) {
-        e += 1;
+    crate::state_sync::contiguous_finalized(&done, chain.store.reward_watermark())
+}
+
+// ── refuse-to-seal gate ────────────────────────────────────────────────────────
+
+/// The seal gate itself: a node must not seal an epoch until verified late-join
+/// catch-up completes (`sync_ready`), or a diverged/partially-caught-up joiner could
+/// seal on top of state it hasn't verified against peers. Extracted out of the
+/// `sealed_rx` loop so it's directly unit-testable — the 3-clock netem harness can't
+/// reliably assert this path because a rejoining node loses every seal race in its
+/// ~60s pre-ready window (proven live: no adversarial injection needed), so a direct
+/// test of the gate itself is the only deterministic way to cover it.
+fn seal_refused_pending_sync(sync_ready: &std::sync::atomic::AtomicBool, epoch: u64) -> bool {
+    if !sync_ready.load(std::sync::atomic::Ordering::Acquire) {
+        warn!("[sync] refusing to seal epoch {} until verified catch-up completes", epoch);
+        return true;
     }
-    e.max(watermark)
+    false
+}
+
+#[cfg(test)]
+mod seal_gate_tests {
+    use super::seal_refused_pending_sync;
+    use std::sync::atomic::AtomicBool;
+    use std::sync::{Arc, Mutex};
+
+    #[derive(Clone, Default)]
+    struct CapturingWriter(Arc<Mutex<Vec<u8>>>);
+
+    impl std::io::Write for CapturingWriter {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+    }
+
+    impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for CapturingWriter {
+        type Writer = Self;
+        fn make_writer(&'a self) -> Self::Writer { self.clone() }
+    }
+
+    #[test]
+    fn refuses_to_seal_when_sync_not_ready() {
+        let sync_ready = AtomicBool::new(false);
+        let writer = CapturingWriter::default();
+        let subscriber = tracing_subscriber::fmt()
+            .with_writer(writer.clone())
+            .without_time()
+            .with_ansi(false)
+            .finish();
+        let refused = tracing::subscriber::with_default(subscriber, || {
+            seal_refused_pending_sync(&sync_ready, 42)
+        });
+        assert!(refused, "gate must refuse to seal while sync_ready is false");
+        let logged = String::from_utf8(writer.0.lock().unwrap().clone()).unwrap();
+        assert!(
+            logged.contains("refusing to seal epoch 42 until verified catch-up completes"),
+            "expected the refuse-to-seal warn line, got: {logged}"
+        );
+    }
+
+    #[test]
+    fn permits_seal_once_sync_ready() {
+        let sync_ready = AtomicBool::new(true);
+        assert!(!seal_refused_pending_sync(&sync_ready, 42));
+    }
 }
 
 // ── txglobal backfill ─────────────────────────────────────────────────────────

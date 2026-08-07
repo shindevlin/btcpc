@@ -9,17 +9,77 @@ use std::sync::{Arc, atomic::{AtomicBool, Ordering}};
 use std::time::Duration;
 use anyhow::{Context, Result, anyhow};
 use serde::Deserialize;
-use crate::{chain::Chain, net::NetworkHandle};
+use sha2::{Sha256, Digest as _};
+use crate::{chain::Chain, net::NetworkHandle, store::AtomicSyncState};
 
 #[derive(Debug, Deserialize, Clone)]
 struct Snapshot {
     epoch: u64,
     state_root: String,
+    #[serde(default)] digest: String,
     #[serde(default)] balances: Vec<Balance>,
+    #[serde(default)] accounts: Vec<AccountEntry>,
+    #[serde(default)] clock_registrations: Vec<MetaEntry>,
+    #[serde(default)] alive_epochs: Vec<AliveEntry>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 struct Balance { account: String, token: String, amount: u64 }
+
+#[derive(Debug, Deserialize, Clone)]
+struct AccountEntry { id: String, state: serde_json::Value }
+
+#[derive(Debug, Deserialize, Clone)]
+struct MetaEntry { key: String, value_hex: String }
+
+#[derive(Debug, Deserialize, Clone)]
+struct AliveEntry { account: String, epoch: u64 }
+
+/// Deterministic digest over the FULL restored consensus state — balances,
+/// accounts, clock-registration state, and the alive-epoch map — not just the
+/// balance root.  `AtomicSyncState`'s collections are already sorted by key, so
+/// this is stable across nodes independent of RocksDB iteration order.  Bound to
+/// `epoch` so a peer that agrees on data but mislabels the epoch cannot pass
+/// agreement.  Used both to require ≥2-peer agreement before import (trust
+/// minimization) and, after import, to verify the restored state matches
+/// byte-for-byte before enabling sealing (fail-closed, same shape as the
+/// pre-existing balance-root check).
+pub(crate) fn consensus_digest(epoch: u64, state: &AtomicSyncState) -> String {
+    let mut h = Sha256::new();
+    h.update(b"epoch:");
+    h.update(epoch.to_le_bytes());
+    h.update(b"|balances:");
+    for (account, token, amount) in &state.balances {
+        h.update(account.as_bytes());
+        h.update(b"\0");
+        h.update(token.as_bytes());
+        h.update(b"=");
+        h.update(amount.to_le_bytes());
+        h.update(b";");
+    }
+    h.update(b"|accounts:");
+    for (id, value) in &state.accounts {
+        h.update(id.as_bytes());
+        h.update(b"=");
+        h.update(serde_json::to_vec(value).unwrap_or_default());
+        h.update(b";");
+    }
+    h.update(b"|clock_registrations:");
+    for (key, value) in &state.clock_registrations {
+        h.update(key.as_bytes());
+        h.update(b"=");
+        h.update(value);
+        h.update(b";");
+    }
+    h.update(b"|alive_epochs:");
+    for (account, epoch) in &state.alive_epochs {
+        h.update(account.as_bytes());
+        h.update(b"=");
+        h.update(epoch.to_le_bytes());
+        h.update(b";");
+    }
+    format!("{:x}", h.finalize())
+}
 
 #[derive(Debug, Deserialize)]
 struct Blocks { #[serde(default)] blocks: Vec<serde_json::Value> }
@@ -51,7 +111,7 @@ pub fn snapshot_epoch(chain: &Chain) -> u64 {
 /// semantics are unchanged and intended: the block tip may be ahead of reward
 /// application, so labeling with `latest_epoch()` would hand a joiner a root from
 /// the middle of an unfinished reward window.
-fn contiguous_finalized(done: &std::collections::HashSet<u64>, watermark: u64) -> u64 {
+pub(crate) fn contiguous_finalized(done: &std::collections::HashSet<u64>, watermark: u64) -> u64 {
     if done.is_empty() {
         return watermark;
     }
@@ -64,9 +124,14 @@ fn contiguous_finalized(done: &std::collections::HashSet<u64>, watermark: u64) -
     e.max(watermark)
 }
 
+/// Peer agreement is over the FULL consensus-state digest, not just
+/// (epoch, state_root) — two peers could agree on balances while disagreeing on
+/// clock-registration or alive-epoch state, which would still fork the joiner.
 fn agreed_snapshot(snaps: &[(String, Snapshot)]) -> Option<(String, Snapshot)> {
     snaps.iter()
-        .find(|(_, s)| snaps.iter().filter(|(_, x)| x.epoch == s.epoch && x.state_root == s.state_root).count() >= 2)
+        .find(|(_, s)| snaps.iter().filter(|(_, x)|
+            x.epoch == s.epoch && x.state_root == s.state_root && x.digest == s.digest
+        ).count() >= 2)
         .cloned()
 }
 
@@ -148,13 +213,65 @@ pub async fn run(chain: Arc<Chain>, net: NetworkHandle, ready: Arc<AtomicBool>) 
     }
 }
 
+/// Restore ALL prior categories from `old`, undoing a partial import.  Same
+/// fail-closed shape as the pre-existing balance-only rollback, extended to the
+/// clock-registration and alive-epoch state added by the snapshot-completeness
+/// fix — a partially-imported joiner (balances updated, clock-registration or
+/// alive state not yet verified) must not be left in a mixed state.
+fn rollback_to(chain: &Chain, old: &AtomicSyncState) -> Result<()> {
+    chain.store.replace_balance_entries(&old.balances).context("rollback balances")?;
+    chain.store.replace_account_entries(&old.accounts).context("rollback accounts")?;
+    chain.store.replace_meta_prefixed_entries(
+        &["role_stake:clock:", "clock_reg:", "alive:"],
+        &old.clock_registrations.iter().cloned()
+            .chain(old.alive_epochs.iter().map(|(a, e)| (format!("alive:{}", a), e.to_le_bytes().to_vec())))
+            .collect::<Vec<_>>(),
+    ).context("rollback clock-registration/alive state")?;
+    Ok(())
+}
+
 async fn import_verified(chain: &Chain, client: &reqwest::Client, peer_base: &str, snapshot: &Snapshot, entries: &[(String, String, u64)]) -> Result<()> {
-    let old = chain.store.scan_balance_entries();
+    let old = chain.store.read_atomic_sync_state();
+
     chain.store.replace_balance_entries(entries).context("replace balances")?;
     if chain.store.balance_merkle_root() != snapshot.state_root {
-        chain.store.replace_balance_entries(&old).context("rollback balances")?;
+        let _ = rollback_to(chain, &old);
         return Err(anyhow!("snapshot state_root recomputation mismatch"));
     }
+
+    // Clock-registration state (order item 1): without this, a joiner's own
+    // `registered_clock_nodes` view comes up short relative to the clock module's
+    // live view, `epoch_meta.sealed_by` ends up empty for epochs it self-seals,
+    // and the reward driver recycles the block reward instead of crediting
+    // sealers — the snapshot-completeness bug this fix closes.
+    chain.store.replace_account_entries(
+        &snapshot.accounts.iter().map(|a| (a.id.clone(), a.state.clone())).collect::<Vec<_>>(),
+    ).context("restore accounts")?;
+    let mut clock_and_alive: Vec<(String, Vec<u8>)> = Vec::new();
+    for reg in &snapshot.clock_registrations {
+        let bytes = hex::decode(&reg.value_hex).context("decode clock-registration value")?;
+        clock_and_alive.push((reg.key.clone(), bytes));
+    }
+    // Per-account alive-epoch map (order item 2): without this, `apply_entropy_decay`
+    // (finalize.rs) reads `get_alive_epoch` as 0 for every imported account and
+    // applies the wrong decay relative to peers that have the real history.
+    for alive in &snapshot.alive_epochs {
+        clock_and_alive.push((format!("alive:{}", alive.account), alive.epoch.to_le_bytes().to_vec()));
+    }
+    chain.store.replace_meta_prefixed_entries(&["role_stake:clock:", "clock_reg:", "alive:"], &clock_and_alive)
+        .context("restore clock-registration/alive state")?;
+
+    // Trust-minimize (order item 3): the ≥2-peer agreement already covered this
+    // digest (`agreed_snapshot`); recompute it locally over what was ACTUALLY
+    // written and roll back on mismatch, same fail-closed shape as the
+    // balance-root check above.
+    let restored = chain.store.read_atomic_sync_state();
+    let local_digest = consensus_digest(snapshot.epoch, &restored);
+    if !snapshot.digest.is_empty() && local_digest != snapshot.digest {
+        let _ = rollback_to(chain, &old);
+        return Err(anyhow!("snapshot consensus-digest recomputation mismatch"));
+    }
+
     chain.store.set_reward_watermark(snapshot.epoch).context("persist reward watermark")?;
     // Backfill sealed blocks for serving/validation only.  Never feed these
     // blocks through reward application: the snapshot already contains their
@@ -179,7 +296,11 @@ mod tests {
     use std::collections::HashSet;
 
     fn snapshot(epoch: u64, state_root: &str) -> Snapshot {
-        Snapshot { epoch, state_root: state_root.to_owned(), balances: Vec::new() }
+        Snapshot {
+            epoch, state_root: state_root.to_owned(), digest: String::new(),
+            balances: Vec::new(), accounts: Vec::new(),
+            clock_registrations: Vec::new(), alive_epochs: Vec::new(),
+        }
     }
 
     #[test]
