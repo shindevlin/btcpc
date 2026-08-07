@@ -69,6 +69,15 @@ echo "target_root_a=$ROOT_A_TARGET"; echo "target_root_b=$ROOT_B_TARGET"; echo "
 
 echo "phase=c_rejoin seconds=$REJOIN_SECS"; start 2 "/ip4/${IP[0]}/tcp/${P2P[0]}/p2p/$PA"; sleep 12
 echo "c_sync_status=$(api "${NS[2]}" "${API[2]}" /api/sync/status || true)"; echo "c_refuse_lines=$(grep -iE 'refusing to seal epoch|verified catch-up|sealing enabled' "$WORK/c/run.log" 2>/dev/null | head -20 || true)"; sleep "$REJOIN_SECS"
+# The +12s grep above fires while C is still inside HONE_STATE_SYNC_TEST_DELAY_SECS
+# (60s), so catch-up has not even been attempted yet and no seal has been refused —
+# that early sample is why Pass-B could not assert refuse-to-seal. Re-sample the same
+# keys after the rejoin window, when the refusal and the completion have both had time
+# to be logged. The early keys are kept as-is so existing parsers keep working.
+echo "c_sync_status_final=$(api "${NS[2]}" "${API[2]}" /api/sync/status || true)"
+echo "c_refuse_lines_final=$(grep -iE 'refusing to seal epoch|verified catch-up|sealing enabled|refusing import' "$WORK/c/run.log" 2>/dev/null | head -40 || true)"
+echo "c_refuse_count_final=$(grep -icE 'refusing to seal epoch' "$WORK/c/run.log" 2>/dev/null || echo 0)"
+echo "c_snapshot_epoch_served_by_a=$(api "${NS[0]}" "${API[0]}" /api/sync/snapshot | jq -c '{epoch,state_root,account_count}' || true)"
 ROOT_A=$(api "${NS[0]}" "${API[0]}" /api/chain/state_root); ROOT_B=$(api "${NS[1]}" "${API[1]}" /api/chain/state_root); ROOT_C=$(api "${NS[2]}" "${API[2]}" /api/chain/state_root)
 echo "final_root_a=$ROOT_A"; echo "final_root_b=$ROOT_B"; echo "final_root_c=$ROOT_C"; echo "final_roots_equal=$( [ "$ROOT_A" = "$ROOT_B" ] && [ "$ROOT_B" = "$ROOT_C" ] && echo true || echo false )"
 echo "qdisc_final_a=$(sudo -n ip netns exec "${NS[0]}" tc -s qdisc show dev "${NV[0]}")"; echo "qdisc_final_b=$(sudo -n ip netns exec "${NS[1]}" tc -s qdisc show dev "${NV[1]}")"; echo "qdisc_final_c=$(sudo -n ip netns exec "${NS[2]}" tc -s qdisc show dev "${NV[2]}")"; echo "raw_output_complete=true"
