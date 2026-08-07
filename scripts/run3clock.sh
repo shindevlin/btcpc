@@ -68,7 +68,15 @@ ROOT_A_TARGET=$(api "${NS[0]}" "${API[0]}" /api/chain/state_root); ROOT_B_TARGET
 echo "target_root_a=$ROOT_A_TARGET"; echo "target_root_b=$ROOT_B_TARGET"; echo "target_root_ab_equal=$( [ "$ROOT_A_TARGET" = "$ROOT_B_TARGET" ] && echo true || echo false )"
 
 echo "phase=c_rejoin seconds=$REJOIN_SECS"; start 2 "/ip4/${IP[0]}/tcp/${P2P[0]}/p2p/$PA"; sleep 12
-echo "c_sync_status=$(api "${NS[2]}" "${API[2]}" /api/sync/status || true)"; echo "c_refuse_lines=$(grep -iE 'refusing to seal epoch|verified catch-up|sealing enabled' "$WORK/c/run.log" 2>/dev/null | head -20 || true)"; sleep "$REJOIN_SECS"
+echo "c_sync_status=$(api "${NS[2]}" "${API[2]}" /api/sync/status || true)"; echo "c_refuse_lines=$(grep -iE 'refusing to seal epoch|verified catch-up|sealing enabled' "$WORK/c/run.log" 2>/dev/null | head -20 || true)"
+# Sample the snapshot BOTH peers serve, back to back, at two time points. The joiner's
+# agreement rule (state_sync.rs agreed_snapshot) needs two peers to match on epoch AND
+# state_root AND digest simultaneously; sampling only one peer cannot tell an epoch skew
+# apart from a non-deterministic digest, which are different failures. Early point first
+# (while C is actively polling), matching point again after the rejoin window below.
+echo "snapshot_served_by_a_early=$(api "${NS[0]}" "${API[0]}" /api/sync/snapshot | jq -c '{epoch,state_root,digest,account_count}' || true)"
+echo "snapshot_served_by_b_early=$(api "${NS[1]}" "${API[1]}" /api/sync/snapshot | jq -c '{epoch,state_root,digest,account_count}' || true)"
+sleep "$REJOIN_SECS"
 # The +12s grep above fires while C is still inside HONE_STATE_SYNC_TEST_DELAY_SECS
 # (60s), so catch-up has not even been attempted yet and no seal has been refused —
 # that early sample is why Pass-B could not assert refuse-to-seal. Re-sample the same
@@ -78,6 +86,7 @@ echo "c_sync_status_final=$(api "${NS[2]}" "${API[2]}" /api/sync/status || true)
 echo "c_refuse_lines_final=$(grep -iE 'refusing to seal epoch|verified catch-up|sealing enabled|refusing import' "$WORK/c/run.log" 2>/dev/null | head -40 || true)"
 echo "c_refuse_count_final=$(grep -icE 'refusing to seal epoch' "$WORK/c/run.log" 2>/dev/null || echo 0)"
 echo "c_snapshot_epoch_served_by_a=$(api "${NS[0]}" "${API[0]}" /api/sync/snapshot | jq -c '{epoch,state_root,digest,account_count}' || true)"
+echo "snapshot_served_by_b_final=$(api "${NS[1]}" "${API[1]}" /api/sync/snapshot | jq -c '{epoch,state_root,digest,account_count}' || true)"
 ROOT_A=$(api "${NS[0]}" "${API[0]}" /api/chain/state_root); ROOT_B=$(api "${NS[1]}" "${API[1]}" /api/chain/state_root); ROOT_C=$(api "${NS[2]}" "${API[2]}" /api/chain/state_root)
 echo "final_root_a=$ROOT_A"; echo "final_root_b=$ROOT_B"; echo "final_root_c=$ROOT_C"; echo "final_roots_equal=$( [ "$ROOT_A" = "$ROOT_B" ] && [ "$ROOT_B" = "$ROOT_C" ] && echo true || echo false )"
 # reward_watermark == highest_contiguous_rewarded epoch (main.rs) — the epoch label the
