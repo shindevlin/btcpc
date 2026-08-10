@@ -38,7 +38,7 @@ docs/.obsidian/
 .claude/worktrees/
 .ufbt-venv/
 .ufbt-tools/
-.btcpc-image-hash
+.hone-image-hash
 
 # Forge build artifacts
 out/
@@ -89,7 +89,6 @@ data/anchors/
 
 # Large standalone projects (separate repos / too big)
 /camofox-browser/
-/btcpc/
 
 # Website redesign WIP (not ready for main)
 website-redesign/

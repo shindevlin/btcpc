@@ -8,7 +8,6 @@ blocks
 logs
 *.log
 .DS_Store
-btcpc/
 website/hone-image.tar.gz
 website/hone-image.tar
 tests

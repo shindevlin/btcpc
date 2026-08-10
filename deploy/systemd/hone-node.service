@@ -1,11 +1,11 @@
 [Unit]
-Description=HONE Node — Bitcoin Proof of Compute
+Description=HONE Node — Proof of Compute
 Documentation=https://hone.network
 After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/mnt/btcpc-storage/repos/hone
+WorkingDirectory=%h/repos/hone
 ExecStart=/usr/bin/node bin/hone-all
 Restart=on-failure
 RestartSec=10
