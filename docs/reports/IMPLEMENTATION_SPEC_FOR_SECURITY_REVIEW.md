@@ -38,8 +38,7 @@ The replay path currently accepts negative HONE balances from persisted state. T
 - [`src/chain/replay.js`](../../src/chain/replay.js)
 - [`src/chain/blockStore.js`](../../src/chain/blockStore.js)
 - [`src/p2p/chainSync.js`](../../src/p2p/chainSync.js)
-- [`tests/replay.test.js`](../../tests/replay.test.js)
-- [`tests/stateStore.test.js`](../../tests/stateStore.test.js)
+- [`tests/p2pSyncReplay.test.js`](../../tests/p2pSyncReplay.test.js)
 
 ### Insertion point
 

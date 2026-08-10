@@ -3,7 +3,7 @@ title: HONE Genesis — July 4th, 2026 (Freedom Tech Relaunch)
 description: Plan for review — why we reset the chain, the recoverable-keystore fix, and the wallet recreation for every project
 author: Shin Devlin
 status: DRAFT — for review before any build
-supersedes_genesis: 1783191600000 (May 1 2026, "Mayday")
+supersedes_genesis: pre-July-4 testnet genesis (May 1 2026, "Mayday" anchor, retired)
 ---
 
 # HONE Genesis — July 4th, 2026
@@ -16,7 +16,7 @@ supersedes_genesis: 1783191600000 (May 1 2026, "Mayday")
 
 ## 1. Why reset the chain
 
-The current chain (genesis `1783191600000`, May 1 2026) carries a **fatal,
+The current chain (pre-July-4 genesis, May 1 2026) carries a **fatal,
 unfixable-in-place flaw**: **wallets were created without any recoverable key
 storage.**
 
@@ -46,7 +46,7 @@ genesis to July 4 2026 makes the mission the launch.
 
 - **New genesis timestamp: `1783191600000`** = 2026-07-04 12:00:00 PDT (noon Los Angeles)
   (19:00 UTC). Noon Pacific (Los Angeles) on Independence Day.
-- Retires the "Mayday" / May 1 anchor (`1783191600000`).
+- Retires the earlier "Mayday" / May 1 anchor genesis.
 - 64 days after the old genesis — a real, deliberate relaunch, not a slip.
 
 *(Locked to noon Pacific / Los Angeles — Shin's call.)*
@@ -154,7 +154,7 @@ to git (the vault is gitignored).
 - Keystore = **all three layers** (Argon2id file + shown phrase + optional relay).
 
 ## 8. Open questions for your review
-1. Genesis time: **noon EDT (recommended)** vs midnight EDT?
+1. ~~Genesis time: noon EDT vs midnight EDT?~~ **Resolved:** noon PDT / Los Angeles (see §2, §7).
 2. Any accounts missing from the §4 list that you want wallets for?
 3. Should the local `wallets/` vault live in the hone repo (gitignored) or a
    separate path you name?
