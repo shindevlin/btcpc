@@ -207,12 +207,34 @@ for n in a c; do
   echo "EOF"
   echo "${n}_escrow_count=$(grep -ac '\[escrow\] post' "$WORK/$n/run.log" 2>/dev/null || echo 0)"
 done
+# T+45 RECHECK (order 2c89388cfea9, run 13's flagged-but-not-run empirical-confirmation
+# test). The daemon-race magnitude check (runs 8/9/11/12) showed balance_diff_ac pinned at
+# exactly one epoch's cost and never compounding across up to 5 epoch ticks in a single
+# run's series, but no run had re-sampled state_root/balances a fixed offset past the SAME
+# T this gate scores `final_roots_equal` at, inside the SAME run. Re-measure here, no
+# restart, no new nodes: a false->true flip at T+45 is single-run empirical confirmation
+# the RED is the bounded, self-clearing race, not state-sync; a still-DIFFER pair at the
+# same account, or a wider delta, is evidence against that read.
+echo "phase=t45_recheck seconds=45"; sleep 45
+ROOT_A_45=$(api "${NS[0]}" "${API[0]}" /api/chain/state_root); ROOT_B_45=$(api "${NS[1]}" "${API[1]}" /api/chain/state_root); ROOT_C_45=$(api "${NS[2]}" "${API[2]}" /api/chain/state_root)
+echo "t45_root_a=$ROOT_A_45"; echo "t45_root_b=$ROOT_B_45"; echo "t45_root_c=$ROOT_C_45"
+echo "t45_roots_equal=$( [ "$ROOT_A_45" = "$ROOT_B_45" ] && [ "$ROOT_B_45" = "$ROOT_C_45" ] && echo true || echo false )"
+for i in 0 1 2; do
+  n=$(case $i in 0) echo a;; 1) echo b;; 2) echo c;; esac)
+  api "${NS[$i]}" "${API[$i]}" /api/sync/snapshot 2>/dev/null \
+    | jq -r '.balances[] | "\(.account)\t\(.token)\t\(.amount)"' 2>/dev/null \
+    | sort > "$WORK/t45-balances-$n.tsv" || true
+done
+echo "t45_balance_diff_ac=$(diff -q "$WORK/t45-balances-a.tsv" "$WORK/t45-balances-c.tsv" >/dev/null 2>&1 && echo identical || echo DIFFER)"
+echo "t45_balance_diff_ac_detail<<EOF"; { diff -u "$WORK/t45-balances-a.tsv" "$WORK/t45-balances-c.tsv" 2>/dev/null || true; } | head -60; echo "EOF"
+
 # Keep the raw node logs. They live under $WORK, which is disposable; every prior pass
 # that needed log archaeology had to re-run the whole gate to get them back.
 if [ -n "${HONE_3CLOCK_ARCHIVE_DIR:-}" ]; then
   mkdir -p "$HONE_3CLOCK_ARCHIVE_DIR"
   for n in a b c; do gzip -c "$WORK/$n/run.log" > "$HONE_3CLOCK_ARCHIVE_DIR/$n.log.gz" 2>/dev/null || true; done
   cp "$WORK"/balances-*.tsv "$HONE_3CLOCK_ARCHIVE_DIR/" 2>/dev/null || true
+  cp "$WORK"/t45-balances-*.tsv "$HONE_3CLOCK_ARCHIVE_DIR/" 2>/dev/null || true
   echo "archive_dir=$HONE_3CLOCK_ARCHIVE_DIR"
 fi
 echo "qdisc_final_a=$(sudo -n ip netns exec "${NS[0]}" tc -s qdisc show dev "${NV[0]}")"; echo "qdisc_final_b=$(sudo -n ip netns exec "${NS[1]}" tc -s qdisc show dev "${NV[1]}")"; echo "qdisc_final_c=$(sudo -n ip netns exec "${NS[2]}" tc -s qdisc show dev "${NV[2]}")"; echo "raw_output_complete=true"
