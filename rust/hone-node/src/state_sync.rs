@@ -21,6 +21,7 @@ struct Snapshot {
     #[serde(default)] accounts: Vec<AccountEntry>,
     #[serde(default)] clock_registrations: Vec<MetaEntry>,
     #[serde(default)] alive_epochs: Vec<AliveEntry>,
+    #[serde(default)] emission_state: Vec<MetaEntry>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -76,6 +77,13 @@ pub(crate) fn consensus_digest(epoch: u64, state: &AtomicSyncState) -> String {
         h.update(account.as_bytes());
         h.update(b"=");
         h.update(epoch.to_le_bytes());
+        h.update(b";");
+    }
+    h.update(b"|emission_state:");
+    for (key, value) in &state.emission_state {
+        h.update(key.as_bytes());
+        h.update(b"=");
+        h.update(value);
         h.update(b";");
     }
     format!("{:x}", h.finalize())
@@ -227,6 +235,8 @@ fn rollback_to(chain: &Chain, old: &AtomicSyncState) -> Result<()> {
             .chain(old.alive_epochs.iter().map(|(a, e)| (format!("alive:{}", a), e.to_le_bytes().to_vec())))
             .collect::<Vec<_>>(),
     ).context("rollback clock-registration/alive state")?;
+    chain.store.replace_meta_prefixed_entries(&["layer_a:"], &old.emission_state)
+        .context("rollback emission state")?;
     Ok(())
 }
 
@@ -260,6 +270,22 @@ async fn import_verified(chain: &Chain, client: &reqwest::Client, peer_base: &st
     }
     chain.store.replace_meta_prefixed_entries(&["role_stake:clock:", "clock_reg:", "alive:"], &clock_and_alive)
         .context("restore clock-registration/alive state")?;
+
+    // Layer-A emission EMAs: running state the emission split reads from CF_META and
+    // that no amount of balance data reconstructs.  Absent, `read_layer_a_ema` falls
+    // back to LAYER_A_SCALAR_DENOM ("full health"), so the joiner scales the epoch
+    // pool by 1.000 while the cohort is already damped.  Observed live in run 6: at
+    // every credited epoch C ran 6 EMA ticks behind A/B — 99006 C f=9999 vs A f=9993,
+    // adjusted 20000000000 vs 19996000000 — so C's state_root could never converge
+    // even with sealed_by fully populated.  This is the same class as the
+    // clock-registration and alive-epoch gaps above.
+    let mut emission: Vec<(String, Vec<u8>)> = Vec::new();
+    for kv in &snapshot.emission_state {
+        let bytes = hex::decode(&kv.value_hex).context("decode emission-state value")?;
+        emission.push((kv.key.clone(), bytes));
+    }
+    chain.store.replace_meta_prefixed_entries(&["layer_a:"], &emission)
+        .context("restore emission state")?;
 
     // Trust-minimize (order item 3): the ≥2-peer agreement already covered this
     // digest (`agreed_snapshot`); recompute it locally over what was ACTUALLY
@@ -300,6 +326,7 @@ mod tests {
             epoch, state_root: state_root.to_owned(), digest: String::new(),
             balances: Vec::new(), accounts: Vec::new(),
             clock_registrations: Vec::new(), alive_epochs: Vec::new(),
+            emission_state: Vec::new(),
         }
     }
 

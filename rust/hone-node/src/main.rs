@@ -815,6 +815,12 @@ async fn main() -> Result<()> {
             let mut pending_finalize: std::collections::BTreeMap<
                 u64, (clock::FinalizedEpoch, tokio::time::Instant),
             > = std::collections::BTreeMap::new();
+            // First moment this node was observed sync-ready. The grace is measured from
+            // max(first_seen, this) — see FINALIZE_DEFER_GRACE. A launch node sets it on
+            // the first drain call (state_sync flips `ready` synchronously at startup when
+            // no catch-up is required), so `first_seen` always dominates and behaviour is
+            // unchanged for the launch cohort.
+            let mut sync_ready_at: Option<tokio::time::Instant> = None;
             loop {
                 // Timed recv so deferred epochs still drain when no new finalize event
                 // arrives (epochs are ~30s apart; a stalled tail must not wait on one).
@@ -827,7 +833,7 @@ async fn main() -> Result<()> {
                         // Idle tick — retry anything still waiting on its validator set.
                         drain_pending_finalize(
                             &mut pending_finalize, &chain_ref, &node_id_c, &cmd_tx_fin,
-                            &sync_ready_for_finalize,
+                            &sync_ready_for_finalize, &mut sync_ready_at,
                         ).await;
                         continue;
                     }
@@ -891,7 +897,7 @@ async fn main() -> Result<()> {
                         pending_finalize.insert(fin.epoch, (fin, tokio::time::Instant::now()));
                         drain_pending_finalize(
                             &mut pending_finalize, &chain_ref, &node_id_c, &cmd_tx_fin,
-                            &sync_ready_for_finalize,
+                            &sync_ready_for_finalize, &mut sync_ready_at,
                         ).await;
                     }
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
@@ -1943,6 +1949,15 @@ async fn emit_epoch_finalize(
 /// Hard cap on how long an epoch may stay deferred once this node is sync-ready.
 /// Bounds the fix so it can never wedge: after this it emits with whatever it has,
 /// which is exactly the pre-fix behaviour. One epoch period.
+///
+/// Measured from `max(first_seen, sync_ready_at)`, NOT from `first_seen` alone. An
+/// earlier version elapsed the grace while the node was still importing, so a joiner
+/// whose catch-up outlasted the grace flushed its earliest deferred epochs empty
+/// anyway — the exact bug the deferral exists to prevent. Observed live at epoch
+/// 99005 (run 6): deferred 17:26:50, grace expired 17:27:20, sealing enabled
+/// 17:27:44, `epoch_validators:99005` written 17:27:45 — 25s too late. A node that is
+/// not yet sync-ready cannot know the sealer set by construction, so counting the
+/// grace against it is meaningless; the clock starts when it can first answer.
 const FINALIZE_DEFER_GRACE: std::time::Duration = std::time::Duration::from_secs(30);
 
 async fn drain_pending_finalize(
@@ -1951,8 +1966,26 @@ async fn drain_pending_finalize(
     node_id: &str,
     cmd_tx: &tokio::sync::mpsc::Sender<NetCmd>,
     sync_ready: &std::sync::atomic::AtomicBool,
+    sync_ready_at: &mut Option<tokio::time::Instant>,
 ) {
-    let _ = sync_ready;
+    // Latch the first moment this node was observed sync-ready. `sync_ready` is
+    // monotonic — state_sync only ever stores `true` — so this latches exactly once.
+    if sync_ready_at.is_none() && sync_ready.load(std::sync::atomic::Ordering::Acquire) {
+        *sync_ready_at = Some(tokio::time::Instant::now());
+    }
+    // While this node has NEVER been sync-ready there is no grace to expire: it cannot
+    // resolve a sealer set, so flushing would write sealed_by=[] with certainty. This
+    // cannot wedge indefinitely — `state_sync::run` is fail-closed and retries until it
+    // imports, and the backlog drains at the flip. A node whose sync never completes is
+    // already refusing to seal and refusing to publish; parking its reward walk is the
+    // conservative end of that same fail-closed posture, and it recovers on import.
+    let grace_expired = |first_seen: &tokio::time::Instant| match *sync_ready_at {
+        None => false,
+        Some(ready_at) => {
+            let anchor = if *first_seen > ready_at { *first_seen } else { ready_at };
+            anchor.elapsed() >= FINALIZE_DEFER_GRACE
+        }
+    };
     let ready: Vec<u64> = pending
         .iter()
         .filter(|(epoch, (_, first_seen))| {
@@ -1970,13 +2003,14 @@ async fn drain_pending_finalize(
             // unconditional defer wedged both launch nodes at state_root=0 with 11
             // epochs stuck pending.
             //
-            // NOT conditioned on sync-ready: a node still draining its seal backlog just
-            // after the flag flips needs the deferral most (epoch 99007, run 5). The
-            // grace alone is what bounds the wait, so it applies to every node. In the
+            // The FLUSH is not conditioned on sync-ready — a node still draining its
+            // seal backlog just after the flag flips needs the deferral most (epoch
+            // 99007, run 5) — but the grace CLOCK is anchored at the sync-ready flip
+            // (see FINALIZE_DEFER_GRACE), so a slow import no longer eats it. In the
             // normal case the snapshot is already there — a launch node writes
             // epoch_validators at seal time, ~155ms before reward consensus crosses —
             // so this drains immediately and only a genuinely sealer-less epoch waits.
-            have_snapshot || first_seen.elapsed() >= FINALIZE_DEFER_GRACE
+            have_snapshot || grace_expired(first_seen)
         })
         .map(|(epoch, _)| *epoch)
         .collect();

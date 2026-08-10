@@ -2002,6 +2002,12 @@ async fn get_sync_snapshot(State(s): State<AppState>) -> Json<serde_json::Value>
         "alive_epochs": atomic.alive_epochs.iter()
             .map(|(account, epoch)| serde_json::json!({ "account": account, "epoch": epoch }))
             .collect::<Vec<_>>(),
+        // Layer-A emission EMAs. Running state the emission split reads directly; a
+        // joiner that omits it cold-starts at full health and diverges at every
+        // credited epoch (run 6, epochs 99006-99009).
+        "emission_state": atomic.emission_state.iter()
+            .map(|(key, value)| serde_json::json!({ "key": key, "value_hex": hex::encode(value) }))
+            .collect::<Vec<_>>(),
     }))
 }
 

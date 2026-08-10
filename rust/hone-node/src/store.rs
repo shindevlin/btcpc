@@ -28,6 +28,12 @@ pub struct AtomicSyncState {
     pub accounts: Vec<(String, serde_json::Value)>,
     pub clock_registrations: Vec<(String, Vec<u8>)>,
     pub alive_epochs: Vec<(String, u64)>,
+    /// Layer-A emission EMAs (`layer_a:fast_ema`, `layer_a:slow_ema`).  These are
+    /// running state consumed by the emission split, NOT derivable from balances:
+    /// a joiner that omits them cold-starts at full health (`LAYER_A_SCALAR_DENOM`)
+    /// while the cohort has warmed down, so its `adjusted`/`reserve`/`scarcity_recycle`
+    /// differ at every credited epoch and its state_root diverges permanently.
+    pub emission_state: Vec<(String, Vec<u8>)>,
     pub epoch_done: std::collections::HashSet<u64>,
     pub reward_watermark: u64,
     pub state_root: String,
@@ -426,6 +432,9 @@ impl Store {
                 Some((account, epoch))
             }).collect();
 
+        let mut emission_state = scan_prefix("layer_a:");
+        emission_state.sort_by(|a, b| a.0.cmp(&b.0));
+
         let epoch_done: std::collections::HashSet<u64> = scan_prefix("epoch_finalized_done:").into_iter()
             .filter_map(|(k, _)| k.rsplit(':').next().and_then(|s| s.parse::<u64>().ok()))
             .collect();
@@ -445,7 +454,7 @@ impl Store {
             hex::encode(levels.last().unwrap()[0])
         };
 
-        AtomicSyncState { balances, accounts, clock_registrations, alive_epochs, epoch_done, reward_watermark, state_root }
+        AtomicSyncState { balances, accounts, clock_registrations, alive_epochs, emission_state, epoch_done, reward_watermark, state_root }
     }
 
     /// Scan all keys with the given prefix in CF_META.
