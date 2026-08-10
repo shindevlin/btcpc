@@ -159,6 +159,8 @@ The Pi passively scans for AirTags, Android Find My, Tile, and Samsung SmartTags
 
 Download the [Android APK](https://github.com/shindevlin/hone/releases/latest/download/HONE-android-release.apk) or open [honemesh.net/app](https://honemesh.net/app). Enable sensors and clock from the app UI. First epoch reward within 30 seconds.
 
+Release binaries (Android APK, Flipper Zero `.fap`, native mining libs) are rebuilt fresh from source and hone-named at release time — none are committed to the repo.
+
 ### Telegram Wallet
 
 ```

@@ -52,7 +52,10 @@ website/HONE-android-release.apk
 website/HONE-desktop-linux.AppImage
 website/hone-desktop-linux.deb
 website/downloads/
+website/*.fap
 android/hone-release.keystore
+android/app/src/main/jniLibs/**/*.so
+flipper/*/*.fap
 android/app/build/
 **/android/build/
 **/android/app/build/
