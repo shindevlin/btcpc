@@ -135,4 +135,32 @@ for e in $EPOCH_PROBE_SET; do
   echo "c_epoch_meta_${e}=$(api "${NS[2]}" "${API[2]}" "/api/epoch/$e" 2>/dev/null | jq -c '{epoch,finalized,quorum,sealed_by}' 2>/dev/null || echo unavailable)"
   echo "a_epoch_meta_${e}=$(api "${NS[0]}" "${API[0]}" "/api/epoch/$e" 2>/dev/null | jq -c '{epoch,finalized,quorum,sealed_by}' 2>/dev/null || echo unavailable)"
 done
+# ROOT-DIFF PROBE. `final_roots_equal=false` alone does not say WHICH account differs,
+# and log archaeology cannot answer it: run 7 showed C applying its post-import epoch
+# byte-identically to A (same sealer credits, same layer_a EMA, same emission split)
+# while the roots still differed, i.e. the difference is in the imported BASE state or
+# in non-reward ledger activity, neither of which the finalize lines expose. Dump every
+# node's full balance set and diff it per account so the report can name the exact
+# differing input instead of just the epoch.
+for i in 0 1 2; do
+  n=$(case $i in 0) echo a;; 1) echo b;; 2) echo c;; esac)
+  api "${NS[$i]}" "${API[$i]}" /api/sync/snapshot 2>/dev/null \
+    | jq -r '.balances[] | "\(.account)\t\(.token)\t\(.amount)"' 2>/dev/null \
+    | sort > "$WORK/balances-$n.tsv" || true
+  echo "balance_rows_$n=$(wc -l < "$WORK/balances-$n.tsv" 2>/dev/null || echo 0)"
+done
+echo "balance_diff_ab=$(diff "$WORK/balances-a.tsv" "$WORK/balances-b.tsv" >/dev/null 2>&1 && echo identical || echo DIFFER)"
+echo "balance_diff_ac=$(diff "$WORK/balances-a.tsv" "$WORK/balances-c.tsv" >/dev/null 2>&1 && echo identical || echo DIFFER)"
+# Only accounts that actually differ, A vs C, with both amounts. Bounded so a wholesale
+# divergence cannot flood the raw output.
+echo "balance_diff_ac_detail<<EOF"
+join -t "$(printf '\t')" -j 1 -o 0,1.2,2.2 \
+  <(awk -F'\t' '{print $1"\0"$2"\t"$3}' "$WORK/balances-a.tsv" 2>/dev/null | sort) \
+  <(awk -F'\t' '{print $1"\0"$2"\t"$3}' "$WORK/balances-c.tsv" 2>/dev/null | sort) 2>/dev/null \
+  | awk -F'\t' '$2 != $3 { gsub(/\0/, " ", $1); print $1"  A="$2"  C="$3"  delta="$3-$2 }' | head -40 || true
+echo "EOF"
+# Accounts present on one side only — an import that dropped or invented an account
+# shows up here and nowhere else.
+echo "balance_accounts_only_in_a=$(comm -23 <(cut -f1 "$WORK/balances-a.tsv" 2>/dev/null | sort -u) <(cut -f1 "$WORK/balances-c.tsv" 2>/dev/null | sort -u) | head -20 | tr '\n' ' ')"
+echo "balance_accounts_only_in_c=$(comm -13 <(cut -f1 "$WORK/balances-a.tsv" 2>/dev/null | sort -u) <(cut -f1 "$WORK/balances-c.tsv" 2>/dev/null | sort -u) | head -20 | tr '\n' ' ')"
 echo "qdisc_final_a=$(sudo -n ip netns exec "${NS[0]}" tc -s qdisc show dev "${NV[0]}")"; echo "qdisc_final_b=$(sudo -n ip netns exec "${NS[1]}" tc -s qdisc show dev "${NV[1]}")"; echo "qdisc_final_c=$(sudo -n ip netns exec "${NS[2]}" tc -s qdisc show dev "${NV[2]}")"; echo "raw_output_complete=true"
