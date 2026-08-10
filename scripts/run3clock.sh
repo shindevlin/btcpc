@@ -186,4 +186,29 @@ for f in $(ls "$WORK"/series-*.tsv 2>/dev/null | sort -t- -k2 -n); do
   seq=$(basename "$f" .tsv); echo "$seq $(md5sum < "$f" | cut -c1-12) $(head -1 "$f")"
 done
 echo "EOF"
+# ESCROW / FUND TRACE (order 2c89388cfea9). The run-9 divergence is a single 5,000,000
+# hunit __testnet_fund__ → __recycle_fund__ step on the joiner, the exact size of one
+# epoch of D8 grace benchmark escrow (5 jobs × 1,000,000 max_fee, main.rs). Both nodes
+# log "inference job posted" for every epoch they run, yet A's end-state balances
+# reconcile to the emission log with ZERO escrow outflow. Emit the per-epoch fund trace
+# from both nodes side by side so the re-gate says whether C takes an EXTRA debit or A's
+# debit is overwritten by a concurrent non-atomic credit — `Store::credit`/`debit` are
+# read-modify-write and this reward driver holds no `chain.write_lock`.
+for n in a c; do
+  echo "${n}_fund_trace<<EOF"
+  grep -aoE '\[bal\] epoch [0-9]+ [a-z-]+ testnet=[0-9]+ recycle=[0-9]+' "$WORK/$n/run.log" 2>/dev/null | tail -40
+  echo "EOF"
+  echo "${n}_escrow_trace<<EOF"
+  grep -aoE '\[escrow\] post [^ ]+ requester=[^ ]+ fee=[0-9]+ requester [0-9]+->[0-9]+ recycle->[0-9]+' "$WORK/$n/run.log" 2>/dev/null | tail -30
+  echo "EOF"
+  echo "${n}_escrow_count=$(grep -ac '\[escrow\] post' "$WORK/$n/run.log" 2>/dev/null || echo 0)"
+done
+# Keep the raw node logs. They live under $WORK, which is disposable; every prior pass
+# that needed log archaeology had to re-run the whole gate to get them back.
+if [ -n "${HONE_3CLOCK_ARCHIVE_DIR:-}" ]; then
+  mkdir -p "$HONE_3CLOCK_ARCHIVE_DIR"
+  for n in a b c; do gzip -c "$WORK/$n/run.log" > "$HONE_3CLOCK_ARCHIVE_DIR/$n.log.gz" 2>/dev/null || true; done
+  cp "$WORK"/balances-*.tsv "$HONE_3CLOCK_ARCHIVE_DIR/" 2>/dev/null || true
+  echo "archive_dir=$HONE_3CLOCK_ARCHIVE_DIR"
+fi
 echo "qdisc_final_a=$(sudo -n ip netns exec "${NS[0]}" tc -s qdisc show dev "${NV[0]}")"; echo "qdisc_final_b=$(sudo -n ip netns exec "${NS[1]}" tc -s qdisc show dev "${NV[1]}")"; echo "qdisc_final_c=$(sudo -n ip netns exec "${NS[2]}" tc -s qdisc show dev "${NV[2]}")"; echo "raw_output_complete=true"

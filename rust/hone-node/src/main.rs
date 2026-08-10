@@ -2235,6 +2235,14 @@ fn emit_epoch_rewards(
     if treasury_split > 0 {
         let _ = chain.store.credit(TREASURY_ACCOUNT, NATIVE_TOKEN, treasury_split);
     }
+    // Order-2c89388cfea9 instrumentation: the run-9 divergence is a 5,000,000 hunit
+    // __testnet_fund__ → __recycle_fund__ step that appears on the joiner only.  Trace
+    // the two funds at every point in this driver that touches them so a re-gate can
+    // tell an extra debit apart from a lost read-modify-write update.
+    info!("[bal] epoch {} after-reserve-split testnet={} recycle={} treasury={}", epoch,
+        chain.store.get_balance(TESTNET_FUND_ACCOUNT, NATIVE_TOKEN),
+        chain.store.get_balance(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN),
+        chain.store.get_balance(TREASURY_ACCOUNT, NATIVE_TOKEN));
 
     // ── Layer D: era-scaled clock reward (infrastructure base) ──────────────
     // Reward is scaled by uptime reputation: 0.5× (low uptime) → 1.0× (perfect).
@@ -2879,6 +2887,9 @@ fn emit_epoch_rewards(
     // Post MINE_GRACE_BENCHMARK_JOBS_PER_EPOCH jobs from __testnet_fund__ so miners
     // have real demand to serve during the 90-day grace period (D16: open model selection).
     if in_grace_period {
+        info!("[bal] epoch {} pre-benchmark testnet={} recycle={}", epoch,
+            chain.store.get_balance(TESTNET_FUND_ACCOUNT, NATIVE_TOKEN),
+            chain.store.get_balance(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN));
         for i in 0..MINE_GRACE_BENCHMARK_JOBS_PER_EPOCH {
             let job_id = format!("benchmark:{}:{}", epoch, i);
             // Only post if this job hasn't been posted yet (idempotent).
@@ -2922,6 +2933,9 @@ fn emit_epoch_rewards(
                 // consensus hook. Flagged to Grouchly in the handoff.
             }
         }
+        info!("[bal] epoch {} post-benchmark testnet={} recycle={}", epoch,
+            chain.store.get_balance(TESTNET_FUND_ACCOUNT, NATIVE_TOKEN),
+            chain.store.get_balance(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN));
     }
 
     // ── Inference proof pruning (D1) ──────────────────────────────────────────

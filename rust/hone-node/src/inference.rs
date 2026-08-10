@@ -320,8 +320,15 @@ pub fn apply_post(chain: &Chain, entry: &LedgerEntry) -> Result<()> {
     if get_job(chain, job_id).is_some() {
         bail!("job '{}' already exists", job_id);
     }
+    let requester_before = chain.store.get_balance(requester, NATIVE_TOKEN);
     chain.store.debit(requester, NATIVE_TOKEN, *max_fee)?;
-    chain.store.credit(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN, *max_fee)?;
+    let recycle_after = chain.store.credit(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN, *max_fee)?;
+    // Order-2c89388cfea9 instrumentation: escrow is a non-atomic read-modify-write pair
+    // on two shared fund accounts.  Log both sides so a re-gate can distinguish "the
+    // joiner charged an extra escrow" from "the launch node's escrow was overwritten".
+    info!("[escrow] post {} requester={} fee={} requester {}->{} recycle->{}",
+        job_id, requester, max_fee, requester_before,
+        chain.store.get_balance(requester, NATIVE_TOKEN), recycle_after);
 
     let auto_min = auto_scale_min_verifiers(chain);
     let min_verifiers = auto_min.max(requested_min_verifiers.unwrap_or(0));
