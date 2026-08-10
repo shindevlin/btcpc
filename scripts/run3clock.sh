@@ -100,4 +100,21 @@ echo "c_reward_lines_final=$(grep -iE '\[finalize\] epoch .* (sealer .* credited
 # C's registered-clock count as seen by the reward path (main.rs reward-path log, added
 # for this gate's observability) — must read 3/3 once all three nodes are registered.
 echo "c_registered_clock_lines_final=$(grep -iE 'reward-path registered clock count' "$WORK/c/run.log" 2>/dev/null | tail -20 || true)"
+# Order 2c89388cfea9 item 2: a node that is not sync-ready must not PUBLISH seals.
+# The pre-existing c_refuse_count_final counts the seal CONSUMER gate (main.rs:577);
+# this counts the publication gate, which is the path live C actually bypassed.
+echo "c_publish_refuse_count_final=$(grep -icE 'refusing to PUBLISH seal' "$WORK/c/run.log" 2>/dev/null || echo 0)"
+echo "c_publish_refuse_lines_final=$(grep -iE 'refusing to PUBLISH seal' "$WORK/c/run.log" 2>/dev/null | head -5 || true)"
+# Order item 1: epochs whose finalize was deferred because this node had no
+# epoch_validators snapshot yet. Non-zero here during catch-up is the fix WORKING;
+# non-zero at the END means an epoch never got its snapshot (would stall the walk).
+echo "c_deferred_finalize_lines=$(grep -iE 'finalized by reward consensus but deferred' "$WORK/c/run.log" 2>/dev/null | tail -5 || true)"
+echo "c_deferred_finalize_count=$(grep -icE 'finalized by reward consensus but deferred' "$WORK/c/run.log" 2>/dev/null || echo 0)"
+# Order item 1 GREEN criterion: C must emit sealed_by-POPULATED epoch_meta for the
+# post-import epochs. Read it straight out of C's store via the epoch API rather than
+# inferring it from the credit lines.
+for e in $(grep -oE '\[finalize\] epoch [0-9]+' "$WORK/c/run.log" 2>/dev/null | grep -oE '[0-9]+' | sort -u | tail -6); do
+  echo "c_epoch_meta_${e}=$(api "${NS[2]}" "${API[2]}" "/api/epoch/$e" 2>/dev/null | jq -c '{epoch,finalized,quorum,sealed_by}' 2>/dev/null || echo unavailable)"
+  echo "a_epoch_meta_${e}=$(api "${NS[0]}" "${API[0]}" "/api/epoch/$e" 2>/dev/null | jq -c '{epoch,finalized,quorum,sealed_by}' 2>/dev/null || echo unavailable)"
+done
 echo "qdisc_final_a=$(sudo -n ip netns exec "${NS[0]}" tc -s qdisc show dev "${NV[0]}")"; echo "qdisc_final_b=$(sudo -n ip netns exec "${NS[1]}" tc -s qdisc show dev "${NV[1]}")"; echo "qdisc_final_c=$(sudo -n ip netns exec "${NS[2]}" tc -s qdisc show dev "${NV[2]}")"; echo "raw_output_complete=true"
