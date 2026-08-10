@@ -11,7 +11,20 @@ BIN=${HONE_3CLOCK_BIN:-$ROOT/rust/target/release/hone-node}
 [ -x "$BIN" ] || { echo "binary not executable: $BIN" >&2; exit 2; }
 DELAY=${HONE_3CLOCK_NETEM_DELAY:-150ms}; LOSS=${HONE_3CLOCK_NETEM_LOSS:-2%}
 AB_SECS=${HONE_3CLOCK_AB_SECS:-105}; REJOIN_SECS=${HONE_3CLOCK_REJOIN_SECS:-90}
-TS=${HONE_3CLOCK_GENESIS_TIMESTAMP:-1783191600000}; CHAIN=${HONE_3CLOCK_CHAIN_ID:-hone-passb-throwaway}
+# Genesis must be placed so the RUN sits inside the clock bootstrap grace window
+# (hone_types::CLOCK_BOOTSTRAP_GRACE_END_EPOCH = 100_000). Outside grace,
+# registered_clock_nodes drops the stake-0 founder clocks this harness creates, the
+# registered set is EMPTY, and every epoch recycles its whole block reward with no
+# sealer credited on ANY node — the gate silently stops exercising the credit path
+# it exists to test.
+#
+# The old hardcoded 1783191600000 was inside grace when it was written (runs landed
+# at epoch ~97_900) but the epoch is derived from WALL CLOCK, so it drifts upward in
+# real time. It crossed 100_000 on 2026-08-10 and runs from that point read
+# "reward-path registered clock count = 0" on every node, launch and joiner alike.
+# Anchoring genesis relative to now pins the run at ~epoch 99_000 permanently.
+TS=${HONE_3CLOCK_GENESIS_TIMESTAMP:-$(( ($(date +%s) - 99000 * 30) * 1000 ))}
+CHAIN=${HONE_3CLOCK_CHAIN_ID:-hone-passb-throwaway}
 RUN_ID="pb$$"; WORK=$(mktemp -d "/tmp/hone-passb-${RUN_ID}.XXXXXX"); BR="${RUN_ID}-br"
 NS=("${RUN_ID}-a" "${RUN_ID}-b" "${RUN_ID}-c"); HV=("${RUN_ID}-ha" "${RUN_ID}-hb" "${RUN_ID}-hc"); NV=("${RUN_ID}-na" "${RUN_ID}-nb" "${RUN_ID}-nc")
 IP=(10.77.31.11 10.77.31.12 10.77.31.13); API=(4242 4242 4242); P2P=(6953 6954 6955); WS=(4953 4954 4955); PIDS=()
