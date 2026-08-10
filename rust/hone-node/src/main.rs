@@ -1878,13 +1878,35 @@ async fn run_inference_verifier(
 /// epoch F onward and `epoch_finalized_done:1` never exists. Anchoring at 1 broke on the
 /// first step and returned watermark-or-0 for a fully-populated launch node. Same fix as
 /// `state_sync::snapshot_epoch`.
+/// Restart resume point. Deliberately NOT `state_sync::contiguous_finalized`, which
+/// anchors its walk at `min(done)` so a backdated-genesis chain can label a snapshot
+/// correctly. That anchor is wrong here: it makes a gap BELOW the lowest finalized
+/// epoch invisible, so a restart jumps straight over an unrewarded epoch and drops
+/// its reward forever — a state_root fork, the exact BUG-6 residual that
+/// `reward_driver_tests::gap_at_one_resumes_at_zero` guards. `2e361caa0` collapsed
+/// the two callers onto the snapshot version and turned that test red.
+///
+/// The walk anchors at 0 and `max`es with the watermark. A launch cohort whose first
+/// finalized epoch is F still resumes correctly: it never has `epoch_finalized_done:1`,
+/// so the walk yields 0, and the watermark — persisted on EVERY node since `ba4fbb319`,
+/// not only after a snapshot import — supplies the real resume point. That watermark
+/// fix is what makes anchoring at 0 safe again.
 fn highest_contiguous_rewarded(chain: &Chain) -> u64 {
     let done: std::collections::HashSet<u64> = chain.store
         .state_scan_prefix("epoch_finalized_done:")
         .into_iter()
         .filter_map(|(k, _)| k.rsplit(':').next().and_then(|s| s.parse::<u64>().ok()))
         .collect();
-    crate::state_sync::contiguous_finalized(&done, chain.store.reward_watermark())
+    let watermark = chain.store.reward_watermark();
+    if done.is_empty() { return watermark; }
+    // Walk up from 1 while each epoch is present. Bounded by the highest key, so a
+    // sparse/corrupt set can't spin.
+    let max = done.iter().copied().max().unwrap_or(0);
+    let mut e = 0u64;
+    while e < max && done.contains(&(e + 1)) {
+        e += 1;
+    }
+    e.max(watermark)
 }
 
 // ── refuse-to-seal gate ────────────────────────────────────────────────────────
