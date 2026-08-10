@@ -30,12 +30,12 @@ Capabilities:
 Example:
 
 ```bash
-git clone https://github.com/public-apis/public-apis /mnt/btcpc-storage/mirrors/public-apis
-cd /mnt/btcpc-storage/mirrors/public-apis && git pull --ff-only
+git clone https://github.com/public-apis/public-apis /mnt/hone-storage/mirrors/public-apis
+cd /mnt/hone-storage/mirrors/public-apis && git pull --ff-only
 
 cargo run --manifest-path rust/hone-api-catalog/Cargo.toml -- \
-  snapshot /mnt/btcpc-storage/mirrors/public-apis \
-  /mnt/btcpc-storage/catalogs/public-apis.snapshot.json \
+  snapshot /mnt/hone-storage/mirrors/public-apis \
+  /mnt/hone-storage/catalogs/public-apis.snapshot.json \
   --verify --limit 250
 ```
 
@@ -47,7 +47,7 @@ After creating a snapshot, run one API-tool job through the Rust sidecar:
 ```bash
 cargo run --manifest-path rust/hone-orchestrator/Cargo.toml -- \
   run-api-tool \
-  --catalog /mnt/btcpc-storage/catalogs/public-apis.snapshot.json \
+  --catalog /mnt/hone-storage/catalogs/public-apis.snapshot.json \
   --category Weather \
   --query Open-Meteo \
   --out /tmp/hone-api-tool-report.json

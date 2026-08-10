@@ -32,7 +32,7 @@ Current command:
 ```bash
 cargo run --manifest-path rust/hone-orchestrator/Cargo.toml -- \
   run-api-tool \
-  --catalog /mnt/btcpc-storage/catalogs/public-apis.snapshot.json \
+  --catalog /mnt/hone-storage/catalogs/public-apis.snapshot.json \
   --category Weather \
   --query Open-Meteo \
   --out /tmp/hone-api-tool-report.json

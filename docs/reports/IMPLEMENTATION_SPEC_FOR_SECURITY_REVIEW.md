@@ -34,12 +34,12 @@ The replay path currently accepts negative HONE balances from persisted state. T
 
 ### Files to change
 
-- [`src/chain/stateStore.js`](/mnt/btcpc-storage/repos/hone/src/chain/stateStore.js)
-- [`src/chain/replay.js`](/mnt/btcpc-storage/repos/hone/src/chain/replay.js)
-- [`src/chain/blockStore.js`](/mnt/btcpc-storage/repos/hone/src/chain/blockStore.js)
-- [`src/p2p/chainSync.js`](/mnt/btcpc-storage/repos/hone/src/p2p/chainSync.js)
-- [`tests/replay.test.js`](/mnt/btcpc-storage/repos/hone/tests/replay.test.js)
-- [`tests/stateStore.test.js`](/mnt/btcpc-storage/repos/hone/tests/stateStore.test.js)
+- [`src/chain/stateStore.js`](../../src/chain/stateStore.js)
+- [`src/chain/replay.js`](../../src/chain/replay.js)
+- [`src/chain/blockStore.js`](../../src/chain/blockStore.js)
+- [`src/p2p/chainSync.js`](../../src/p2p/chainSync.js)
+- [`tests/replay.test.js`](../../tests/replay.test.js)
+- [`tests/stateStore.test.js`](../../tests/stateStore.test.js)
 
 ### Insertion point
 
@@ -84,12 +84,12 @@ The current service returns `verified: true` for every request. That is a securi
 
 ### Files to change
 
-- [`src/services/privateAuthorization.js`](/mnt/btcpc-storage/repos/hone/src/services/privateAuthorization.js)
-- [`src/routes/walletRoutes.js`](/mnt/btcpc-storage/repos/hone/src/routes/walletRoutes.js)
-- [`src/controllers/walletController.js`](/mnt/btcpc-storage/repos/hone/src/controllers/walletController.js)
-- [`src/routes/botRoutes.js`](/mnt/btcpc-storage/repos/hone/src/routes/botRoutes.js)
-- [`src/explorer/server.js`](/mnt/btcpc-storage/repos/hone/src/explorer/server.js)
-- [`tests/privateAuthorization.test.js`](/mnt/btcpc-storage/repos/hone/tests/privateAuthorization.test.js)
+- [`src/services/privateAuthorization.js`](../../src/services/privateAuthorization.js)
+- [`src/routes/walletRoutes.js`](../../src/routes/walletRoutes.js)
+- [`src/controllers/walletController.js`](../../src/controllers/walletController.js)
+- [`src/routes/botRoutes.js`](../../src/routes/botRoutes.js)
+- [`src/explorer/server.js`](../../src/explorer/server.js)
+- [`tests/privateAuthorization.test.js`](../../tests/privateAuthorization.test.js)
 - `tests/walletController.test.js`
 
 ### Insertion point
@@ -300,10 +300,10 @@ Prevent arbitrary callers from spoofing storage host liveness.
 
 ### Files to change
 
-- [`src/routes/storageRoutes.js`](/mnt/btcpc-storage/repos/hone/src/routes/storageRoutes.js)
-- [`src/services/ledger.js`](/mnt/btcpc-storage/repos/hone/src/services/ledger.js)
-- [`src/chain/stateStore.js`](/mnt/btcpc-storage/repos/hone/src/chain/stateStore.js)
-- [`tests/storageRoutes.test.js`](/mnt/btcpc-storage/repos/hone/tests/storageRoutes.test.js)
+- [`src/routes/storageRoutes.js`](../../src/routes/storageRoutes.js)
+- [`src/services/ledger.js`](../../src/services/ledger.js)
+- [`src/chain/stateStore.js`](../../src/chain/stateStore.js)
+- [`tests/storageRoutes.test.js`](../../tests/storageRoutes.test.js)
 - `tests/storageHeartbeat.test.js`
 
 ### Insertion point
@@ -378,10 +378,10 @@ The server creates `storageId` and then expects the client to sign a payload con
 
 ### Files to change
 
-- [`src/routes/storageRoutes.js`](/mnt/btcpc-storage/repos/hone/src/routes/storageRoutes.js)
-- [`src/services/ledger.js`](/mnt/btcpc-storage/repos/hone/src/services/ledger.js)
-- [`src/chain/stateStore.js`](/mnt/btcpc-storage/repos/hone/src/chain/stateStore.js)
-- [`tests/storageRoutes.test.js`](/mnt/btcpc-storage/repos/hone/tests/storageRoutes.test.js)
+- [`src/routes/storageRoutes.js`](../../src/routes/storageRoutes.js)
+- [`src/services/ledger.js`](../../src/services/ledger.js)
+- [`src/chain/stateStore.js`](../../src/chain/stateStore.js)
+- [`tests/storageRoutes.test.js`](../../tests/storageRoutes.test.js)
 
 ### Insertion point
 
@@ -460,9 +460,9 @@ Keep the anti-self-credit rule, but make the witness chain of custody clearer an
 
 ### Files to change
 
-- [`src/p2p/protocol.js`](/mnt/btcpc-storage/repos/hone/src/p2p/protocol.js)
-- [`src/chain/blockProposal.js`](/mnt/btcpc-storage/repos/hone/src/chain/blockProposal.js)
-- [`tests/clockConsensus.test.js`](/mnt/btcpc-storage/repos/hone/tests/clockConsensus.test.js)
+- [`src/p2p/protocol.js`](../../src/p2p/protocol.js)
+- [`src/chain/blockProposal.js`](../../src/chain/blockProposal.js)
+- [`tests/clockConsensus.test.js`](../../tests/clockConsensus.test.js)
 - `tests/p2pSyncReplay.test.js`
 
 ### Insertion points

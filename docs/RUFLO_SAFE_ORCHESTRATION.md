@@ -10,7 +10,7 @@ Use one isolated sandbox per project.
 
 ```bash
 export RUFLO_VERSION=3.7.0-alpha.20
-export RUFLO_SANDBOX=/mnt/btcpc-storage/sandboxes/ruflo-projects/my-project
+export RUFLO_SANDBOX=/mnt/hone-storage/sandboxes/ruflo-projects/my-project
 
 mkdir -p "$RUFLO_SANDBOX/home" \
          "$RUFLO_SANDBOX/npm-prefix" \

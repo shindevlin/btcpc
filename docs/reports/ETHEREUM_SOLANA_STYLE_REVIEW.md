@@ -36,7 +36,7 @@ The documentation recommendation is to reorganize HONE docs into the same concep
 
 ### 1. Private authorization is bypassed completely
 
-File: [`src/services/privateAuthorization.js`](/mnt/btcpc-storage/repos/hone/src/services/privateAuthorization.js)
+File: [`src/services/privateAuthorization.js`](../../src/services/privateAuthorization.js)
 
 The service is explicitly a stub and `verifyTransferAuthorization()` always returns `verified: true`.
 
@@ -48,14 +48,14 @@ Impact:
 
 Relevant callers:
 
-- [`src/explorer/server.js`](/mnt/btcpc-storage/repos/hone/src/explorer/server.js)
-- [`src/controllers/walletController.js`](/mnt/btcpc-storage/repos/hone/src/controllers/walletController.js)
-- [`src/routes/walletRoutes.js`](/mnt/btcpc-storage/repos/hone/src/routes/walletRoutes.js)
-- [`src/routes/botRoutes.js`](/mnt/btcpc-storage/repos/hone/src/routes/botRoutes.js)
+- [`src/explorer/server.js`](../../src/explorer/server.js)
+- [`src/controllers/walletController.js`](../../src/controllers/walletController.js)
+- [`src/routes/walletRoutes.js`](../../src/routes/walletRoutes.js)
+- [`src/routes/botRoutes.js`](../../src/routes/botRoutes.js)
 
 ### 2. Storage heartbeats are spoofable
 
-File: [`src/routes/storageRoutes.js`](/mnt/btcpc-storage/repos/hone/src/routes/storageRoutes.js)
+File: [`src/routes/storageRoutes.js`](../../src/routes/storageRoutes.js)
 
 `POST /heartbeat` accepts a `host` in the request body and has no authentication.
 
@@ -69,7 +69,7 @@ This is especially concerning because other heartbeat routes in the repo are aut
 
 ### 3. File creation signature flow is likely broken
 
-File: [`src/routes/storageRoutes.js`](/mnt/btcpc-storage/repos/hone/src/routes/storageRoutes.js)
+File: [`src/routes/storageRoutes.js`](../../src/routes/storageRoutes.js)
 
 `POST /files` generates `storageId` on the server, then validates a signature over `{ owner, storage_id: storageId, timestamp }`.
 
@@ -85,8 +85,8 @@ This should be treated as a blocking logic bug.
 
 Files:
 
-- [`src/chain/blockProposal.js`](/mnt/btcpc-storage/repos/hone/src/chain/blockProposal.js)
-- [`src/p2p/protocol.js`](/mnt/btcpc-storage/repos/hone/src/p2p/protocol.js)
+- [`src/chain/blockProposal.js`](../../src/chain/blockProposal.js)
+- [`src/p2p/protocol.js`](../../src/p2p/protocol.js)
 
 The code tries to prevent a proposer from counting its own heartbeat unless there is at least one witness. That is directionally correct, but the witness record is populated from P2P message metadata and the current flow does not make the witness identity as strong as the comment suggests.
 
@@ -101,8 +101,8 @@ This is a medium-to-high risk design concern because it affects reward correctne
 
 Files:
 
-- [`src/chain/stateStore.js`](/mnt/btcpc-storage/repos/hone/src/chain/stateStore.js)
-- [`src/chain/replay.js`](/mnt/btcpc-storage/repos/hone/src/chain/replay.js)
+- [`src/chain/stateStore.js`](../../src/chain/stateStore.js)
+- [`src/chain/replay.js`](../../src/chain/replay.js)
 
 The replay/finality path can hydrate a negative HONE balance into a normal wallet account and keep it in memory. In the current chain data, `natoshisakamoto` replays to a negative spendable balance even though the account is not a system account.
 
@@ -235,11 +235,11 @@ Official docs reviewed for structure and conceptual ordering:
 
 ## Repo References
 
-- [`README.md`](/mnt/btcpc-storage/repos/hone/README.md)
-- [`docs/START_HERE.md`](/mnt/btcpc-storage/repos/hone/docs/START_HERE.md)
-- [`docs/INDEX.md`](/mnt/btcpc-storage/repos/hone/docs/INDEX.md)
-- [`docs/TECHNICAL_DEEP_DIVE.md`](/mnt/btcpc-storage/repos/hone/docs/TECHNICAL_DEEP_DIVE.md)
-- [`docs/security/SECURITY_CHECKLIST.md`](/mnt/btcpc-storage/repos/hone/docs/security/SECURITY_CHECKLIST.md)
-- [`docs/security/P2P_AUTH_ANALYSIS.md`](/mnt/btcpc-storage/repos/hone/docs/security/P2P_AUTH_ANALYSIS.md)
-- [`docs/code-wiki/README.md`](/mnt/btcpc-storage/repos/hone/docs/code-wiki/README.md)
-- [`docs/code-wiki/index.md`](/mnt/btcpc-storage/repos/hone/docs/code-wiki/index.md)
+- [`README.md`](../../README.md)
+- [`docs/START_HERE.md`](../../docs/START_HERE.md)
+- [`docs/INDEX.md`](../../docs/INDEX.md)
+- [`docs/TECHNICAL_DEEP_DIVE.md`](../../docs/TECHNICAL_DEEP_DIVE.md)
+- [`docs/security/SECURITY_CHECKLIST.md`](../../docs/security/SECURITY_CHECKLIST.md)
+- [`docs/security/P2P_AUTH_ANALYSIS.md`](../../docs/security/P2P_AUTH_ANALYSIS.md)
+- [`docs/code-wiki/README.md`](../../docs/code-wiki/README.md)
+- [`docs/code-wiki/index.md`](../../docs/code-wiki/index.md)
