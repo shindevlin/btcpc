@@ -76,6 +76,21 @@ api() { sudo -n ip netns exec "$1" curl -fsS --max-time 8 "http://127.0.0.1:$2$3
 
 # A+B form the launch cohort. C is not started until after the gap.
 start 0 ""; PA=$(wait_peer "$WORK/a/run.log"); start 1 "/ip4/${IP[0]}/tcp/${P2P[0]}/p2p/$PA"
+# Balance/epoch sampler — see the TIME SERIES note in the root-diff probe below.
+(
+  seq=0
+  while sleep 15; do
+    seq=$((seq+1))
+    for i in 0 1 2; do
+      n=$(case $i in 0) echo a;; 1) echo b;; 2) echo c;; esac)
+      ep=$(api "${NS[$i]}" "${API[$i]}" /api/sync/status 2>/dev/null | jq -r '.reward_watermark' 2>/dev/null || echo NA)
+      { echo "# node=$n seq=$seq watermark=$ep"
+        api "${NS[$i]}" "${API[$i]}" /api/sync/snapshot 2>/dev/null \
+          | jq -r '.balances[] | "\(.account)\t\(.token)\t\(.amount)"' 2>/dev/null | sort
+      } > "$WORK/series-$(printf '%03d' $seq)-$n.tsv" 2>/dev/null || true
+    done
+  done
+) & SAMPLER_PID=$!; PIDS+=("$SAMPLER_PID")
 echo "phase=ab_seal seconds=$AB_SECS"; sleep "$AB_SECS"; sleep 10
 ROOT_A_TARGET=$(api "${NS[0]}" "${API[0]}" /api/chain/state_root); ROOT_B_TARGET=$(api "${NS[1]}" "${API[1]}" /api/chain/state_root)
 echo "target_root_a=$ROOT_A_TARGET"; echo "target_root_b=$ROOT_B_TARGET"; echo "target_root_ab_equal=$( [ "$ROOT_A_TARGET" = "$ROOT_B_TARGET" ] && echo true || echo false )"
@@ -138,10 +153,11 @@ done
 # ROOT-DIFF PROBE. `final_roots_equal=false` alone does not say WHICH account differs,
 # and log archaeology cannot answer it: run 7 showed C applying its post-import epoch
 # byte-identically to A (same sealer credits, same layer_a EMA, same emission split)
-# while the roots still differed, i.e. the difference is in the imported BASE state or
-# in non-reward ledger activity, neither of which the finalize lines expose. Dump every
-# node's full balance set and diff it per account so the report can name the exact
-# differing input instead of just the epoch.
+# while the roots still differed. Dump every node's full balance set and diff it.
+# Deliberately a plain `diff -u`, not a join/awk pipeline: the first version of this
+# probe emitted nothing at all and an empty result was indistinguishable from "no
+# difference" — the same ambiguity that made final_epochs_equal useless. Row counts and
+# an explicit marker below mean a failed probe can never read as a clean one.
 for i in 0 1 2; do
   n=$(case $i in 0) echo a;; 1) echo b;; 2) echo c;; esac)
   api "${NS[$i]}" "${API[$i]}" /api/sync/snapshot 2>/dev/null \
@@ -149,18 +165,25 @@ for i in 0 1 2; do
     | sort > "$WORK/balances-$n.tsv" || true
   echo "balance_rows_$n=$(wc -l < "$WORK/balances-$n.tsv" 2>/dev/null || echo 0)"
 done
-echo "balance_diff_ab=$(diff "$WORK/balances-a.tsv" "$WORK/balances-b.tsv" >/dev/null 2>&1 && echo identical || echo DIFFER)"
-echo "balance_diff_ac=$(diff "$WORK/balances-a.tsv" "$WORK/balances-c.tsv" >/dev/null 2>&1 && echo identical || echo DIFFER)"
-# Only accounts that actually differ, A vs C, with both amounts. Bounded so a wholesale
-# divergence cannot flood the raw output.
-echo "balance_diff_ac_detail<<EOF"
-join -t "$(printf '\t')" -j 1 -o 0,1.2,2.2 \
-  <(awk -F'\t' '{print $1"\0"$2"\t"$3}' "$WORK/balances-a.tsv" 2>/dev/null | sort) \
-  <(awk -F'\t' '{print $1"\0"$2"\t"$3}' "$WORK/balances-c.tsv" 2>/dev/null | sort) 2>/dev/null \
-  | awk -F'\t' '$2 != $3 { gsub(/\0/, " ", $1); print $1"  A="$2"  C="$3"  delta="$3-$2 }' | head -40 || true
+if [ ! -s "$WORK/balances-a.tsv" ] || [ ! -s "$WORK/balances-c.tsv" ]; then
+  echo "balance_probe=FAILED_NO_ROWS"
+else
+  echo "balance_probe=ok"
+fi
+echo "balance_diff_ab=$(diff -q "$WORK/balances-a.tsv" "$WORK/balances-b.tsv" >/dev/null 2>&1 && echo identical || echo DIFFER)"
+echo "balance_diff_ac=$(diff -q "$WORK/balances-a.tsv" "$WORK/balances-c.tsv" >/dev/null 2>&1 && echo identical || echo DIFFER)"
+echo "balance_dump_a<<EOF"; cat "$WORK/balances-a.tsv" 2>/dev/null; echo "EOF"
+echo "balance_dump_c<<EOF"; cat "$WORK/balances-c.tsv" 2>/dev/null; echo "EOF"
+echo "balance_diff_ac_detail<<EOF"; diff -u "$WORK/balances-a.tsv" "$WORK/balances-c.tsv" 2>/dev/null | head -60; echo "EOF"
+# TIME SERIES. The end-state dump names the differing ACCOUNT but not the EPOCH the
+# divergence entered at, and the job lifecycle logs nothing to recover it from. The
+# sampler below (started before the A/B phase) wrote one dump per node per tick with the
+# epoch each node reported; the first tick where a and c differ names that boundary, and
+# whether the delta appears at one boundary or accumulates says whether the "one epoch of
+# grace benchmark fees" magnitude is causal or coincidental.
+echo "balance_series<<EOF"
+for f in $(ls "$WORK"/series-*.tsv 2>/dev/null | sort -t- -k2 -n); do
+  seq=$(basename "$f" .tsv); echo "$seq $(md5sum < "$f" | cut -c1-12) $(head -1 "$f")"
+done
 echo "EOF"
-# Accounts present on one side only — an import that dropped or invented an account
-# shows up here and nowhere else.
-echo "balance_accounts_only_in_a=$(comm -23 <(cut -f1 "$WORK/balances-a.tsv" 2>/dev/null | sort -u) <(cut -f1 "$WORK/balances-c.tsv" 2>/dev/null | sort -u) | head -20 | tr '\n' ' ')"
-echo "balance_accounts_only_in_c=$(comm -13 <(cut -f1 "$WORK/balances-a.tsv" 2>/dev/null | sort -u) <(cut -f1 "$WORK/balances-c.tsv" 2>/dev/null | sort -u) | head -20 | tr '\n' ' ')"
 echo "qdisc_final_a=$(sudo -n ip netns exec "${NS[0]}" tc -s qdisc show dev "${NV[0]}")"; echo "qdisc_final_b=$(sudo -n ip netns exec "${NS[1]}" tc -s qdisc show dev "${NV[1]}")"; echo "qdisc_final_c=$(sudo -n ip netns exec "${NS[2]}" tc -s qdisc show dev "${NV[2]}")"; echo "raw_output_complete=true"
