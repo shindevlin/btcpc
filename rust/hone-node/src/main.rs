@@ -796,10 +796,44 @@ async fn main() -> Result<()> {
                         // identical mutation as a consequence of applying the identical
                         // winning entry, instead of each node recomputing off local state
                         // at its own quorum-cross moment (the double-credit race).
-                        let sealers: Vec<String> = chain_ref.store
-                            .state_get(&format!("epoch_validators:{}", fin.epoch))
+                        // RACE (state-sync order 2c89388cfea9): `epoch_validators:{epoch}` is
+                        // written by the sealed_rx handler above (main.rs ~701-708) — a
+                        // SEPARATE task, gated on THIS node's own local seal resolution for
+                        // that epoch. `finalized_rx` here fires on reward-consensus quorum,
+                        // which can be reached purely from gossiped peer ConsensusProposals
+                        // (NetworkEvent::ConsensusProposal) with no dependency on this node's
+                        // local seal timing. Raw evidence (grouchly raw-074cb2d640f7,
+                        // run2-c.log) shows finalized_rx firing for epoch 97903 63s before
+                        // this node's own epoch_validators write landed — a rejoined node
+                        // catching up its own seal resolution loses this race, reads empty
+                        // sealers, and (because EpochFinalize is a system entry, dropped on
+                        // gossip receipt at the NetworkEvent::Entry match arm above) can never
+                        // be corrected by a peer's broadcast — it recycles that epoch's reward
+                        // forever. Bounded retry on the SAME deterministic key closes the
+                        // window without introducing a second source of truth. This stalls
+                        // this task's processing of later epochs' finalize events while
+                        // waiting (tolerable: capacity-64 channel, ~30s epochs).
+                        let epoch_validators_key = format!("epoch_validators:{}", fin.epoch);
+                        let mut sealers: Vec<String> = chain_ref.store.state_get(&epoch_validators_key)
                             .and_then(|b| serde_json::from_slice::<Vec<String>>(&b).ok())
                             .unwrap_or_default();
+                        if sealers.is_empty() && fin.quorum > 0 {
+                            for _ in 0..25 {
+                                tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
+                                if let Some(v) = chain_ref.store.state_get(&epoch_validators_key)
+                                    .and_then(|b| serde_json::from_slice::<Vec<String>>(&b).ok())
+                                {
+                                    if !v.is_empty() { sealers = v; break; }
+                                }
+                            }
+                            if sealers.is_empty() {
+                                warn!(
+                                    "[finalize] epoch {} reward quorum reached but this node's own \
+                                     epoch_validators never materialized locally after 5s — \
+                                     sealed_by will be empty, reward recycles", fin.epoch
+                                );
+                            }
+                        }
 
                         let state_root = chain_ref.store.balance_merkle_root();
                         let entry = LedgerEntry::EpochFinalize {
