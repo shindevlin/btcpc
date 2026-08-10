@@ -157,7 +157,7 @@ impl Store {
             let prev = self.get_balance(account, token);
             if prev != amount {
                 let t = std::thread::current();
-                info!("[setbal] {} {} {} -> {} (delta {}{}) thread={:?}/{}",
+                tracing::info!("[setbal] {} {} {} -> {} (delta {}{}) thread={:?}/{}",
                     account, token, prev, amount,
                     if amount >= prev { "+" } else { "-" },
                     if amount >= prev { amount - prev } else { prev - amount },
