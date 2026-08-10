@@ -878,22 +878,17 @@ async fn main() -> Result<()> {
                         // this receiver's Lagged arm (below) DROPS events — a dropped finalize
                         // leaves the epoch unfinalized forever, which permanently stalls the
                         // deliberately-contiguous reward walk at main.rs:517-528.
-                        // Only a node that is NOT yet sync-ready can lose this race, because
-                        // the epoch_validators write is gated on exactly that flag. A
-                        // sync-ready node that has no snapshot for the epoch has genuinely
-                        // resolved it as sealer-less ("no seals — skipping"), and emitting
-                        // an empty sealed_by is the correct answer there — so it takes the
-                        // immediate path and behaves exactly as before this fix. Deferring
-                        // it instead is what wedged both launch nodes at state_root=0.
-                        if sync_ready_for_finalize.load(std::sync::atomic::Ordering::Acquire)
-                            && pending_finalize.is_empty()
-                        {
-                            emit_epoch_finalize(&fin, &chain_ref, &node_id_c, &cmd_tx_fin).await;
-                        } else {
-                            pending_finalize.insert(
-                                fin.epoch, (fin, tokio::time::Instant::now()),
-                            );
-                        }
+                        // EVERY epoch goes through `pending`, including on a sync-ready node.
+                        // An earlier version fast-pathed sync-ready nodes straight to emit,
+                        // on the reasoning that only a not-yet-ready node can lose the race.
+                        // That is wrong for the window just AFTER the flag flips: a rejoined
+                        // node is sync-ready but still draining its seal backlog, so an epoch
+                        // finalizing in that window still has no snapshot. Observed live at
+                        // epoch 99007 (run 5) — C emitted sealed_by=[] while A and B both
+                        // had ["clocka","clockb","clockc"], i.e. the original bug, one epoch
+                        // further out. The grace below is what prevents the wedge, so the
+                        // fast path bought nothing and cost correctness.
+                        pending_finalize.insert(fin.epoch, (fin, tokio::time::Instant::now()));
                         drain_pending_finalize(
                             &mut pending_finalize, &chain_ref, &node_id_c, &cmd_tx_fin,
                             &sync_ready_for_finalize,
@@ -1957,7 +1952,7 @@ async fn drain_pending_finalize(
     cmd_tx: &tokio::sync::mpsc::Sender<NetCmd>,
     sync_ready: &std::sync::atomic::AtomicBool,
 ) {
-    let is_ready = sync_ready.load(std::sync::atomic::Ordering::Acquire);
+    let _ = sync_ready;
     let ready: Vec<u64> = pending
         .iter()
         .filter(|(epoch, (_, first_seen))| {
@@ -1966,15 +1961,22 @@ async fn drain_pending_finalize(
                 .and_then(|b| serde_json::from_slice::<Vec<String>>(&b).ok())
                 .map(|v| !v.is_empty())
                 .unwrap_or(false);
-            // Flush on grace expiry too. Without this, an epoch whose seal this node
-            // never resolved (the clock module logs "epoch N: no seals — skipping",
-            // so `epoch_validators:{N}` is NEVER written) would defer forever, the
-            // epoch would never finalize locally, and the deliberately-contiguous
-            // reward walk would break at it permanently (main.rs:517-528) — the node
-            // stops applying rewards entirely and its state_root freezes. Observed
-            // live: an unconditional defer wedged both launch nodes at state_root=0
-            // with 11 epochs stuck pending.
-            have_snapshot || (is_ready && first_seen.elapsed() >= FINALIZE_DEFER_GRACE)
+            // Flush on grace expiry. Without this, an epoch whose seal this node never
+            // resolved (the clock module logs "epoch N: no seals — skipping", so
+            // `epoch_validators:{N}` is NEVER written) would defer forever, the epoch
+            // would never finalize locally, and the deliberately-contiguous reward walk
+            // would break at it permanently (main.rs:517-528) — the node stops applying
+            // rewards entirely and its state_root freezes. Observed live: an
+            // unconditional defer wedged both launch nodes at state_root=0 with 11
+            // epochs stuck pending.
+            //
+            // NOT conditioned on sync-ready: a node still draining its seal backlog just
+            // after the flag flips needs the deferral most (epoch 99007, run 5). The
+            // grace alone is what bounds the wait, so it applies to every node. In the
+            // normal case the snapshot is already there — a launch node writes
+            // epoch_validators at seal time, ~155ms before reward consensus crosses —
+            // so this drains immediately and only a genuinely sealer-less epoch waits.
+            have_snapshot || first_seen.elapsed() >= FINALIZE_DEFER_GRACE
         })
         .map(|(epoch, _)| *epoch)
         .collect();
