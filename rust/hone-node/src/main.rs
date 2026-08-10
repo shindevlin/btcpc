@@ -783,8 +783,29 @@ async fn main() -> Result<()> {
         let node_id_c = cfg.node_id.clone();
         let cmd_tx_fin = net_handle.cmd_tx.clone();
         tokio::spawn(async move {
+            // Epochs whose reward consensus finalized before this node's own
+            // `epoch_validators:{epoch}` snapshot existed — see the ORDERING note below.
+            // BTreeMap so the retry drains in ascending epoch order, matching the
+            // reward driver's contiguous walk.
+            let mut pending_finalize: std::collections::BTreeMap<u64, clock::FinalizedEpoch> =
+                std::collections::BTreeMap::new();
             loop {
-                match finalized_rx.recv().await {
+                // Timed recv so deferred epochs still drain when no new finalize event
+                // arrives (epochs are ~30s apart; a stalled tail must not wait on one).
+                let next = tokio::time::timeout(
+                    tokio::time::Duration::from_secs(2), finalized_rx.recv(),
+                ).await;
+                let next = match next {
+                    Ok(r) => r,
+                    Err(_) => {
+                        // Idle tick — retry anything still waiting on its validator set.
+                        drain_pending_finalize(
+                            &mut pending_finalize, &chain_ref, &node_id_c, &cmd_tx_fin,
+                        ).await;
+                        continue;
+                    }
+                };
+                match next {
                     Ok(fin) => {
                         // BUG 6 (replay-derivation, Grouchly spec 2e36ca9a): this handler
                         // NO LONGER mutates balances. It only constructs + broadcasts the
@@ -796,67 +817,44 @@ async fn main() -> Result<()> {
                         // identical mutation as a consequence of applying the identical
                         // winning entry, instead of each node recomputing off local state
                         // at its own quorum-cross moment (the double-credit race).
-                        // RACE (state-sync order 2c89388cfea9): `epoch_validators:{epoch}` is
-                        // written by the sealed_rx handler above (main.rs ~701-708) — a
-                        // SEPARATE task, gated on THIS node's own local seal resolution for
-                        // that epoch. `finalized_rx` here fires on reward-consensus quorum,
-                        // which can be reached purely from gossiped peer ConsensusProposals
-                        // (NetworkEvent::ConsensusProposal) with no dependency on this node's
-                        // local seal timing. Raw evidence (grouchly raw-074cb2d640f7,
-                        // run2-c.log) shows finalized_rx firing for epoch 97903 63s before
-                        // this node's own epoch_validators write landed — a rejoined node
-                        // catching up its own seal resolution loses this race, reads empty
-                        // sealers, and (because EpochFinalize is a system entry, dropped on
-                        // gossip receipt at the NetworkEvent::Entry match arm above) can never
-                        // be corrected by a peer's broadcast — it recycles that epoch's reward
-                        // forever. Bounded retry on the SAME deterministic key closes the
-                        // window without introducing a second source of truth. This stalls
-                        // this task's processing of later epochs' finalize events while
-                        // waiting (tolerable: capacity-64 channel, ~30s epochs).
-                        let epoch_validators_key = format!("epoch_validators:{}", fin.epoch);
-                        let mut sealers: Vec<String> = chain_ref.store.state_get(&epoch_validators_key)
-                            .and_then(|b| serde_json::from_slice::<Vec<String>>(&b).ok())
-                            .unwrap_or_default();
-                        if sealers.is_empty() && fin.quorum > 0 {
-                            for _ in 0..25 {
-                                tokio::time::sleep(tokio::time::Duration::from_millis(200)).await;
-                                if let Some(v) = chain_ref.store.state_get(&epoch_validators_key)
-                                    .and_then(|b| serde_json::from_slice::<Vec<String>>(&b).ok())
-                                {
-                                    if !v.is_empty() { sealers = v; break; }
-                                }
-                            }
-                            if sealers.is_empty() {
-                                warn!(
-                                    "[finalize] epoch {} reward quorum reached but this node's own \
-                                     epoch_validators never materialized locally after 5s — \
-                                     sealed_by will be empty, reward recycles", fin.epoch
-                                );
-                            }
-                        }
-
-                        let state_root = chain_ref.store.balance_merkle_root();
-                        let entry = LedgerEntry::EpochFinalize {
-                            epoch: fin.epoch,
-                            node_id: node_id_c.clone(),
-                            rewards_hash: fin.rewards_hash,
-                            quorum: fin.quorum as u64,
-                            sealed_by: sealers,
-                            state_root,
-                            timestamp: now_ms(),
-                        };
-                        if let Err(e) = chain_ref.apply_entry(&entry) {
-                            warn!("EpochFinalize apply failed (epoch {}): {}", fin.epoch, e);
-                        }
-                        let envelope = serde_json::json!({"entry": entry});
-                        if let Ok(data) = serde_json::to_vec(&envelope) {
-                            let _ = cmd_tx_fin.send(NetCmd::Broadcast {
-                                topic: "hone/entries",
-                                data,
-                            }).await; // tokio mpsc send is a no-op if not awaited (BUG 6):
-                            // this broadcasts the winning EpochFinalize — dropping it meant
-                            // peers never saw finalization, so rewards never applied network-wide.
-                        }
+                        // ORDERING (state-sync order 2c89388cfea9, evidence 5be1c07a3d92):
+                        // `epoch_validators:{epoch}` is written by the sealed_rx handler
+                        // above (main.rs ~701-708) — a SEPARATE task, gated behind
+                        // `seal_refused_pending_sync`, so it cannot run until this node is
+                        // sync-ready. `finalized_rx` here fires on reward-consensus quorum,
+                        // reachable purely from gossiped peer ConsensusProposals with NO
+                        // dependency on this node's own seal timing and NO sync gate. A
+                        // rejoined node therefore finalizes an epoch before it has sealed it.
+                        //
+                        // Raw evidence (grouchly raw-074cb2d640f7, run2-c.log), epoch 97903:
+                        //   18:51:36.395  reward consensus quorum reached  -> finalize fires
+                        //   18:52:00.574  clocka/clockb registrations first learned
+                        //   18:52:38.738  "sealing enabled" (sync gate opens)
+                        //   18:52:39.772  epoch sealed -> epoch_validators:97903 written (+63s)
+                        //   18:52:40.773  reward driver reads sealed_by=[] -> RECYCLES 20000000000
+                        // The empty set is then permanent: gossiped EpochFinalize is dropped
+                        // as a system entry (main.rs:1331) and, even if it were not, a
+                        // matching rewards_hash is treated as idempotent (chain.rs:1124), so
+                        // a peer's populated sealed_by can never heal this node's empty one.
+                        //
+                        // We DEFER instead of recomputing. Recomputing the set here from
+                        // `registered_clock_nodes` would be WRONG: at 18:51:36 this node knew
+                        // only itself, so it would have written sealed_by=[clockc] and forked
+                        // against A/B's 3-node set. That function is not epoch-filtered — it
+                        // returns the registered set as of CALL time, not as of `epoch` — so
+                        // the only value identical across nodes is the one the sealed_rx
+                        // handler snapshots. Deferring keeps a single source of truth.
+                        //
+                        // Deferred epochs are held in `pending_finalize` and retried on every
+                        // later finalize event AND on a 2s idle tick. We do NOT sleep in this
+                        // task: a blocking retry here head-of-line-blocks later epochs, and
+                        // this receiver's Lagged arm (below) DROPS events — a dropped finalize
+                        // leaves the epoch unfinalized forever, which permanently stalls the
+                        // deliberately-contiguous reward walk at main.rs:517-528.
+                        pending_finalize.insert(fin.epoch, fin);
+                        drain_pending_finalize(
+                            &mut pending_finalize, &chain_ref, &node_id_c, &cmd_tx_fin,
+                        ).await;
                     }
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
                         warn!("finalized_rx lagged by {} events", n);
@@ -966,6 +964,7 @@ async fn main() -> Result<()> {
         let signing_key_c = Arc::clone(&signing_key);
         let signing_pubkey_c = Arc::clone(&signing_pubkey_hex);
         let self_reg_c = Arc::clone(&self_register_envelope);
+        let sync_ready_for_publish = sync_ready.clone();
         // Epoch is relative to genesis, not Unix epoch.
         // genesis_ts is guaranteed set (init_genesis would have errored otherwise).
         let genesis_ts = cfg.genesis_timestamp.unwrap_or(0);
@@ -1024,7 +1023,26 @@ async fn main() -> Result<()> {
                         "pubkey": *signing_pubkey_c,
                     });
                     // Self-ingest so we count toward quorum on single-node networks.
+                    // NOT gated on sync_ready: this only feeds our LOCAL clock module, and
+                    // the sealed_rx consumer is already gated (main.rs seal_refused_pending_sync),
+                    // so nothing is persisted pre-ready. Keeping the ingest is what lets a
+                    // rejoined node resolve its backlog of epochs in one burst the moment
+                    // the gate opens, which is what makes the deferred-finalize path drain.
                     clock_ref.receive_seal(seal.clone());
+                    // PUBLICATION GATE (order 2c89388cfea9 item 2): a node that is not
+                    // sync-ready must not publish seals to peers. This publisher is a
+                    // SEPARATE task from sealed_rx and was never covered by the gate at
+                    // seal_refused_pending_sync — which is why the unit test passed while
+                    // live evidence (raw-074cb2d640f7, run2-c.log 18:51:14) shows C
+                    // publishing on hone/seals 84s BEFORE "sealing enabled", with
+                    // c_refuse_count_final=0. Peers counted an unsynced node toward quorum.
+                    if !sync_ready_for_publish.load(std::sync::atomic::Ordering::Acquire) {
+                        warn!(
+                            "[sync] refusing to PUBLISH seal for epoch {} until verified \
+                             catch-up completes", epoch
+                        );
+                        continue;
+                    }
                     if let Ok(data) = serde_json::to_vec(&seal) {
                         // `.await` REQUIRED — see clock-hello note above. Without it this
                         // seal broadcast was a silent no-op, so a peer clock never received
@@ -1834,6 +1852,79 @@ fn highest_contiguous_rewarded(chain: &Chain) -> u64 {
 /// reliably assert this path because a rejoining node loses every seal race in its
 /// ~60s pre-ready window (proven live: no adversarial injection needed), so a direct
 /// test of the gate itself is the only deterministic way to cover it.
+/// Emit the `EpochFinalize` entry for every deferred epoch whose validator snapshot
+/// has since landed, in ascending epoch order.
+///
+/// `sealed_by` is ALWAYS this node's own `epoch_validators:{epoch}` — the value the
+/// sealed_rx handler snapshots at seal time — never a value recomputed here. See the
+/// ORDERING note at the finalized_rx call site (main.rs ~799) for why recomputing
+/// forks and why we defer instead. An epoch stays pending until its snapshot exists;
+/// that stalls the reward walk for that epoch (safe, blocking) rather than crediting
+/// nobody (silent divergence), which is the same trade the walk itself makes at
+/// main.rs:517-528.
+async fn drain_pending_finalize(
+    pending: &mut std::collections::BTreeMap<u64, clock::FinalizedEpoch>,
+    chain: &Arc<chain::Chain>,
+    node_id: &str,
+    cmd_tx: &tokio::sync::mpsc::Sender<NetCmd>,
+) {
+    let ready: Vec<u64> = pending
+        .iter()
+        .filter(|(epoch, _)| {
+            chain.store
+                .state_get(&format!("epoch_validators:{}", epoch))
+                .and_then(|b| serde_json::from_slice::<Vec<String>>(&b).ok())
+                .map(|v| !v.is_empty())
+                .unwrap_or(false)
+        })
+        .map(|(epoch, _)| *epoch)
+        .collect();
+
+    for epoch in ready {
+        let fin = match pending.remove(&epoch) {
+            Some(f) => f,
+            None => continue,
+        };
+        let sealers: Vec<String> = chain.store
+            .state_get(&format!("epoch_validators:{}", epoch))
+            .and_then(|b| serde_json::from_slice::<Vec<String>>(&b).ok())
+            .unwrap_or_default();
+
+        let state_root = chain.store.balance_merkle_root();
+        let entry = LedgerEntry::EpochFinalize {
+            epoch: fin.epoch,
+            node_id: node_id.to_owned(),
+            rewards_hash: fin.rewards_hash,
+            quorum: fin.quorum as u64,
+            sealed_by: sealers,
+            state_root,
+            timestamp: now_ms(),
+        };
+        if let Err(e) = chain.apply_entry(&entry) {
+            warn!("EpochFinalize apply failed (epoch {}): {}", fin.epoch, e);
+        }
+        let envelope = serde_json::json!({"entry": entry});
+        if let Ok(data) = serde_json::to_vec(&envelope) {
+            let _ = cmd_tx.send(NetCmd::Broadcast {
+                topic: "hone/entries",
+                data,
+            }).await; // tokio mpsc send is a no-op if not awaited (BUG 6):
+            // this broadcasts the winning EpochFinalize — dropping it meant
+            // peers never saw finalization, so rewards never applied network-wide.
+        }
+    }
+
+    if !pending.is_empty() {
+        let lowest = pending.keys().next().copied().unwrap_or_default();
+        warn!(
+            "[finalize] {} epoch(s) finalized by reward consensus but deferred — this node \
+             has no epoch_validators snapshot for them yet (lowest {}). Emitting EpochFinalize \
+             now would write sealed_by=[] and recycle the whole block reward.",
+            pending.len(), lowest
+        );
+    }
+}
+
 fn seal_refused_pending_sync(sync_ready: &std::sync::atomic::AtomicBool, epoch: u64) -> bool {
     if !sync_ready.load(std::sync::atomic::Ordering::Acquire) {
         warn!("[sync] refusing to seal epoch {} until verified catch-up completes", epoch);
