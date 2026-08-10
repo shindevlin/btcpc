@@ -67,7 +67,7 @@ start() {
   case "$i" in 0) x=a;; 1) x=b;; 2) x=c;; *) echo "bad node index" >&2; exit 2;; esac
   account="clock$x"; dir="$WORK/$x"; mkdir -p "$dir"; seed_var="SEED_${x^^}"; seed=${!seed_var}
   local sync_mode=launch delay=0; [ "$x" = c ] && sync_mode=late-joiner && delay=60
-  sudo -n ip netns exec "${NS[$i]}" env HOME="$WORK/home-$x" HONE_ACCOUNT="$account" HONE_POSTING_KEY="$seed" HONE_CLOCK=true HONE_MINER=false HONE_WORK_GENERATOR=false HONE_SIM=false HONE_ISOLATED=true HONE_ISOLATED_BIND_IP="${IP[$i]}" HONE_STATE_SYNC_MODE="$sync_mode" HONE_STATE_SYNC_TEST_DELAY_SECS="$delay" HONE_REWARD_DEPTH=2 HONE_CHAIN_ID="$CHAIN" HONE_GENESIS_FILE="$WORK/genesis.json" HONE_GENESIS_TIMESTAMP="$TS" HONE_DATA_DIR="$dir/data" HONE_API_PORT="${API[$i]}" HONE_P2P_PORT="${P2P[$i]}" HONE_WS_PORT="${WS[$i]}" HONE_BOOTSTRAP_PEERS="$boot" "$BIN" >"$dir/run.log" 2>&1 &
+  sudo -n ip netns exec "${NS[$i]}" env HOME="$WORK/home-$x" HONE_ACCOUNT="$account" HONE_POSTING_KEY="$seed" HONE_CLOCK=true HONE_MINER=false HONE_WORK_GENERATOR=false HONE_SIM=false HONE_ISOLATED=true HONE_ISOLATED_BIND_IP="${IP[$i]}" HONE_STATE_SYNC_MODE="$sync_mode" HONE_STATE_SYNC_TEST_DELAY_SECS="$delay" HONE_REWARD_DEPTH=2 HONE_CHAIN_ID="$CHAIN" HONE_GENESIS_FILE="$WORK/genesis.json" HONE_GENESIS_TIMESTAMP="$TS" HONE_DATA_DIR="$dir/data" HONE_API_PORT="${API[$i]}" HONE_P2P_PORT="${P2P[$i]}" HONE_WS_PORT="${WS[$i]}" HONE_BOOTSTRAP_PEERS="$boot" HONE_TRACE_FUND_WRITES="${HONE_TRACE_FUND_WRITES:-}" "$BIN" >"$dir/run.log" 2>&1 &
   PIDS+=("$!")
 }
 peer_id() { grep -oE '12D3KooW[A-Za-z0-9]+' "$1" 2>/dev/null | head -1 || true; }
@@ -174,7 +174,11 @@ echo "balance_diff_ab=$(diff -q "$WORK/balances-a.tsv" "$WORK/balances-b.tsv" >/
 echo "balance_diff_ac=$(diff -q "$WORK/balances-a.tsv" "$WORK/balances-c.tsv" >/dev/null 2>&1 && echo identical || echo DIFFER)"
 echo "balance_dump_a<<EOF"; cat "$WORK/balances-a.tsv" 2>/dev/null; echo "EOF"
 echo "balance_dump_c<<EOF"; cat "$WORK/balances-c.tsv" 2>/dev/null; echo "EOF"
-echo "balance_diff_ac_detail<<EOF"; diff -u "$WORK/balances-a.tsv" "$WORK/balances-c.tsv" 2>/dev/null | head -60; echo "EOF"
+# `diff` exits 1 when the files differ, and under `set -euo pipefail` that killed the
+# whole script right here — every probe below (balance_series, and now the fund/escrow
+# traces) never ran, in runs 8, 9 and 10 alike. The empty tail read as "not collected"
+# rather than as the abort it was. Neutralize the exit status; the output is the signal.
+echo "balance_diff_ac_detail<<EOF"; { diff -u "$WORK/balances-a.tsv" "$WORK/balances-c.tsv" 2>/dev/null || true; } | head -60; echo "EOF"
 # TIME SERIES. The end-state dump names the differing ACCOUNT but not the EPOCH the
 # divergence entered at, and the job lifecycle logs nothing to recover it from. The
 # sampler below (started before the A/B phase) wrote one dump per node per tick with the

@@ -145,6 +145,25 @@ impl Store {
 
     pub fn set_balance(&self, account: &str, token: &str, amount: u64) -> Result<()> {
         let cf = self.db.cf_handle(CF_BALANCES).context("balances CF")?;
+        // Order-2c89388cfea9 instrumentation, opt-in via HONE_TRACE_FUND_WRITES. Run 10
+        // showed the D8 benchmark escrow debit landing on __testnet_fund__ and then being
+        // silently reverted before the next epoch's reserve split, on every node. This
+        // logs every write to the two shared fund accounts with the thread that made it,
+        // which separates a concurrent lost read-modify-write update from a sequential
+        // logic bug. Off unless the env var is set, so it costs nothing in normal runs.
+        if matches!(account, "__testnet_fund__" | "__recycle_fund__")
+            && std::env::var("HONE_TRACE_FUND_WRITES").map(|v| v == "1").unwrap_or(false)
+        {
+            let prev = self.get_balance(account, token);
+            if prev != amount {
+                let t = std::thread::current();
+                info!("[setbal] {} {} {} -> {} (delta {}{}) thread={:?}/{}",
+                    account, token, prev, amount,
+                    if amount >= prev { "+" } else { "-" },
+                    if amount >= prev { amount - prev } else { prev - amount },
+                    t.id(), t.name().unwrap_or("unnamed"));
+            }
+        }
         self.db.put_cf(&cf, balance_key(account, token), amount.to_le_bytes())?;
         Ok(())
     }
