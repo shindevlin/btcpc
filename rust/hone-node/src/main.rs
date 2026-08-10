@@ -505,6 +505,7 @@ async fn main() -> Result<()> {
                     // the walk (safe, blocking) instead of ageing out of it (silent fork).
                     let start = last_rewarded.saturating_add(1);
                     let stop  = safe_tip.min(start.saturating_add(64));
+                    let watermark_before = last_rewarded;
                     // CONTIGUOUS advance only (BUG 6, Grouchly 80333c2b): if an epoch in
                     // this range isn't finalized locally yet (gossip lag can let `cur` —
                     // which advances on any peer's EpochSeal — race ahead of this node's
@@ -546,6 +547,28 @@ async fn main() -> Result<()> {
                         finalize::apply_entropy_decay(&chain_ref, e);
                         let _ = chain_ref.store.state_set(&done_key, b"1");
                         last_rewarded = e; // contiguous through e
+                    }
+                    // WATERMARK READOUT (order 2c89388cfea9 item 4): persist the highest
+                    // contiguous rewarded epoch. `set_reward_watermark` was previously
+                    // called from exactly ONE place — the state-sync importer
+                    // (state_sync.rs:275) — so a node that never imported a snapshot
+                    // reported reward_watermark=0 forever. That is what produced the
+                    // inversion in the Pass-B gate: launch nodes A/B read 0 while the
+                    // rejoined joiner C read 97902, making `final_epochs_equal` compare a
+                    // never-written field against a written one and always be false.
+                    //
+                    // COSMETIC for convergence, NOT a resume bug: A and B still agreed on
+                    // state_root byte-for-byte at the same epoch (gate2.out target_root_ab_
+                    // equal=true, final_root_a == final_root_b), so nothing was actually
+                    // diverging — the signal was just unreadable. Writing it here makes the
+                    // field mean the same thing on every node and restores the signal.
+                    //
+                    // Safe for snapshot labeling: `snapshot_epoch` is
+                    // contiguous_finalized(done, watermark) = max(walk, watermark), and the
+                    // walk only advances over epochs already applied, so watermark <= walk
+                    // and the max is unchanged. Written only on a real advance.
+                    if last_rewarded > watermark_before {
+                        let _ = chain_ref.store.set_reward_watermark(last_rewarded);
                     }
                 }
             }
