@@ -92,7 +92,7 @@ function generateMilestone(stats) {
 
 ### What is HONE?
 
-Bitcoin Proof of Compute is a sovereign blockchain where **mining = AI inference**. Instead of burning electricity on SHA-256 hashes, miners run AI models and earn tokens for real, useful work.
+Hone: Proof of Compute is a sovereign blockchain where **mining = AI inference**. Instead of burning electricity on SHA-256 hashes, miners run AI models and earn tokens for real, useful work.
 
 ### Key Numbers
 
@@ -126,7 +126,7 @@ No staking required to mine. No special hardware. A mid-range desktop earns alon
 }
 
 function generateLaunch() {
-  const title = "Introducing HONE — Bitcoin Proof of Compute: a blockchain where mining means AI inference";
+  const title = "Introducing HONE — Proof of Compute: a blockchain where mining means AI inference";
   const body = `## What if mining was useful?
 
 Bitcoin proved that decentralized consensus works. HONE asks the next question: **what if the work that secures the chain also produces something people are paying for?**

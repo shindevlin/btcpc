@@ -1,7 +1,7 @@
 {
   "name": "hone",
   "version": "1.0.0",
-  "description": "Bitcoin Proof of Compute — manage your HONE nodes, wallet, and earnings",
+  "description": "Hone: Proof of Compute — manage your HONE nodes, wallet, and earnings",
   "author": "Shin Devlin <shindevlin@proton.me>",
   "tools": [
     {

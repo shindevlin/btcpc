@@ -21,7 +21,7 @@ cat <<'BANNER'
   ██████╔╝   ██║   ╚██████╗██║     ╚██████╗
   ╚═════╝    ╚═╝    ╚═════╝╚═╝      ╚═════╝
 
-  Bitcoin Proof of Compute — Android Clock Installer
+  Hone: Proof of Compute — Android Clock Installer
 
 BANNER
 

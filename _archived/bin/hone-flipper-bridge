@@ -317,7 +317,7 @@ async function cmdSign(serial, args) {
 
 async function main() {
     console.log('hone-flipper-bridge v0.1.0');
-    console.log('Bitcoin Proof of Compute — Flipper Zero Hardware Wallet Bridge\n');
+    console.log('Hone: Proof of Compute — Flipper Zero Hardware Wallet Bridge\n');
 
     // Detect device
     let devicePath = process.argv[2]; // optional: explicit device path

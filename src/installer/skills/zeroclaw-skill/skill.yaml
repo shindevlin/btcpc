@@ -1,6 +1,6 @@
 name: hone
 version: "1.0.0"
-description: Bitcoin Proof of Compute — manage nodes, wallet, and inference earnings
+description: Hone: Proof of Compute — manage nodes, wallet, and inference earnings
 author: Shin Devlin <shindevlin@proton.me>
 
 tools:

@@ -1,6 +1,6 @@
 # HONE Marketing Handoff
 
-This repository contains everything a marketing team needs to understand, position, and promote **Bitcoin Proof of Compute (HONE)** — without needing to read code or understand blockchain engineering.
+This repository contains everything a marketing team needs to understand, position, and promote **Hone: Proof of Compute (HONE)** — without needing to read code or understand blockchain engineering.
 
 ## Contents
 

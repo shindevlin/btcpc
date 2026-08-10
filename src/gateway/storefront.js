@@ -87,7 +87,7 @@ function baseLayout(title, bodyHtml) {
     '<main>',
     bodyHtml,
     '</main>',
-    '<footer>HONE — Bitcoin Proof of Compute · <a href="https://hone.net">hone.net</a></footer>',
+    '<footer>HONE — Proof of Compute · <a href="https://hone.net">hone.net</a></footer>',
     '</body>',
     '</html>',
   ].join('\n');

@@ -2,7 +2,7 @@
 
 /**
  * HONE Block Explorer (honescan)
- * Bitcoin Proof of Compute — Chain Explorer
+ * Hone: Proof of Compute — Chain Explorer
  * Port 4242 (42 x 101)
  *
  * Reads from the permanent ledger and block files — the source of truth.
@@ -599,7 +599,7 @@ app.get("/api/stats", async (req, res) => {
 
     res.json({
       chain: "HONE",
-      name: "Bitcoin Proof of Compute",
+      name: "Hone: Proof of Compute",
       total_supply: TOTAL_SUPPLY,
       total_mined: statsTotalMined,
       current_epoch: currentEpoch,
@@ -934,7 +934,7 @@ app.listen(PORT, () => {
   console.log(`
   ============================================
     honescan — HONE Chain Explorer
-    Bitcoin Proof of Compute
+    Hone: Proof of Compute
     http://localhost:${PORT}
   ============================================
   `);

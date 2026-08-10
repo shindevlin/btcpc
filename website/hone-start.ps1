@@ -16,7 +16,7 @@ Say "  ######      ##    ##      ######  ##" "Yellow"
 Say "  ##  ##      ##    ##      ##      ##" "Yellow"
 Say "  ######      ##    ######  ##      ######" "Yellow"
 Say ""
-Say "  Bitcoin Proof of Compute - Windows Starter" "Yellow"
+Say "  Hone: Proof of Compute - Windows Starter" "Yellow"
 Say ""
 
 $keepRetrying = $true

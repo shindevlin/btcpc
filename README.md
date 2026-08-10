@@ -1,4 +1,4 @@
-# Bitcoin Proof of Compute (HONE)
+# Hone: Proof of Compute
 
 **Mine by doing useful work.** GPU, Raspberry Pi, phone, spare drive, or AI agent. Every token earned by a machine doing something real.
 
@@ -205,7 +205,7 @@ Get an API key: create an account via [@honebot](https://t.me/honebot), then `PO
 |-----------|-------|
 | Total supply | 42,000,000 HONE |
 | Smallest unit | 1 dream (1 HONE = 10,000,000,000 dreams) |
-| Genesis timestamp | 1783191600000 ms (2026-05-01, noon Ireland, UTC+1) |
+| Genesis timestamp | 1783191600000 ms (2026-07-04, noon Los Angeles, PDT/UTC-7) |
 | Era 0 epoch duration | 30 seconds |
 | Era 0 block reward | 2 HONE per epoch |
 | Emission model | Epoch duration doubles every 4,200,000 epochs |
@@ -258,7 +258,7 @@ See [AGENTS.md](AGENTS.md) for the agent onboarding guide, repo map, and contrib
 Agent onboarding prompt:
 
 ```
-You are working on HONE (Bitcoin Proof of Compute). Read AGENTS.md,
+You are working on Hone (Proof of Compute). Read AGENTS.md,
 CLAUDE.md, and README.md first. Use the code-review-graph MCP tools
 before Grep or file scanning. The canonical chain is rust/hone-node
 (port 4242). Do not reference or modify the Node.js src/ directory.

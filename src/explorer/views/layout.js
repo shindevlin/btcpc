@@ -436,7 +436,7 @@ function layout(title, content) {
     ${content}
   </div>
   <footer class="footer">
-    Bitcoin Proof of Compute &mdash; Block Explorer &mdash; Designed by Shin Devlin
+    Hone: Proof of Compute &mdash; Block Explorer &mdash; Designed by Shin Devlin
   </footer>
   <script>
     setTimeout(function() { location.reload(); }, 30000);

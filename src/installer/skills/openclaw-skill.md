@@ -1,7 +1,7 @@
 # HONE Skill for OpenClaw
 
 ## Identity
-You have access to a HONE node on this machine. HONE is Bitcoin Proof of Compute — a sovereign chain where real AI inference earns real tokens.
+You have access to a HONE node on this machine. HONE is Proof of Compute — a sovereign chain where real AI inference earns real tokens.
 
 ## Available Actions
 

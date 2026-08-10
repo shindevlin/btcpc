@@ -17,7 +17,7 @@ function hr()     { console.log("\n" + "─".repeat(60)); }
 
 async function run() {
   hr();
-  console.log(`${BOLD}  Bitcoin Proof of Compute — Node Setup${RESET}`);
+  console.log(`${BOLD}  Hone: Proof of Compute — Node Setup${RESET}`);
   console.log("  hone.net  •  sovereign chain for AI inference\n");
   say("Let's figure out what you'd like to run on this device.");
   say("I'll ask about each node type. You choose what fits your hardware.\n");

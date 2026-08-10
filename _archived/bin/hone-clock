@@ -564,7 +564,7 @@ function start() {
   console.log("");
   console.log("  ============================================");
   console.log("    hone-clock — Lightweight Clock Node");
-  console.log("    Bitcoin Proof of Compute");
+  console.log("    Hone: Proof of Compute");
   console.log("    Account: " + CLOCK_ACCOUNT);
   console.log("    Node ID: " + NODE_ID.slice(0, 12) + "...");
   console.log("    P2P Port: " + P2P_PORT);

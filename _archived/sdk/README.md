@@ -1,6 +1,6 @@
 # @hone/sdk
 
-Use AI inference powered by Bitcoin Proof of Compute. Every request is backed by verified GPU work on the HONE blockchain.
+Use AI inference powered by Hone: Proof of Compute. Every request is backed by verified GPU work on the HONE blockchain.
 
 ## Install
 

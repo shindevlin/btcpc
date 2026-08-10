@@ -129,7 +129,7 @@ async function createGenesisBlock() {
         project: 'hone',
         tag: 'Genesis — The chain dreamed itself into existence',
         custom_data: {
-          title: 'Bitcoin Proof of Compute — Whitepaper',
+          title: 'Hone: Proof of Compute — Whitepaper',
           author: 'Shin Devlin',
           version: '0.3',
           message: GENESIS_MESSAGE,

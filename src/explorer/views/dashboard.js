@@ -60,7 +60,7 @@ function dashboard(data) {
   `).join("");
 
   const content = `
-    <h1 class="page-title">Bitcoin Proof of Compute &mdash; <span>Block Explorer</span></h1>
+    <h1 class="page-title">Hone: Proof of Compute &mdash; <span>Block Explorer</span></h1>
 
     <div class="stats-grid">
       <div class="stat-card">

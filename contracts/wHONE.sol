@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 
 /**
- * wHONE — Wrapped Bitcoin Proof of Compute
+ * wHONE — Wrapped Hone (Proof of Compute)
  * Shin Devlin
  *
  * ERC-20 on each supported EVM chain (ethereum, base, arbitrum, optimism, bsc, polygon).

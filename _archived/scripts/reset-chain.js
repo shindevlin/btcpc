@@ -172,7 +172,7 @@ async function run() {
         project: "hone",
         tag: "Genesis — The chain dreamed itself into existence",
         custom_data: {
-          title: "Bitcoin Proof of Compute — Whitepaper v3.0",
+          title: "Hone: Proof of Compute — Whitepaper v3.0",
           author: "Shin Devlin",
           version: "3.0",
           message: GENESIS_MESSAGE,

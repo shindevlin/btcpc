@@ -97,7 +97,7 @@ const ALL_ENGINES = [
 ];
 
 async function run() {
-  console.log(`\n${BOLD}  Bitcoin Proof of Compute — Intelligent Installer${RESET}`);
+  console.log(`\n${BOLD}  Hone: Proof of Compute — Intelligent Installer${RESET}`);
   console.log(`${DIM}  hone.net  •  sovereign chain for AI inference${RESET}\n`);
 
   // 1. Detect which engines are already installed

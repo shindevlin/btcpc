@@ -10,7 +10,7 @@ echo   ######      ##    ##      ######  ##
 echo   ##  ##      ##    ##      ##      ##
 echo   ######      ##    ######  ##      ######
 echo.
-echo   Bitcoin Proof of Compute - Windows Starter
+echo   Hone: Proof of Compute - Windows Starter
 echo.
 
 REM Retry counter for main loop

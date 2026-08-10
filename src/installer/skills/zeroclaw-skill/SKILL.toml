@@ -1,7 +1,7 @@
 [skill]
 name = "hone"
 version = "1.0.0"
-description = "Bitcoin Proof of Compute — manage nodes, wallet, and earnings from your AI assistant"
+description = "Hone: Proof of Compute — manage nodes, wallet, and earnings from your AI assistant"
 author = "Shin Devlin <shindevlin@proton.me>"
 
 [[tools]]
