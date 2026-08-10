@@ -805,13 +805,16 @@ async fn main() -> Result<()> {
         let chain_ref = chain.clone();
         let node_id_c = cfg.node_id.clone();
         let cmd_tx_fin = net_handle.cmd_tx.clone();
+        let sync_ready_for_finalize = sync_ready.clone();
         tokio::spawn(async move {
             // Epochs whose reward consensus finalized before this node's own
             // `epoch_validators:{epoch}` snapshot existed — see the ORDERING note below.
             // BTreeMap so the retry drains in ascending epoch order, matching the
-            // reward driver's contiguous walk.
-            let mut pending_finalize: std::collections::BTreeMap<u64, clock::FinalizedEpoch> =
-                std::collections::BTreeMap::new();
+            // reward driver's contiguous walk. Value carries first-seen so the grace
+            // flush can bound how long an epoch may stay deferred.
+            let mut pending_finalize: std::collections::BTreeMap<
+                u64, (clock::FinalizedEpoch, tokio::time::Instant),
+            > = std::collections::BTreeMap::new();
             loop {
                 // Timed recv so deferred epochs still drain when no new finalize event
                 // arrives (epochs are ~30s apart; a stalled tail must not wait on one).
@@ -824,6 +827,7 @@ async fn main() -> Result<()> {
                         // Idle tick — retry anything still waiting on its validator set.
                         drain_pending_finalize(
                             &mut pending_finalize, &chain_ref, &node_id_c, &cmd_tx_fin,
+                            &sync_ready_for_finalize,
                         ).await;
                         continue;
                     }
@@ -874,9 +878,25 @@ async fn main() -> Result<()> {
                         // this receiver's Lagged arm (below) DROPS events — a dropped finalize
                         // leaves the epoch unfinalized forever, which permanently stalls the
                         // deliberately-contiguous reward walk at main.rs:517-528.
-                        pending_finalize.insert(fin.epoch, fin);
+                        // Only a node that is NOT yet sync-ready can lose this race, because
+                        // the epoch_validators write is gated on exactly that flag. A
+                        // sync-ready node that has no snapshot for the epoch has genuinely
+                        // resolved it as sealer-less ("no seals — skipping"), and emitting
+                        // an empty sealed_by is the correct answer there — so it takes the
+                        // immediate path and behaves exactly as before this fix. Deferring
+                        // it instead is what wedged both launch nodes at state_root=0.
+                        if sync_ready_for_finalize.load(std::sync::atomic::Ordering::Acquire)
+                            && pending_finalize.is_empty()
+                        {
+                            emit_epoch_finalize(&fin, &chain_ref, &node_id_c, &cmd_tx_fin).await;
+                        } else {
+                            pending_finalize.insert(
+                                fin.epoch, (fin, tokio::time::Instant::now()),
+                            );
+                        }
                         drain_pending_finalize(
                             &mut pending_finalize, &chain_ref, &node_id_c, &cmd_tx_fin,
+                            &sync_ready_for_finalize,
                         ).await;
                     }
                     Err(tokio::sync::broadcast::error::RecvError::Lagged(n)) => {
@@ -1885,65 +1905,96 @@ fn highest_contiguous_rewarded(chain: &Chain) -> u64 {
 /// that stalls the reward walk for that epoch (safe, blocking) rather than crediting
 /// nobody (silent divergence), which is the same trade the walk itself makes at
 /// main.rs:517-528.
-async fn drain_pending_finalize(
-    pending: &mut std::collections::BTreeMap<u64, clock::FinalizedEpoch>,
+/// Build, apply and broadcast the `EpochFinalize` entry for one finalized epoch.
+///
+/// `sealed_by` is ALWAYS read here from this node's own `epoch_validators:{epoch}` —
+/// the snapshot the sealed_rx handler writes at seal time — never recomputed. See the
+/// ORDERING note at the finalized_rx call site for why recomputing forks.
+async fn emit_epoch_finalize(
+    fin: &clock::FinalizedEpoch,
     chain: &Arc<chain::Chain>,
     node_id: &str,
     cmd_tx: &tokio::sync::mpsc::Sender<NetCmd>,
 ) {
+    let sealers: Vec<String> = chain.store
+        .state_get(&format!("epoch_validators:{}", fin.epoch))
+        .and_then(|b| serde_json::from_slice::<Vec<String>>(&b).ok())
+        .unwrap_or_default();
+
+    let state_root = chain.store.balance_merkle_root();
+    let entry = LedgerEntry::EpochFinalize {
+        epoch: fin.epoch,
+        node_id: node_id.to_owned(),
+        rewards_hash: fin.rewards_hash.clone(),
+        quorum: fin.quorum as u64,
+        sealed_by: sealers,
+        state_root,
+        timestamp: now_ms(),
+    };
+    if let Err(e) = chain.apply_entry(&entry) {
+        warn!("EpochFinalize apply failed (epoch {}): {}", fin.epoch, e);
+    }
+    let envelope = serde_json::json!({"entry": entry});
+    if let Ok(data) = serde_json::to_vec(&envelope) {
+        let _ = cmd_tx.send(NetCmd::Broadcast {
+            topic: "hone/entries",
+            data,
+        }).await; // tokio mpsc send is a no-op if not awaited (BUG 6):
+        // this broadcasts the winning EpochFinalize — dropping it meant
+        // peers never saw finalization, so rewards never applied network-wide.
+    }
+}
+
+/// Hard cap on how long an epoch may stay deferred once this node is sync-ready.
+/// Bounds the fix so it can never wedge: after this it emits with whatever it has,
+/// which is exactly the pre-fix behaviour. One epoch period.
+const FINALIZE_DEFER_GRACE: std::time::Duration = std::time::Duration::from_secs(30);
+
+async fn drain_pending_finalize(
+    pending: &mut std::collections::BTreeMap<u64, (clock::FinalizedEpoch, tokio::time::Instant)>,
+    chain: &Arc<chain::Chain>,
+    node_id: &str,
+    cmd_tx: &tokio::sync::mpsc::Sender<NetCmd>,
+    sync_ready: &std::sync::atomic::AtomicBool,
+) {
+    let is_ready = sync_ready.load(std::sync::atomic::Ordering::Acquire);
     let ready: Vec<u64> = pending
         .iter()
-        .filter(|(epoch, _)| {
-            chain.store
+        .filter(|(epoch, (_, first_seen))| {
+            let have_snapshot = chain.store
                 .state_get(&format!("epoch_validators:{}", epoch))
                 .and_then(|b| serde_json::from_slice::<Vec<String>>(&b).ok())
                 .map(|v| !v.is_empty())
-                .unwrap_or(false)
+                .unwrap_or(false);
+            // Flush on grace expiry too. Without this, an epoch whose seal this node
+            // never resolved (the clock module logs "epoch N: no seals — skipping",
+            // so `epoch_validators:{N}` is NEVER written) would defer forever, the
+            // epoch would never finalize locally, and the deliberately-contiguous
+            // reward walk would break at it permanently (main.rs:517-528) — the node
+            // stops applying rewards entirely and its state_root freezes. Observed
+            // live: an unconditional defer wedged both launch nodes at state_root=0
+            // with 11 epochs stuck pending.
+            have_snapshot || (is_ready && first_seen.elapsed() >= FINALIZE_DEFER_GRACE)
         })
         .map(|(epoch, _)| *epoch)
         .collect();
 
     for epoch in ready {
-        let fin = match pending.remove(&epoch) {
+        let (fin, _) = match pending.remove(&epoch) {
             Some(f) => f,
             None => continue,
         };
-        let sealers: Vec<String> = chain.store
-            .state_get(&format!("epoch_validators:{}", epoch))
-            .and_then(|b| serde_json::from_slice::<Vec<String>>(&b).ok())
-            .unwrap_or_default();
-
-        let state_root = chain.store.balance_merkle_root();
-        let entry = LedgerEntry::EpochFinalize {
-            epoch: fin.epoch,
-            node_id: node_id.to_owned(),
-            rewards_hash: fin.rewards_hash,
-            quorum: fin.quorum as u64,
-            sealed_by: sealers,
-            state_root,
-            timestamp: now_ms(),
-        };
-        if let Err(e) = chain.apply_entry(&entry) {
-            warn!("EpochFinalize apply failed (epoch {}): {}", fin.epoch, e);
-        }
-        let envelope = serde_json::json!({"entry": entry});
-        if let Ok(data) = serde_json::to_vec(&envelope) {
-            let _ = cmd_tx.send(NetCmd::Broadcast {
-                topic: "hone/entries",
-                data,
-            }).await; // tokio mpsc send is a no-op if not awaited (BUG 6):
-            // this broadcasts the winning EpochFinalize — dropping it meant
-            // peers never saw finalization, so rewards never applied network-wide.
-        }
+        emit_epoch_finalize(&fin, chain, node_id, cmd_tx).await;
     }
 
     if !pending.is_empty() {
         let lowest = pending.keys().next().copied().unwrap_or_default();
         warn!(
-            "[finalize] {} epoch(s) finalized by reward consensus but deferred — this node \
-             has no epoch_validators snapshot for them yet (lowest {}). Emitting EpochFinalize \
-             now would write sealed_by=[] and recycle the whole block reward.",
-            pending.len(), lowest
+            "[finalize] {} epoch(s) finalized by reward consensus but deferred pending \
+             verified catch-up — no epoch_validators snapshot yet (lowest {}). Emitting \
+             EpochFinalize now would write sealed_by=[] and recycle the whole block reward. \
+             Flushes automatically {}s after sealing is enabled.",
+            pending.len(), lowest, FINALIZE_DEFER_GRACE.as_secs()
         );
     }
 }

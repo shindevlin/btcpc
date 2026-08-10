@@ -113,7 +113,12 @@ echo "c_deferred_finalize_count=$(grep -icE 'finalized by reward consensus but d
 # Order item 1 GREEN criterion: C must emit sealed_by-POPULATED epoch_meta for the
 # post-import epochs. Read it straight out of C's store via the epoch API rather than
 # inferring it from the credit lines.
-for e in $(grep -oE '\[finalize\] epoch [0-9]+' "$WORK/c/run.log" 2>/dev/null | grep -oE '[0-9]+' | sort -u | tail -6); do
+# Echo the harvested set explicitly: if C emitted no finalize lines at all the loop
+# body never runs, and absent c_epoch_meta_* keys would read as "not checked" rather
+# than as the result they actually are.
+EPOCH_PROBE_SET=$(grep -oE '\[finalize\] epoch [0-9]+' "$WORK/c/run.log" 2>/dev/null | grep -oE '[0-9]+' | sort -u | tail -6)
+echo "c_epoch_meta_probe_set=$(echo $EPOCH_PROBE_SET)"
+for e in $EPOCH_PROBE_SET; do
   echo "c_epoch_meta_${e}=$(api "${NS[2]}" "${API[2]}" "/api/epoch/$e" 2>/dev/null | jq -c '{epoch,finalized,quorum,sealed_by}' 2>/dev/null || echo unavailable)"
   echo "a_epoch_meta_${e}=$(api "${NS[0]}" "${API[0]}" "/api/epoch/$e" 2>/dev/null | jq -c '{epoch,finalized,quorum,sealed_by}' 2>/dev/null || echo unavailable)"
 done
