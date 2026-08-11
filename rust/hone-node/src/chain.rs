@@ -4845,6 +4845,110 @@ mod tests {
             "delegated key fully cleared");
     }
 
+    /// 2-clock ISOLATED dry-run (order 7ab1fc19755d gate evidence): two independently
+    /// constructed chain replicas ("node_x"/"node_y") apply the IDENTICAL entry sequence
+    /// — seed, quorum eligibility, earn, exit — and must converge on full_state_hash at
+    /// every checkpoint. This is the standard dual-replica convergence pattern used
+    /// elsewhere in this codebase (see api.rs partition-reorder tests) applied to the
+    /// delegated-seed lifecycle end to end.
+    #[test]
+    fn test_2clock_isolated_dryrun_recycle_delegated_stake() {
+        let min_stake = 5u64 * 10_000_000_000;
+        let recycle_seed_funding = 145_581u64 * 10_000_000_000; // matches live diagnosis (~145,581 HONE)
+
+        let (node_x, _dx) = make_chain("dryrun2c-x");
+        let (node_y, _dy) = make_chain("dryrun2c-y");
+        for n in [&node_x, &node_y] {
+            fund(n, RECYCLE_FUND_ACCOUNT, recycle_seed_funding);
+            seal_epoch(n, 0);
+            for node_id in ["clock1", "clock2"] {
+                n.store.state_set(&format!("clock_reg:{}", node_id), &serde_json::to_vec(&serde_json::json!({
+                    "node_id": node_id, "stake": 0u64, "registered_epoch": 1u64, "pubkey": null,
+                })).unwrap()).unwrap();
+            }
+        }
+
+        // ── Step 1: seed ──────────────────────────────────────────────────────
+        crate::seed_delegated_clock_stake(&node_x);
+        crate::seed_delegated_clock_stake(&node_y);
+        for n in [&node_x, &node_y] {
+            for node_id in ["clock1", "clock2"] {
+                let raw = n.store.state_get(&format!("clock_reg:{}", node_id)).unwrap();
+                let stake = serde_json::from_slice::<serde_json::Value>(&raw).unwrap()["stake"].as_u64().unwrap();
+                assert_eq!(stake, min_stake, "{} seeded to min on this replica", node_id);
+            }
+        }
+        let recycle_after_seed_x = node_x.get_balance(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN);
+        let recycle_after_seed_y = node_y.get_balance(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN);
+        assert_eq!(recycle_after_seed_x, recycle_after_seed_y, "recycle balance converges post-seed");
+        assert_eq!(recycle_seed_funding - recycle_after_seed_x, min_stake * 2,
+            "recycle debited exactly 2x min_stake for the 2-clock seed");
+        assert_eq!(node_x.store.full_state_hash(), node_y.store.full_state_hash(),
+            "state_root converges post-seed");
+        let state_root_after_seed = node_x.store.full_state_hash();
+
+        // ── Step 2: quorum — eligible at an epoch FAR beyond any grace window, proving
+        // eligibility no longer depends on the in-grace stake-0 freebie at all. ─────────
+        let post_any_grace_epoch = 2_000_000u64;
+        for n in [&node_x, &node_y] {
+            let eligible = crate::clock::registered_clock_nodes(&n.store, post_any_grace_epoch);
+            assert!(eligible.contains(&"clock1".to_string()) && eligible.contains(&"clock2".to_string()),
+                "both clocks eligible post-grace via delegated stake alone (quorum>=2)");
+        }
+
+        // ── Step 3: earn — both clocks seal and receive ClockReward; since already at
+        // min, the full reward spills to balance (existing earn-to-stake behavior). ───
+        for n in [&node_x, &node_y] {
+            for node_id in ["clock1", "clock2"] {
+                n.apply_entry(&LedgerEntry::ClockReward {
+                    node_id: node_id.to_string(), amount: 1_000_000_000, epoch: post_any_grace_epoch,
+                }).expect("clock reward post-seed");
+            }
+        }
+        for n in [&node_x, &node_y] {
+            for node_id in ["clock1", "clock2"] {
+                assert_eq!(n.get_balance(node_id, NATIVE_TOKEN), 1_000_000_000,
+                    "{} reward spilled fully to balance (already at min stake)", node_id);
+            }
+        }
+        assert_eq!(node_x.store.full_state_hash(), node_y.store.full_state_hash(),
+            "state_root converges post-earn");
+        let state_root_after_earn = node_x.store.full_state_hash();
+
+        // ── Step 4: exit — clock2 unstakes fully; its delegated stake returns to
+        // recycle, clock1 is untouched, both replicas still converge. ──────────────────
+        for n in [&node_x, &node_y] {
+            n.apply_entry(&LedgerEntry::NodeRoleUnstake {
+                node: "clock2".to_string(), role: "clock".to_string(), staker: "clock2".to_string(),
+                amount: min_stake, epoch: post_any_grace_epoch + 1, nonce: 1, signed_by: "clock2".to_string(),
+            }).expect("clock2 exit");
+        }
+        let recycle_after_exit_x = node_x.get_balance(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN);
+        let recycle_after_exit_y = node_y.get_balance(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN);
+        assert_eq!(recycle_after_exit_x, recycle_after_exit_y, "recycle converges post-exit");
+        assert_eq!(recycle_after_exit_x, recycle_after_seed_x + min_stake,
+            "clock2's delegated principal (min_stake) returned to recycle on exit");
+        for n in [&node_x, &node_y] {
+            let raw = n.store.state_get("clock_reg:clock2").unwrap();
+            let stake = serde_json::from_slice::<serde_json::Value>(&raw).unwrap()["stake"].as_u64().unwrap();
+            assert_eq!(stake, 0, "clock2 stake drawn to zero on this replica");
+            let raw1 = n.store.state_get("clock_reg:clock1").unwrap();
+            let stake1 = serde_json::from_slice::<serde_json::Value>(&raw1).unwrap()["stake"].as_u64().unwrap();
+            assert_eq!(stake1, min_stake, "clock1 untouched by clock2's exit");
+        }
+        assert_eq!(node_x.store.full_state_hash(), node_y.store.full_state_hash(),
+            "state_root converges post-exit — full lifecycle byte-identical across replicas");
+        let state_root_after_exit = node_x.store.full_state_hash();
+
+        eprintln!(
+            "[dry-run raw] recycle: seed_funding={} after_seed={} after_exit={} (delta -{}/+{}) | \
+             state_root post-seed/earn/exit: {} / {} / {}",
+            recycle_seed_funding, recycle_after_seed_x, recycle_after_exit_x,
+            min_stake * 2, min_stake,
+            state_root_after_seed, state_root_after_earn, state_root_after_exit
+        );
+    }
+
     /// ClockDoubleSignEvidence: correct slash distribution, replay guard.
     #[test]
     fn test_clock_double_sign_slash() {
