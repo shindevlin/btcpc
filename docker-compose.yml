@@ -1,3 +1,10 @@
+# SUPERSEDED for the hone-node service — this is the pre-Rust-rewrite stack
+# (Node.js hone-node build, PORT=3000, MongoDB, a hardcoded local path for
+# hone-market, and a legacy Ollama sidecar). The current Rust node's
+# podman-first/docker-compatible bring-up is deploy/podman/compose.yaml +
+# deploy/podman/README.md — use that instead. Left in place only for
+# whatever in this file (nginx/hone-market) hasn't migrated yet.
+#
 # HONE full-stack Docker Compose
 #
 # Profiles:

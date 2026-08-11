@@ -1,3 +1,9 @@
+# SUPERSEDED — the dependency-cache stage below never copies hone-p2p,
+# hone-market or linkgit (other workspace members `cargo build --release`
+# needs to resolve), and rust:1.80 predates the repo's pinned 1.90.0
+# toolchain. Use ../Containerfile + deploy/podman/ instead — one coherent,
+# podman-first/docker-compatible build. Left in place for reference only.
+#
 # ── Stage 1: build Rust binaries ─────────────────────────────────────────────
 FROM rust:1.80-bookworm AS builder
 

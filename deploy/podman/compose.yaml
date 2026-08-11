@@ -1,0 +1,75 @@
+# Docker-compatible path. Podman-first bring-up is `podman play kube kube.yaml`
+# (see README.md) — this file exists so `docker compose up` also works from a
+# single, coherent source instead of the repo's old root docker-compose.yml
+# (legacy Node.js service, superseded — see that file's header).
+#
+#   docker compose --env-file .env -f compose.yaml up -d
+#   podman compose --env-file .env -f compose.yaml up -d   # podman-compose, if installed
+#
+# GPU (docker): add `--gpus all` to a `docker run`, or uncomment the
+# deploy.resources block below for `docker compose`. Podman GPU passthrough
+# uses CDI instead (`--device nvidia.com/gpu=all`) — see kube.yaml / the
+# Quadlet units, which are the podman-native way to express that.
+
+services:
+  hone-node:
+    build:
+      context: ..
+      dockerfile: ../Containerfile
+    image: localhost/hone-node:latest
+    container_name: hone-node
+    restart: unless-stopped
+    ports:
+      - "${HONE_API_PORT:-4242}:4242"
+      - "${HONE_P2P_PORT:-6942}:6942/tcp"
+      - "${HONE_P2P_PORT:-6942}:6942/udp"
+    volumes:
+      - hone-data:/data
+    env_file:
+      - .env
+    environment:
+      HONE_API_PORT: "4242"
+      HONE_P2P_PORT: "6942"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:4242/api/node/info"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    # GPU passthrough (docker only — uncomment to enable):
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  # Optional — image/video generation only. Opt in with:
+  #   docker compose --profile image-video up -d
+  # Large Python+CUDA service; text/clock/other roles never need this.
+  # Wan2.2 video path documented in rust/wiiv/src/comfy.rs — this container
+  # is a placeholder until wiiv drives an official ComfyUI image; point
+  # COMFYUI_IMAGE at your own build or a published ComfyUI image.
+  comfyui:
+    profiles: ["image-video"]
+    image: ${COMFYUI_IMAGE:-ghcr.io/comfyanonymous/comfyui:latest}
+    container_name: hone-comfyui
+    restart: unless-stopped
+    ports:
+      - "8188:8188"
+    volumes:
+      - hone-comfyui-models:/root/ComfyUI/models
+      - hone-comfyui-output:/root/ComfyUI/output
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+volumes:
+  hone-data:
+  hone-comfyui-models:
+  hone-comfyui-output:

@@ -105,13 +105,17 @@ sudo cp rust/hone-cli/target/release/hone /usr/local/bin/
 sudo cp rust/hone-node/target/release/hone-node /usr/local/bin/
 ```
 
-### Docker
+### Podman / Docker
+
+One command, everything the node needs bundled (Candle in-process inference,
+self-healing entrypoint, GPU passthrough, systemd "always runs" units) — see
+[`deploy/podman/README.md`](deploy/podman/README.md). Quick start:
 
 ```bash
-docker run -d \
-  -e HONE_ACCOUNT=yourname \
-  -p 4242:4242 -p 6942:6942 \
-  hone/node
+cp deploy/podman/.env.example deploy/podman/.env   # set HONE_ACCOUNT
+podman build -t localhost/hone-node:latest -f Containerfile .
+set -a; source deploy/podman/.env; set +a
+envsubst < deploy/podman/kube.yaml | podman play kube -
 ```
 
 ### Running over a VPN (recommended for privacy)

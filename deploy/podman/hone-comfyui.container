@@ -1,0 +1,26 @@
+# Optional — image/video generation only. Install alongside hone-node.container
+# the same way (see that file's header) only on nodes that opt into
+# image/video work; do not enable on text/clock/other-role nodes.
+[Unit]
+Description=HONE ComfyUI sidecar (image/video generation, opt-in)
+After=network-online.target
+
+[Container]
+# Quadlet unit files don't expand env vars in their own directives (unlike
+# the container's runtime env from EnvironmentFile below) — edit this Image=
+# line directly to point at your ComfyUI build, matching COMFYUI_IMAGE in
+# your .env for consistency with compose.yaml/kube-comfyui.yaml.
+Image=ghcr.io/comfyanonymous/comfyui:latest
+ContainerName=hone-comfyui
+EnvironmentFile=%h/.config/containers/systemd/hone-node.env
+PublishPort=8188:8188
+Volume=hone-comfyui-models.volume:/root/ComfyUI/models
+Volume=hone-comfyui-output.volume:/root/ComfyUI/output
+# AddDevice=nvidia.com/gpu=all
+
+[Service]
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

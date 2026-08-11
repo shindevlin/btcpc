@@ -1,0 +1,37 @@
+# Optional — image/video generation only (opt-in, large Python+CUDA service).
+# Text/clock/other roles never need this. Bring up alongside kube.yaml:
+#   podman play kube deploy/podman/kube-comfyui.yaml
+# ComfyUI is a temporary external dependency until image/video generation is
+# rebuilt in Rust (see rust/wiiv/src/comfy.rs, which drives ComfyUI as a
+# supervised subprocess for the Wan2.2 video model today). Point
+# COMFYUI_IMAGE at your own build or a published ComfyUI image — none is
+# vendored by this repo.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hone-comfyui
+  labels:
+    app: hone-comfyui
+spec:
+  restartPolicy: Always
+  containers:
+    - name: comfyui
+      image: ${COMFYUI_IMAGE}
+      ports:
+        - containerPort: 8188
+          hostPort: 8188
+      volumeMounts:
+        - name: models
+          mountPath: /root/ComfyUI/models
+        - name: output
+          mountPath: /root/ComfyUI/output
+      # GPU: no reliable per-container CDI request in `podman play kube`
+      # (see kube.yaml header note) — use a Quadlet .container unit with
+      # AddDevice=nvidia.com/gpu=all for a GPU-backed ComfyUI deployment.
+  volumes:
+    - name: models
+      persistentVolumeClaim:
+        claimName: hone-comfyui-models
+    - name: output
+      persistentVolumeClaim:
+        claimName: hone-comfyui-output

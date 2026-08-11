@@ -1,0 +1,42 @@
+# Quadlet unit — "always runs" path: podman generates and manages the
+# systemd service from this file directly, restart-on-boot/crash included.
+#
+# Install (rootless, per-user):
+#   mkdir -p ~/.config/containers/systemd
+#   cp deploy/podman/hone-node.container ~/.config/containers/systemd/
+#   cp deploy/podman/.env ~/.config/containers/systemd/hone-node.env   # filled in
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now hone-node.service
+#   loginctl enable-linger "$USER"   # so it survives logout / starts at boot
+#
+# System-wide (rootful) install instead: /etc/containers/systemd/, drop
+# --user from the systemctl calls, and use `sudo loginctl` is not needed.
+[Unit]
+Description=HONE node (podman Quadlet)
+After=network-online.target
+Wants=network-online.target
+
+[Container]
+Image=localhost/hone-node:latest
+ContainerName=hone-node
+EnvironmentFile=%h/.config/containers/systemd/hone-node.env
+PublishPort=4242:4242
+PublishPort=6942:6942/tcp
+PublishPort=6942:6942/udp
+Volume=hone-data.volume:/data
+HealthCmd=curl -fsS http://127.0.0.1:4242/api/node/info || exit 1
+HealthInterval=15s
+HealthRetries=10
+HealthStartPeriod=20s
+
+# GPU (mining): uncomment for an NVIDIA-CDI-visible host. Requires the
+# nvidia-container-toolkit CDI generator to have run on the host
+# (nvidia-ctk cdi generate) so nvidia.com/gpu=all resolves.
+# AddDevice=nvidia.com/gpu=all
+
+[Service]
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

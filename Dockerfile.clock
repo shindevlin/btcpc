@@ -1,3 +1,9 @@
+# SUPERSEDED — does not build against the current workspace (missing the
+# hone-contract-runtime / other workspace members hone-node now depends on,
+# rust:1.80 vs. the repo's pinned 1.90.0 toolchain). Use ../Containerfile +
+# deploy/podman/ instead (set HONE_CLOCK=true, HONE_MINER=false for the same
+# clock-only role). Left in place for reference only.
+#
 # hone-clock — minimal clock-only image (~50 MB runtime)
 # Earns clock rewards; no Ollama, no GPU, no storage required.
 FROM rust:1.80-bookworm AS builder

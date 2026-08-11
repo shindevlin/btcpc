@@ -1,0 +1,75 @@
+# Podman-native one-command bring-up (podman play kube does not do env-file
+# substitution itself, so pipe it through envsubst — see README.md for the
+# full command):
+#   set -a; source deploy/podman/.env; set +a
+#   envsubst < deploy/podman/kube.yaml | podman play kube -
+# Tear down:
+#   podman play kube --down deploy/podman/kube.yaml
+#
+# GPU passthrough is NOT expressed here — `podman play kube` has no reliable
+# way to request a CDI device per container. For a mining/GPU node use the
+# Quadlet units instead (hone-node.container has AddDevice=nvidia.com/gpu=all
+# commented in, see README.md). This kube.yaml is the CPU-always-works path
+# and the fastest way to smoke-test the image.
+#
+# ComfyUI (image/video) is deliberately a separate, optional pod — see
+# kube-comfyui.yaml — so text/clock/other nodes never pull the Python+CUDA
+# image. Bring both up with two `podman play kube` calls if you need it.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hone
+  labels:
+    app: hone-node
+spec:
+  restartPolicy: Always
+  containers:
+    - name: hone-node
+      image: localhost/hone-node:latest
+      ports:
+        - containerPort: 4242
+          hostPort: 4242
+        - containerPort: 6942
+          hostPort: 6942
+          protocol: TCP
+        - containerPort: 6942
+          hostPort: 6942
+          protocol: UDP
+      env:
+        - name: HONE_ACCOUNT
+          value: "${HONE_ACCOUNT}"
+        - name: HONE_NODE_ID
+          value: "${HONE_NODE_ID}"
+        - name: HONE_CHAIN_ID
+          value: "${HONE_CHAIN_ID}"
+        - name: HONE_GENESIS_TIMESTAMP
+          value: "${HONE_GENESIS_TIMESTAMP}"
+        - name: HONE_CLOCK
+          value: "${HONE_CLOCK}"
+        - name: HONE_MINER
+          value: "${HONE_MINER}"
+        - name: HONE_WORKER
+          value: "${HONE_WORKER}"
+        - name: HONE_MODEL
+          value: "${HONE_MODEL}"
+        - name: HONE_MODEL_URL
+          value: "${HONE_MODEL_URL}"
+        - name: HONE_MODEL_SHA256
+          value: "${HONE_MODEL_SHA256}"
+        - name: HONE_INFER_DEVICE
+          value: "${HONE_INFER_DEVICE}"
+        - name: HONE_SECRETS_PASSPHRASE
+          value: "${HONE_SECRETS_PASSPHRASE}"
+      volumeMounts:
+        - name: data
+          mountPath: /data
+      livenessProbe:
+        httpGet:
+          path: /api/node/info
+          port: 4242
+        initialDelaySeconds: 10
+        periodSeconds: 15
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: hone-data

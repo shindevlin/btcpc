@@ -1,0 +1,3 @@
+# Quadlet-managed named volume: chain state/db, model cache, wallet/keys.
+# Never baked into the image; this is the only place that state lives.
+[Volume]
