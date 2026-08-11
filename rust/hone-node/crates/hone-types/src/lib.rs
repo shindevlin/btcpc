@@ -35,14 +35,20 @@ pub const STAKE_EXEMPT_ACCOUNTS: &[&str] = &["shindevlin", "__testnet_fund__", "
 ///
 /// HONE funds no account at genesis (pure POW), so at launch nobody can post the
 /// clock minimum stake — without this window, no clock could register, no epoch
-/// could seal, and the chain would deadlock at block 0. During the first 100,000
-/// epochs (≈34.7 days at 30 s/epoch, "the first 100k blocks") `ClockNodeRegister`
-/// is accepted at stake 0 with no debit, and each `ClockReward` earned by an
-/// under-staked clock is routed into its stake (capped at the minimum) until the
-/// minimum is reached. After this epoch, the normal minimum-stake rule applies and
-/// the auto-build stops. Consensus-critical: every node MUST use this exact value.
-/// See docs/CLOCK_BOOTSTRAP_GRACE.md.
-pub const CLOCK_BOOTSTRAP_GRACE_END_EPOCH: u64 = 100_000;
+/// could seal, and the chain would deadlock at block 0. During the grace window
+/// `ClockNodeRegister` is accepted at stake 0 with no debit, and each `ClockReward`
+/// earned by an under-staked clock is routed into its stake (capped at the minimum)
+/// until the minimum is reached. After this epoch, the normal minimum-stake rule
+/// applies and the auto-build stops. Consensus-critical: every node MUST use this
+/// exact value. See docs/CLOCK_BOOTSTRAP_GRACE.md.
+///
+/// Extended 100_000 -> 1_000_000 (order 7ab1fc19755d, supersedes 7a033527919c): grace
+/// alone re-opens stake-0 eligibility but is fragile on its own (chicken-and-egg —
+/// ClockReward needs quorum>=2 to earn stake, quorum needs stake). The recycle-
+/// delegated seed (main.rs emit_epoch_rewards) now makes registered clocks eligible
+/// deterministically without depending on this window at all; the wider window is
+/// kept as a safety margin for (re)registration, not the primary eligibility path.
+pub const CLOCK_BOOTSTRAP_GRACE_END_EPOCH: u64 = 1_000_000;
 
 /// Confirmation depth before an epoch's reward/recycle/decay mutation is applied.
 ///

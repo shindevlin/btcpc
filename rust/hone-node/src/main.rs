@@ -1800,6 +1800,95 @@ fn backfill_txglobal(chain: &Chain) {
     }
 }
 
+// ── Recycle-delegated clock stake seed ────────────────────────────────────────
+
+/// One-time recycle-delegated clock stake seed (order 7ab1fc19755d, supersedes
+/// 7a033527919c — "delegated stake... if they no longer want to be a clock, that
+/// stake should go back to recycle").
+///
+/// For every node with a `clock_reg:` entry (the agreed registered set) whose
+/// accrued `stake` is below `chain_param:clock_min_stake`, lend the shortfall from
+/// `__recycle_fund__` into that SAME `clock_reg:{node}` stake field ClockReward's
+/// earn-to-stake top-up already uses (chain.rs ClockReward apply arm) — one
+/// canonical stake number per clock, not a second parallel ledger. The borrowed
+/// amount is tracked in `clock_delegated_stake:{node}` (principal owed back to
+/// recycle) and returned there on clock exit (NodeRoleUnstake role="clock" self-
+/// unstake, chain.rs apply_entry).
+///
+/// Deterministic + idempotent: gated per-node by `clock_delegated_seed_done:{node}`,
+/// which is set exactly once regardless of outcome, so this is a ONE-TIME
+/// bootstrap check per node, not a recurring top-up. Every honest node computes
+/// the identical transfer from the agreed `clock_reg:` set + agreed recycle
+/// balance — no local/wall-clock input — so no state_root divergence. Called from
+/// `emit_epoch_rewards`, which itself runs once per finalized epoch from the
+/// winning EpochFinalize replay (same placement as the existing expiry sweeps).
+fn seed_delegated_clock_stake(chain: &Chain) {
+    let min_stake: u64 = chain.store.state_get("chain_param:clock_min_stake")
+        .and_then(|b| serde_json::from_slice::<u64>(&b).ok())
+        .unwrap_or(5 * 10_000_000_000); // 5 HONE default
+
+    let mut nodes: Vec<String> = chain.store.state_scan_prefix("clock_reg:")
+        .into_iter()
+        .filter_map(|(k, _)| k.strip_prefix("clock_reg:").map(|s| s.to_owned()))
+        .collect();
+    nodes.sort(); // deterministic iteration order across nodes
+
+    for node_id in nodes {
+        let done_key = format!("clock_delegated_seed_done:{}", node_id);
+        if chain.store.state_get(&done_key).is_some() {
+            continue;
+        }
+
+        let reg_key = format!("clock_reg:{}", node_id);
+        let Some(raw) = chain.store.state_get(&reg_key) else { continue };
+        let Ok(mut reg) = serde_json::from_slice::<serde_json::Value>(&raw) else { continue };
+        let cur_stake = reg["stake"].as_u64().unwrap_or(0);
+
+        // Mark done regardless of outcome below (including "already >= min" and
+        // "recycle underfunded") — a one-time check per node, never re-armed.
+        let _ = chain.store.state_set(&done_key, b"1");
+
+        if cur_stake >= min_stake {
+            continue;
+        }
+        let need = min_stake - cur_stake;
+
+        let recycle_bal = chain.store.get_balance(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN);
+        if recycle_bal < need {
+            warn!(
+                "clock: delegated seed skipped for '{}': recycle fund has {} hunits, needs {}",
+                node_id, recycle_bal, need
+            );
+            continue;
+        }
+        if chain.store.debit(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN, need).is_err() {
+            continue;
+        }
+
+        let new_stake = cur_stake + need;
+        reg["stake"] = serde_json::json!(new_stake);
+        if chain.store.state_set(&reg_key, &serde_json::to_vec(&reg).unwrap_or_default()).is_err() {
+            // Keep balances conserved if the stake write failed.
+            let _ = chain.store.credit(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN, need);
+            continue;
+        }
+
+        let deleg_key = format!("clock_delegated_stake:{}", node_id);
+        let prev_deleg: u64 = chain.store.state_get(&deleg_key)
+            .and_then(|b| serde_json::from_slice::<u64>(&b).ok())
+            .unwrap_or(0);
+        let _ = chain.store.state_set(
+            &deleg_key,
+            &serde_json::to_vec(&(prev_deleg + need)).unwrap_or_default(),
+        );
+
+        info!(
+            "[clock] delegated stake seed: '{}' stake {} -> {} hunits (recycle -{}, min {})",
+            node_id, cur_stake, new_stake, need, min_stake
+        );
+    }
+}
+
 // ── Epoch reward distribution ─────────────────────────────────────────────────
 
 /// Distribute the epoch's reward pool: mandatory reserve split first, then
@@ -1846,6 +1935,10 @@ fn emit_epoch_rewards(
     agent_session::sweep_expired(chain, epoch);       // MOVED off 30s timer
     vrf::sweep_epoch(chain, epoch);                   // MOVED off 30s timer (window now
                                                       // measured in finalized epochs)
+    seed_delegated_clock_stake(chain);                // one-time recycle-delegated stake
+                                                      // seed (order 7ab1fc19755d) — same
+                                                      // placement rule as the sweeps above:
+                                                      // must run even on a zero-reward epoch.
 
     let raw_pool = if era(epoch) >= RECYCLE_ERA {
         let fund = chain.store.get_balance(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN);

@@ -1287,10 +1287,21 @@ pub fn validate_and_apply(
             check_nonce(chain, staker, *nonce)?;
             check_signature(chain, signed_by, entry, sig_hex, "active")?;
             let key = format!("role_stake:{}:{}:{}", role, node, staker);
-            let current: u64 = chain.store.state_get(&key)
+            let pool_current: u64 = chain.store.state_get(&key)
                 .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
                 .and_then(|j| j["amount"].as_u64())
                 .unwrap_or(0);
+            // Clock self-unstake ("exit") can also draw down clock_reg.stake — see the
+            // matching split in chain.rs apply_entry (order 7ab1fc19755d).
+            let reg_current: u64 = if role == "clock" && staker == node {
+                chain.store.state_get(&format!("clock_reg:{}", node))
+                    .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
+                    .and_then(|j| j["stake"].as_u64())
+                    .unwrap_or(0)
+            } else {
+                0
+            };
+            let current = pool_current + reg_current;
             if current < *amount {
                 bail!(
                     "cannot unstake {} hunits: only {} staked on '{}' role '{}'",

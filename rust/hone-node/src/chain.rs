@@ -2070,25 +2070,84 @@ impl Chain {
 
             LedgerEntry::NodeRoleUnstake { node, role, staker, amount, .. } => {
                 let key = format!("role_stake:{}:{}:{}", role, node, staker);
-                let current: u64 = self.store.state_get(&key)
+                let pool_current: u64 = self.store.state_get(&key)
                     .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
                     .and_then(|j| j["amount"].as_u64())
                     .unwrap_or(0);
+                // Clock self-unstake ("exit") may also draw down the clock_reg stake
+                // ledger — earn-to-stake and the recycle-delegated seed both write there,
+                // and for a founder clock the role_stake pool is typically empty, so pool
+                // stake alone under-reports what's actually staked. See the delegated
+                // return-to-recycle handling below (order 7ab1fc19755d).
+                let reg_current: u64 = if role == "clock" && staker == node {
+                    self.store.state_get(&format!("clock_reg:{}", node))
+                        .and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok())
+                        .and_then(|j| j["stake"].as_u64())
+                        .unwrap_or(0)
+                } else {
+                    0
+                };
+                let current = pool_current + reg_current;
                 anyhow::ensure!(
                     current >= *amount,
                     "cannot unstake {} hunits: only {} staked on '{}' role '{}'",
                     amount, current, node, role
                 );
-                let remaining = current - amount;
-                if remaining == 0 {
+
+                let from_pool = (*amount).min(pool_current);
+                let pool_remaining = pool_current - from_pool;
+                if pool_remaining == 0 {
                     self.store.state_delete(&key)?;
                 } else {
                     self.store.state_set(&key, &serde_json::to_vec(&serde_json::json!({
                         "node": node, "role": role, "staker": staker,
-                        "amount": remaining,
+                        "amount": pool_remaining,
                     }))?)?;
                 }
-                self.store.credit(staker, NATIVE_TOKEN, *amount)?;
+
+                // Whatever isn't covered by the pool comes out of clock_reg.stake. Of
+                // that, principal still owed to recycle (clock_delegated_stake:{node})
+                // routes back to __recycle_fund__ — it was never spendable by the node;
+                // any remainder (self-funded principal beyond the delegated amount) pays
+                // the staker as normal, same as a pool-sourced unstake would.
+                let from_reg = amount.saturating_sub(from_pool);
+                let mut to_recycle = 0u64;
+                if from_reg > 0 {
+                    let reg_key = format!("clock_reg:{}", node);
+                    let raw = self.store.state_get(&reg_key)
+                        .context("clock_reg entry missing for clock-stake unstake")?;
+                    let mut reg: serde_json::Value = serde_json::from_slice(&raw)?;
+                    let cur_stake = reg["stake"].as_u64().unwrap_or(0);
+                    anyhow::ensure!(
+                        cur_stake >= from_reg,
+                        "cannot unstake {} hunits from clock_reg: only {} staked on '{}'",
+                        from_reg, cur_stake, node
+                    );
+                    reg["stake"] = serde_json::json!(cur_stake - from_reg);
+                    self.store.state_set(&reg_key, &serde_json::to_vec(&reg)?)?;
+
+                    let deleg_key = format!("clock_delegated_stake:{}", node);
+                    let prev_deleg: u64 = self.store.state_get(&deleg_key)
+                        .and_then(|b| serde_json::from_slice::<u64>(&b).ok())
+                        .unwrap_or(0);
+                    to_recycle = from_reg.min(prev_deleg);
+                    let new_deleg = prev_deleg - to_recycle;
+                    if new_deleg == 0 {
+                        self.store.state_delete(&deleg_key)?;
+                    } else {
+                        self.store.state_set(&deleg_key, &serde_json::to_vec(&new_deleg)?)?;
+                    }
+                    if to_recycle > 0 {
+                        self.store.credit(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN, to_recycle)?;
+                        info!("[clock] delegated stake returned to recycle: '{}' -{} hunits",
+                            node, to_recycle);
+                    }
+                }
+
+                let to_staker = amount.saturating_sub(to_recycle);
+                if to_staker > 0 {
+                    self.store.credit(staker, NATIVE_TOKEN, to_staker)?;
+                }
                 info!("[role_stake] '{}' unstaked {} hunits from '{}' role '{}'",
                     staker, amount, node, role);
             }
@@ -4584,6 +4643,206 @@ mod tests {
         let stake = serde_json::from_slice::<serde_json::Value>(&raw).unwrap()["stake"].as_u64().unwrap();
         assert_eq!(stake, 1 * 10_000_000_000, "stake unchanged post-grace");
         assert_eq!(chain.get_balance("late", NATIVE_TOKEN), reward, "reward to balance post-grace");
+    }
+
+    // ── Recycle-delegated clock stake seed (order 7ab1fc19755d) ─────────────
+
+    /// A registered clock at 0 stake gets seeded to exactly clock_min_stake from
+    /// __recycle_fund__; recycle is debited the same amount (conserved); the
+    /// borrowed amount is recorded under clock_delegated_stake:{node}.
+    #[test]
+    fn test_delegated_stake_seed_brings_to_min() {
+        let (chain, _dir) = make_chain("deleg-seed-min");
+        let min_stake = 5u64 * 10_000_000_000; // 5 HONE default
+        let recycle_funding = 145_000u64 * 10_000_000_000;
+        fund(&chain, RECYCLE_FUND_ACCOUNT, recycle_funding);
+        seal_epoch(&chain, 0);
+
+        // Simulate a founder clock registered during grace at 0 stake.
+        chain.store.state_set("clock_reg:founder", &serde_json::to_vec(&serde_json::json!({
+            "node_id": "founder", "stake": 0u64, "registered_epoch": 1u64, "pubkey": null,
+        })).unwrap()).unwrap();
+
+        let recycle_before = chain.get_balance(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN);
+        crate::seed_delegated_clock_stake(&chain);
+
+        let raw = chain.store.state_get("clock_reg:founder").unwrap();
+        let stake = serde_json::from_slice::<serde_json::Value>(&raw).unwrap()["stake"].as_u64().unwrap();
+        assert_eq!(stake, min_stake, "seeded to exactly clock_min_stake");
+
+        let recycle_after = chain.get_balance(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN);
+        assert_eq!(recycle_before - recycle_after, min_stake, "recycle debited exactly what was seeded (conserved)");
+
+        let deleg = chain.store.state_get("clock_delegated_stake:founder").unwrap();
+        assert_eq!(serde_json::from_slice::<u64>(&deleg).unwrap(), min_stake,
+            "delegated principal recorded");
+
+        assert!(chain.store.state_get("clock_delegated_seed_done:founder").is_some(),
+            "idempotency flag set");
+    }
+
+    /// Calling the seed sweep twice must not double-credit — the idempotency key
+    /// blocks a second seed for the same node, even if it would otherwise still
+    /// look under-min (e.g. a hostile actor set it after the first seed).
+    #[test]
+    fn test_delegated_stake_seed_idempotent() {
+        let (chain, _dir) = make_chain("deleg-seed-idem");
+        let min_stake = 5u64 * 10_000_000_000;
+        fund(&chain, RECYCLE_FUND_ACCOUNT, 145_000u64 * 10_000_000_000);
+        seal_epoch(&chain, 0);
+        chain.store.state_set("clock_reg:founder", &serde_json::to_vec(&serde_json::json!({
+            "node_id": "founder", "stake": 0u64, "registered_epoch": 1u64, "pubkey": null,
+        })).unwrap()).unwrap();
+
+        crate::seed_delegated_clock_stake(&chain);
+        let recycle_after_first = chain.get_balance(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN);
+        let stake_after_first = {
+            let raw = chain.store.state_get("clock_reg:founder").unwrap();
+            serde_json::from_slice::<serde_json::Value>(&raw).unwrap()["stake"].as_u64().unwrap()
+        };
+        assert_eq!(stake_after_first, min_stake);
+
+        // Second sweep: even called again (e.g. next epoch), must be a pure no-op.
+        crate::seed_delegated_clock_stake(&chain);
+        let recycle_after_second = chain.get_balance(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN);
+        let stake_after_second = {
+            let raw = chain.store.state_get("clock_reg:founder").unwrap();
+            serde_json::from_slice::<serde_json::Value>(&raw).unwrap()["stake"].as_u64().unwrap()
+        };
+        assert_eq!(recycle_after_first, recycle_after_second, "recycle untouched on second sweep");
+        assert_eq!(stake_after_first, stake_after_second, "stake untouched on second sweep");
+    }
+
+    /// A clock already at or above minimum is skipped (no recycle debit) but still
+    /// gets the idempotency flag so it isn't rechecked every epoch forever.
+    #[test]
+    fn test_delegated_stake_seed_skips_already_funded() {
+        let (chain, _dir) = make_chain("deleg-seed-skip");
+        let min_stake = 5u64 * 10_000_000_000;
+        fund(&chain, RECYCLE_FUND_ACCOUNT, 145_000u64 * 10_000_000_000);
+        seal_epoch(&chain, 0);
+        chain.store.state_set("clock_reg:funded", &serde_json::to_vec(&serde_json::json!({
+            "node_id": "funded", "stake": min_stake, "registered_epoch": 1u64, "pubkey": null,
+        })).unwrap()).unwrap();
+
+        let recycle_before = chain.get_balance(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN);
+        crate::seed_delegated_clock_stake(&chain);
+        let recycle_after = chain.get_balance(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN);
+        assert_eq!(recycle_before, recycle_after, "no debit for an already-funded clock");
+        assert!(chain.store.state_get("clock_delegated_stake:funded").is_none(),
+            "no delegated principal recorded — nothing was lent");
+        assert!(chain.store.state_get("clock_delegated_seed_done:funded").is_some(),
+            "still marked done so it isn't rechecked every epoch");
+    }
+
+    /// Multiple registered clocks each get seeded independently in one sweep —
+    /// this is the 3-clock founder scenario the order targets.
+    #[test]
+    fn test_delegated_stake_seed_multiple_clocks() {
+        let (chain, _dir) = make_chain("deleg-seed-multi");
+        let min_stake = 5u64 * 10_000_000_000;
+        fund(&chain, RECYCLE_FUND_ACCOUNT, 145_000u64 * 10_000_000_000);
+        seal_epoch(&chain, 0);
+        for node in ["shindevlin", "josh", "natoshisakamoto"] {
+            chain.store.state_set(&format!("clock_reg:{}", node), &serde_json::to_vec(&serde_json::json!({
+                "node_id": node, "stake": 0u64, "registered_epoch": 1u64, "pubkey": null,
+            })).unwrap()).unwrap();
+        }
+
+        let recycle_before = chain.get_balance(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN);
+        crate::seed_delegated_clock_stake(&chain);
+        let recycle_after = chain.get_balance(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN);
+        assert_eq!(recycle_before - recycle_after, min_stake * 3, "recycle debited for all three clocks");
+
+        for node in ["shindevlin", "josh", "natoshisakamoto"] {
+            let raw = chain.store.state_get(&format!("clock_reg:{}", node)).unwrap();
+            let stake = serde_json::from_slice::<serde_json::Value>(&raw).unwrap()["stake"].as_u64().unwrap();
+            assert_eq!(stake, min_stake, "{} seeded to minimum", node);
+            assert!(crate::clock::registered_clock_nodes(&chain.store, 5_000_000)
+                .contains(&node.to_string()), "{} is quorum-eligible post-seed (post-grace epoch)", node);
+        }
+    }
+
+    /// Exit: NodeRoleUnstake(role="clock", staker==node) for a seeded clock routes
+    /// the delegated principal back to __recycle_fund__, NOT to the node's balance.
+    #[test]
+    fn test_delegated_stake_exit_returns_to_recycle() {
+        let (chain, _dir) = make_chain("deleg-exit");
+        let min_stake = 5u64 * 10_000_000_000;
+        fund(&chain, RECYCLE_FUND_ACCOUNT, 145_000u64 * 10_000_000_000);
+        seal_epoch(&chain, 0);
+        chain.store.state_set("clock_reg:founder", &serde_json::to_vec(&serde_json::json!({
+            "node_id": "founder", "stake": 0u64, "registered_epoch": 1u64, "pubkey": null,
+        })).unwrap()).unwrap();
+        crate::seed_delegated_clock_stake(&chain);
+        let recycle_after_seed = chain.get_balance(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN);
+        let balance_before_exit = chain.get_balance("founder", NATIVE_TOKEN);
+
+        chain.apply_entry(&LedgerEntry::NodeRoleUnstake {
+            node: "founder".to_string(),
+            role: "clock".to_string(),
+            staker: "founder".to_string(),
+            amount: min_stake,
+            epoch: 5,
+            signed_by: "founder".to_string(),
+            nonce: 1,
+        }).expect("clock exit unstake");
+
+        let raw = chain.store.state_get("clock_reg:founder").unwrap();
+        let stake = serde_json::from_slice::<serde_json::Value>(&raw).unwrap()["stake"].as_u64().unwrap();
+        assert_eq!(stake, 0, "clock_reg stake drawn down to zero");
+        assert!(chain.store.state_get("clock_delegated_stake:founder").is_none(),
+            "delegated key zeroed/removed");
+        assert_eq!(chain.get_balance(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN), recycle_after_seed + min_stake,
+            "delegated principal returned to recycle");
+        assert_eq!(chain.get_balance("founder", NATIVE_TOKEN), balance_before_exit,
+            "balance untouched — this stake was never the node's to spend");
+    }
+
+    /// Mixed case: a clock's stake is PART delegated (from recycle) and PART
+    /// self-funded (topped up beyond the minimum by the node itself, e.g. via
+    /// ClockReward earn-to-stake spillover credited back in as extra registration
+    /// — modeled here directly on clock_reg for simplicity). On exit, only the
+    /// delegated portion goes to recycle; the self-funded remainder pays the staker.
+    #[test]
+    fn test_delegated_stake_exit_splits_self_funded_remainder_to_staker() {
+        let (chain, _dir) = make_chain("deleg-exit-split");
+        let min_stake = 5u64 * 10_000_000_000;
+        fund(&chain, RECYCLE_FUND_ACCOUNT, 145_000u64 * 10_000_000_000);
+        seal_epoch(&chain, 0);
+        chain.store.state_set("clock_reg:founder", &serde_json::to_vec(&serde_json::json!({
+            "node_id": "founder", "stake": 0u64, "registered_epoch": 1u64, "pubkey": null,
+        })).unwrap()).unwrap();
+        crate::seed_delegated_clock_stake(&chain); // delegates exactly min_stake
+
+        // Node tops up its own clock_reg stake beyond the minimum with self-funded
+        // principal (simulated directly — the delegated key is untouched by this).
+        let extra = 2u64 * 10_000_000_000;
+        let raw = chain.store.state_get("clock_reg:founder").unwrap();
+        let mut reg: serde_json::Value = serde_json::from_slice(&raw).unwrap();
+        reg["stake"] = serde_json::json!(min_stake + extra);
+        chain.store.state_set("clock_reg:founder", &serde_json::to_vec(&reg).unwrap()).unwrap();
+
+        let recycle_before_exit = chain.get_balance(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN);
+        let balance_before_exit = chain.get_balance("founder", NATIVE_TOKEN);
+
+        // Unstake everything (min_stake + extra).
+        chain.apply_entry(&LedgerEntry::NodeRoleUnstake {
+            node: "founder".to_string(),
+            role: "clock".to_string(),
+            staker: "founder".to_string(),
+            amount: min_stake + extra,
+            epoch: 5,
+            signed_by: "founder".to_string(),
+            nonce: 1,
+        }).expect("clock exit unstake, mixed principal");
+
+        assert_eq!(chain.get_balance(RECYCLE_FUND_ACCOUNT, NATIVE_TOKEN), recycle_before_exit + min_stake,
+            "only the delegated portion (min_stake) returns to recycle");
+        assert_eq!(chain.get_balance("founder", NATIVE_TOKEN), balance_before_exit + extra,
+            "self-funded remainder pays the staker, not recycle");
+        assert!(chain.store.state_get("clock_delegated_stake:founder").is_none(),
+            "delegated key fully cleared");
     }
 
     /// ClockDoubleSignEvidence: correct slash distribution, replay guard.
